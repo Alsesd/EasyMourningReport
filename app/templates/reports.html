@@ -1,8 +1,8 @@
 {% extends "base.html" %}{% block body %}
-<h1>Reports</h1>
-<form method="get" class="month"><input type="month" name="period" value="{{ period }}" placeholder="YYYY-MM" pattern="\d{4}-\d{2}" onchange="this.form.submit()"><button>Open</button></form>
+<h1>Звіти</h1>
+<form method="get" class="month"><input type="month" name="period" value="{{ period }}" placeholder="YYYY-MM" pattern="\d{4}-\d{2}" onchange="this.form.submit()"><button>Відкрити</button></form>
 <div class="card">{% for x in rows %}{% if x.report %}<a class="item" href="/admin/reports/{{ x.report.id }}">{% else %}<div class="item">{% endif %}
-<span>{{ x.store.name }}</span><span class="pill {{ 'ok' if x.report and x.report.status == 'submitted' else 'warn' if x.report else '' }}">{% if not x.report %}No report{% elif x.report.status == 'submitted' %}Submitted{% else %}Draft{% endif %}</span><span class="sum">{{ x.total|money }}</span>
-{% if x.report %}</a>{% else %}</div>{% endif %}{% else %}<p class="note">No stores yet.</p>{% endfor %}</div>
-<p><a class="btn" href="/admin/summary?period={{ period }}">Open merged report</a></p>
+<span>{{ x.store.name }}</span><span class="pill {{ 'ok' if x.report and x.report.status == 'submitted' else 'warn' if x.report else '' }}">{% if not x.report %}Немає звіту{% elif x.report.status == 'submitted' %}Надіслано{% else %}Чернетка{% endif %}</span><span class="sum">{{ x.total|money }}</span>
+{% if x.report %}</a>{% else %}</div>{% endif %}{% else %}<p class="note">Магазинів ще немає.</p>{% endfor %}</div>
+<p><a class="btn" href="/admin/summary?period={{ period }}">Відкрити зведений звіт</a></p>
 {% endblock %}

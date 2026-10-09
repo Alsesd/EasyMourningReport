@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "sales-reports"
-version = "0.9.0"
-description = "Monthly sold-goods reports from several stores"
+name = "legkyi-zvit"
+version = "1.0.0"
+description = "Легкий звіт — щомісячні товарні звіти з кількох магазинів"
 package-mode = false
 
 [tool.poetry.dependencies]

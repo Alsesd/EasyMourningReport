@@ -1,28 +1,61 @@
-# Sales reports (prototype)
+# Легкий звіт
 
-Double-click `start.bat` (installs dependencies, then starts the server on port 8000).
-Manual start from this folder: `poetry install`, then `poetry run uvicorn app.main:app --host 0.0.0.0`.
+Застосунок для збору щомісячних товарних звітів із кількох магазинів.
 
-Backups: reports.db is copied to backups/ on start, on stop, hourly (only if changed) and before any delete.
-Keeps the newest 100 files (env BACKUP_KEEP, BACKUP_EVERY_MIN). To restore: stop the server, copy a backup over reports.db.
-Open http://localhost:8000. On first run an admin password is generated and printed in the console
-(or set ADMIN_PASSWORD; set DEMO=1 to also seed demo products and stores store1/store1, store2/store2).
-Session secret is generated into secret.key (or set SECRET_KEY). DB file: reports.db (SQLite).
+## Запуск
 
-Flow: admin edits products/prices and creates stores+logins -> stores open /report, enter quantities
-only (sums are computed on the server) -> admin opens Summary for the month, or downloads CSV.
-Not in the prototype: CSRF protection, password change, Alembic migrations.
+- **Готовий EXE (Windows):** розпакуйте архів із релізу й запустіть `start.bat` — якщо поруч є `LegkyiZvit.exe`, він стартує напряму. База даних (`reports.db`), `secret.key` і папка `backups/` створюються поруч із exe.
+- **З вихідного коду:** подвійний клік на `start.bat` (встановить залежності та запустить сервер на порті 8000) або вручну: `poetry install`, потім `poetry run uvicorn app.main:app --host 0.0.0.0`.
+- Відкрийте http://localhost:8000. При першому запуску пароль адміністратора генерується та виводиться в консоль (або задайте `ADMIN_PASSWORD`; `DEMO=1` додасть демо-товари та магазини store1/store1, store2/store2).
+- Усі паролі (адміністратора та магазинів) зберігаються лише у вигляді PBKDF2-хешів з випадною сіллю.
 
-NixOS: `nix-shell` then `serve` (nixpkgs packages, no Poetry). It runs `tailscale funnel --bg 8000` and serves on 127.0.0.1 only.
-One-time setup: `services.tailscale.enable = true;`, then `sudo tailscale up` and `sudo tailscale set --operator=$USER`.
+## Як це працює
 
-Login throttling: 5 failed attempts per IP+login, 20 per IP, 30 per login within 15 minutes (resets on restart).
-Install as an app: open the HTTPS address on the phone. Android/Chrome: Install app button on the login page or browser menu. iPhone: Share, Add to Home Screen.
+1. Адміністратор на сторінці **Налаштування** веде товари та ціни й створює магазини з логінами.
+2. Магазин відкриває **Звіт**, обирає місяць і вводить лише кількості; суми рахує сервер.
+3. Адміністратор відкриває **Звіти** за місяць (перегляд, блокування/розблокування кожного звіту) або **Зведений** звіт/CSV по всіх магазинах.
+4. Вкладка **Журнал** показує, хто і коли заходив (вхід/вихід/невдалий вхід з IP) і які дії виконував у панелі: зміни товарів, магазинів, паролів, збереження/надіслання звітів, блокування звітів. Є фільтри за логіном і типом дії (останні 200 записів).
 
-## HTTPS with a trusted certificate (free, no domain): Tailscale Funnel
-1. Install Tailscale on the Windows PC and log in.
-2. Tailscale admin console > DNS: enable MagicDNS and HTTPS certificates.
-3. Run `start.bat`. It runs `tailscale funnel --bg 8000` (kept across restarts) and starts the app on 127.0.0.1 only,
-   so the only way in is HTTPS. The first time, Tailscale prints a link to allow Funnel for this machine; open it, approve, run `start.bat` again.
-4. The public address `https://<pc-name>.<tailnet>.ts.net` is shown by `tailscale funnel status`.
-Stop publishing: `tailscale funnel reset`. The PC must stay on. Funnel traffic has Tailscale's bandwidth limits (plenty for this app).
+## Переоцінка всередині місяця
+
+Якщо адміністратор змінює ціну товару посеред місяця, у формі звіту цей товар з'являється з кількома рядками:
+один рядок — поточна ціна, додаткові рядки — ціни, уже збережені в цьому звіті. Магазин вводить кількість
+по кожній ціні окремо (наприклад, `3 шт × 25.00` і `2 шт × 27.00`). У зведеному звіті та CSV позиція
+підсумовується правильно за обома цінами, а в перегляді звіту адміністратор бачить кожен рядок окремо.
+
+## Неактивні позиції
+
+Товари, зняті з продажу (знята галочка «Активний»), не потрапляють до форми звіту, але їхні збережені
+кількості не втрачаються: вони показуються в звіті магазину в окремому згорнутому списку «Неактивні позиції».
+
+## Резервні копії
+
+`reports.db` копіюється в `backups/` при старті, зупинці, щогодини (лише за змін) і перед кожним видаленням.
+Зберігається 100 останніх копій (змінюється через `BACKUP_KEEP`, `BACKUP_EVERY_MIN`). Для відновлення:
+зупиніть сервер і перепишіть базу копією. Журнал дій (`audit_log`) живе в тій самій базі, тому він теж
+потрапляє в резервні копії.
+
+## Збірка Windows EXE (GitHub Actions)
+
+Пайплайн `.github/workflows/build-windows.yml` збирає `LegkyiZvit.exe` через Nuitka:
+
+- точка входу — `run.py`, який імпортує застосунок як пакет `app` (компіляція `app/main.py` напряму
+  ламала відносні імпорти, тому exe після збірки не стартував);
+- у зібраному exe база даних, `secret.key` і `backups/` лежать поруч із exe, а не в тимчасовій папці
+  розпаковки onefile (інакше дані зникали б після кожного запуску);
+- `start.bat` з релізу сам запускає exe (якщо він поруч), інакше — звичайний режим через Poetry.
+
+## HTTPS через Tailscale Funnel (безкоштовно, без домену)
+
+1. Встановіть Tailscale на ПК з Windows та увійдіть.
+2. Tailscale admin console → DNS: увімкніть MagicDNS і HTTPS-сертифікати.
+3. Запустіть `start.bat` — він виконає `tailscale funnel --bg 8000` і підніме застосунок лише на 127.0.0.1,
+   тож єдиний шлях всередину — HTTPS. Першого разу Tailscale надрукує посилання для дозволу Funnel —
+   відкрийте його, схваліть і запустіть `start.bat` знову.
+4. Публічну адресу `https://<pc-name>.<tailnet>.ts.net` показує `tailscale funnel status`.
+Щоб припинити публікацію: `tailscale funnel reset`. ПК має бути ввімкнений.
+
+## Встановлення як застосунок (PWA)
+
+Відкрийте HTTPS-адресу на телефоні. Android/Chrome: кнопка «Встановити застосунок» на сторінці входу
+або через меню браузера. iPhone: Поділитися → «На екран "Додому"».

@@ -1,8 +1,8 @@
 {% extends "base.html" %}{% block body %}
 {% set locked = report.status == 'submitted' %}
-<div class="head"><div><h1>{{ report.store.name }}</h1><span class="sub">{{ report.period }}</span></div><span class="pill {{ 'ok' if locked else 'warn' }}">{{ 'Submitted' if locked else 'Draft' }}</span></div>
-<form method="post" action="/admin/reports/{{ report.id }}/status"><input type="hidden" name="status" value="{{ 'draft' if locked else 'submitted' }}"><button class="{{ '' if locked else 'primary' }}">{{ 'Unlock for editing' if locked else 'Lock report' }}</button></form>
+<div class="head"><div><h1>{{ report.store.name }}</h1><span class="sub">{{ report.period }}</span></div><span class="pill {{ 'ok' if locked else 'warn' }}">{{ 'Надіслано' if locked else 'Чернетка' }}</span></div>
+<form method="post" action="/admin/reports/{{ report.id }}/status"><input type="hidden" name="status" value="{{ 'draft' if locked else 'submitted' }}"><button class="{{ '' if locked else 'primary' }}">{{ 'Розблокувати для редагування' if locked else 'Заблокувати звіт' }}</button></form>
 <div class="card">{% for r in rows %}<div class="item two"><span>{{ r.name }}<span class="sub">{{ r.qty }} × {{ r.price|money }}</span></span><span class="sum">{{ r.sum|money }}</span></div>{% endfor %}
-<div class="item two"><b>Total</b><span class="sum">{{ total|money }}</span></div></div>
-<p><a href="/admin/reports?period={{ report.period }}">All reports for this month</a></p>
+<div class="item two"><b>Разом</b><span class="sum">{{ total|money }}</span></div></div>
+<p><a href="/admin/reports?period={{ report.period }}">Усі звіти за цей місяць</a></p>
 {% endblock %}

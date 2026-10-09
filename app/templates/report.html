@@ -1,21 +1,35 @@
 {% extends "base.html" %}{% block body %}
 {% set locked = status == 'submitted' %}
-<form method="get" class="month"><input type="month" name="period" value="{{ period }}" min="{{ min_period }}" max="{{ max_period }}" placeholder="YYYY-MM" pattern="\d{4}-\d{2}" onchange="this.form.submit()"><button>Open</button></form>
-<div class="head"><h1>{{ period }}</h1><span class="pill {{ 'ok' if locked else 'warn' }}">{% if locked %}Submitted{% elif status == 'draft' %}Draft{% else %}Not started{% endif %}</span></div>
-{% if missing %}<p class="note err">There is no report for {{ missing }}. You can open the current month or months you already reported.</p>{% endif %}
-{% if saved %}<p class="note good">Saved.</p>{% endif %}
+<form method="get" class="month"><input type="month" name="period" value="{{ period }}" min="{{ min_period }}" max="{{ max_period }}" placeholder="YYYY-MM" pattern="\d{4}-\d{2}" onchange="this.form.submit()"><button>Відкрити</button></form>
+<div class="head"><h1>{{ period }}</h1><span class="pill {{ 'ok' if locked else 'warn' }}">{% if locked %}Надіслано{% elif status == 'draft' %}Чернетка{% else %}Не розпочато{% endif %}</span></div>
+{% if missing %}<p class="note err">Звіту за {{ missing }} немає. Можна відкрити поточний місяць або місяці, за які вже подано звіти.</p>{% endif %}
+{% if saved %}<p class="note good">Збережено.</p>{% endif %}
 <form method="post"><input type="hidden" name="period" value="{{ period }}">
-<div class="card">{% for r in rows %}<label class="item" data-price="{{ r.price }}"><span>{{ r.name }}<span class="sub">{{ r.price|money }} each</span></span>
-<input class="qty" type="number" inputmode="numeric" min="0" step="1" name="qty_{{ r.id }}" value="{{ r.qty }}" onfocus="this.select()" {{ 'disabled' if locked }}>
-<span class="sum">{{ r.sum|money }}</span></label>{% else %}<p class="note">No products yet. The admin adds them.</p>{% endfor %}</div>
-<div class="bar"><div class="total"><small>Total</small><b id="total">{{ total|money }}</b></div>
-{% if not locked %}<button name="action" value="save">Save</button>
-<button class="primary" name="action" value="submit" onclick="return confirm('Submit and lock this report?')">Submit</button>
-{% else %}<span class="sub">Locked. Ask the admin to unlock.</span>{% endif %}</div>
+<div class="card">{% for r in rows %}<div class="item{% if not loop.first %} cont{% endif %}">
+<span class="pname">{{ r.name }}</span>
+<span class="pqty">{% for inp in r.inputs %}<label class="prow"><span class="price-tag">{{ inp.price|money }}</span>
+<input class="qty" type="number" inputmode="numeric" min="0" step="1" name="qty_{{ r.id }}_{{ inp.price }}" value="{{ inp.qty }}" data-price="{{ inp.price }}" onfocus="this.select()" {{ 'disabled' if locked }}>
+<span class="sum">{{ (inp.qty * inp.price)|money }}</span></label>{% endfor %}</span>
+</div>{% else %}<p class="note">Товарів ще немає. Їх додає адміністратор.</p>{% endfor %}</div>
+{% if inactive_rows %}
+<details class="inactive">
+<summary>Неактивні позиції ({{ inactive_rows|length }}): у звіт не входять</summary>
+{% for r in inactive_rows %}<div class="item two"><span>{{ r.name }}<span class="sub">{{ r.lines }}</span></span><span class="sum">{{ r.sum|money }}</span></div>{% endfor %}
+</details>
+{% endif %}
+<div class="bar"><div class="total"><small>Разом</small><b id="total">{{ total|money }}</b></div>
+{% if not locked %}<button name="action" value="save">Зберегти</button>
+<button class="primary" name="action" value="submit" onclick="return confirm('Надіслати й заблокувати цей звіт?')">Надіслати</button>
+{% else %}<span class="sub">Заблоковано. Попросіть адміністратора розблокувати.</span>{% endif %}</div>
 </form>
 <script>
-(function(){const f=n=>(n/100).toFixed(2),items=[...document.querySelectorAll('.item[data-price]')];
-function upd(){let t=0;items.forEach(i=>{const q=Math.max(0,parseInt(i.querySelector('.qty').value)||0),s=q*i.dataset.price;t+=s;i.querySelector('.sum').textContent=f(s)});document.getElementById('total').textContent=f(t)}
-items.forEach(i=>i.querySelector('.qty').addEventListener('input',upd));})();
+(function(){const f=n=>(n/100).toFixed(2);
+const rows=[...document.querySelectorAll('.item .qty[data-price]')];
+function upd(){let t=0;
+ rows.forEach(q=>{const item=q.closest('.item');
+  const n=Math.max(0,parseInt(q.value)||0),s=n*(+q.dataset.price);t+=s;
+  item.querySelectorAll('.prow').forEach(pr=>{if(pr.contains(q))pr.querySelector('.sum').textContent=f(s)});});
+ document.getElementById('total').textContent=f(t);}
+rows.forEach(q=>q.addEventListener('input',upd));})();
 </script>
 {% endblock %}

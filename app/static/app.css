@@ -14,10 +14,17 @@ a{color:var(--accent)}
 .top a{color:var(--muted);text-decoration:none;font-size:.9rem}
 .head{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin:10px 0;overflow:hidden}
-.item{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);color:inherit;text-decoration:none}
+.item{display:grid;grid-template-columns:1fr auto;gap:10px 12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);color:inherit;text-decoration:none}
 .item.two{grid-template-columns:1fr auto}
 .item:first-child{border-top:0}
+.pname{font-weight:550;min-width:0;overflow-wrap:anywhere}
+.pqty{display:grid;gap:6px;justify-items:end}
+.prow{display:flex;align-items:center;gap:8px}
+.price-tag{display:inline-flex;align-items:center;font-size:1.02rem;font-weight:700;color:var(--accent);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:3px 9px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .sum{min-width:4.5rem;text-align:right;font-weight:600}
+details.inactive{margin:10px 0;border:1px dashed var(--line);border-radius:16px;background:var(--surface);overflow:hidden}
+details.inactive summary{padding:12px 14px;cursor:pointer;color:var(--muted);font-weight:600;font-size:.92rem}
+details.inactive .item{background:transparent}
 .form-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
 .form-row:first-child{border-top:0}
 .fr{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 14rem;align-items:center}
@@ -27,7 +34,7 @@ a{color:var(--accent)}
 .stack{display:grid;gap:10px}
 input:not([type=checkbox]){font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px;width:100%;min-width:0}
 .fr input:not([type=checkbox]){flex:1 1 9rem;width:auto}
-.fr input.price{flex:0 0 5.5rem}
+.fr input.price{flex:0 0 5.5rem;font-weight:700;color:var(--accent)}
 input:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 input:disabled{opacity:.6}
 .qty{width:5.5rem!important;text-align:right;font-weight:600}

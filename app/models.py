@@ -1,9 +1,15 @@
+import sys
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import ForeignKey, UniqueConstraint, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
-DB_PATH = Path(__file__).resolve().parent.parent / "reports.db"  # always next to pyproject.toml
+# When packaged with Nuitka (onefile exe), __file__ points into the temporary
+# extraction directory which is deleted after the run. Next to the exe the
+# database, secret.key and backups/ must persist, so BASE_DIR is the exe folder.
+BASE_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
+DB_PATH = BASE_DIR / "reports.db"
 engine = create_engine(f"sqlite:///{DB_PATH.as_posix()}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(engine, expire_on_commit=False)
 
@@ -54,4 +60,17 @@ class ReportItem(Base):
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
     quantity: Mapped[int]
     unit_price_cents: Mapped[int]  # price snapshot taken when the report is saved
+    # Revaluation support: one report may contain several items for the same
+    # product with different prices (old price / new price within one month).
     product: Mapped["Product"] = relationship()
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_log"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ts: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    login: Mapped[str]
+    role: Mapped[str] = mapped_column(default="")
+    action: Mapped[str]
+    detail: Mapped[str] = mapped_column(default="")
+    ip: Mapped[str] = mapped_column(default="")

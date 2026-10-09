@@ -1,17 +1,17 @@
 {% extends "base.html" %}{% block body %}
-{% if pw %}<p class="note good">Password updated.</p>{% endif %}
-<h1>Setup</h1>
-<h2>Products</h2>
+{% if pw %}<p class="note good">Пароль оновлено.</p>{% endif %}
+<h1>Налаштування</h1>
+<h2>Товари</h2>
 <div class="card">{% for p in products %}<div class="form-row">
-<form class="fr" method="post" action="/admin/products/{{ p.id }}"><input name="name" value="{{ p.name }}" aria-label="Name"><input class="price" name="price" value="{{ p.price_cents|money }}" inputmode="decimal" aria-label="Price">
-<label class="chk"><input type="checkbox" name="active" {{ 'checked' if p.active }}> Active</label><button>Save</button></form>
-<form method="post" action="/admin/products/{{ p.id }}/delete" onsubmit="return confirm('Delete this product? It will also be removed from all saved reports.')"><button class="danger">Delete</button></form></div>{% endfor %}
-<form class="form-row" method="post" action="/admin/products"><input name="name" placeholder="New product" style="flex:1 1 9rem"><input name="price" placeholder="Price" inputmode="decimal" style="flex:0 0 5.5rem"><button class="primary">Add</button></form></div>
-<h2>Stores</h2>
-<div class="card">{% for u in store_users %}<div class="form-row"><div class="grow"><b>{{ u.store.name }}</b><span class="sub">login: {{ u.login }}</span></div>
-<form class="fr" method="post" action="/admin/stores/{{ u.store_id }}/password"><input name="password" placeholder="New password" autocomplete="off"><button>Set</button></form>
-<form method="post" action="/admin/stores/{{ u.store_id }}/delete" onsubmit="return confirm('Delete this store with its login and all its reports?')"><button class="danger">Delete</button></form></div>{% endfor %}
-<form class="form-row" method="post" action="/admin/stores"><input name="name" placeholder="Store name" style="flex:1 1 100%"><input name="login" placeholder="Login" style="flex:1 1 8rem"><input name="password" placeholder="Password" autocomplete="off" style="flex:1 1 8rem"><button class="primary">Add store</button></form></div>
-<h2>Your admin password</h2>
-<div class="card"><form class="form-row" method="post" action="/admin/password"><input name="password" placeholder="New password" autocomplete="off" style="flex:1 1 9rem"><button>Change</button></form></div>
+<form class="fr" method="post" action="/admin/products/{{ p.id }}"><input name="name" value="{{ p.name }}" aria-label="Назва"><input class="price" name="price" value="{{ p.price_cents|money }}" inputmode="decimal" aria-label="Ціна">
+<label class="chk"><input type="checkbox" name="active" {{ 'checked' if p.active }}> Активний</label><button>Зберегти</button></form>
+<form method="post" action="/admin/products/{{ p.id }}/delete" onsubmit="return confirm('Видалити цей товар? Його буде вилучено зі всіх збережених звітів.')"><button class="danger">Видалити</button></form></div>{% endfor %}
+<form class="form-row" method="post" action="/admin/products"><input name="name" placeholder="Новий товар" style="flex:1 1 9rem"><input name="price" placeholder="Ціна" inputmode="decimal" style="flex:0 0 5.5rem"><button class="primary">Додати</button></form></div>
+<h2>Магазини</h2>
+<div class="card">{% for u in store_users %}<div class="form-row"><div class="grow"><b>{{ u.store.name }}</b><span class="sub">логін: {{ u.login }}</span></div>
+<form class="fr" method="post" action="/admin/stores/{{ u.store_id }}/password"><input name="password" placeholder="Новий пароль" autocomplete="off"><button>Встановити</button></form>
+<form method="post" action="/admin/stores/{{ u.store_id }}/delete" onsubmit="return confirm('Видалити цей магазин разом із логіном і всіма його звітами?')"><button class="danger">Видалити</button></form></div>{% endfor %}
+<form class="form-row" method="post" action="/admin/stores"><input name="name" placeholder="Назва магазину" style="flex:1 1 100%"><input name="login" placeholder="Логін" style="flex:1 1 8rem"><input name="password" placeholder="Пароль" autocomplete="off" style="flex:1 1 8rem"><button class="primary">Додати магазин</button></form></div>
+<h2>Ваш пароль адміністратора</h2>
+<div class="card"><form class="form-row" method="post" action="/admin/password"><input name="password" placeholder="Новий пароль" autocomplete="off" style="flex:1 1 9rem"><button>Змінити</button></form></div>
 {% endblock %}

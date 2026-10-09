@@ -1,7 +1,7 @@
 {
-  "name": "Sales reports",
-  "short_name": "Reports",
-  "description": "Monthly sales reports from stores",
+  "name": "Легкий звіт",
+  "short_name": "Легкий звіт",
+  "description": "Щомісячні товарні звіти з магазинів",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

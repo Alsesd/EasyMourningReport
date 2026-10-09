@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block body %}
+<h1>Журнал дій</h1>
+<form method="get" class="month">
+<input name="login" value="{{ login }}" placeholder="Логін" style="flex:1 1 8rem">
+<select name="action" style="font:inherit;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:inherit;padding:0 10px">
+<option value="">Усі дії</option>
+{% for a in actions %}<option value="{{ a }}"{{ ' selected' if a == action }}>{{ a }}</option>{% endfor %}
+</select>
+<button>Фільтрувати</button></form>
+<div class="card scroll"><table>
+<thead><tr><th>Час</th><th>Логін</th><th>Роль</th><th>Дія</th><th>Деталі</th><th>IP</th></tr></thead>
+<tbody>{% for l in logs %}<tr>
+<td>{{ l.ts.strftime('%Y-%m-%d %H:%M') }}</td>
+<td>{{ l.login }}</td>
+<td>{{ l.role }}</td>
+<td>{{ l.action }}</td>
+<td style="white-space:normal">{{ l.detail }}</td>
+<td>{{ l.ip }}</td>
+</tr>{% else %}<tr><td colspan="6" style="text-align:center;color:var(--muted)">Записів поки немає.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% if logs|length == 200 %}<p class="sub">Показано останні 200 записів. Використовуйте фільтри, щоб звузити вибірку.</p>{% endif %}
+{% endblock %}
