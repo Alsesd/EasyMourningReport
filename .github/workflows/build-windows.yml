@@ -1,0 +1,75 @@
+name: Збірка та публікація релізу Windows EXE
+
+on:
+  push:
+    branches: ["main", "master"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-2022
+
+    steps:
+      - name: Клонування репозиторію
+        uses: actions/checkout@v4
+
+      - name: Встановлення Poetry
+        run: |
+          pipx install poetry
+
+      - name: Налаштування Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "poetry"
+
+      - name: Встановлення залежностей через Poetry
+        run: |
+          poetry install --no-root --with dev
+
+      - name: Компіляція бінарника через Nuitka
+        run: |
+          poetry run python -m nuitka --standalone --onefile `
+            --include-data-dir="app/templates=app/templates" `
+            --include-data-dir="app/static=app/static" `
+            --include-package=uvicorn `
+            --include-package=fastapi `
+            --include-package=sqlalchemy `
+            --include-package=jinja2 `
+            --windows-console-mode=force `
+            --assume-yes-for-downloads `
+            --output-dir=dist `
+            -o LegkyiZvit.exe app/main.py
+
+      - name: Підготовка ZIP-архіву
+        run: |
+          Copy-Item "start.bat" -Destination "dist/" -ErrorAction SilentlyContinue
+          Compress-Archive -Path "dist/LegkyiZvit.exe", "dist/start.bat" -DestinationPath "dist/Legkyi-Zvit-Windows.zip"
+
+      # Завантаження обох файлів в артефакти дій (доступно при будь-якому запуску)
+      - name: Збереження артефактів збірки
+        uses: actions/upload-artifact@v4
+        with:
+          name: Legkyi-Zvit-Windows-Artifacts
+          path: |
+            dist/LegkyiZvit.exe
+            dist/Legkyi-Zvit-Windows.zip
+          retention-days: 14
+
+      # Автоматична публікація релізу на GitHub при пуші тегу (v*)
+      - name: Публікація в GitHub Releases
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/LegkyiZvit.exe
+            dist/Legkyi-Zvit-Windows.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sales-reports"
-version = "0.1.0"
+version = "0.9.0"
 description = "Monthly sold-goods reports from several stores"
 package-mode = false
 
@@ -16,3 +16,9 @@ itsdangerous = ">=2.2"
 [build-system]
 requires = ["poetry-core>=1.9"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "nuitka (>=4.2.2,<5.0.0)",
+    "zstandard (>=0.25.0,<0.26.0)"
+]
