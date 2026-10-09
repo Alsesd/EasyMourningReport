@@ -1,0 +1,4 @@
+reports.db
+backups/
+secret.key
+__pycache__/

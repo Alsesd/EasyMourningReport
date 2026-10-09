@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block body %}
+<h1>Merged report</h1>
+<form method="get" class="month"><input type="month" name="period" value="{{ period }}" placeholder="YYYY-MM" pattern="\d{4}-\d{2}" onchange="this.form.submit()">
+<label class="chk"><input type="checkbox" name="submitted_only" value="1" onchange="this.form.submit()" {{ 'checked' if submitted_only }}> Submitted only</label><button>Open</button></form>
+<div class="card scroll"><table>
+<thead><tr><th>Product</th>{% for s in stores %}<th>{{ s.name }}</th>{% endfor %}<th>Qty</th><th>Sum</th></tr></thead>
+<tbody>{% for r in rows %}<tr><td>{{ r.name }}</td>{% for c in r.cells %}<td>{{ c }}</td>{% endfor %}<td>{{ r.qty }}</td><td>{{ r.sum|money }}</td></tr>{% endfor %}</tbody>
+<tfoot><tr><th>Total</th>{% for x in store_sums %}<th>{{ x|money }}</th>{% endfor %}<th></th><th>{{ grand|money }}</th></tr></tfoot></table></div>
+<p><a class="btn" href="/admin/summary.csv?period={{ period }}{{ '&submitted_only=1' if submitted_only }}">Download CSV</a></p>
+{% endblock %}
