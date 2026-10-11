@@ -44,6 +44,9 @@ class CoreUiTests(unittest.TestCase):
         req.headers = {"host": "localhost:8000"}
         self.assertIsNone(ui.safe_referer(req))
 
+        req.headers = {"referer": "/admin?period=2026-10", "host": "localhost:8000"}
+        self.assertEqual(ui.safe_referer(req), "/admin?period=2026-10")
+
     def test_flash_and_done(self):
         req = MagicMock(spec=Request)
         req.session = {}
@@ -54,6 +57,26 @@ class CoreUiTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 303)
         self.assertEqual(resp.headers["location"], "/report")
         self.assertEqual(req.session["flash"], {"kind": "ok", "text": "Збережено"})
+
+
+    def test_render_consumes_flash_and_keeps_explicit_period_links(self):
+        req = MagicMock(spec=Request)
+        req.session = {"flash": {"kind": "ok", "text": "saved"}, "period": "2026-08"}
+        response = ui.render(
+            req,
+            "error.html",
+            {"code": 418, "message": "test", "period": "2026-10", "prev_period": "custom-prev"},
+            status_code=418,
+        )
+        self.assertEqual(response.status_code, 418)
+        self.assertNotIn("flash", req.session)
+        self.assertEqual(response.context["flash"], {"kind": "ok", "text": "saved"})
+        self.assertEqual(response.context["nav_period"], "2026-08")
+        self.assertEqual(response.context["prev_period"], "custom-prev")
+
+        empty = ui.render(req, "error.html", None)
+        self.assertEqual(empty.status_code, 200)
+        self.assertIsNone(empty.context["user"])
 
 
 class CoreDependenciesTests(unittest.TestCase):
