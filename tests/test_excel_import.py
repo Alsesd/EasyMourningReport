@@ -97,7 +97,7 @@ class ExcelImportTests(unittest.TestCase):
             self.assertIn("немає товарів", caught.exception.detail)
 
     def test_invalid_rows_abort_the_whole_import_and_limit_error_details(self):
-        rows = [[f"", None] for _ in range(22)]
+        rows = [["Invalid product", None] for _ in range(22)]
         with self.Session() as db:
             with self.assertRaises(HTTPException) as caught:
                 parse_products_excel(make_xlsx(rows), db, self.user, self.request)
