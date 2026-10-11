@@ -12,8 +12,9 @@ from app.db.repositories.products import history_of, load_history, save_history
 from app.db.session import get_db
 from app.services.excel import parse_products_excel
 from app.services.pricing import BASE_PERIOD, apply_price_change, latest_price, offered_prices, period_month
-from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import delete, func
+from sqlmodel import select
+from sqlmodel import Session
 
 
 router = APIRouter()
