@@ -40,7 +40,11 @@
               fi
               poetry install --no-interaction
               test() {
-                poetry run pytest "$@"
+                if [ "$#" -eq 0 ]; then
+                  poetry run pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
+                else
+                  poetry run pytest "$@"
+                fi
               }
               echo "Start server: serve (or serve --reload)"
               echo "Run tests and enforce 95% coverage: test"
