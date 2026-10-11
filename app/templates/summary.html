@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% import "_ui.html" as ui %}{% block body %}
+<h1>Зведений звіт</h1>
+{% call ui.month_nav('/admin/summary', period, prev_period, next_period, extra=('&submitted_only=1' if submitted_only else '')) %}
+<label class="chk"><input type="checkbox" name="submitted_only" value="1" onchange="this.form.submit()" {{ 'checked' if submitted_only }}> Лише надіслані</label>
+{% endcall %}
+<div class="card scroll"><table>
+<thead><tr><th>Товар</th>{% for s in stores %}<th>{{ s.name }}</th>{% endfor %}<th>Кількість</th><th>Сума</th></tr></thead>
+<tbody>{% for r in rows %}<tr><td>{{ r.name }}{% if r.note %}<span class="sub">ціна: {{ r.note }}</span>{% endif %}</td>{% for c in r.cells %}<td>{{ c }}</td>{% endfor %}<td>{{ r.qty }}</td><td>{{ r.sum|money }}</td></tr>{% endfor %}</tbody>
+<tfoot><tr><th>Разом</th>{% for x in store_sums %}<th>{{ x|money }}</th>{% endfor %}<th></th><th>{{ grand|money }}</th></tr></tfoot></table></div>
+<p><a class="btn" href="/admin/summary.xlsx?period={{ period }}{{ '&submitted_only=1' if submitted_only }}">Завантажити Excel (.xlsx)</a></p>
+{% endblock %}

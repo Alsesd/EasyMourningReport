@@ -1,0 +1,122 @@
+name: Build Windows app
+
+# Manual only: Actions tab -> "Build Windows app" -> Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional: publish a GitHub Release with this tag (e.g. v1.0.1). Leave empty to only build artifacts.'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Windows release
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Configure Nuitka cache directory
+        shell: pwsh
+        run: |
+          "NUITKA_CACHE_DIR=$env:RUNNER_TEMP/nuitka-cache" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Cache Nuitka compilation and download data
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/nuitka-cache
+          key: nuitka-${{ runner.os }}-py312-${{ hashFiles('pyproject.toml') }}-${{ github.sha }}
+          restore-keys: |
+            nuitka-${{ runner.os }}-py312-${{ hashFiles('pyproject.toml') }}-
+            nuitka-${{ runner.os }}-py312-
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install fastapi uvicorn sqlalchemy jinja2 python-multipart itsdangerous "openpyxl>=3.1.5" nuitka zstandard
+
+      - name: Build standalone Windows executable
+        shell: pwsh
+        run: |
+          python -m nuitka --standalone --onefile `
+            --include-data-dir=app/templates=app/templates `
+            --include-data-dir=app/static=app/static `
+            --include-package=app `
+            --include-package=uvicorn `
+            --include-package=fastapi `
+            --include-package=sqlalchemy `
+            --include-package=jinja2 `
+            --include-package=openpyxl `
+            --windows-console-mode=force `
+            --assume-yes-for-downloads `
+            --output-dir=dist `
+            --output-filename=LegkyiZvit.exe run.py
+
+      - name: Smoke test - exe must keep its data next to itself
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'smoke-app'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Copy-Item dist/LegkyiZvit.exe $dir
+          $env:PORT = '8765'
+          # start from a different working directory on purpose: data must not depend on it
+          $proc = Start-Process -FilePath (Join-Path $dir 'LegkyiZvit.exe') -WorkingDirectory $env:RUNNER_TEMP -PassThru -WindowStyle Hidden
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            Start-Sleep -Seconds 2
+            try { $ok = (Invoke-WebRequest -Uri 'http://127.0.0.1:8765/login' -UseBasicParsing -TimeoutSec 5).StatusCode -eq 200 } catch { }
+          }
+          taskkill /PID $proc.Id /T /F | Out-Null
+          if (-not $ok) { throw 'The exe did not start serving /login within 120 s' }
+          foreach ($f in 'reports.db', 'secret.key') {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "$f was not created next to the exe" }
+          }
+          Get-ChildItem $dir | Format-Table Name, Length
+
+      - name: Prepare portable app and full source archive
+        shell: pwsh
+        run: |
+          Copy-Item start.bat dist/start.bat
+          Compress-Archive -Path dist/LegkyiZvit.exe,dist/start.bat -DestinationPath dist/Legkyi-Zvit-Windows.zip -Force
+          git archive --format=zip --output=dist/EasyMourningReport-Source.zip HEAD
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: EasyMourningReport-Windows
+          path: |
+            dist/LegkyiZvit.exe
+            dist/Legkyi-Zvit-Windows.zip
+            dist/EasyMourningReport-Source.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish GitHub Release
+        if: ${{ inputs.release_tag != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          target_commitish: ${{ github.sha }}
+          files: |
+            dist/LegkyiZvit.exe
+            dist/Legkyi-Zvit-Windows.zip
+            dist/EasyMourningReport-Source.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

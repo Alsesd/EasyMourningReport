@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="uk"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F3F4F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1013" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Легкий звіт">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/icon-192.png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="stylesheet" href="/static/app.css">
+<title>Легкий звіт</title></head><body class="{% block bodyclass %}{% endblock %}">
+{% if user %}<header class="top"><span class="brand">{{ user.store.name if user.store else 'Легкий звіт · Адміністратор' }}</span><form method="post" action="/logout" class="inline-form"><button type="submit" class="link-button">Вийти</button></form></header>{% endif %}
+<main>
+{% if flash %}<div class="flash {{ flash.kind }}" role="status"><span>{{ flash.text }}</span><button type="button" class="x" aria-label="Закрити" onclick="this.parentNode.remove()">×</button></div>{% endif %}
+{% block body %}{% endblock %}</main>
+{% if user and user.role == 'admin' %}{% set p = request.url.path %}<nav class="tabs">
+<a href="/admin"{% if p == '/admin' %} aria-current="page"{% endif %}>Налаштування</a>
+<a href="/admin/reports?period={{ nav_period }}"{% if p.startswith('/admin/reports') %} aria-current="page"{% endif %}>Звіти</a>
+<a href="/admin/summary?period={{ nav_period }}"{% if p.startswith('/admin/summary') %} aria-current="page"{% endif %}>Зведений</a>
+<a href="/admin/logs"{% if p.startswith('/admin/logs') %} aria-current="page"{% endif %}>Журнал</a></nav>{% endif %}
+<script>
+if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("/sw.js"));
+let ip;addEventListener("beforeinstallprompt",e=>{e.preventDefault();ip=e;const b=document.getElementById("install");if(b)b.hidden=false});
+document.addEventListener("click",e=>{if(e.target.id==="install"&&ip){ip.prompt();ip=null;e.target.hidden=true}});
+document.querySelectorAll(".flash:not(.err)").forEach(f=>setTimeout(()=>f.remove(),9000));
+document.addEventListener("submit",e=>{const m=e.target.dataset&&e.target.dataset.confirm;if(m&&!confirm(m))e.preventDefault()});
+</script>
+</body></html>
