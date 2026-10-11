@@ -39,7 +39,7 @@ jobs:
           $dist = Join-Path $env:GITHUB_WORKSPACE 'dist'
           $exe = Join-Path $dist 'LegkyiZvit.exe'
           if (-not (Test-Path $exe)) { throw "Executable missing: $exe" }
-          foreach ($asset in 'lib\app\templates\login.html', 'lib\app\static\app.css') {
+          foreach ($asset in 'app\templates\login.html', 'app\static\app.css') {
             if (-not (Test-Path (Join-Path $dist $asset))) { throw "Packaged asset missing: $asset" }
           }
 
