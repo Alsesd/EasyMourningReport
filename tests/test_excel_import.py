@@ -2,7 +2,7 @@
 
 import io
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
 from openpyxl import Workbook
@@ -107,6 +107,13 @@ class ExcelImportTests(unittest.TestCase):
             self.assertNotIn("рядок 22", caught.exception.detail)
             self.assertEqual(len(list(db.scalars(select(Product)))), 0)
 
+    def test_explicit_http_exception_from_workbook_loader_is_preserved(self):
+        with self.Session() as db, patch("app.services.excel.load_workbook", side_effect=HTTPException(418, "loader error")):
+            with self.assertRaises(HTTPException) as caught:
+                parse_products_excel(b"payload", db, self.user, self.request)
+            self.assertEqual(caught.exception.status_code, 418)
+            self.assertEqual(caught.exception.detail, "loader error")
+
     def test_boolean_price_is_rejected(self):
         with self.Session() as db:
             with self.assertRaises(HTTPException) as caught:
@@ -133,7 +140,7 @@ class ExcelImportTests(unittest.TestCase):
             def fail_on_flush(*args, **kwargs):
                 nonlocal calls
                 calls += 1
-                if calls == 1:
+                if calls == 2:
                     raise RuntimeError("simulated insert failure")
                 return original_flush(*args, **kwargs)
             db.flush = fail_on_flush
