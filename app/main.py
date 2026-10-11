@@ -28,10 +28,17 @@ async def lifespan(_: FastAPI):
     migrate()
     seed()
     await asyncio.to_thread(backup_db)
-    task = asyncio.create_task(backup_loop())
-    yield
-    task.cancel()
-    backup_db()
+    backup_task = asyncio.create_task(backup_loop(), name="database-backup-loop")
+    try:
+        yield
+    finally:
+        backup_task.cancel()
+        try:
+            await backup_task
+        except asyncio.CancelledError:
+            pass
+        # Backup I/O can be slow; don't block the event loop during shutdown.
+        await asyncio.to_thread(backup_db)
 
 
 app = FastAPI(lifespan=lifespan)
@@ -85,4 +92,3 @@ def http_error(request: Request, exc: StarletteHTTPException):
         {"code": exc.status_code, "message": exc.detail},
         status_code=exc.status_code,
     )
-
