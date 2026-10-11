@@ -1,4 +1,5 @@
 """ Launcher for the app """
+import os
 import sys
 if hasattr(sys.stdout, "reconfigure"):
    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -11,11 +12,11 @@ from app.main import app
 
 
 
-def server_start(DB_PATH, HOST="127.0.0.1", PORT="8000");
+def server_start( DB_PATH,
+    host: str = os.getenv("HOST", "127.0.0.1"),
+    port: int = int(os.getenv("PORT", "8000")),
+):
     print(f"Data folder: {DB_PATH.parent}", flush=True)
-    uvicorn.run(
-        app,
-        host=HOST,
-        port=int(PORT)
-   )
+    uvicorn.run(app, host=host, port=port)
+
 
