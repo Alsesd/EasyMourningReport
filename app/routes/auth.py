@@ -9,8 +9,8 @@ from app.db.repositories.audit import audit
 from app.db.session import get_db
 from app.services.pricing import norm_login
 from fastapi.responses import RedirectResponse, Response
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlmodel import select
+from sqlmodel import Session
 
 
 router = APIRouter()
