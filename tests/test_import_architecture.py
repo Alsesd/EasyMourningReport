@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 APPLICATION_ENTRY = ROOT / "app" / "main.py"
+PACKAGE_ENTRY = ROOT / "app" / "__main__.py"
 ROUTES = ROOT / "app" / "routes"
 FORBIDDEN_FACADES = {"app.core", "app.db", "app.services", "app.db.repositories"}
 
@@ -22,7 +23,7 @@ def imported_module(node: ast.AST) -> str | None:
 
 
 def test_entrypoint_and_routes_use_explicit_module_imports():
-    sources = [APPLICATION_ENTRY, *sorted(ROUTES.rglob("*.py"))]
+    sources = [APPLICATION_ENTRY, PACKAGE_ENTRY, *sorted(ROUTES.rglob("*.py"))]
     violations = []
     for path in sources:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -49,4 +50,8 @@ def test_main_is_composition_only():
     assert "app.routes" in imported
     assert "app.db.bootstrap" in imported
     assert "app.db.backup" in imported
+    package_tree = ast.parse(PACKAGE_ENTRY.read_text(encoding="utf-8"))
+    package_imports = {imported_module(node) for node in ast.walk(package_tree) if isinstance(node, (ast.Import, ast.ImportFrom))}
+    assert "app.db.session" in package_imports
+    assert "app.db" not in package_imports
     assert not any(module and module.startswith("app.routes.admin.") for module in imported)
