@@ -5,9 +5,8 @@ from __future__ import annotations
 from sqlmodel import Field, Relationship, SQLModel
 from sqlalchemy import UniqueConstraint
 
-if False:  # pragma: no cover - typing-only relationship targets
-    from app.db.models.product import Product
-    from app.db.models.store import Store
+from app.db.models.product import Product
+from app.db.models.store import Store
 
 
 class Report(SQLModel, table=True):
@@ -20,7 +19,7 @@ class Report(SQLModel, table=True):
     status: str = Field(default="draft", index=True)  # "draft" | "submitted"
 
     store: Store = Relationship()
-    items: list[ReportItem] = Relationship(
+    items: list["ReportItem"] = Relationship(
         back_populates="report",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
