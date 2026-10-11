@@ -1,12 +1,17 @@
 """Admin report inspection and status toggle endpoints."""
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from app.core.dependencies import admin_period, admin_required
+from app.core.ui import done, render
+from app.db.models.report import Report
+from app.db.models.store import Store
+from app.db.models.user import User
+from app.db.repositories.audit import audit
+from app.db.repositories.reports import build_lines, report_total
+from app.db.session import get_db
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core import admin_period, admin_required, done, get_db, render
-from app.db import Report, Store, User, audit
-from app.db.repositories import build_lines, report_total
 
 router = APIRouter()
 
