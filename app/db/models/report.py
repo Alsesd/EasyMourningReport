@@ -1,7 +1,5 @@
 """Monthly reports and saved line-item price snapshots."""
 
-from __future__ import annotations
-
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
