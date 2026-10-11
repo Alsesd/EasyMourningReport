@@ -1,8 +1,8 @@
 """PyOxidizer configuration for the standalone LegkyiZvit application.
 
 PyOxidizer 0.24 bundles CPython 3.10. Runtime modules and extension modules
-are placed in ./lib so packages that rely on __file__ behave like a filesystem
-install. The full install tree must stay together when copied to dist/.
+are placed in ./lib. The install manifest places templates and static assets
+beside the executable so frozen asset lookup remains predictable.
 """
 
 def make_exe():
@@ -38,14 +38,6 @@ def make_exe():
         ])
     )
     exe.add_python_resources(exe.read_package_root(path=".", packages=["app"]))
-
-    # Keep assets at the paths resolved by app/main.py and app/core/ui.py.
-    exe.add_filesystem_relative_files(
-        files=[
-            ("app/templates", "lib/app/templates"),
-            ("app/static", "lib/app/static"),
-        ]
-    )
     return exe
 
 
@@ -56,6 +48,12 @@ def make_embedded_resources(exe):
 def make_install(exe):
     files = FileManifest()
     files.add_python_resource(".", exe)
+    # Additional files are staged through FileManifest (not PythonExecutable).
+    assets = glob(
+        [CWD + "/app/templates/**/*", CWD + "/app/static/**/*"],
+        strip_prefix=CWD + "/",
+    )
+    files.add_manifest(assets)
     return files
 
 
