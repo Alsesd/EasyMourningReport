@@ -63,6 +63,16 @@ class DataDirTests(unittest.TestCase):
             os.environ.pop("XDG_DATA_HOME", None)
             self.assertEqual(paths._user_data_dir(), Path(tmp) / paths.APP_NAME)
 
+    def test_linux_user_data_folder_falls_back_to_home_without_xdg(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(paths.sys, "platform", "linux"), \
+             patch.object(Path, "home", return_value=Path(tmp)), \
+             patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(
+                paths._user_data_dir(),
+                Path(tmp) / ".local" / "share" / paths.APP_NAME,
+            )
+
     def test_writable_reports_false_for_a_file_path(self):
         with tempfile.NamedTemporaryFile() as f:
             self.assertFalse(paths._writable(Path(f.name)))
