@@ -25,11 +25,11 @@ def _app_dir() -> Path:
 
 def asset_dir(name: str) -> Path:
     """Find a packaged template/static directory in source and frozen layouts."""
-    package_assets = Path(__file__).resolve().parent.parent / name
+    package_assets = Path(__file__).parent.parent / name
     if package_assets.is_dir():
         return package_assets
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent / "app" / name
+        return Path(sys.executable).parent / "app" / name
     return package_assets
 
 
