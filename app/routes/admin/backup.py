@@ -1,6 +1,8 @@
 """Admin backup snapshot download endpoint."""
 
+import logging
 from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -9,13 +11,14 @@ from app.core import admin_required, get_db
 from app.db import DB_PATH, User, audit, backup_db
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/download")
 def download_backup_snapshot(
-    request: Request | None = None,
+    request: Request,
     user: User = Depends(admin_required),
-    db: Session | None = Depends(get_db),
+    db: Session = Depends(get_db),
 ):
     """Generate an on-demand live SQLite backup snapshot and stream it as an attachment."""
     backup_file: Path | None = backup_db(tag="snapshot")
@@ -29,12 +32,13 @@ def download_backup_snapshot(
             )
 
     filename = backup_file.name
-    if db is not None and request is not None:
-        try:
-            audit(db, request, user.login, user.role, "завантажено бекап", filename)
-            db.commit()
-        except Exception:
-            pass
+    try:
+        audit(db, request, user.login, user.role, "завантажено бекап", filename)
+        db.commit()
+    except Exception:
+        # A logging failure must not turn a successfully created backup into a failed download.
+        db.rollback()
+        logger.exception("Could not record the backup download in the audit log")
 
     return FileResponse(
         path=backup_file,
