@@ -10,7 +10,7 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import uvicorn
 
-from app.db import DB_PATH
+from app.db.session import DB_PATH
 from app.main import app
 
 print(f"Data folder: {DB_PATH.parent}", flush=True)
