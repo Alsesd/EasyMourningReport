@@ -40,7 +40,7 @@ def _safe_redirect_target(url: str) -> str:
         return "/"
     normalized = url.replace("\\", "/")
     parsed = urlparse(normalized)
-    if parsed.scheme or parsed.netloc:
+    if parsed.scheme or parsed.netloc or normalized.startswith("//"):
         return "/"
     if not normalized.startswith("/"):
         return "/"
