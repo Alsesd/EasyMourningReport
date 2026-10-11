@@ -70,30 +70,24 @@
 ```text
 EasyMourningReport/
 ├── app/
-│   ├── __init__.py
-│   ├── admin_routes.py   # Адміністративні маршрути
-│   ├── backup.py         # Резервні копії
-│   ├── bootstrap.py      # Ініціалізація та міграції БД
-│   ├── main.py           # Створення FastAPI-застосунку та основні маршрути
-│   ├── models.py         # Моделі SQLAlchemy
-│   ├── pricing.py        # Правила історії цін і нормалізація логінів
-│   ├── ratelimit.py      # Обмеження частоти входу
-│   ├── reporting.py      # Побудова рядків і зведених звітів
-│   ├── security.py       # Паролі, секрет і перевірки запитів
-│   ├── static/
-│   └── templates/
-├── tests/
-├── .gitignore
+│   ├── core/             # Інфраструктура (paths, security, ratelimit, ui, dependencies)
+│   ├── db/               # База даних SQLAlchemy (models, repositories, migrations, backup)
+│   ├── services/         # Чиста бізнес-логіка (pricing, excel)
+│   ├── routes/           # Модульні маршрути (auth, report, root, pwa, admin/*)
+│   ├── static/           # PWA та статичні ресурси
+│   ├── templates/        # Шаблони Jinja2
+│   └── main.py           # Фабрика FastAPI, життєвий цикл і глобальні middleware
+├── tests/                # 12 тестових наборів
+├── build.py              # Скрипт збірки standalone EXE через PyOxidizer
+├── pyoxidizer.bzl        # Конфігурація пакування PyOxidizer
+├── DOCS.md               # Повна архітектурна та технічна документація
 ├── README.md
 ├── pyproject.toml
 ├── poetry.lock
-├── run.py
-├── flake.nix
-├── start.bat
-├── reports.db
-├── secret.key
-├── backups/
-└── .github/
+├── run.py                # Головна точка входу (uvicorn)
+├── flake.nix             # Nix flake для автоматизації на Linux
+├── start.bat             # Скрипт автоматизації для Windows (Tailscale Funnel)
+└── backups/              # Снапшоти бази даних SQLite
 ```
 
 ## Вимоги
@@ -243,12 +237,15 @@ python -m unittest discover -s tests
 
 Тести перевіряють основні правила підрахунку цін та логіки обробки даних.
 
-## Розробка та збірка Windows EXE
+## Розробка та збірка standalone EXE (PyOxidizer)
 
-Проект підтримує збірку під Windows через GitHub Actions та Nuitka.
+Проект підтримує збірку автономного бінарного файлу за допомогою `PyOxidizer`:
 
-- Workflow **Tests** (`.github/workflows/test.yml`) запускає лише тести на кожен push і pull request.
-- Workflow **Build Windows app** (`.github/workflows/build-windows.yml`) запускається тільки вручну: вкладка Actions → Build Windows app → Run workflow. За бажання можна вказати `release_tag`, щоб одразу створити GitHub Release.
+```bash
+python build.py
+```
+
+Скрипт читає конфігурацію з `pyoxidizer.bzl`, вбудовує всі необхідні шаблони, статичні файли PWA та залежності застосунку й створює `LegkyiZvit.exe` у каталозі `dist/`. Детальніше дивіться у [DOCS.md](DOCS.md).
 
 Головний запусковий файл:
 

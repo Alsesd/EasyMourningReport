@@ -1,10 +1,12 @@
+"""SQLite online streaming backup & background loop."""
+
 import asyncio
 import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from .models import DB_PATH
+from app.db.session import DB_PATH
 
 BACKUP_DIR = DB_PATH.parent / "backups"
 KEEP = max(1, int(os.getenv("BACKUP_KEEP", "100")))  # keep at least one backup

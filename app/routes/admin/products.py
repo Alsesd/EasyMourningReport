@@ -1,0 +1,250 @@
+"""Admin product management endpoints: CRUD, Excel import, and multi-price history."""
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from sqlalchemy import delete, func, select
+from sqlalchemy.orm import Session
+
+from app.core import (
+    admin_required,
+    clean_name,
+    current_period,
+    done,
+    get_db,
+    money,
+    to_cents,
+)
+from app.db import Product, ProductPrice, ReportItem, User, audit, backup_db
+from app.db.repositories import history_of, load_history, save_history
+from app.services import (
+    BASE_PERIOD,
+    apply_price_change,
+    latest_price,
+    offered_prices,
+    parse_products_excel,
+    period_month,
+)
+
+router = APIRouter()
+
+
+@router.post("/import")
+async def product_import(
+    request: Request,
+    file: UploadFile = File(...),
+    user: User = Depends(admin_required),
+    db: Session = Depends(get_db),
+):
+    """Create products from an Excel workbook: column A=name, column B=price."""
+    filename = (file.filename or "").lower()
+    if not filename.endswith(".xlsx"):
+        raise HTTPException(400, "Завантажте файл Excel у форматі .xlsx")
+    payload = await file.read()
+    if not payload or len(payload) > 10 * 1024 * 1024:
+        raise HTTPException(400, "Файл порожній або перевищує 10 МБ")
+    return parse_products_excel(payload, db, user, request)
+
+
+@router.post("")
+def product_add(
+    request: Request,
+    name: str = Form(),
+    price: str = Form(),
+    user: User = Depends(admin_required),
+    db: Session = Depends(get_db),
+):
+    clean, cents = clean_name(name), to_cents(price)
+    p = Product(name=clean, price_cents=cents)
+    db.add(p)
+    db.flush()
+    db.add(ProductPrice(product_id=p.id, period=BASE_PERIOD, price_cents=cents))
+    audit(
+        db,
+        request,
+        user.login,
+        user.role,
+        "додано товар",
+        f"{clean} · {money(cents)}",
+    )
+    db.commit()
+    return done(
+        request,
+        f"/admin#p{p.id}",
+        f"Товар «{clean}» додано з ціною {money(cents)}.",
+    )
+
+
+@router.post("/{pid}")
+async def product_edit(
+    request: Request,
+    pid: int,
+    user: User = Depends(admin_required),
+    db: Session = Depends(get_db),
+):
+    form = await request.form()
+    p = db.get(Product, pid)
+    if not p or p.archived:
+        raise HTTPException(404)
+
+    raw_name = str(form.get("name") or "")
+    name = clean_name(raw_name)
+    is_active = form.get("active") is not None
+
+    # Support multiple price values in the form (e.g. from dynamically added price fields)
+    all_price_strs = form.getlist("price") + form.getlist("extra_price")
+    all_cents = [to_cents(str(val)) for val in all_price_strs if str(val).strip()]
+    if not all_cents:
+        raise HTTPException(400, "Необхідно вказати хоча б одну ціну")
+
+    period = current_period()
+    said: list[str] = []
+    history = history_of(load_history(db), p)
+    before_now = offered_prices(history, period)[-1]  # price in force right now
+
+    if len(all_cents) == 1:
+        cents = all_cents[0]
+        new_history, prev_price, now_price = apply_price_change(
+            history, period, cents
+        )
+        if new_history != history:
+            save_history(db, pid, new_history)
+            p.price_cents = latest_price(new_history)
+            if len(offered_prices(new_history, period)) == 2:
+                said.append(
+                    f"Ціну змінено: {money(before_now)} → {money(now_price)} з {period}. "
+                    f"У звітах {period} усі магазини (зокрема нові) бачать два рядки: "
+                    f"{money(prev_price)} і {money(now_price)}. У наступних місяцях буде лише {money(now_price)}."
+                )
+            else:
+                said.append(
+                    f"Зміну ціни за {period} скасовано: ціна знову {money(now_price)}, "
+                    f"у звітах {period} один рядок."
+                )
+            audit(
+                db,
+                request,
+                user.login,
+                user.role,
+                "змінено ціну товару",
+                f"{p.name} · {money(before_now)} → {money(now_price)} з {period}",
+            )
+    else:
+        # Multiple prices configured for the current month
+        # Keep historical prices before this month, and future prices after this month
+        hist = sorted(history)
+        past_entries = [
+            (s, c) for s, c in hist if period_month(s) < period
+        ]
+        future_entries = [
+            (s, c) for s, c in hist if period_month(s) > period
+        ]
+        # Current month entries
+        month_entries = [(period, all_cents[0])] + [
+            (f"{period}_{i}", cents) for i, cents in enumerate(all_cents[1:], start=1)
+        ]
+        new_history = sorted(past_entries + month_entries + future_entries)
+        save_history(db, pid, new_history)
+        p.price_cents = all_cents[-1]
+        price_list_str = " → ".join(money(c) for c in all_cents)
+        said.append(
+            f"Встановлено декілька цін на {period}: {price_list_str}. "
+            f"У звітах {period} доступні всі ці ціни."
+        )
+        audit(
+            db,
+            request,
+            user.login,
+            user.role,
+            "змінено ціну товару",
+            f"{p.name} · {price_list_str} у {period}",
+        )
+
+    notes = []
+    if name != p.name:
+        notes.append(f"назва «{p.name}» → «{name}»")
+        p.name = name
+    if is_active != p.active:
+        notes.append(
+            "увімкнено"
+            if is_active
+            else "вимкнено (не показується в нових звітах, дані збережено)"
+        )
+        p.active = is_active
+    if notes:
+        said.append("Збережено: " + "; ".join(notes) + ".")
+        audit(
+            db,
+            request,
+            user.login,
+            user.role,
+            "змінено товар",
+            f"{p.name} · " + "; ".join(notes),
+        )
+    db.commit()
+    return done(
+        request,
+        f"/admin#p{pid}",
+        " ".join(said) if said else "Змін немає: нічого не збережено.",
+        "ok" if said else "info",
+    )
+
+
+@router.post("/{pid}/delete")
+def product_delete(
+    request: Request,
+    pid: int,
+    user: User = Depends(admin_required),
+    db: Session = Depends(get_db),
+):
+    p = db.get(Product, pid)
+    if not p:
+        raise HTTPException(404)
+    used = (
+        db.scalar(
+            select(func.count(ReportItem.id)).where(
+                ReportItem.product_id == pid
+            )
+        )
+        or 0
+    )
+    if used:  # never touch report data: move to the archive instead
+        p.archived, p.active = True, False
+        audit(
+            db,
+            request,
+            user.login,
+            user.role,
+            "архівовано товар",
+            f"{p.name} · рядків у звітах: {used}",
+        )
+        db.commit()
+        return done(
+            request,
+            "/admin#archive",
+            f"«{p.name}» є у звітах ({used} рядків), тому його не видалено, "
+            "а переміщено в архів. Усі дані звітів збережено; товар можна відновити.",
+        )
+    backup_db("before-delete")
+    name = p.name
+    db.execute(delete(ProductPrice).where(ProductPrice.product_id == pid))
+    db.execute(delete(Product).where(Product.id == pid))
+    audit(db, request, user.login, user.role, "видалено товар", name)
+    db.commit()
+    return done(
+        request, "/admin#products", f"Товар «{name}» видалено: у звітах його не було."
+    )
+
+
+@router.post("/{pid}/restore")
+def product_restore(
+    request: Request,
+    pid: int,
+    user: User = Depends(admin_required),
+    db: Session = Depends(get_db),
+):
+    p = db.get(Product, pid)
+    if not p:
+        raise HTTPException(404)
+    p.archived, p.active = False, True
+    audit(db, request, user.login, user.role, "відновлено товар", p.name)
+    db.commit()
+    return done(request, f"/admin#p{pid}", f"Товар «{p.name}» відновлено й активовано.")

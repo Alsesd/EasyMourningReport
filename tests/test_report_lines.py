@@ -9,10 +9,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.main import build_lines
-from app.reporting import build_summary
-from app.models import Base, Product, ProductPrice, Report, ReportItem, Store
-from app.pricing import BASE_PERIOD
+from app.db.repositories.reports import build_lines, build_summary
+from app.db import Base, Product, ProductPrice, Report, ReportItem, Store
+from app.services.pricing import BASE_PERIOD
 
 
 class ReportLineIntegrationTests(unittest.TestCase):
