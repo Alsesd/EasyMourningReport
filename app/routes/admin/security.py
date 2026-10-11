@@ -7,7 +7,7 @@ from app.core.ui import done
 from app.db.models.user import User
 from app.db.repositories.audit import audit
 from app.db.session import get_db
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 
 router = APIRouter()
