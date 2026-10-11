@@ -41,7 +41,7 @@ def test_apple_touch_icon_is_a_valid_png():
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("image/png")
-    assert response.content.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+    assert response.content[:8] == bytes([137, 80, 78, 71, 13, 10, 26, 10])
 
 
 def test_service_worker_uses_a_new_cache_version():
