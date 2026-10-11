@@ -1,20 +1,28 @@
-"""Database connection, engine, session factory, and dependency."""
+"""SQLite engine and request-scoped SQLModel sessions.
+
+SQLite remains the default for the portable Windows distribution: the app can
+run without a separately installed database server. SQLModel is the ORM/model
+layer; repositories can continue to use SQLAlchemy expressions during migration.
+"""
 
 from collections.abc import Generator
 from typing import Any
 
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import event
+from sqlmodel import Session, create_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.core.paths import data_dir
 
-# Database, secret.key and backups/ live in BASE_DIR. For the compiled exe that is the folder
-# next to the exe (see paths.py), not the temporary onefile extraction folder.
+# Persistent files belong beside the executable (or in the user's data folder
+# when the install directory is read-only), never in a freezer's extraction dir.
 BASE_DIR = data_dir()
 DB_PATH = BASE_DIR / "reports.db"
+
 engine = create_engine(
     f"sqlite:///{DB_PATH.as_posix()}",
     connect_args={"check_same_thread": False, "timeout": 30},
+    pool_pre_ping=True,
 )
 
 
@@ -22,7 +30,7 @@ engine = create_engine(
 def _enable_sqlite_foreign_keys(
     dbapi_connection: Any, connection_record: Any
 ) -> None:
-    """SQLite accepts FK declarations but does not enforce them unless enabled per connection."""
+    """SQLite only enforces declared foreign keys when enabled per connection."""
     cursor = dbapi_connection.cursor()
     try:
         cursor.execute("PRAGMA foreign_keys=ON")
@@ -30,7 +38,11 @@ def _enable_sqlite_foreign_keys(
         cursor.close()
 
 
-SessionLocal = sessionmaker(engine, expire_on_commit=False)
+SessionLocal = sessionmaker(
+    bind=engine,
+    class_=Session,
+    expire_on_commit=False,
+)
 
 
 def get_db() -> Generator[Session, None, None]:

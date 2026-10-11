@@ -1,6 +1,5 @@
-"""All SQLAlchemy models for EasyMourningReport."""
+"""Import all SQLModel tables so shared metadata is complete."""
 
-from app.db.models import audit, product, report, store, user
 from app.db.models.audit import AuditLog
 from app.db.models.product import Product, ProductPrice
 from app.db.models.report import Report, ReportItem
@@ -15,9 +14,4 @@ __all__ = [
     "ReportItem",
     "Store",
     "User",
-    "audit",
-    "product",
-    "report",
-    "store",
-    "user",
 ]

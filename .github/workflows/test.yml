@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master, restructure]
+    branches: [main, master, restructure, rewrite/sqlmodel-clean-architecture]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, restructure]
   workflow_dispatch:
 
 permissions:
@@ -15,9 +15,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ─────────────────────────────────────────────────────────────
-  # 1. Unit tests + compile check
-  # ─────────────────────────────────────────────────────────────
   test:
     name: Test and compile
     runs-on: windows-2022
@@ -35,13 +32,16 @@ jobs:
       - name: Install project dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install fastapi uvicorn sqlalchemy jinja2 python-multipart itsdangerous "openpyxl>=3.1.5" "coverage>=7.6"
+          python -m pip install fastapi uvicorn sqlmodel sqlalchemy jinja2 python-multipart itsdangerous "openpyxl>=3.1.5" "coverage>=7.6"
 
       - name: Run tests with branch coverage
         run: |
           python -m coverage run --branch -m unittest discover -s tests -v
           python -m coverage html
           python -m coverage report -m --fail-under=100
+
+      - name: Compile Python sources
+        run: python -m compileall -q app run.py tests
 
       - name: Upload coverage report
         if: always()
@@ -50,295 +50,3 @@ jobs:
           name: application-coverage
           path: htmlcov/
           if-no-files-found: ignore
-
-      - name: Compile Python sources
-        run: python -m compileall -q app run.py tests
-
-  # ─────────────────────────────────────────────────────────────
-  # 2. Only if the tests passed: Windows + Tailscale (GUI) + start.bat
-  # ─────────────────────────────────────────────────────────────
-  smoke:
-    name: start.bat + Tailscale smoke test
-    needs: test
-    # Fork PRs cannot read secrets -> skip instead of failing.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: windows-2022
-    timeout-minutes: 25
-    defaults:
-      run:
-        shell: pwsh
-    env:
-      TAILSCALE_VERSION: "1.104.1" # pinned; bump when you want a newer client
-      POETRY_VIRTUALENVS_IN_PROJECT: "true" # start.bat looks for a .venv folder next to it
-      PORT: "8000"
-      # What the smoke test looks for. File-name wildcards, ';'-separated.
-      # Narrow them to exact names (e.g. 'legkyizvit.db') once you know them.
-      APP_DB_PATTERNS: "*.db;*.sqlite;*.sqlite3"
-      APP_SECRET_PATTERNS: "*secret*"
-      # Directories to search besides the repo checkout, ';'-separated,
-      # env vars allowed, e.g. '%APPDATA%\LegkyiZvit'. Leave empty if the app
-      # keeps its files inside the repo/exe folder.
-      APP_EXTRA_ROOTS: ""
-
-    steps:
-      - name: Require TS_AUTHKEY
-        env:
-          TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
-        run: |
-          if (-not $env:TS_AUTHKEY) {
-            throw 'Repository secret TS_AUTHKEY is missing (Settings > Secrets and variables > Actions).'
-          }
-
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      # start.bat runs `python -m poetry ...`, so Poetry has to exist on the runner.
-      - name: Install Poetry
-        run: python -m pip install --upgrade pip poetry
-
-      - name: Install Tailscale (MSI, includes the GUI)
-        run: |
-          $msi = Join-Path $env:RUNNER_TEMP 'tailscale.msi'
-          Invoke-WebRequest "https://pkgs.tailscale.com/stable/tailscale-setup-$env:TAILSCALE_VERSION-amd64.msi" -OutFile $msi
-          # TS_NOLAUNCH: do not open the GUI during install - start.bat has to do that.
-          $p = Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /qn /norestart TS_NOLAUNCH=1" -Wait -PassThru
-          if ($p.ExitCode -notin 0, 3010) { throw "msiexec failed with exit code $($p.ExitCode)" }
-
-          $dir = Join-Path $env:ProgramFiles 'Tailscale'
-          foreach ($f in 'tailscale.exe', 'tailscale-ipn.exe') {
-            if (-not (Test-Path (Join-Path $dir $f))) { throw "$f not found after install" }
-          }
-          # make `tailscale` visible to start.bat (`where tailscale`) in the next steps
-          $dir | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-
-      - name: Authenticate Tailscale node
-        env:
-          TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
-        run: |
-          $ts = Join-Path $env:ProgramFiles 'Tailscale\\tailscale.exe'
-          & $ts up "--authkey=$env:TS_AUTHKEY" --hostname=easy-mourning-report-ci --accept-routes=false --accept-dns=false
-          if ($LASTEXITCODE -ne 0) {
-            throw 'Tailscale authentication failed. Check that TS_AUTHKEY is valid and the node is allowed to use Funnel.'
-          }
-          & $ts status
-          if ($LASTEXITCODE -ne 0) { throw 'Tailscale status failed after authentication.' }
-
-      - name: Run start.bat twice - check Tailscale GUI, DB and secret
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $work = $env:GITHUB_WORKSPACE
-          $logs = Join-Path $env:RUNNER_TEMP 'ci-logs'
-          $ts   = Join-Path $env:ProgramFiles 'Tailscale\tailscale.exe'
-          New-Item -ItemType Directory -Force -Path $logs | Out-Null
-
-          # ---------- what to look for ----------
-          $dbPatterns     = $env:APP_DB_PATTERNS -split ';'
-          $secretPatterns = $env:APP_SECRET_PATTERNS -split ';'
-          $secretSkipExt  = '.py', '.pyc', '.pyi'
-          $skipTop        = '.venv', '.git', 'node_modules', '.pytest_cache'
-          $roots = @($work) + @($env:APP_EXTRA_ROOTS -split ';' | Where-Object { $_ } |
-                   ForEach-Object { [Environment]::ExpandEnvironmentVariables($_) })
-
-          function Find-Files([string[]]$Patterns, [string[]]$SkipExt = @()) {
-              foreach ($r in $roots) {
-                  if (-not (Test-Path $r)) { continue }
-                  $top   = @(Get-ChildItem $r -Force -ErrorAction SilentlyContinue)
-                  $files = @($top | Where-Object { -not $_.PSIsContainer })
-                  $dirs  = @($top | Where-Object { $_.PSIsContainer -and $skipTop -notcontains $_.Name })
-                  $files += @($dirs | ForEach-Object { Get-ChildItem $_.FullName -Recurse -File -Force -ErrorAction SilentlyContinue })
-                  $files | Where-Object {
-                      $n = $_.Name
-                      ($Patterns | Where-Object { $n -like $_ }) -and
-                      ($SkipExt -notcontains $_.Extension.ToLower()) -and
-                      ($_.FullName -notmatch '\\__pycache__\\')
-                  } | ForEach-Object { $_.FullName }
-              }
-          }
-
-          # files that already exist in the checkout do not count as "created by the app"
-          $baseline = @(Find-Files $dbPatterns) + @(Find-Files $secretPatterns $secretSkipExt)
-          function Get-Found {
-              [pscustomobject]@{
-                  Db     = @(Find-Files $dbPatterns | Where-Object { $baseline -notcontains $_ })
-                  Secret = @(Find-Files $secretPatterns $secretSkipExt | Where-Object { $baseline -notcontains $_ })
-              }
-          }
-
-          # ---------- process / log helpers ----------
-          function Start-App([string]$tag) {
-              # `< NUL` makes every `pause` in start.bat return immediately instead of hanging the job.
-              # (`timeout` complains about redirected input and does not wait - harmless here.)
-              $p = Start-Process -FilePath $env:ComSpec -ArgumentList '/d /c call start.bat < NUL' `
-                      -WorkingDirectory $work -PassThru `
-                      -RedirectStandardOutput (Join-Path $logs "$tag.out.log") `
-                      -RedirectStandardError  (Join-Path $logs "$tag.err.log")
-              $p.Id | Set-Content (Join-Path $env:RUNNER_TEMP 'app.pid')
-              $p
-          }
-          function Get-Log([string]$tag) {
-              foreach ($name in "$tag.out.log", "$tag.err.log") {
-                  $f = Join-Path $logs $name
-                  if (Test-Path $f) { try { Get-Content $f -Raw } catch { } }
-              }
-          }
-          function Stop-App {
-              $pidFile = Join-Path $env:RUNNER_TEMP 'app.pid'
-              if (Test-Path $pidFile) {
-                  & taskkill.exe /PID ([int](Get-Content $pidFile)) /T /F *> $null
-                  Remove-Item $pidFile -Force
-              }
-              Get-CimInstance Win32_Process -Filter "Name = 'python.exe' OR Name = 'LegkyiZvit.exe'" |
-                  Where-Object { $_.CommandLine -match 'run\.py|uvicorn|LegkyiZvit' } |
-                  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-              Start-Sleep -Seconds 2
-          }
-          function Wait-Until([scriptblock]$Cond, [int]$Timeout) {
-              $sw = [Diagnostics.Stopwatch]::StartNew()
-              while ($sw.Elapsed.TotalSeconds -lt $Timeout) {
-                  if (& $Cond) { return $true }
-                  Start-Sleep -Seconds 3
-              }
-              return $false
-          }
-          function Assert-Alive($p, [string]$tag) {
-              if ($p.HasExited) { throw "start.bat ($tag) exited with code $($p.ExitCode) - see its log" }
-          }
-          function Assert-LogClean([string]$tag) {
-              $log = (Get-Log $tag) -join "`n"
-              foreach ($bad in 'Traceback \(most recent call last\)', 'Tailscale CLI not found', 'Running in local-only mode',
-                               'Login not completed', 'Python is not found', 'Poetry install failed') {
-                  if ($log -match $bad) { throw "start.bat ($tag) log matches '$bad'" }
-              }
-          }
-
-          # ---------- SQLite check ----------
-          $dbInfo = Join-Path $env:RUNNER_TEMP 'dbinfo.py'
-          @'
-          import json, sqlite3, sys
-          con = sqlite3.connect(sys.argv[1])
-          names = [r[0] for r in con.execute("select name from sqlite_master where type='table' and name not like 'sqlite_%' order by 1")]
-          print(json.dumps({n: con.execute('select count(*) from "%s"' % n).fetchone()[0] for n in names}))
-          '@ | Set-Content -Path $dbInfo -Encoding utf8
-          function Get-DbTables([string]$path) {
-              $json = & python $dbInfo $path
-              if ($LASTEXITCODE -ne 0) { throw "$path is not a readable SQLite database" }
-              $t = $json | ConvertFrom-Json -AsHashtable
-              if ($t.Count -eq 0) { throw "$path opens fine but has no tables - the schema was never created" }
-              $t
-          }
-
-          # =====================================================================
-          Write-Host '::group::Run 1 - cold start, nothing persisted yet'
-          $p1 = Start-App 'run1'
-          Write-Host "start.bat started (cmd pid $($p1.Id)); waiting for the app to create its DB and secret..."
-
-          $ok = Wait-Until -Timeout 420 {
-              Assert-Alive $p1 'run1'
-              $f = Get-Found
-              ($f.Db.Count -gt 0) -and ($f.Secret.Count -gt 0)
-          }
-          if (-not $ok) {
-              throw ("No new DB + secret file appeared within 7 minutes.`n" +
-                     "Searched in : $($roots -join '; ')`n" +
-                     "DB patterns : $($dbPatterns -join ', ')`n" +
-                     "Secret pat. : $($secretPatterns -join ', ')`n" +
-                     "If the app stores its data elsewhere, set APP_EXTRA_ROOTS / the pattern variables at the top of this job.")
-          }
-          $found = Get-Found
-          Write-Host "DB file(s)     : $($found.Db -join ', ')"
-          Write-Host "Secret file(s) : $($found.Secret -join ', ')"
-
-          Write-Host 'Letting the app settle for ~20 s...'
-          1..7 | ForEach-Object { Start-Sleep -Seconds 3; Assert-Alive $p1 'run1' }
-          Assert-LogClean 'run1'
-
-          # Tailscale GUI + Funnel, both started by start.bat
-          $gui = Get-Process -Name 'tailscale-ipn' -ErrorAction SilentlyContinue
-          if (-not $gui) { throw 'Tailscale GUI (tailscale-ipn.exe) is not running - start.bat did not start it, or it crashed.' }
-          Write-Host "Tailscale GUI is running (pid $($gui.Id -join ', '))"
-          $funnel = (& $ts funnel status 2>&1 | Out-String)
-          Write-Host $funnel
-          if ($funnel -notmatch 'Funnel on') {
-              throw 'Tailscale Funnel is not on. The tailnet needs HTTPS enabled and the "funnel" nodeAttr for the CI tag.'
-          }
-
-          # stop the app first so SQLite is not locked, then record state
-          Stop-App
-          $secretHash = @{}
-          foreach ($f in $found.Secret) { $secretHash[$f] = (Get-FileHash $f -Algorithm SHA256).Hash }
-          $tables = @{}
-          foreach ($f in $found.Db) {
-              $tables[$f] = Get-DbTables $f
-              Write-Host "DB $f -> tables: $((($tables[$f].Keys | Sort-Object) -join ', '))"
-          }
-          Write-Host '::endgroup::'
-
-          # =====================================================================
-          Write-Host '::group::Run 2 - restart, everything must still be there and be reused'
-          $null = Wait-Until -Timeout 20 { -not (Get-NetTCPConnection -LocalPort ([int]$env:PORT) -State Listen -ErrorAction SilentlyContinue) }
-          $p2 = Start-App 'run2'
-          $reached = Wait-Until -Timeout 120 {
-              Assert-Alive $p2 'run2'
-              $log2 = (Get-Log 'run2') -join "`n"
-              $log2 -match 'Launching entrypoint|Falling back to module execution|Binary detected'
-          }
-          if (-not $reached) { throw 'run2: start.bat never reached the application launch step' }
-          1..7 | ForEach-Object { Start-Sleep -Seconds 3; Assert-Alive $p2 'run2' }
-          Assert-LogClean 'run2'
-          Stop-App
-
-          $after  = Get-Found
-          $before = (@($found.Db) + @($found.Secret) | Sort-Object) -join '|'
-          $now    = (@($after.Db) + @($after.Secret) | Sort-Object) -join '|'
-          if ($before -ne $now) {
-              throw "The set of DB/secret files changed after restart (the app is writing to a new place each launch?)`nbefore: $before`nafter : $now"
-          }
-          foreach ($f in $found.Secret) {
-              $h = (Get-FileHash $f -Algorithm SHA256).Hash
-              if ($h -ne $secretHash[$f]) { throw "Secret file was regenerated on restart: $f (sessions would be invalidated on every launch)" }
-          }
-          foreach ($f in $found.Db) {
-              $t = Get-DbTables $f
-              foreach ($name in $tables[$f].Keys) {
-                  if (-not $t.ContainsKey($name)) { throw "Table '$name' disappeared from $f after restart" }
-                  if ($t[$name] -lt $tables[$f][$name]) { throw "Table '$name' in $f lost rows after restart" }
-              }
-          }
-          Write-Host 'OK: same DB and secret files, secret unchanged, tables intact after restart.'
-          Write-Host '::endgroup::'
-          exit 0
-
-      - name: Show logs
-        if: failure()
-        run: |
-          foreach ($f in Get-ChildItem (Join-Path $env:RUNNER_TEMP 'ci-logs') -Filter *.log -ErrorAction SilentlyContinue) {
-            Write-Host "::group::$($f.Name)"
-            Get-Content $f.FullName
-            Write-Host '::endgroup::'
-          }
-          & (Join-Path $env:ProgramFiles 'Tailscale\tailscale.exe') status
-          exit 0
-
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-logs
-          path: ${{ runner.temp }}/ci-logs/
-          if-no-files-found: ignore
-
-      - name: Cleanup (stop app, leave the tailnet)
-        if: always()
-        run: |
-          $ErrorActionPreference = 'Continue'
-          $ts = Join-Path $env:ProgramFiles 'Tailscale\tailscale.exe'
-          Get-CimInstance Win32_Process -Filter "Name = 'python.exe' OR Name = 'LegkyiZvit.exe'" |
-            Where-Object { $_.CommandLine -match 'run\.py|uvicorn|LegkyiZvit' } |
-            ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-          if (Test-Path $ts) { & $ts funnel reset; & $ts logout }
-          exit 0

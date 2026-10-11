@@ -1,32 +1,40 @@
-"""Report and ReportItem ORM models."""
+"""Monthly reports and saved line-item price snapshots."""
 
-from typing import TYPE_CHECKING
-from sqlalchemy import ForeignKey, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from __future__ import annotations
 
-from app.db.base import Base
+from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy import UniqueConstraint
 
-if TYPE_CHECKING:
-    from app.db.models.store import Store
+if False:  # pragma: no cover - typing-only relationship targets
     from app.db.models.product import Product
+    from app.db.models.store import Store
 
 
-class Report(Base):
+class Report(SQLModel, table=True):
     __tablename__ = "reports"
     __table_args__ = (UniqueConstraint("store_id", "period"),)
-    id: Mapped[int] = mapped_column(primary_key=True)
-    store_id: Mapped[int] = mapped_column(ForeignKey("stores.id"))
-    period: Mapped[str]  # "YYYY-MM"
-    status: Mapped[str] = mapped_column(default="draft")  # "draft" | "submitted" (= locked)
-    store: Mapped["Store"] = relationship()
-    items: Mapped[list["ReportItem"]] = relationship(cascade="all, delete-orphan")
+
+    id: int | None = Field(default=None, primary_key=True)
+    store_id: int = Field(foreign_key="stores.id", index=True)
+    period: str = Field(index=True)  # "YYYY-MM"
+    status: str = Field(default="draft", index=True)  # "draft" | "submitted"
+
+    store: Store = Relationship()
+    items: list[ReportItem] = Relationship(
+        back_populates="report",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
-class ReportItem(Base):
+class ReportItem(SQLModel, table=True):
     __tablename__ = "report_items"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    report_id: Mapped[int] = mapped_column(ForeignKey("reports.id"))
-    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
-    quantity: Mapped[int]
-    unit_price_cents: Mapped[int]  # price this quantity was reported at (old/new price in a change month)
-    product: Mapped["Product"] = relationship()
+
+    id: int | None = Field(default=None, primary_key=True)
+    report_id: int = Field(foreign_key="reports.id", index=True)
+    product_id: int = Field(foreign_key="products.id", index=True)
+    quantity: int
+    # Snapshot prevents future price changes rewriting previously submitted reports.
+    unit_price_cents: int
+
+    report: Report = Relationship(back_populates="items")
+    product: Product = Relationship()

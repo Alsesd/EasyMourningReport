@@ -1,295 +1,86 @@
 # EasyMourningReport
 
-<div align="center">
+A small FastAPI application for monthly product reports from multiple stores.
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
-![SQLite](https://img.shields.io/badge/Database-SQLite-5B5BD6?logo=sqlite&logoColor=white)
-![Poetry](https://img.shields.io/badge/Package-Poetry-60A5FA?logo=poetry&logoColor=white)
-![License](https://img.shields.io/badge/License-Not%20specified-lightgrey)
-![Status](https://img.shields.io/badge/Status-Active-success)
-![GitHub](https://img.shields.io/badge/GitHub-Alsesd%2FEasyMourningReport-181717?logo=github)
+## Architecture
 
-</div>
-
-Легкий, надійний та зручний веб-застосунок для збору та обробки щомісячних товарних звітів із кількох магазинів. Він допомагає автоматизувати рутинну роботу адміністратора, скорочує помилки при підрахунках і забезпечує прозорий контроль над звітами, цінами та історією змін.
-
-## Про проект
-
-`EasyMourningReport` призначений для компаній, де кілька торгових точок регулярно подають звіти про продажі. Замість ручного ведення Excel-таблиць або розкиданих форм, система централізує весь процес в одному веб-додатку.
-
-Адміністратор:
-- веде каталог товарів та цін;
-- додає магазини та користувачів;
-- контролює звіти по місяцях;
-- переглядає журнал дій та історію змін.
-
-Магазин:
-- входить у систему;
-- обирає місяць;
-- вносить лише кількості товарів;
-- зберігає чернетку або надсилає звіт;
-- отримує автоматично підраховані суми.
-
-## Чому це корисно
-
-- зменшує ручний ввод даних;
-- знижує ризик помилок у підрахунках;
-- спрощує контроль за кількома магазинами;
-- зберігає історію змін цін та звітів;
-- дозволяє керувати процесом без окремого складного ERP-пакету.
-
-## Основні можливості
-
-- Управління товарами та їхніми цінами
-- Масове створення товарів з Excel (.xlsx): колонка A — назва, колонка B — ціна
-- Експорт зведеного звіту в Excel (.xlsx): назва, ціна, звітована кількість і сума
-- Керування магазинами та обліковими записами
-- Формування щомісячних звітів
-- Автоматичний розрахунок сум
-- Зведені звіти по місяцях
-- Журнал дій та аудиту
-- Історія змін цін з підтримкою місячної логіки
-- Архівування товарів і магазинів замість безповоротного видалення
-- Автоматичні резервні копії бази даних
-- Безпечне зберігання паролів через PBKDF2-хешування
-- Підтримка запуску як локального веб-додатку або Windows EXE
-
-## Технологічний стек
-
-- Python 3.10+
-- FastAPI
-- Uvicorn
-- SQLAlchemy
-- Jinja2
-- SQLite
-- Poetry
-
-## Структура проекту
+The application is a modular monolith: routes handle HTTP, services hold business
+rules, repositories access persistence, SQLModel defines the database tables,
+and Jinja templates/static assets render the UI.
 
 ```text
-EasyMourningReport/
-├── app/
-│   ├── core/             # Інфраструктура (paths, security, ratelimit, ui, dependencies)
-│   ├── db/               # База даних SQLAlchemy (models, repositories, migrations, backup)
-│   ├── services/         # Чиста бізнес-логіка (pricing, excel)
-│   ├── routes/           # Модульні маршрути (auth, report, root, pwa, admin/*)
-│   ├── static/           # PWA та статичні ресурси
-│   ├── templates/        # Шаблони Jinja2
-│   └── main.py           # Фабрика FastAPI, життєвий цикл і глобальні middleware
-├── tests/                # 12 тестових наборів
-├── build.py              # Скрипт збірки standalone EXE через PyOxidizer
-├── pyoxidizer.bzl        # Конфігурація пакування PyOxidizer
-├── DOCS.md               # Повна архітектурна та технічна документація
-├── README.md
-├── pyproject.toml
-├── poetry.lock
-├── run.py                # Головна точка входу (uvicorn)
-├── flake.nix             # Nix flake для автоматизації на Linux
-├── start.bat             # Скрипт автоматизації для Windows (Tailscale Funnel)
-└── backups/              # Снапшоти бази даних SQLite
+app/
+├── core/          # Paths, security, validation, shared UI helpers
+├── db/
+│   ├── models/    # SQLModel table declarations by entity
+│   ├── repositories/ # SQL queries and persistence operations
+│   ├── session.py # Engine and request-scoped Session dependency
+│   ├── bootstrap.py # Schema initialization and legacy SQLite migration
+│   └── backup.py  # SQLite online backups
+├── routes/        # Public, store, and admin HTTP routes
+├── services/      # Pricing and Excel logic
+├── templates/     # Jinja2 templates
+├── static/        # CSS and PWA assets
+├── main.py        # FastAPI application and lifespan
+└── __main__.py    # Stable packaged entry point
 ```
 
-## Вимоги
+## Database
 
-Перед запуском переконайтеся, що у вас встановлено:
+SQLModel is used for ORM model declarations. Existing SQLAlchemy query expressions
+remain usable because SQLModel is built on SQLAlchemy; the migration is intentionally
+incremental so report calculations and historical price behavior do not change.
 
-- Python 3.10 або новіше
-- Nix with flakes enabled
-- Git
+The packaged Windows application keeps SQLite as its default database so it remains
+portable and does not require a separate database server. The database, secret key,
+and backups are stored beside the executable when writable, otherwise under the
+user's application-data directory. Do not delete `reports.db` or `secret.key`.
 
-Для Windows також можна використовувати готовий `start.bat` або скомпільований `.exe` із релізу.
+The current schema preserves these core concepts:
 
-## Встановлення
+- `products`: canonical product catalogue and current price cache;
+- `product_prices`: period-based price history;
+- `stores`: stores with archive flags;
+- `users`: admin/store login and password hash;
+- `reports`: one report per store and month, with draft/submitted status;
+- `report_items`: quantities and unit-price snapshots;
+- `audit_log`: application audit events.
 
-### 1. Клонування репозиторію
+Schema creation and compatibility migration are run by the existing bootstrap layer.
+Before changing schema fields, add a migration and tests against a copy of an existing
+`reports.db`. Never test a destructive migration against the only production database.
+
+## Install and run
+
+Requires Python 3.10+ and Poetry.
 
 ```bash
 git clone https://github.com/Alsesd/EasyMourningReport.git
 cd EasyMourningReport
-```
-
-### 2. Встановлення залежностей
-
-Poetry є єдиним джерелом залежностей проєкту; версії та транзитивні залежності фіксуються у `poetry.lock`.
-
-```bash
 poetry install
-```
-
-У Windows, якщо команда `poetry` не доступна в PATH, можна використовувати `python -m poetry install`. Для відтворюваного середовища не встановлюйте залежності застосунку окремо через `pip`.
-
-## Запуск
-
-### Варіант 1: запуск у Nix dev shell
-
-```bash
-nix develop
-poetry install
-serve
-```
-
-Nix надає Python і Poetry, а саме `poetry.lock` визначає Python-залежності. Команду `poetry install` потрібно виконати після першого клонування або після зміни залежностей. Для автоматичного перезавантаження під час розробки використовуйте `serve --reload`.
-
-### Варіант 2: запуск через Python
-
-```bash
 python run.py
 ```
 
-Після запуску відкрийте у браузері:
+Open http://127.0.0.1:8000. On first launch the admin password is generated and printed
+to the console unless `ADMIN_PASSWORD` is set.
 
-```text
-http://localhost:8000
-```
-
-### Варіант 3: запуск на Windows через `start.bat`
-
-```bat
-start.bat
-```
-
-Цей сценарій автоматично налаштовує середовище та запускає локальний сервер.
-
-#### Як запускати просто `uvicorn` у Windows
-
-Один раз запустіть PowerShell у корені проєкту та виконайте:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\setup-windows-uvicorn.ps1
-```
-
-Закрийте й відкрийте PowerShell. Після цього в корені проєкту команда працюватиме коротко:
-
-```powershell
-uvicorn --app-dir . app.main:app --reload
-```
-
-Скрипт додає функцію `uvicorn` до вашого PowerShell-профілю. У каталозі, де є `pyproject.toml`, вона автоматично запускає Uvicorn через Poetry; в інших каталогах передає виклик звичайному глобальному `uvicorn`, якщо він установлений. Це налаштування виконується один раз для вашого облікового запису Windows.
-
-
-### Варіант 4: запуск готового EXE
-
-Якщо ви завантажили реліз із GitHub:
-
-1. Розпакуйте архів;
-2. Запустіть `start.bat` або `LegkyiZvit.exe`;
-3. Відкрийте адресу `http://localhost:8000`.
-
-Під час першого запуску пароль адміністратора генерується автоматично і виводиться в консоль. Збережіть його у безпечному місці.
-
-## Як користуватися застосунком
-
-### Для адміністратора
-
-1. Відкрийте панель налаштувань.
-2. Додайте товари та встановіть актуальні ціни.
-3. Створіть магазини та облікові записи працівників.
-4. Переглядайте складені звіти за місяць.
-5. Блокуйте або розблоковуйте окремі звіти.
-6. Перевіряйте журнал активностей та історію змін.
-7. Відновлюйте архівовані товари або магазини за потреби.
-
-### Для магазину
-
-1. Увійдіть до системи під логіном магазину.
-2. Перейдіть у розділ "Звіт".
-3. Виберіть потрібний місяць.
-4. Введіть кількості товарів.
-5. Збережіть чернетку або надішліть звіт.
-6. Після відправлення звіт блокується до розблокування адміністратора.
-
-## Як працює логіка системи
-
-- Адміністратор визначає товарний каталог та ціни.
-- Кожен магазин вводить кількості за обраний період.
-- Сервер автоматично обчислює суми на основі актуальних цін.
-- При зміні ціни система зберігає історію, щоб правильне підрахування працювало для різних місяців.
-- Товари та магазини, які вже брали участь у звітах, не видаляються без попередження: вони архівуються.
-- Усі дії учасників системи фіксуються в журналі аудиту.
-
-## Безпека
-
-- Паролі зберігаються у вигляді PBKDF2-хешів із випадковою сіллю.
-- Адміністративний пароль генерується автоматично при першому запуску.
-- Логіни магазинів унікальні та нечутливі до регістру.
-- Дублікати назв та логінів відхиляються із поясненням.
-- Система автоматично створює резервні копії даних перед важливими змінами.
-
-## Резервні копії
-
-Додаток автоматично зберігає резервні копії бази даних:
-
-- під час запуску;
-- під час зупинки;
-- раз на годину при зміні даних;
-- перед видаленням важливих елементів.
-
-Резервні копії зберігаються в каталозі `backups/`.
-
-## Тести
-
-Запуск тестів:
+## Tests
 
 ```bash
-python -m unittest discover -s tests
+python -m unittest discover -s tests -v
+python -m compileall -q app run.py tests
 ```
 
-Тести перевіряють основні правила підрахунку цін та логіки обробки даних.
+## Windows executable
 
-## Розробка та збірка standalone EXE (PyOxidizer)
-
-Проект підтримує збірку застосунку за допомогою `PyOxidizer 0.24` (ця версія вбудовує CPython 3.10):
+The PyOxidizer build packages Python and dependencies into `dist/LegkyiZvit.exe` and
+stages `dist/lib/`, `dist/app/templates/`, and `dist/app/static/` alongside it.
+Do not move the executable away from these resources.
 
 ```powershell
 python -m pip install pyoxidizer==0.24.0
 python build.py
 ```
 
-Результат — `dist/LegkyiZvit.exe` разом із каталогами `dist/lib/` і `dist/app/`. **Не переносіть EXE окремо:** `lib/` містить Python-залежності, а `app/` — шаблони й PWA-ресурси. Конфігурація закріплює версії залежностей, сумісні з Python 3.10, а CI запускає зібраний EXE і перевіряє сторінку входу, CSS та збереження бази/секрету після перезапуску. Детальніше дивіться у [DOCS.md](DOCS.md).
-
-Головний запусковий файл:
-
-```bash
-run.py
-```
-
-База даних `reports.db`, `secret.key` і каталог `backups/` створюються автоматично поруч із `LegkyiZvit.exe` (незалежно від того, звідки його запущено) і не губляться після перезапуску. Якщо ця папка тільки для читання (наприклад, `Program Files`), дані зберігаються в `%LOCALAPPDATA%\LegkyiZvit`. Свою папку можна задати змінною середовища `LEGKYI_DATA_DIR`. Шлях до папки з даними виводиться у вікні при старті.
-
-Розпакуйте zip-архів перед запуском: з вікна перегляду архіву Windows запускає exe з тимчасової папки.
-
-## Розгортання через Tailscale Funnel
-
-Для публічного доступу без власного домену можна використовувати Tailscale Funnel:
-
-```bash
-tailscale funnel --bg "${PORT:-8000}"
-```
-
-Це дозволяє підняти локальний застосунок через HTTPS, не купуючи домен.
-
-## Поради для використання
-
-- Не видаляйте вручну каталог `backups/`.
-- Зберігайте файл `secret.key` у безпеці.
-- Під час перенесення середовища копіюйте `reports.db` та `secret.key` разом.
-- Для продакшн-середовища краще використовувати стабільний запуск через `uvicorn` або інший серверний процес.
-
-## Ліцензія
-
-У репозиторії не вказано явну ліцензію. До додавання ліцензії не слід вважати код дозволеним для повторного використання, модифікації чи розповсюдження на умовах open source. Власник проєкту має обрати й додати відповідну ліцензію (наприклад, файл `LICENSE`), якщо планує надати такі дозволи.
-
-## Контакт
-
-- Репозиторій: https://github.com/Alsesd/EasyMourningReport
-- Автор: Alsesd
-
-Дякуємо, що використовуєте `EasyMourningReport`. Сподіваємося, що цей застосунок сприятиме більш швидкому, прозорому та безпечному веденню щомісячних звітів у вашому бізнесі.
-
----
-
-<div align="center">
-
-Made with ❤️ for easier monthly reporting
-
-</div>
+The CI smoke test starts the packaged executable, checks the login page and CSS, and
+verifies that the SQLite database and session secret survive a restart.

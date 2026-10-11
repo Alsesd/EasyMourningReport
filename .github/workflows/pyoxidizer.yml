@@ -2,7 +2,7 @@ name: PyOxidizer package smoke test
 
 on:
   push:
-    branches: [restructure]
+    branches: [restructure, rewrite/sqlmodel-clean-architecture]
   workflow_dispatch:
 
 permissions:

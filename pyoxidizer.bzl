@@ -1,8 +1,7 @@
 """PyOxidizer configuration for the standalone LegkyiZvit application.
 
 PyOxidizer 0.24 bundles CPython 3.10. Runtime modules and extension modules
-are placed in ./lib. The install manifest places templates and static assets
-beside the executable so frozen asset lookup remains predictable.
+are placed in ./lib. Templates and static assets are staged beside the executable.
 """
 
 def make_exe():
@@ -18,19 +17,19 @@ def make_exe():
     python_config.oxidized_importer = False
     python_config.sys_frozen = True
 
-    # PyOxidizer/Cargo project names cannot contain the .exe extension;
-    # Windows adds it when materializing the executable.
     exe = dist.to_python_executable(
         name="LegkyiZvit",
         packaging_policy=policy,
         config=python_config,
     )
 
-    # Pin versions known to support the CPython 3.10 distribution bundled here.
+    # Keep this explicit list aligned with pyproject.toml. SQLModel still uses
+    # SQLAlchemy internally, and both packages are bundled by pip_install.
     exe.add_python_resources(
         exe.pip_install([
             "fastapi==0.115.12",
             "uvicorn==0.34.0",
+            "sqlmodel==0.0.24",
             "sqlalchemy==2.0.40",
             "jinja2==3.1.6",
             "python-multipart==0.0.20",
@@ -49,7 +48,6 @@ def make_embedded_resources(exe):
 def make_install(exe):
     files = FileManifest()
     files.add_python_resource(".", exe)
-    # Additional files are staged through FileManifest (not PythonExecutable).
     assets = glob(
         [CWD + "/app/templates/**/*", CWD + "/app/static/**/*"],
         strip_prefix=CWD + "/",
