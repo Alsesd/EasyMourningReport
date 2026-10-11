@@ -105,21 +105,7 @@ jobs:
           # make `tailscale` visible to start.bat (`where tailscale`) in the next steps
           $dir | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
-      # Log the node in through the service. --unattended keeps the tunnel up without
-      # an interactive session; the GUI itself is still started (and checked) via start.bat.
-      - name: Join the tailnet
-        env:
-          TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
-        run: |
-          $ts = Join-Path $env:ProgramFiles 'Tailscale\tailscale.exe'
-          $svc = Get-Service -Name Tailscale -ErrorAction Stop
-          if ($svc.Status -ne 'Running') { Start-Service -Name Tailscale }
 
-          & $ts up --auth-key="$env:TS_AUTHKEY" --hostname="ci-$env:GITHUB_RUN_ID" --unattended --timeout=90s
-          if ($LASTEXITCODE -ne 0) {
-            throw 'tailscale up failed - check TS_AUTHKEY (expired? reusable + pre-approved? tag allowed?)'
-          }
-          & $ts status
 
       - name: Run start.bat twice - check Tailscale GUI, DB and secret
         run: |
