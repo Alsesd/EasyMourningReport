@@ -16,7 +16,7 @@ class PackagedEntryPointTests(unittest.TestCase):
         run_server.assert_called_once()
         args, kwargs = run_server.call_args
         self.assertEqual(kwargs["host"], "127.0.0.1")
-        self.assertEqual(kwargs["port"], int(os.environ.get("PORT", "8000")) )
+        self.assertEqual(kwargs["port"], int(os.environ.get("PORT", "8000")))
         self.assertTrue(output.called)
         self.assertIn("Data folder:", output.call_args.args[0])
         sys.modules.pop("app.__main__", None)
