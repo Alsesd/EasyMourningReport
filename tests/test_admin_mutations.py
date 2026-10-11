@@ -19,7 +19,7 @@ from app.db.base import Base
 from app.db.models.product import Product, ProductPrice
 from app.db.models.store import Store
 from app.db.models.user import User
-from app.routes.admin.products import product_add, product_edit, product_import, product_restore
+from app.routes.admin.products import product_add, product_delete, product_edit, product_import, product_restore
 from app.routes.admin.stores import store_add, store_delete, store_edit, store_password, store_restore
 from app.services.pricing import BASE_PERIOD, offered_prices
 
