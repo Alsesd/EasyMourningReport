@@ -7,8 +7,8 @@ from app.db.models.audit import AuditLog
 from app.db.models.user import User
 from app.db.repositories.audit import ACTIONS
 from app.db.session import get_db
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlmodel import select
+from sqlmodel import Session
 
 
 router = APIRouter()
