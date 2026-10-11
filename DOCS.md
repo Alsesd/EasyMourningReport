@@ -209,14 +209,12 @@ All endpoints are modularized under `app/routes/`:
 
 ## 7. Testing
 
-The project uses Python's standard `unittest` framework:
+The project uses pytest for unit tests and FastAPI HTTP integration tests (via `TestClient`). The suite must pass and keep application branch coverage at or above 95%:
 ```bash
-# Run the entire test suite
-poetry run python -m unittest discover -s tests -v
-
-# Run the CI compilation gate
-python -m compileall -q app run.py tests
+poetry run pytest --cov=app --cov-branch --cov-fail-under=95
 ```
+
+In the Nix development shell, the `test` command runs this same gate. The Windows packaging workflow is manual-only; it restores the pip cache, runs the test gate, and builds the executable only after tests pass.
 
 ### Test Suites Included:
 - `test_backup.py`: Verifies online backups, changes skipping, and snapshot retention.
@@ -250,7 +248,7 @@ The build script stages a complete runnable distribution:
 - `dist/lib/` — Python modules and extension modules.
 - `dist/app/` — Jinja templates and static/PWA assets.
 
-Do not copy the EXE by itself. Keep both `lib/` and `app/` beside it. Run it from the extracted `dist/` directory (or run `start.bat` from the project root, which detects `dist/LegkyiZvit.exe`). The package smoke-test workflow builds this distribution, requests `/login` and `/static/app.css`, and verifies that the database and secret key persist after a restart.
+Do not copy the EXE by itself. Keep both `lib/` and `app/` beside it. Run it from the extracted `dist/` directory (or run `start.bat` from the project root, which detects `dist/LegkyiZvit.exe`). The manual package workflow first runs pytest with a 95% coverage gate, then builds the distribution, requests `/login`, CSS, and the PWA manifest, and verifies that the database and secret key persist after a restart.
 
 ### Runtime data
 
