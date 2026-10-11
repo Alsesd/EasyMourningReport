@@ -1,7 +1,7 @@
 """Store repository and validation queries."""
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlmodel import select
+from sqlmodel import Session
 
 from app.db.models.report import Report
 from app.db.models.store import Store
