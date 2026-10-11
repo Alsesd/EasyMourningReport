@@ -70,7 +70,6 @@
 ```text
 EasyMourningReport/
 ├── app/
-<<<<<<< HEAD
 │   ├── core/             # Інфраструктура (paths, security, ratelimit, ui, dependencies)
 │   ├── db/               # База даних SQLAlchemy (models, repositories, migrations, backup)
 │   ├── services/         # Чиста бізнес-логіка (pricing, excel)
@@ -82,22 +81,6 @@ EasyMourningReport/
 ├── build.py              # Скрипт збірки standalone EXE через PyOxidizer
 ├── pyoxidizer.bzl        # Конфігурація пакування PyOxidizer
 ├── DOCS.md               # Повна архітектурна та технічна документація
-=======
-│   ├── __init__.py
-│   ├── admin_routes.py   # Адміністративні маршрути
-│   ├── backup.py         # Резервні копії
-│   ├── bootstrap.py      # Ініціалізація та міграції БД
-│   ├── main.py           # FastAPI lifecycle, middleware та складання роутерів
-│   ├── models.py         # Моделі SQLAlchemy
-│   ├── pricing.py        # Правила історії цін і нормалізація логінів
-│   ├── ratelimit.py      # Обмеження частоти входу
-│   ├── reporting.py      # Побудова рядків і зведених звітів
-│   ├── security.py       # Паролі, секрет і перевірки запитів
-│   ├── static/
-│   └── templates/
-├── tests/
-├── .gitignore
->>>>>>> d0e9c189bb98664f827cf2f96c943cf80cf56a43
 ├── README.md
 ├── pyproject.toml
 ├── poetry.lock
