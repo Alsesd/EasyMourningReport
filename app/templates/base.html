@@ -2,8 +2,8 @@
 <html lang="uk"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#f4f7f5" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#101714" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F3F4F6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1013" media="(prefers-color-scheme: dark)">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Легкий звіт">
@@ -12,12 +12,11 @@
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
 <link rel="stylesheet" href="/static/app.css">
 <title>Легкий звіт</title></head><body class="{% block bodyclass %}{% endblock %}">
-<a class="skip-link" href="#main-content">Перейти до вмісту</a>
-{% if user %}<header class="top"><span class="brand"><span class="brand-mark" aria-hidden="true">ЛЗ</span><span>{{ user.store.name if user.store else 'Легкий звіт · Адміністратор' }}</span></span><form method="post" action="/logout" class="inline-form"><button type="submit" class="link-button">Вийти</button></form></header>{% endif %}
-<main id="main-content" tabindex="-1">
-{% if flash %}<div class="flash {{ flash.kind }}" role="status" aria-live="polite"><span>{{ flash.text }}</span><button type="button" class="x" aria-label="Закрити повідомлення" onclick="this.parentNode.remove()">×</button></div>{% endif %}
+{% if user %}<header class="top"><span class="brand">{{ user.store.name if user.store else 'Легкий звіт · Адміністратор' }}</span><form method="post" action="/logout" class="inline-form"><button type="submit" class="link-button">Вийти</button></form></header>{% endif %}
+<main>
+{% if flash %}<div class="flash {{ flash.kind }}" role="status"><span>{{ flash.text }}</span><button type="button" class="x" aria-label="Закрити" onclick="this.parentNode.remove()">×</button></div>{% endif %}
 {% block body %}{% endblock %}</main>
-{% if user and user.role == 'admin' %}{% set p = request.url.path %}<nav class="tabs" aria-label="Головна навігація адміністратора">
+{% if user and user.role == 'admin' %}{% set p = request.url.path %}<nav class="tabs">
 <a href="/admin"{% if p == '/admin' %} aria-current="page"{% endif %}>Налаштування</a>
 <a href="/admin/reports?period={{ nav_period }}"{% if p.startswith('/admin/reports') %} aria-current="page"{% endif %}>Звіти</a>
 <a href="/admin/summary?period={{ nav_period }}"{% if p.startswith('/admin/summary') %} aria-current="page"{% endif %}>Зведений</a>
