@@ -34,8 +34,12 @@
               if [ ! -d .venv ]; then
                 echo "Run 'poetry install' once to create the project environment."
               fi
+              if ! poetry check --lock >/dev/null 2>&1; then
+                echo "Refreshing Poetry lock file for the current pyproject.toml..."
+                poetry lock --no-interaction
+              fi
+              poetry install --no-interaction
               test() {
-                poetry run python -m pip install --disable-pip-version-check fastapi uvicorn sqlmodel sqlalchemy jinja2 python-multipart itsdangerous openpyxl pytest pytest-cov httpx
                 poetry run python -m pytest --cov=app --cov-branch --cov-fail-under=95 "$@"
               }
               echo "Start server: serve (or serve --reload)"
