@@ -1,8 +1,8 @@
 """PyOxidizer configuration for the standalone LegkyiZvit application.
 
-Python modules and extension modules live in ./lib so modules that need __file__
-(e.g. Jinja2/FastAPI integrations) behave like a normal filesystem install.
-Persistent data is resolved separately by app.core.paths next to the executable.
+PyOxidizer 0.24 bundles CPython 3.10. Runtime modules and extension modules
+are placed in ./lib so packages that rely on __file__ behave like a filesystem
+install. The full install tree must stay together when copied to dist/.
 """
 
 def make_exe():
@@ -12,8 +12,6 @@ def make_exe():
     policy.resources_location_fallback = None
 
     python_config = dist.make_python_interpreter_config()
-    # Execute app/__main__.py. This entry point is part of the app package and is
-    # therefore included by read_package_root; a loose run.py is not required.
     python_config.run_module = "app"
     python_config.module_search_paths = ["$ORIGIN/lib"]
     python_config.filesystem_importer = True
@@ -27,21 +25,21 @@ def make_exe():
         config=python_config,
     )
 
+    # Pin versions known to support the CPython 3.10 distribution bundled here.
     exe.add_python_resources(
         exe.pip_install([
-            "fastapi>=0.115",
-            "uvicorn>=0.30",
-            "sqlalchemy>=2.0",
-            "jinja2>=3.1",
-            "python-multipart>=0.0.9",
-            "itsdangerous>=2.2",
-            "openpyxl>=3.1.5",
+            "fastapi==0.115.12",
+            "uvicorn==0.34.0",
+            "sqlalchemy==2.0.40",
+            "jinja2==3.1.6",
+            "python-multipart==0.0.20",
+            "itsdangerous==2.2.0",
+            "openpyxl==3.1.5",
         ])
     )
     exe.add_python_resources(exe.read_package_root(path=".", packages=["app"]))
 
-    # Keep runtime assets beside their package module paths. app/main.py and
-    # app/core/ui.py resolve these using Path(__file__).parent.
+    # Keep assets at the paths resolved by app/main.py and app/core/ui.py.
     exe.add_filesystem_relative_files(
         files=[
             ("app/templates", "lib/app/templates"),
