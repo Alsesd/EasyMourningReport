@@ -7,7 +7,6 @@ exception handlers, static file mounting, and modular routes.
 import asyncio
 import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -18,6 +17,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.core import (
     FormError,
+    asset_dir,
     done,
     load_secret,
     render,
@@ -59,7 +59,7 @@ app.add_middleware(
 )
 
 # Static files / PWA assets
-STATIC_DIR = Path(__file__).resolve().parent / "static"
+STATIC_DIR = asset_dir("static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Include all modular endpoints
