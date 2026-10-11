@@ -1,9 +1,9 @@
 """Database connection, engine, session factory, and dependency."""
 
 from collections.abc import Generator
+from typing import Any
 
 from sqlalchemy import create_engine, event
-from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.paths import data_dir
@@ -20,7 +20,7 @@ engine = create_engine(
 
 @event.listens_for(engine, "connect")
 def _enable_sqlite_foreign_keys(
-    dbapi_connection: object, connection_record: object
+    dbapi_connection: Any, connection_record: Any
 ) -> None:
     """SQLite accepts FK declarations but does not enforce them unless enabled per connection."""
     cursor = dbapi_connection.cursor()
