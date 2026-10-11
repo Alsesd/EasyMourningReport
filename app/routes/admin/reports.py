@@ -9,8 +9,8 @@ from app.db.models.user import User
 from app.db.repositories.audit import audit
 from app.db.repositories.reports import build_lines, report_total
 from app.db.session import get_db
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlmodel import select
+from sqlmodel import Session
 
 
 router = APIRouter()
