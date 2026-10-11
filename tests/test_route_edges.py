@@ -150,8 +150,9 @@ class RouteEdgeTests(unittest.TestCase):
             report = Report(store_id=self.store_id, period=current_period(), status="submitted")
             db.add(report)
             db.commit()
-            response = report_status(req, report.id, "invalid", admin, db)
-            self.assertEqual(response.status_code, 400)
+            with self.assertRaises(HTTPException) as invalid_status:
+                report_status(req, report.id, "invalid", admin, db)
+            self.assertEqual(invalid_status.exception.status_code, 400)
             response = report_status(req, report.id, "draft", admin, db)
             self.assertEqual(response.status_code, 303)
             self.assertEqual(db.get(Report, report.id).status, "draft")
