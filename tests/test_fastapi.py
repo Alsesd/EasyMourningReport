@@ -1,5 +1,8 @@
 """FastAPI HTTP integration tests using Starlette's TestClient."""
 
+import json
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -16,6 +19,7 @@ def test_manifest_is_valid_and_uses_new_pwa_icon():
     manifest = response.json()
     assert manifest["name"] == "Легкий звіт"
     assert manifest["icons"][0]["src"] == "/static/icon.svg"
+    assert manifest["icons"][1]["src"] == "/static/apple-touch-icon.png"
 
 
 def test_new_pwa_icon_is_served_as_svg():
@@ -25,6 +29,7 @@ def test_new_pwa_icon_is_served_as_svg():
     assert "image/svg+xml" in response.headers["content-type"]
     assert "<svg" in response.text
     assert "Легкий звіт" in response.text
+    assert "f2c56b" in response.text
 
 
 def test_apple_touch_icon_is_a_valid_png():
@@ -39,8 +44,9 @@ def test_service_worker_uses_a_new_cache_version():
     response = client.get("/sw.js")
 
     assert response.status_code == 200
-    assert "legkyi-zvit-v4" in response.text
+    assert "legkyi-zvit-v5" in response.text
     assert "/static/icon.svg" in response.text
+    assert "caches.delete(key)" in response.text
 
 
 def test_login_page_is_rendered():
@@ -92,3 +98,17 @@ def test_missing_route_uses_html_error_page():
     assert response.status_code == 404
     assert "text/html" in response.headers["content-type"]
     assert "404" in response.text
+
+
+def test_manifest_file_is_valid_json_and_icon_files_exist():
+    static = Path(__file__).resolve().parent.parent / "app" / "static"
+    manifest = json.loads((static / "manifest.webmanifest").read_text(encoding="utf-8"))
+
+    assert manifest["icons"]
+    for icon in manifest["icons"]:
+        path = static / Path(icon["src"]).name
+        assert path.is_file()
+        if icon["type"] == "image/svg+xml":
+            assert "<svg" in path.read_text(encoding="utf-8")
+        else:
+            assert path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
