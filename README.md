@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
 ![SQLite](https://img.shields.io/badge/Database-SQLite-5B5BD6?logo=sqlite&logoColor=white)
 ![Poetry](https://img.shields.io/badge/Package-Poetry-60A5FA?logo=poetry&logoColor=white)
@@ -57,7 +57,7 @@
 
 ## Технологічний стек
 
-- Python 3.11+
+- Python 3.10+
 - FastAPI
 - Uvicorn
 - SQLAlchemy
@@ -94,7 +94,7 @@ EasyMourningReport/
 
 Перед запуском переконайтеся, що у вас встановлено:
 
-- Python 3.11 або новіше
+- Python 3.10 або новіше
 - Nix with flakes enabled
 - Git
 
@@ -246,7 +246,7 @@ python -m pip install pyoxidizer==0.24.0
 python build.py
 ```
 
-Результат — `dist/LegkyiZvit.exe` разом із каталогом `dist/lib/`. **Не переносіть EXE окремо:** `lib/` містить Python-залежності, шаблони й PWA-ресурси. Конфігурація закріплює версії залежностей, сумісні з Python 3.10, а CI запускає зібраний EXE і перевіряє сторінку входу, CSS та збереження бази/секрету після перезапуску. Детальніше дивіться у [DOCS.md](DOCS.md).
+Результат — `dist/LegkyiZvit.exe` разом із каталогами `dist/lib/` і `dist/app/`. **Не переносіть EXE окремо:** `lib/` містить Python-залежності, а `app/` — шаблони й PWA-ресурси. Конфігурація закріплює версії залежностей, сумісні з Python 3.10, а CI запускає зібраний EXE і перевіряє сторінку входу, CSS та збереження бази/секрету після перезапуску. Детальніше дивіться у [DOCS.md](DOCS.md).
 
 Головний запусковий файл:
 
