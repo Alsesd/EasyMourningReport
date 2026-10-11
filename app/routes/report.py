@@ -15,8 +15,8 @@ from app.services.pricing import offered_prices
 from collections import defaultdict
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlmodel import select
+from sqlmodel import Session
 
 
 router = APIRouter()
