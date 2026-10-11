@@ -1,11 +1,11 @@
 """Progressive Web App (PWA) static manifests and offline fallbacks."""
 
 from pathlib import Path
+from app.core.ui import render
 
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
 
-from app.core import render
 
 router = APIRouter()
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
