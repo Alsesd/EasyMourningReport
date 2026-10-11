@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block body %}
+{% set texts = {404: 'Сторінку не знайдено.', 405: 'Ця дія недоступна.'} %}
+<div class="login"><h1>Помилка {{ code }}</h1><p>{{ texts.get(code, message) }}</p>
+<p><a class="btn" href="/">На головну</a></p></div>
+{% endblock %}

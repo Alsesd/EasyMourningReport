@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% import "_ui.html" as ui %}{% block body %}
+{% set locked = report.status == 'submitted' %}
+<p class="crumb"><a href="/admin/reports?period={{ report.period }}">‹ Усі звіти за {{ report.period }}</a></p>
+<div class="head"><div><h1>{{ report.store.name }}</h1><span class="sub">{{ report.period }}</span></div>{{ ui.pill(report.status) }}</div>
+<form class="actions-row" method="post" action="/admin/reports/{{ report.id }}/status"{% if not locked %} data-confirm="Заблокувати звіт? Магазин не зможе його змінити, поки ви не розблокуєте."{% endif %}>
+<input type="hidden" name="status" value="{{ 'draft' if locked else 'submitted' }}"><button class="{{ '' if locked else 'primary' }}">{{ 'Розблокувати для редагування' if locked else 'Заблокувати звіт' }}</button>
+<p class="hint">{{ 'Звіт заблоковано: магазин не може його змінити.' if locked else 'Магазин ще може редагувати цей звіт. Блокування закриває його для змін.' }}</p></form>
+<div class="card">{% for l in lines %}<div class="item two"><span>{{ l.name }}{{ ui.price_tag(l.label) }}<span class="sub">{{ l.qty }} × {{ l.price|money }}</span></span><span class="sum">{{ l.sum|money }}</span></div>{% else %}<p class="note">Кількостей у звіті ще немає.</p>{% endfor %}
+{% for r in inactive_rows %}<div class="item two"><span>{{ r.name }}<span class="sub">{{ 'В архіві' if r.archived else 'Неактивний' }} · {{ r.lines }}</span></span><span class="sum">{{ r.sum|money }}</span></div>{% endfor %}
+<div class="item two"><b>Разом</b><span class="sum">{{ total|money }}</span></div></div>
+{% endblock %}

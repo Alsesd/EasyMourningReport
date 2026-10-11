@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% import "_ui.html" as ui %}{% block body %}
+<h1>Звіти</h1>
+{{ ui.month_nav('/admin/reports', period, prev_period, next_period) }}
+<div class="card">{% for x in rows %}{% if x.report %}<a class="item three" href="/admin/reports/{{ x.report.id }}">{% else %}<div class="item three">{% endif %}
+<span>{{ x.store.name }}{% if x.store.archived %}<span class="sub">В архіві</span>{% endif %}</span>{{ ui.pill(x.report.status if x.report else 'none') }}<span class="sum">{{ x.total|money }}</span>
+{% if x.report %}</a>{% else %}</div>{% endif %}{% else %}<p class="note">Магазинів ще немає.</p>{% endfor %}</div>
+<p><a class="btn" href="/admin/summary?period={{ period }}">Відкрити зведений звіт</a></p>
+{% endblock %}
