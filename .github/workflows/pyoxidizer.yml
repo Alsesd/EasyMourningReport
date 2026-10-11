@@ -37,7 +37,7 @@ jobs:
           python -m pip install fastapi==0.115.12 uvicorn==0.34.0 sqlmodel==0.0.24 sqlalchemy==2.0.40 jinja2==3.1.6 python-multipart==0.0.20 itsdangerous==2.2.0 openpyxl==3.1.5 pytest==8.3.5 pytest-cov==6.0.0 httpx==0.28.1
 
       - name: Quality gate — pytest, FastAPI integration tests, and 95% branch coverage
-        run: python -m pytest
+        run: python -m pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
 
   build-windows:
     name: Build and smoke-test the packaged application
