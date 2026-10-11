@@ -8,7 +8,7 @@ from app.db.repositories.reports import build_summary
 from app.db.session import get_db
 from app.services.excel import generate_summary_excel
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 
 router = APIRouter()
