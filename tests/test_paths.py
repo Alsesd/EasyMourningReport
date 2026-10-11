@@ -47,7 +47,7 @@ class DataDirTests(unittest.TestCase):
             with patch.object(paths, "__compiled__", None, create=True), \
                  patch.object(paths.sys, "frozen", True, create=True), \
                  patch.object(paths.sys, "executable", str(executable)):
-                self.assertEqual(paths._app_dir(), Path(tmp))
+                self.assertEqual(paths._app_dir(), executable.resolve().parent)
 
     def test_compiled_build_without_containing_dir_uses_argv_folder(self):
         with tempfile.TemporaryDirectory() as tmp:
