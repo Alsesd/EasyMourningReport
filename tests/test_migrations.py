@@ -10,8 +10,8 @@ os.environ["SECRET_KEY"] = "unit-test-only-secret-key"
 
 from sqlalchemy import create_engine
 
-from app.db import bootstrap
-from app.services.pricing import BASE_PERIOD
+from app import bootstrap, main
+from app.pricing import BASE_PERIOD
 
 
 class MigrationTests(unittest.TestCase):

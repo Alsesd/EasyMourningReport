@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from app.core import ratelimit
+from app import ratelimit
 
 
 class LoginRateLimitTests(unittest.TestCase):

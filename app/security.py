@@ -14,28 +14,22 @@ from urllib.parse import urlparse
 from fastapi import Request
 from fastapi.responses import Response
 
-from app.core.paths import data_dir
+from .models import DB_PATH
 
 
 def hash_pw(pw: str, salt: bytes | None = None) -> str:
     salt = salt or os.urandom(16)
-    return (
-        salt.hex()
-        + "$"
-        + hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, 200_000).hex()
-    )
+    return salt.hex() + "$" + hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, 200_000).hex()
 
 
 def check_pw(pw: str, stored: str) -> bool:
-    return hmac.compare_digest(
-        hash_pw(pw, bytes.fromhex(stored.split("$")[0])), stored
-    )
+    return hmac.compare_digest(hash_pw(pw, bytes.fromhex(stored.split("$")[0])), stored)
 
 
 def load_secret() -> str:
     if os.getenv("SECRET_KEY"):
         return os.environ["SECRET_KEY"]
-    path = data_dir() / "secret.key"  # generated once, kept next to the database/exe
+    path = DB_PATH.parent / "secret.key"  # generated once, kept next to the database/exe
     if not path.exists():
         path.write_text(secrets.token_hex(32))
     return path.read_text().strip()

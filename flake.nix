@@ -11,10 +11,7 @@
     forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
   in {
     devShells = forAllSystems (system: let
-      pkgs = import nixpkgs {
-        inherit system;
-        allowUnfree = true;
-      };
+      pkgs = import nixpkgs {inherit system;};
       serve = pkgs.writeShellScriptBin "serve" ''
         export HOST="''${HOST:-127.0.0.1}"
         if command -v tailscale >/dev/null 2>&1; then
@@ -28,7 +25,7 @@
       '';
     in {
       default = pkgs.mkShell {
-        packages = [pkgs.python311 pkgs.poetry pkgs.git serve pkgs.antigravity-cli];
+        packages = [pkgs.python311 pkgs.poetry pkgs.git serve];
         shellHook = ''
           export POETRY_VIRTUALENVS_IN_PROJECT=true
           echo "EasyMourningReport development shell (Poetry)"

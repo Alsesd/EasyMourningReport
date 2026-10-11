@@ -5,14 +5,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from app.core import paths
+from app import paths
 
 
 class DataDirTests(unittest.TestCase):
     def test_source_run_uses_project_folder(self):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("LEGKYI_DATA_DIR", None)
-            self.assertEqual(paths.data_dir(), Path(paths.__file__).resolve().parent.parent.parent)
+            self.assertEqual(paths.data_dir(), Path(paths.__file__).resolve().parent.parent)
 
     def test_env_override_is_created_and_wins(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,8 +1,8 @@
 """Where the app keeps its persistent files (reports.db, secret.key, backups/).
 
-Nuitka does not set sys.frozen, and in a onefile exe __file__ points into a temporary
+Nuitka does not set ``sys.frozen``, and in a onefile exe ``__file__`` points into a temporary
 folder that is deleted on exit, so data written there is lost. Nuitka exposes the folder that
-holds the exe as __compiled__.containing_dir instead.
+holds the exe as ``__compiled__.containing_dir`` instead.
 """
 
 import os
@@ -14,13 +14,13 @@ APP_NAME = "LegkyiZvit"
 
 def _app_dir() -> Path:
     """Folder of the exe (compiled build) or of the project (running from source)."""
-    compiled = globals().get("__compiled__")
+    compiled = globals().get("__compiled__")  # injected by Nuitka into every compiled module
     if compiled is not None:
         folder = getattr(compiled, "containing_dir", None)
         return Path(folder) if folder else Path(sys.argv[0]).resolve().parent
     if getattr(sys, "frozen", False):  # other freezers, e.g. PyInstaller
         return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent.parent.parent
+    return Path(__file__).resolve().parent.parent
 
 
 def _user_data_dir() -> Path:

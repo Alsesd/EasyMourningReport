@@ -10,8 +10,9 @@ A report for month X offers these price lines for a product:
   * the price in force in X (the latest record with period <= X);
   * plus the price that was in force *before* it, but only when a price change starts exactly in X.
 
-When there are multiple price changes in month X (e.g. period keys with suffixes like 'YYYY-MM_1'),
-all applicable prices in that month are offered (old price followed by each new price).
+So in the month of a change the product has two lines (old price, new price) for every store -
+whether or not any quantity was saved, and including stores created later. In later months only
+the new price remains; earlier months keep the old price.
 """
 from __future__ import annotations
 
@@ -22,46 +23,21 @@ BASE_PERIOD = "0000-00"  # "since always": the price a product was created with
 History = list[tuple[str, int]]  # [(period, price_cents), ...] sorted by period
 
 
-def period_month(p: str) -> str:
-    return p.split("_")[0] if "_" in p else p.split("#")[0]
-
-
-_period_month = period_month
-
-
 def offered_prices(history: History, period: str) -> list[int]:
     """Prices a report for ``period`` must offer, in display order (old price first, then new)."""
-    hist = sorted(history)
-    before = [cents for start, cents in hist if _period_month(start) < period]
-    current_month_prices = [
-        cents for start, cents in hist if _period_month(start) == period
-    ]
-
-    if current_month_prices:
-        if before:
-            # Preserve old price first if different from first new price
-            old = before[-1]
-            out = [old] if old not in current_month_prices else []
-            for p in current_month_prices:
-                if p not in out:
-                    out.append(p)
-            return out
-        # No prices before this month: just deduplicated current month prices
-        seen = []
-        for p in current_month_prices:
-            if p not in seen:
-                seen.append(p)
-        return seen
-
-    if before:
-        return [before[-1]]
-
-    return []
+    in_force = None
+    for i, (start, _) in enumerate(history):
+        if start <= period:
+            in_force = i
+    if in_force is None:
+        return []
+    start, price = history[in_force]
+    if start == period and in_force > 0:
+        return [history[in_force - 1][1], price]
+    return [price]
 
 
-def apply_price_change(
-    history: History, period: str, new_cents: int
-) -> tuple[History, int, int]:
+def apply_price_change(history: History, period: str, new_cents: int) -> tuple[History, int, int]:
     """Return (new_history, price_before_this_month, price_in_force_after_change).
 
     The change applies from ``period`` (the month in which the admin makes it):
@@ -71,7 +47,7 @@ def apply_price_change(
       * nothing happens if the price in force already equals ``new_cents``.
     """
     hist = sorted(history)
-    before = [p for s, p in hist if _period_month(s) < period]
+    before = [p for s, p in hist if s < period]
     if not before:
         raise ValueError("history has no price before this period")
     prev_price = before[-1]
@@ -98,8 +74,6 @@ def line_labels(derived: list[int], extra: list[int]) -> list[tuple[int, str]]:
     """
     if len(derived) == 2:
         lines = [(derived[0], "old"), (derived[1], "new")]
-    elif len(derived) > 2:
-        lines = [(derived[0], "old")] + [(p, "new") for p in derived[1:]]
     else:
         lines = [(p, "") for p in derived]
     lines += [(p, "saved") for p in extra if p not in derived]

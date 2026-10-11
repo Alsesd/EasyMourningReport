@@ -5,7 +5,7 @@ from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
-from app.db import backup
+from app import backup
 
 
 class BackupTests(unittest.TestCase):

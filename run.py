@@ -1,4 +1,4 @@
-"""Entry point for local runs and for the compiled executable (PyOxidizer).
+"""Entry point for local runs and for the compiled Windows exe (Nuitka).
 The package must be imported (not run as a plain script) so that relative
 imports inside app/ work and templates/static resolve correctly."""
 import os
@@ -6,7 +6,7 @@ import os
 import uvicorn
 
 from app.main import app
-from app.db import DB_PATH
+from app.models import DB_PATH
 
 if __name__ == "__main__":
     print(f"Data folder: {DB_PATH.parent}", flush=True)
