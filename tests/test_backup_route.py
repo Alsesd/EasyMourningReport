@@ -33,7 +33,7 @@ class BackupDownloadRouteTests(unittest.TestCase):
             with patch.object(backup_route, "backup_db", return_value=snapshot), \
                  patch.object(backup_route, "audit") as audit:
                 response = backup_route.download_backup_snapshot(self.request, self.user, self.db)
-            self.assertEqual(response.path, snapshot)
+            self.assertEqual(Path(response.path), snapshot)
             self.assertIn("reports-snapshot.db", response.headers["content-disposition"])
             audit.assert_called_once_with(
                 self.db, self.request, "admin", "admin", "завантажено бекап", snapshot.name
@@ -50,7 +50,7 @@ class BackupDownloadRouteTests(unittest.TestCase):
                  patch.object(backup_route, "audit", side_effect=RuntimeError("audit down")), \
                  patch.object(backup_route.logger, "exception") as log_exception:
                 response = backup_route.download_backup_snapshot(self.request, self.user, self.db)
-            self.assertEqual(response.path, db_file)
+            self.assertEqual(Path(response.path), db_file)
             self.db.rollback.assert_called_once_with()
             self.db.commit.assert_not_called()
             log_exception.assert_called_once()
