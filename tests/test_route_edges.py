@@ -179,8 +179,8 @@ class RouteEdgeTests(unittest.TestCase):
             db.commit()
             response = logs_page(make_request(), " ADMIN ", "вхід", db.get(User, self.admin_id), db)
             self.assertEqual(response.status_code, 200)
-            self.assertIn(b"вхід", response.body)
-            self.assertNotIn(b"збережено звіт", response.body)
+            self.assertEqual([entry.login for entry in response.context["logs"]], ["admin"])
+            self.assertEqual([entry.action for entry in response.context["logs"]], ["вхід"])
 
 
 if __name__ == "__main__":
