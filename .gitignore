@@ -2,3 +2,9 @@ reports.db
 backups/
 secret.key
 __pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+build/
+dist/
