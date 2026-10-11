@@ -16,7 +16,7 @@ def register_admin_routes(app, deps):
     ACTIONS, BASE_PERIOD, admin_period, admin_required, apply_price_change, audit, backup_db, build_lines, build_summary, clean_login, clean_name, current_period, done, FormError, get_db, hash_pw, history_of, in_form, latest_price, load_history, money, new_password, norm_login, norm_name, offered_prices, parse_period, render, report_total, same_name, save_history, to_cents, valid_login = (deps[name] for name in ["ACTIONS","BASE_PERIOD","admin_period","admin_required","apply_price_change","audit","backup_db","build_lines","build_summary","clean_login","clean_name","current_period","done","FormError","get_db","hash_pw","history_of","in_form","latest_price","load_history","money","new_password","norm_login","norm_name","offered_prices","parse_period","render","report_total","same_name","save_history","to_cents","valid_login"])
 
     # ---------- admin: settings ----------
-    @app.get("/admin")
+    @app.get("/")
     def admin_page(request: Request, user: User = Depends(admin_required), db: Session = Depends(get_db)):
         period = current_period()
         history = load_history(db)
@@ -46,7 +46,7 @@ def register_admin_routes(app, deps):
         return render(request, "admin.html", ctx)
     
     
-    @app.post("/admin/products/import")
+    @app.post("//products/import")
     async def product_import(request: Request, file: UploadFile = File(...),
                              user: User = Depends(admin_required), db: Session = Depends(get_db)):
         """Create products from an Excel workbook: column A=name, column B=price."""
@@ -111,7 +111,7 @@ def register_admin_routes(app, deps):
         return done(request, "/admin#products",
                     f"Імпорт завершено: додано {len(created)} товарів, пропущено дублікатів: {skipped}.")
 
-    @app.post("/admin/products")
+    @app.post("//products")
     def product_add(request: Request, name: str = Form(), price: str = Form(), user: User = Depends(admin_required),
                     db: Session = Depends(get_db)):
         name, cents = clean_name(name), to_cents(price)
@@ -124,7 +124,7 @@ def register_admin_routes(app, deps):
         return done(request, f"/admin#p{p.id}", f"Товар «{name}» додано з ціною {money(cents)}.")
     
     
-    @app.post("/admin/products/{pid}")
+    @app.post("//products/{pid}")
     def product_edit(request: Request, pid: int, name: str = Form(), price: str = Form(), active: str | None = Form(None),
                      user: User = Depends(admin_required), db: Session = Depends(get_db)):
         p = db.get(Product, pid)
@@ -165,7 +165,7 @@ def register_admin_routes(app, deps):
                     "ok" if said else "info")
     
     
-    @app.post("/admin/products/{pid}/delete")
+    @app.post("//products/{pid}/delete")
     def product_delete(request: Request, pid: int, user: User = Depends(admin_required), db: Session = Depends(get_db)):
         p = db.get(Product, pid)
         if not p:
@@ -186,7 +186,7 @@ def register_admin_routes(app, deps):
         return done(request, "/admin#products", f"Товар «{name}» видалено: у звітах його не було.")
     
     
-    @app.post("/admin/products/{pid}/restore")
+    @app.post("//products/{pid}/restore")
     def product_restore(request: Request, pid: int, user: User = Depends(admin_required), db: Session = Depends(get_db)):
         p = db.get(Product, pid)
         if not p:
@@ -207,7 +207,7 @@ def register_admin_routes(app, deps):
             raise FormError(f"Логін «{login}» уже зайнятий. Логіни не залежать від регістру: Store1 і store1 — той самий.")
     
     
-    @app.post("/admin/stores")
+    @app.post("//stores")
     def store_add(request: Request, name: str = Form(), login: str = Form(), password: str = Form(),
                   user: User = Depends(admin_required), db: Session = Depends(get_db)):
         name, login = clean_name(name, "Назва магазину"), clean_login(login)
@@ -226,7 +226,7 @@ def register_admin_routes(app, deps):
         return done(request, f"/admin#s{store.id}", f"Магазин «{name}» додано. Логін для входу: {login}.")
     
     
-    @app.post("/admin/stores/{sid}/edit")
+    @app.post("//stores/{sid}/edit")
     def store_edit(request: Request, sid: int, name: str = Form(), login: str = Form(),
                    user: User = Depends(admin_required), db: Session = Depends(get_db)):
         store = db.get(Store, sid)
@@ -253,7 +253,7 @@ def register_admin_routes(app, deps):
         return done(request, f"/admin#s{sid}", "Збережено: " + "; ".join(notes) + ". Пароль і звіти не змінились.")
     
     
-    @app.post("/admin/stores/{sid}/delete")
+    @app.post("//stores/{sid}/delete")
     def store_delete(request: Request, sid: int, user: User = Depends(admin_required), db: Session = Depends(get_db)):
         s = db.get(Store, sid)
         if not s:
@@ -274,7 +274,7 @@ def register_admin_routes(app, deps):
         return done(request, "/admin#stores", f"Магазин «{name}» видалено: звітів у нього не було.")
     
     
-    @app.post("/admin/stores/{sid}/restore")
+    @app.post("//stores/{sid}/restore")
     def store_restore(request: Request, sid: int, user: User = Depends(admin_required), db: Session = Depends(get_db)):
         s = db.get(Store, sid)
         if not s:
@@ -285,7 +285,7 @@ def register_admin_routes(app, deps):
         return done(request, f"/admin#s{sid}", f"Магазин «{s.name}» відновлено: вхід знову працює.")
     
     
-    @app.post("/admin/stores/{sid}/password")
+    @app.post("//stores/{sid}/password")
     def store_password(request: Request, sid: int, password: str = Form(), user: User = Depends(admin_required),
                        db: Session = Depends(get_db)):
         store_user = db.scalar(select(User).where(User.store_id == sid, User.role == "store"))
@@ -297,7 +297,7 @@ def register_admin_routes(app, deps):
         return done(request, f"/admin#s{sid}", f"Пароль для входу «{store_user.login}» змінено.")
     
     
-    @app.post("/admin/password")
+    @app.post("//password")
     def admin_password(request: Request, password: str = Form(), user: User = Depends(admin_required),
                        db: Session = Depends(get_db)):
         user.password_hash = hash_pw(new_password(password))
@@ -307,7 +307,7 @@ def register_admin_routes(app, deps):
     
     
     # ---------- admin: action log ----------
-    @app.get("/admin/logs")
+    @app.get("//logs")
     def logs_page(request: Request, login: str | None = None, action: str | None = None,
                   user: User = Depends(admin_required), db: Session = Depends(get_db)):
         q = select(AuditLog)
@@ -321,7 +321,7 @@ def register_admin_routes(app, deps):
     
     
     # ---------- admin: individual reports, lock / unlock ----------
-    @app.get("/admin/reports")
+    @app.get("//reports")
     def reports_page(request: Request, period: str | None = None, user: User = Depends(admin_required),
                      db: Session = Depends(get_db)):
         period = admin_period(request, period)
@@ -331,7 +331,7 @@ def register_admin_routes(app, deps):
         return render(request, "reports.html", {"user": user, "period": period, "rows": rows})
     
     
-    @app.get("/admin/reports/{rid}")
+    @app.get("//reports/{rid}")
     def report_view(rid: int, request: Request, user: User = Depends(admin_required), db: Session = Depends(get_db)):
         report = db.get(Report, rid)
         if not report:
@@ -346,7 +346,7 @@ def register_admin_routes(app, deps):
         return render(request, "report_view.html", ctx)
     
     
-    @app.post("/admin/reports/{rid}/status")
+    @app.post("//reports/{rid}/status")
     def report_status(request: Request, rid: int, status: str = Form(), user: User = Depends(admin_required),
                       db: Session = Depends(get_db)):
         report = db.get(Report, rid)
@@ -363,7 +363,7 @@ def register_admin_routes(app, deps):
     
     
     # ---------- admin: monthly summary ----------
-    @app.get("/admin/summary")
+    @app.get("//summary")
     def summary_page(request: Request, period: str | None = None, submitted_only: bool = False,
                      user: User = Depends(admin_required), db: Session = Depends(get_db)):
         period = admin_period(request, period)
@@ -373,7 +373,7 @@ def register_admin_routes(app, deps):
         return render(request, "summary.html", ctx)
     
     
-    @app.get("/admin/summary.xlsx")
+    @app.get("//summary.xlsx")
     def summary_xlsx(period: str | None = None, submitted_only: bool = False, user: User = Depends(admin_required),
                      db: Session = Depends(get_db)):
         period = parse_period(period)
