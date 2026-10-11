@@ -25,6 +25,7 @@ from app.services import (
 )
 
 router = APIRouter()
+MAX_IMPORT_BYTES = 10 * 1024 * 1024
 
 
 @router.post("/import")
@@ -38,8 +39,9 @@ async def product_import(
     filename = (file.filename or "").lower()
     if not filename.endswith(".xlsx"):
         raise HTTPException(400, "Завантажте файл Excel у форматі .xlsx")
-    payload = await file.read()
-    if not payload or len(payload) > 10 * 1024 * 1024:
+    # Read at most one byte over the limit so a huge upload cannot be loaded into RAM first.
+    payload = await file.read(MAX_IMPORT_BYTES + 1)
+    if not payload or len(payload) > MAX_IMPORT_BYTES:
         raise HTTPException(400, "Файл порожній або перевищує 10 МБ")
     return parse_products_excel(payload, db, user, request)
 
