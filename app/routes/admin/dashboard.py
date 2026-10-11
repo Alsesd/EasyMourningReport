@@ -1,13 +1,17 @@
 """Admin dashboard: settings and management overview."""
 
 from fastapi import APIRouter, Depends, Request
+from app.core.dependencies import admin_required
+from app.core.ui import current_period, render
+from app.db.models.product import Product
+from app.db.models.report import Report, ReportItem
+from app.db.models.user import User
+from app.db.repositories.products import history_of, load_history
+from app.db.session import get_db
+from app.services.pricing import offered_prices
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core import admin_required, current_period, get_db, render
-from app.db import Product, Report, ReportItem, User
-from app.db.repositories import history_of, load_history
-from app.services import offered_prices
 
 router = APIRouter()
 
