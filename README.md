@@ -60,7 +60,7 @@
 - Python 3.10+
 - FastAPI
 - Uvicorn
-- SQLAlchemy
+- SQLModel (SQLAlchemy Core/engine under the hood)
 - Jinja2
 - SQLite
 - Poetry
