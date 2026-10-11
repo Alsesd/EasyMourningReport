@@ -7,7 +7,6 @@ if hasattr(sys.stdout, "reconfigure"):
     
 import uvicorn
 
-from app.main import app
 
 
 

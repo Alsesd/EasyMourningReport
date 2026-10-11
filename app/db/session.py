@@ -18,7 +18,6 @@ from app.core.paths import data_dir
 # when the install directory is read-only), never in a freezer's extraction dir.
 BASE_DIR = data_dir()
 DB_PATH = BASE_DIR / "reports.db"
-
 engine = create_engine(
     f"sqlite:///{DB_PATH.as_posix()}",
     connect_args={"check_same_thread": False, "timeout": 30},

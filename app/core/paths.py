@@ -12,24 +12,35 @@ from pathlib import Path
 APP_NAME = "LegkyiZvit"
 
 
+def _source_root() -> Path:
+    """Return the app/ directory (parent of core/)."""
+    return Path(__file__).resolve().parent.parent
+
+
 def _app_dir() -> Path:
     """Folder of the exe (compiled build) or of the project (running from source)."""
     compiled = globals().get("__compiled__")
     if compiled is not None:
         folder = getattr(compiled, "containing_dir", None)
-        return Path(folder) if folder else Path(sys.argv[0]).resolve().parent
-    if getattr(sys, "frozen", False):  # other freezers, e.g. PyInstaller
+        if folder:
+            return Path(folder).resolve()
+        return Path(sys.argv[0]).resolve().parent
+
+    if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent.parent.parent
+
+    return _source_root().parent.resolve()
 
 
 def asset_dir(name: str) -> Path:
     """Find a packaged template/static directory in source and frozen layouts."""
-    package_assets = Path(__file__).resolve().parent.parent / name
+    package_assets = _source_root() / name
     if package_assets.is_dir():
         return package_assets
+
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent / "app" / name
+
     return package_assets
 
 
