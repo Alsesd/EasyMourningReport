@@ -71,13 +71,13 @@
 EasyMourningReport/
 ├── app/
 │   ├── core/             # Інфраструктура (paths, security, ratelimit, ui, dependencies)
-│   ├── db/               # База даних SQLAlchemy (models, repositories, migrations, backup)
+│   ├── db/               # SQLModel-моделі, сесії, репозиторії, міграції та backup
 │   ├── services/         # Чиста бізнес-логіка (pricing, excel)
 │   ├── routes/           # Модульні маршрути (auth, report, root, pwa, admin/*)
 │   ├── static/           # PWA та статичні ресурси
 │   ├── templates/        # Шаблони Jinja2
-│   └── main.py           # Фабрика FastAPI, життєвий цикл і глобальні middleware
-├── tests/                # 12 тестових наборів
+│   └── main.py           # Композиція FastAPI, життєвий цикл і middleware
+├── tests/                # pytest, FastAPI TestClient та ізольовані тести БД
 ├── build.py              # Скрипт збірки standalone EXE через PyOxidizer
 ├── pyoxidizer.bzl        # Конфігурація пакування PyOxidizer
 ├── DOCS.md               # Повна архітектурна та технічна документація
