@@ -3,12 +3,10 @@
 import os
 import sys
 
-# PyOxidizer's Windows console can default to a legacy code page such as cp1252.
-# Startup logs contain Ukrainian text, so configure both streams before importing
-# the app (the lifespan seeds and prints the initial admin credentials).
-for _stream in (sys.stdout, sys.stderr):
-    if hasattr(_stream, "reconfigure"):
-        _stream.reconfigure(encoding="utf-8", errors="replace")
+# CPython TextIOWrapper supports reconfigure; PyOxidizer's Windows console can
+# otherwise default to cp1252 and crash when startup prints Ukrainian text.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import uvicorn
 
