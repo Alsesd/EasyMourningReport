@@ -183,6 +183,7 @@ class RepositoryTests(unittest.TestCase):
             db.add_all([submitted, draft])
             db.flush()
             submitted.items.append(ReportItem(product_id=archived_product.id, quantity=2, unit_price_cents=200))
+            submitted.items.append(ReportItem(product_id=current_product.id, quantity=0, unit_price_cents=100))
             draft.items.append(ReportItem(product_id=current_product.id, quantity=5, unit_price_cents=100))
             db.commit()
             stores, rows, sums, grand = build_summary(db, "2026-10", submitted_only=True)
