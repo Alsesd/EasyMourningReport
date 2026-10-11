@@ -2,7 +2,7 @@
 const CACHE = "legkyi-zvit-v4";
 self.addEventListener("install", event => event.waitUntil(
   caches.open(CACHE)
-    .then(cache => cache.addAll(["/offline", "/static/app.css", "/static/icon.svg"]))
+    .then(cache => cache.addAll(["/offline", "/static/app.css", "/static/icon.svg", "/static/apple-touch-icon.png"]))
     .then(() => self.skipWaiting())
 ));
 self.addEventListener("activate", event => event.waitUntil(
