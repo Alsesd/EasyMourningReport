@@ -211,14 +211,14 @@ All endpoints are modularized under `app/routes/`:
 
 The project uses pytest for unit tests and FastAPI HTTP integration tests (via `TestClient`). The suite must pass and keep application branch coverage at or above 95%:
 ```bash
-poetry run pytest --cov=app --cov-branch --cov-fail-under=95
+poetry run pytest
 ```
 
 In the Nix development shell, the `test` command runs this same gate. The Windows packaging workflow is manual-only; it restores the pip cache, runs the test gate, and builds the executable only after tests pass.
 
 ### Test Suites Included:
 - `test_backup.py`: Verifies online backups, changes skipping, and snapshot retention.
-- `test_core.py`: Validates core dependencies, UI formatting, redirects, and backward shims.
+- `test_core.py`: Validates core dependencies, UI formatting, redirects, and input validation.
 - `test_migrations.py`: Verifies database upgrades from legacy schemas.
 - `test_paths.py`: Tests data directory discovery across OS environments and overrides.
 - `test_pricing.py`: Unit tests for price-history mechanics and login normalisation.
