@@ -18,9 +18,10 @@ def make_exe():
     python_config.oxidized_importer = False
     python_config.sys_frozen = True
 
-    target_name = "LegkyiZvit.exe" if "windows" in BUILD_TARGET_TRIPLE else "LegkyiZvit"
+    # PyOxidizer/Cargo project names cannot contain the .exe extension;
+    # Windows adds it when materializing the executable.
     exe = dist.to_python_executable(
-        name=target_name,
+        name="LegkyiZvit",
         packaging_policy=policy,
         config=python_config,
     )
