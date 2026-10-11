@@ -11,9 +11,10 @@ from app.db.models.user import User
 from app.db.repositories.audit import audit
 from app.db.repositories.stores import check_unique_store
 from app.db.session import get_db
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func
+from sqlmodel import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 
 router = APIRouter()
