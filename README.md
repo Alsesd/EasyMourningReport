@@ -232,10 +232,10 @@ uvicorn --app-dir . app.main:app --reload
 Запуск тестів:
 
 ```bash
-python -m pytest --cov=app --cov-branch --cov-fail-under=95
+poetry run pytest --cov=app --cov-branch --cov-fail-under=95
 ```
 
-Тести перевіряють основні правила підрахунку цін та логіки обробки даних.
+Тести охоплюють бізнес-логіку, репозиторії, маршрути й HTTP-поведінку FastAPI через TestClient. Мінімальний поріг покриття коду застосунку — 95%; штучно зламаних тестів немає.
 
 ## Розробка та збірка standalone EXE (PyOxidizer)
 
