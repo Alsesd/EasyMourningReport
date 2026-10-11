@@ -10,7 +10,7 @@ from app.db.repositories.products import history_of, load_history
 from app.db.session import get_db
 from app.services.pricing import offered_prices
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 
 router = APIRouter()
