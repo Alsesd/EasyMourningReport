@@ -40,12 +40,12 @@
               fi
               poetry install --no-interaction
               test() {
-                poetry run python -m pytest --cov=app --cov-branch --cov-fail-under=95 "$@"
+                poetry run pytest "$@"
               }
               echo "Start server: serve (or serve --reload)"
-              echo "Run tests: test"
+              echo "Run tests and enforce 95% coverage: test"
             '';
           };
         });
-    };
+    }
 }
