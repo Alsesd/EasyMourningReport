@@ -1,7 +1,7 @@
 """Core infrastructure utilities for EasyMourningReport."""
 
 from app.core import paths, ratelimit, security, ui
-from app.core.paths import _app_dir, data_dir
+from app.core.paths import _app_dir, asset_dir, data_dir
 from app.core.ratelimit import clear_failures, record_failure, retry_after
 from app.core.security import (
     check_pw,
@@ -24,6 +24,7 @@ from app.core.ui import (
 __all__ = [
     "FormError",
     "_app_dir",
+    "asset_dir",
     "admin_period",
     "admin_required",
     "check_pw",
