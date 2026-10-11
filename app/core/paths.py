@@ -23,6 +23,16 @@ def _app_dir() -> Path:
     return Path(__file__).resolve().parent.parent.parent
 
 
+def asset_dir(name: str) -> Path:
+    """Find a packaged template/static directory in source and frozen layouts."""
+    package_assets = Path(__file__).resolve().parent.parent / name
+    if package_assets.is_dir():
+        return package_assets
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent / "app" / name
+    return package_assets
+
+
 def _user_data_dir() -> Path:
     if sys.platform == "win32":
         root = os.getenv("LOCALAPPDATA") or Path.home() / "AppData" / "Local"
