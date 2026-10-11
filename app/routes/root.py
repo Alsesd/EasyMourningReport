@@ -3,8 +3,8 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import RedirectResponse
 
-from app.core.dependencies import user_required
-from app.db.models.user import User
+from app.core import user_required
+from app.db import User
 
 router = APIRouter()
 

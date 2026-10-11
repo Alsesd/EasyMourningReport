@@ -116,6 +116,18 @@ jobs:
           # make `tailscale` visible to start.bat (`where tailscale`) in the next steps
           $dir | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
+      - name: Authenticate Tailscale node
+        env:
+          TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
+        run: |
+          $ts = Join-Path $env:ProgramFiles 'Tailscale\\tailscale.exe'
+          & $ts up "--authkey=$env:TS_AUTHKEY" --hostname=easy-mourning-report-ci --accept-routes=false --accept-dns=false
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Tailscale authentication failed. Check that TS_AUTHKEY is valid and the node is allowed to use Funnel.'
+          }
+          & $ts status
+          if ($LASTEXITCODE -ne 0) { throw 'Tailscale status failed after authentication.' }
+
       - name: Run start.bat twice - check Tailscale GUI, DB and secret
         run: |
           $ErrorActionPreference = 'Stop'
