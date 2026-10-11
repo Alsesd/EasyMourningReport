@@ -234,24 +234,30 @@ python -m compileall -q app run.py tests
 
 ---
 
-## 8. Building Standalone Executables (PyOxidizer)
+## 8. Building a Packaged Application (PyOxidizer)
 
-The project includes `build.py` and `pyoxidizer.bzl` to produce self-contained executables.
+The project uses PyOxidizer 0.24, whose bundled CPython distribution is Python 3.10. Keep the executable and its runtime resource directory together.
 
-### Building
-```bash
-# Run build script
+### Building on Windows
+
+```powershell
+python -m pip install pyoxidizer==0.24.0
 python build.py
 ```
-This produces:
-- `dist/LegkyiZvit.exe` on Windows
-- `dist/LegkyiZvit` on Linux / macOS
 
-### What PyOxidizer Embeds:
-- Embedded Python 3 runtime
-- All Python packages (`fastapi`, `uvicorn`, `sqlalchemy`, `jinja2`, `openpyxl`, `app`)
-- Data files in `app/templates` and `app/static`
-- Application entrypoint `run.py`
+The build script stages a complete runnable distribution:
+- `dist/LegkyiZvit.exe`
+- `dist/lib/` — Python modules, extension modules, templates, and static/PWA assets.
+
+Do not copy the EXE by itself. Run it from the extracted `dist/` directory (or run `start.bat` from the project root, which detects `dist/LegkyiZvit.exe`). The package smoke-test workflow builds this distribution, requests `/login` and `/static/app.css`, and verifies that the database and secret key persist after a restart.
+
+### Runtime data
+
+`reports.db`, `secret.key`, and `backups/` are created beside the executable by default. If that directory is read-only, the app falls back to `%LOCALAPPDATA%\\LegkyiZvit` on Windows or `~/.local/share/LegkyiZvit` on Linux. Set `LEGKYI_DATA_DIR` to choose a different persistent data folder. The app prints the selected folder at startup.
+
+### Compatibility
+
+PyOxidizer 0.24 officially targets CPython 3.8–3.10. The application code and dependency pins in `pyoxidizer.bzl` therefore remain compatible with Python 3.10, while normal development can use a newer Python version.
 
 ---
 
