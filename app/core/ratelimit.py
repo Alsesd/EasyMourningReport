@@ -1,4 +1,5 @@
 """In-memory login throttling. Resets when the server restarts."""
+
 import time
 from collections import defaultdict, deque
 

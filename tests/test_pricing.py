@@ -1,6 +1,6 @@
 import unittest
 
-from app.pricing import (BASE_PERIOD, apply_price_change, dedupe_logins, latest_price, line_labels,
+from app.services.pricing import (BASE_PERIOD, apply_price_change, dedupe_logins, latest_price, line_labels,
                          norm_login, offered_prices, same_name, valid_login)
 
 

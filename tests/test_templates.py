@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace as NS
 
-from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from jinja2 import Environment, FileSystemLoader
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "app" / "templates"
 env = Environment(loader=FileSystemLoader(TEMPLATES), autoescape=True)

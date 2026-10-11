@@ -55,7 +55,13 @@ echo.
 echo Local address: http://localhost:%PORT%
 echo.
 
-:: 1. Compiled Nuitka binary check
+:: 1. Compiled standalone binary check (PyOxidizer)
+if exist "dist\LegkyiZvit.exe" (
+    echo [*] Binary detected: dist\LegkyiZvit.exe
+    echo Close this window or press Ctrl+C to stop the server.
+    dist\LegkyiZvit.exe
+    goto :EXIT
+)
 if exist "LegkyiZvit.exe" (
     echo [*] Binary detected: LegkyiZvit.exe
     echo Close this window or press Ctrl+C to stop the server.

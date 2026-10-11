@@ -7,7 +7,7 @@ os.environ["SECRET_KEY"] = "unit-test-only-secret-key"
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.main import same_origin_post_guard
+from app.core.security import same_origin_post_guard
 
 
 def request_with_headers(headers):
