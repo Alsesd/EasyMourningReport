@@ -20,7 +20,7 @@ from app.db.models.product import Product, ProductPrice
 from app.db.models.store import Store
 from app.db.models.user import User
 from app.routes.admin.products import product_add, product_edit, product_import, product_restore
-from app.routes.admin.stores import store_add, store_edit, store_password, store_restore
+from app.routes.admin.stores import store_add, store_delete, store_edit, store_password, store_restore
 from app.services.pricing import BASE_PERIOD, offered_prices
 
 
@@ -78,6 +78,23 @@ class AdminMutationTests(unittest.TestCase):
             self.assertEqual(history, [(BASE_PERIOD, 100)])
             self.assertIn("скасовано", req_revert.session["flash"]["text"])
 
+    def test_product_edit_changes_name_and_toggles_active_state_both_ways(self):
+        with self.Session() as db:
+            admin = db.get(User, self.admin_id)
+            request = make_request([("name", "Fresh Bread"), ("price", "1.00")])
+            response = asyncio.run(product_edit(request, self.product_id, admin, db))
+            self.assertEqual(response.status_code, 303)
+            product = db.get(Product, self.product_id)
+            self.assertEqual(product.name, "Fresh Bread")
+            self.assertFalse(product.active)
+            self.assertIn("вимкнено", request.session["flash"]["text"])
+
+            request = make_request([("name", "Fresh Bread"), ("price", "1.00"), ("active", "on")])
+            response = asyncio.run(product_edit(request, self.product_id, admin, db))
+            self.assertEqual(response.status_code, 303)
+            self.assertTrue(product.active)
+            self.assertIn("увімкнено", request.session["flash"]["text"])
+
     def test_product_edit_rejects_missing_archived_and_price_less_forms(self):
         with self.Session() as db:
             admin = db.get(User, self.admin_id)
@@ -96,6 +113,12 @@ class AdminMutationTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as no_price:
                 asyncio.run(product_edit(request, self.product_id, admin, db))
             self.assertEqual(no_price.exception.status_code, 400)
+
+    def test_product_delete_missing_id_returns_404(self):
+        with self.Session() as db:
+            with self.assertRaises(HTTPException) as caught:
+                product_delete(make_request(), 12345, db.get(User, self.admin_id), db)
+            self.assertEqual(caught.exception.status_code, 404)
 
     def test_product_restore_missing_id_returns_404(self):
         from app.routes.admin.products import product_restore
@@ -150,6 +173,9 @@ class AdminMutationTests(unittest.TestCase):
     def test_store_password_and_restore_missing_ids_return_404(self):
         with self.Session() as db:
             admin = db.get(User, self.admin_id)
+            with self.assertRaises(HTTPException) as deleted:
+                store_delete(make_request(), 98765, admin, db)
+            self.assertEqual(deleted.exception.status_code, 404)
             with self.assertRaises(HTTPException) as password:
                 store_password(make_request(), 98765, "password123", admin, db)
             self.assertEqual(password.exception.status_code, 404)
