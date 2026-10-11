@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import uvicorn
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, Form, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -104,6 +104,10 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# HTTP endpoints are grouped by responsibility; app-level middleware and handlers stay on app.
+public_router = APIRouter(tags=["web"])
+admin_router = APIRouter(prefix="/admin", tags=["admin"])
+
 
 app.add_middleware(
     SessionMiddleware,
@@ -121,14 +125,14 @@ STATIC = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 
-@app.get("/manifest.webmanifest")
+@public_router.get("/manifest.webmanifest")
 def manifest():
     return FileResponse(
         STATIC / "manifest.webmanifest", media_type="application/manifest+json"
     )
 
 
-@app.get("/sw.js")
+@public_router.get("/sw.js")
 def service_worker():
     return FileResponse(
         STATIC / "sw.js",
@@ -137,7 +141,7 @@ def service_worker():
     )
 
 
-@app.get("/offline")
+@public_router.get("/offline")
 def offline(request: Request):
     return render(request, "offline.html")
 
@@ -322,12 +326,12 @@ def new_password(pw: str) -> str:
 
 
 # ---------- auth ----------
-@app.get("/login")
+@public_router.get("/login")
 def login_form(request: Request):
     return render(request, "login.html", {"error": None})
 
 
-@app.post("/login")
+@public_router.post("/login")
 def login_post(
     request: Request,
     login: str = Form(),
@@ -372,7 +376,7 @@ def login_post(
     return RedirectResponse("/", 303)
 
 
-@app.post("/logout")
+@public_router.post("/logout")
 def logout(request: Request, db: Session = Depends(get_db)):
     uid = request.session.get("uid")
     user = db.get(User, uid) if uid else None
@@ -383,7 +387,7 @@ def logout(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse("/login", 303)
 
 
-@app.get("/")
+@public_router.get("/")
 def index(user: User = Depends(user_required)):
     return RedirectResponse("/admin" if user.role == "admin" else "/report", 303)
 
@@ -416,7 +420,7 @@ def find_report(db: Session, store_id: int, period: str) -> Report | None:
     )
 
 
-@app.get("/report")
+@public_router.get("/report")
 def report_page(
     request: Request,
     period: str | None = None,
@@ -455,7 +459,7 @@ def report_page(
     return render(request, "report.html", ctx)
 
 
-@app.post("/report")
+@public_router.post("/report")
 async def report_save(
     request: Request,
     user: User = Depends(store_required),
@@ -548,7 +552,7 @@ async def report_save(
 from .admin_routes import register_admin_routes
 
 register_admin_routes(
-    app,
+    admin_router,
     {
         "ACTIONS": ACTIONS,
         "BASE_PERIOD": BASE_PERIOD,
@@ -584,3 +588,8 @@ register_admin_routes(
         "valid_login": valid_login,
     },
 )
+
+
+# Compose the application from focused routers after all routes are registered.
+app.include_router(public_router)
+app.include_router(admin_router)

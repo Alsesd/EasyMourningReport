@@ -74,7 +74,7 @@ EasyMourningReport/
 │   ├── admin_routes.py   # Адміністративні маршрути
 │   ├── backup.py         # Резервні копії
 │   ├── bootstrap.py      # Ініціалізація та міграції БД
-│   ├── main.py           # Створення FastAPI-застосунку та основні маршрути
+│   ├── main.py           # FastAPI lifecycle, middleware та складання роутерів
 │   ├── models.py         # Моделі SQLAlchemy
 │   ├── pricing.py        # Правила історії цін і нормалізація логінів
 │   ├── ratelimit.py      # Обмеження частоти входу
