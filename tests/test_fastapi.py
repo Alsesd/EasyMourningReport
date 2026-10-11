@@ -1,14 +1,5 @@
 """FastAPI HTTP integration tests using Starlette's TestClient."""
 
-import os
-import tempfile
-
-# Keep import-time secret/data initialization out of the user's working directory.
-os.environ.setdefault(
-    "LEGKYI_DATA_DIR", tempfile.mkdtemp(prefix="legkyi-zvit-pytest-")
-)
-os.environ.setdefault("SECRET_KEY", "pytest-only-secret-key-not-for-production")
-
 from fastapi.testclient import TestClient
 
 from app.main import app
