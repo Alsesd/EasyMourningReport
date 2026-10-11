@@ -28,6 +28,8 @@ class CoreUiTests(unittest.TestCase):
         self.assertEqual(ui._safe_redirect_target("//evil.com"), "/")
         self.assertEqual(ui._safe_redirect_target(""), "/")
         self.assertEqual(ui._safe_redirect_target(None), "/")
+        self.assertEqual(ui._safe_redirect_target("relative/path"), "/")
+        self.assertEqual(ui._safe_redirect_target(r"\\\\evil.example"), "/")
 
     def test_safe_referer(self):
         req = MagicMock(spec=Request)
@@ -57,6 +59,7 @@ class CoreUiTests(unittest.TestCase):
 class CoreDependenciesTests(unittest.TestCase):
     def test_parse_period(self):
         self.assertEqual(dependencies.parse_period("2026-10"), "2026-10")
+        self.assertEqual(dependencies.parse_period(None), ui.current_period())
         with self.assertRaises(HTTPException):
             dependencies.parse_period("2026-13")
         with self.assertRaises(HTTPException):
@@ -70,6 +73,12 @@ class CoreDependenciesTests(unittest.TestCase):
             dependencies.to_cents("abc")
         with self.assertRaises(ui.FormError):
             dependencies.to_cents("-10")
+        with self.assertRaises(ui.FormError):
+            dependencies.to_cents("NaN")
+        with self.assertRaises(ui.FormError):
+            dependencies.to_cents("Infinity")
+        with self.assertRaises(ui.FormError):
+            dependencies.to_cents("10000000.01")
 
     def test_clean_name(self):
         self.assertEqual(dependencies.clean_name("  Хліб  білий  "), "Хліб білий")
