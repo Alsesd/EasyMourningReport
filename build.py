@@ -5,8 +5,8 @@ Usage:
     poetry run python build.py --debug
     poetry run python build.py --target-triple x86_64-pc-windows-msvc
 
-The complete install tree is copied to dist/, not just the executable: PyOxidizer
-places filesystem-relative Python resources and application assets alongside it.
+The complete install tree is copied to dist/: Python resources live in lib/,
+while templates and static/PWA files live in app/.
 """
 
 import argparse
@@ -22,11 +22,9 @@ CONFIG_FILE = ROOT / "pyoxidizer.bzl"
 
 
 def get_pyoxidizer_cmd() -> list[str]:
-    """Find the PyOxidizer CLI without hiding its eventual error output."""
+    """Find the PyOxidizer CLI."""
     executable = shutil.which("pyoxidizer")
-    if executable:
-        return [executable]
-    return ["pyoxidizer"]
+    return [executable] if executable else ["pyoxidizer"]
 
 
 def _executable_name(target_triple: str | None) -> str:
@@ -49,13 +47,11 @@ def _find_built_executable(name: str) -> Path | None:
 
 
 def _copy_distribution(executable: Path) -> Path:
-    """Stage the executable and every sibling resource into dist/."""
+    """Stage the executable and all sibling resources into dist/."""
     DIST_DIR.mkdir(parents=True, exist_ok=True)
     source_dir = executable.parent
     target_executable = DIST_DIR / executable.name
 
-    # The default install target produces a complete install directory. Copy
-    # its contents together so lib/, templates, and static files aren't lost.
     if source_dir.name.lower() == "install":
         for item in source_dir.iterdir():
             target = DIST_DIR / item.name
@@ -65,18 +61,18 @@ def _copy_distribution(executable: Path) -> Path:
                 shutil.copy2(item, target)
     else:
         shutil.copy2(executable, target_executable)
-        # A fallback executable path may still have resources in a sibling lib/.
-        lib_dir = source_dir / "lib"
-        if lib_dir.is_dir():
-            shutil.copytree(lib_dir, DIST_DIR / "lib", dirs_exist_ok=True)
+        for folder in ("lib", "app"):
+            source = source_dir / folder
+            if source.is_dir():
+                shutil.copytree(source, DIST_DIR / folder, dirs_exist_ok=True)
 
     if not target_executable.is_file():
         raise FileNotFoundError(f"Expected executable was not staged at {target_executable}")
-    for relative in ("lib/app/templates", "lib/app/static"):
-        if not (DIST_DIR / relative).is_dir():
+    for relative in ("lib/app/main.py", "app/templates", "app/static"):
+        if not (DIST_DIR / relative).exists():
             raise FileNotFoundError(
-                f"Missing runtime assets: {DIST_DIR / relative}. "
-                "The PyOxidizer install manifest must include templates and static files."
+                f"Missing runtime resource: {DIST_DIR / relative}. "
+                "The PyOxidizer install manifest must include app code and web assets."
             )
     return target_executable
 
@@ -96,7 +92,7 @@ def build(release: bool = True, target_triple: str | None = None) -> int:
         result = subprocess.run(cmd, cwd=ROOT, check=False)
     except FileNotFoundError:
         print(
-            "ERROR: PyOxidizer was not found. Install a compatible PyOxidizer CLI "
+            "ERROR: PyOxidizer was not found. Install pyoxidizer==0.24.0 "
             "and ensure it is available in PATH.",
             file=sys.stderr,
         )
@@ -116,12 +112,12 @@ def build(release: bool = True, target_triple: str | None = None) -> int:
 
     try:
         target = _copy_distribution(executable)
-    except (OSError, FileNotFoundError) as exc:
+    except OSError as exc:
         print(f"ERROR: Could not stage a runnable distribution: {exc}", file=sys.stderr)
         return 1
 
     print(f"Successfully packaged runnable distribution: {target}", flush=True)
-    print("Keep the lib/ directory next to the executable; it contains runtime modules and assets.", flush=True)
+    print("Keep both lib/ and app/ beside the executable; they contain runtime modules and web assets.", flush=True)
     return 0
 
 
