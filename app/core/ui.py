@@ -1,14 +1,15 @@
 """UI and Jinja2 templating utilities, flash messages, and redirects."""
 
 from datetime import date
-from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+from app.core.paths import asset_dir
+
+TEMPLATES_DIR = asset_dir("templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
