@@ -54,7 +54,7 @@ class DataDirTests(unittest.TestCase):
             executable = Path(tmp) / "app.exe"
             with patch.object(paths, "__compiled__", SimpleNamespace(), create=True), \
                  patch.object(paths.sys, "argv", [str(executable)]):
-                self.assertEqual(paths._app_dir(), Path(tmp))
+                self.assertEqual(paths._app_dir(), executable.resolve().parent)
 
     def test_windows_user_data_folder(self):
         with tempfile.TemporaryDirectory() as tmp, \
