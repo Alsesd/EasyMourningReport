@@ -48,10 +48,11 @@ class RouteEdgeTests(unittest.TestCase):
             db.flush()
             self.store_user = User(login="store1", password_hash="hash", role="store", store_id=self.store.id)
             self.archived_user = User(login="store2", password_hash="hash", role="store", store_id=self.archived_store.id)
+            self.orphan_user = User(login="orphan", password_hash="hash", role="store", store_id=None)
             self.product = Product(name="Bread", price_cents=100, active=True, archived=False)
             self.inactive_product = Product(name="Old bread", price_cents=150, active=False, archived=False)
             self.archived_product = Product(name="Archived item", price_cents=200, active=False, archived=True)
-            db.add_all([self.store_user, self.archived_user, self.product, self.inactive_product, self.archived_product])
+            db.add_all([self.store_user, self.archived_user, self.orphan_user, self.product, self.inactive_product, self.archived_product])
             db.flush()
             db.add_all([
                 ProductPrice(product_id=self.product.id, period=BASE_PERIOD, price_cents=100),
@@ -61,6 +62,7 @@ class RouteEdgeTests(unittest.TestCase):
             db.commit()
             self.admin_id, self.store_user_id = self.admin.id, self.store_user.id
             self.archived_user_id = self.archived_user.id
+            self.orphan_user_id = self.orphan_user.id
             self.store_id, self.archived_store_id = self.store.id, self.archived_store.id
             self.product_id, self.archived_product_id = self.product.id, self.archived_product.id
 
@@ -75,6 +77,7 @@ class RouteEdgeTests(unittest.TestCase):
             self.assertEqual(missing.exception.status_code, 303)
             req.session["uid"] = self.admin_id
             self.assertEqual(user_required(req, db).role, "admin")
+            self.assertIs(admin_required(db.get(User, self.admin_id)), db.get(User, self.admin_id))
             with self.assertRaises(HTTPException) as forbidden_admin:
                 admin_required(db.get(User, self.store_user_id))
             self.assertEqual(forbidden_admin.exception.status_code, 403)
@@ -86,6 +89,10 @@ class RouteEdgeTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as archived:
                 user_required(req, db)
             self.assertEqual(archived.exception.status_code, 303)
+            req.session["uid"] = self.orphan_user_id
+            with self.assertRaises(HTTPException) as orphan:
+                user_required(req, db)
+            self.assertEqual(orphan.exception.status_code, 303)
 
     def test_dashboard_separates_inactive_and_archived_entities(self):
         with self.Session() as db:
@@ -158,6 +165,14 @@ class RouteEdgeTests(unittest.TestCase):
             self.assertEqual(db.get(Report, report.id).status, "draft")
             audit = db.scalar(select(AuditLog).where(AuditLog.action == "розблоковано звіт"))
             self.assertIsNotNone(audit)
+
+            orphan_report = Report(store_id=99999, period=current_period(), status="draft")
+            db.add(orphan_report)
+            db.commit()
+            response = report_status(req, orphan_report.id, "submitted", admin, db)
+            self.assertEqual(response.status_code, 303)
+            orphan_audit = db.scalar(select(AuditLog).where(AuditLog.detail == f"? · {current_period()}"))
+            self.assertIsNotNone(orphan_audit)
 
     def test_reports_list_handles_archived_stores_with_and_without_reports(self):
         with self.Session() as db:
