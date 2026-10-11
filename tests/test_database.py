@@ -33,6 +33,19 @@ class DatabaseConfigurationTests(unittest.TestCase):
         self.assertIn("/admin/backup/download", paths)
         self.assertIn("get", paths["/admin/backup/download"])
 
+    def test_get_db_yields_session_and_closes_context_on_generator_close(self):
+        from unittest.mock import MagicMock, patch
+        from app.db.session import get_db
+
+        fake_session = MagicMock()
+        with patch("app.db.session.SessionLocal") as factory:
+            factory.return_value.__enter__.return_value = fake_session
+            dependency = get_db()
+            self.assertIs(next(dependency), fake_session)
+            dependency.close()
+            factory.return_value.__enter__.assert_called_once_with()
+            factory.return_value.__exit__.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()
