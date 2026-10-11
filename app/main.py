@@ -1,7 +1,8 @@
-"""Main FastAPI application entrypoint.
+"""Compose the FastAPI application and its cross-cutting infrastructure.
 
-Initializes FastAPI with lifespan management, session and CSRF middleware,
-exception handlers, static file mounting, and modular routes.
+Business rules live in services, persistence lives in db repositories/models,
+and HTTP handlers live in routes. This module intentionally only wires them
+together, configures middleware, and owns application lifecycle/error handling.
 """
 
 import asyncio
@@ -15,21 +16,17 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
-from app.core import (
-    FormError,
-    asset_dir,
-    done,
-    load_secret,
-    render,
-    safe_referer,
-    same_origin_post_guard,
-)
-from app.db import backup_db, backup_loop, migrate, seed
+from app.core.paths import asset_dir
+from app.core.security import load_secret, same_origin_post_guard
+from app.core.ui import FormError, done, render, safe_referer
+from app.db.backup import backup_db, backup_loop
+from app.db.bootstrap import migrate, seed
 from app.routes import api_router
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    """Initialize persistent state and run periodic backups until shutdown."""
     migrate()
     seed()
     await asyncio.to_thread(backup_db)
@@ -42,15 +39,11 @@ async def lifespan(_: FastAPI):
             await backup_task
         except asyncio.CancelledError:
             pass
-        # Backup I/O can be slow; don't block the event loop during shutdown.
         await asyncio.to_thread(backup_db)
 
 
 app = FastAPI(lifespan=lifespan)
-
-# Mount global CSRF protection middleware on POST endpoints
 app.middleware("http")(same_origin_post_guard)
-
 app.add_middleware(
     SessionMiddleware,
     secret_key=load_secret(),
@@ -58,22 +51,19 @@ app.add_middleware(
     max_age=7 * 24 * 3600,
 )
 
-# Static files / PWA assets
-STATIC_DIR = asset_dir("static")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-# Include all modular endpoints
+app.mount("/static", StaticFiles(directory=asset_dir("static")), name="static")
 app.include_router(api_router)
 
 
-# Exception handlers
 @app.exception_handler(FormError)
 def form_error(request: Request, exc: FormError):
+    """Redirect form errors back to the form that produced them."""
     return done(request, exc.to or safe_referer(request) or "/", exc.message, "err")
 
 
 @app.exception_handler(RequestValidationError)
 def invalid_form(request: Request, exc: RequestValidationError):
+    """Return readable validation feedback instead of FastAPI's JSON detail."""
     if request.method == "POST":
         return done(
             request, safe_referer(request) or "/", "Заповніть усі поля форми.", "err"
@@ -88,6 +78,7 @@ def invalid_form(request: Request, exc: RequestValidationError):
 
 @app.exception_handler(StarletteHTTPException)
 def http_error(request: Request, exc: StarletteHTTPException):
+    """Preserve redirect responses and render all other HTTP errors."""
     location = (exc.headers or {}).get("Location")
     if location and 300 <= exc.status_code < 400:
         return RedirectResponse(location, exc.status_code)
