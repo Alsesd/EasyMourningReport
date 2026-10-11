@@ -120,6 +120,23 @@ class StoreReportEdgeTests(unittest.TestCase):
             self.assertEqual(response.status_code, 303)
             self.assertIsNotNone(db.scalar(select(Report).where(Report.store_id == self.store_id)))
 
+    def test_zero_quantity_saved_item_does_not_expand_allowed_price_set(self):
+        with self.Session() as db:
+            report = Report(store_id=self.store_id, period=current_period(), status="draft")
+            db.add(report)
+            db.flush()
+            report.items.append(ReportItem(product_id=self.product_id, quantity=0, unit_price_cents=100))
+            db.commit()
+            request = request_with_form([
+                ("period", current_period()),
+                (f"qty_{self.product_id}_100", "2"),
+                ("action", "save"),
+            ])
+            response = asyncio.run(report_save(request, db.get(User, self.user_id), db))
+            self.assertEqual(response.status_code, 303)
+            stored = db.scalar(select(Report).where(Report.store_id == self.store_id))
+            self.assertEqual([(item.quantity, item.unit_price_cents) for item in stored.items], [(2, 100)])
+
     def test_submit_locks_report_and_audits_transition(self):
         with self.Session() as db:
             user = db.get(User, self.user_id)
