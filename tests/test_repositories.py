@@ -186,9 +186,9 @@ class RepositoryTests(unittest.TestCase):
             draft.items.append(ReportItem(product_id=current_product.id, quantity=5, unit_price_cents=100))
             db.commit()
             stores, rows, sums, grand = build_summary(db, "2026-10", submitted_only=True)
-            self.assertEqual([s.name for s in stores], ["Archived store"])
-            self.assertEqual([r["name"] for r in rows], ["Archived product"])
-            self.assertEqual(sums, [400])
+            self.assertEqual([s.name for s in stores], ["Archived store", "Current store"])
+            self.assertEqual([r["name"] for r in rows], ["Archived product", "Current product"])
+            self.assertEqual(sums, [400, 0])
             self.assertEqual(grand, 400)
 
 
