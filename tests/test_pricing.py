@@ -28,6 +28,14 @@ class OfferedPrices(unittest.TestCase):
         h = [(BASE_PERIOD, 300), ("2026-10", 200)]
         self.assertEqual(offered_prices(h, "2026-10"), [300, 200])
 
+    def test_current_month_prices_without_prior_price_are_deduplicated(self):
+        history = [("2026-10", 100), ("2026-10_1", 100), ("2026-10_2", 150)]
+        self.assertEqual(offered_prices(history, "2026-10"), [100, 150])
+
+    def test_duplicate_price_in_change_month_is_added_only_once(self):
+        history = [(BASE_PERIOD, 100), ("2026-10", 100), ("2026-10_1", 150), ("2026-10_2", 150)]
+        self.assertEqual(offered_prices(history, "2026-10"), [100, 150])
+
     def test_empty_history(self):
         self.assertEqual(offered_prices([], "2026-10"), [])
 
