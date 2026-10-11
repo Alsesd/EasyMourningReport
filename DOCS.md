@@ -247,9 +247,10 @@ python build.py
 
 The build script stages a complete runnable distribution:
 - `dist/LegkyiZvit.exe`
-- `dist/lib/` — Python modules, extension modules, templates, and static/PWA assets.
+- `dist/lib/` — Python modules and extension modules.
+- `dist/app/` — Jinja templates and static/PWA assets.
 
-Do not copy the EXE by itself. Run it from the extracted `dist/` directory (or run `start.bat` from the project root, which detects `dist/LegkyiZvit.exe`). The package smoke-test workflow builds this distribution, requests `/login` and `/static/app.css`, and verifies that the database and secret key persist after a restart.
+Do not copy the EXE by itself. Keep both `lib/` and `app/` beside it. Run it from the extracted `dist/` directory (or run `start.bat` from the project root, which detects `dist/LegkyiZvit.exe`). The package smoke-test workflow builds this distribution, requests `/login` and `/static/app.css`, and verifies that the database and secret key persist after a restart.
 
 ### Runtime data
 
