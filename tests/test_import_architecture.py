@@ -30,10 +30,8 @@ def test_application_modules_import_concrete_owners():
                 )
 
     assert violations == [], (
-        "Import from the module that owns the symbol instead of a package facade:
-"
-        + "
-".join(violations)
+        "Import from the module that owns the symbol instead of a package facade:\n"
+        + "\n".join(violations)
     )
 
 
