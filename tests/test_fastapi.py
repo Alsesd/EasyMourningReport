@@ -36,6 +36,14 @@ def test_new_pwa_icon_is_served_as_svg():
     assert "Легкий звіт" in response.text
 
 
+def test_apple_touch_icon_is_a_valid_png():
+    response = client.get("/static/apple-touch-icon.png")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/png")
+    assert response.content.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+
+
 def test_service_worker_uses_a_new_cache_version():
     response = client.get("/sw.js")
 
