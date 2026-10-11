@@ -1,10 +1,10 @@
 """Root endpoint: role-based home redirection."""
 
 from fastapi import APIRouter, Depends
+from app.core.dependencies import user_required
+from app.db.models.user import User
 from fastapi.responses import RedirectResponse
 
-from app.core import user_required
-from app.db import User
 
 router = APIRouter()
 
