@@ -12,6 +12,7 @@ from app.core.paths import data_dir
 # next to the exe (see paths.py), not the temporary onefile extraction folder.
 BASE_DIR = data_dir()
 DB_PATH = BASE_DIR / "reports.db"
+print(f"Data folder: {DB_PATH.parent}", flush=True)
 engine = create_engine(
     f"sqlite:///{DB_PATH.as_posix()}",
     connect_args={"check_same_thread": False, "timeout": 30},
