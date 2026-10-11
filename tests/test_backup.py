@@ -1,9 +1,10 @@
+import asyncio
 import sqlite3
 import tempfile
 import unittest
 from contextlib import closing
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from app.db import backup
 
@@ -40,6 +41,21 @@ class BackupTests(unittest.TestCase):
             with patch.object(backup, "DB_PATH", db_path), patch.object(backup, "BACKUP_DIR", backup_dir):
                 self.assertIsNotNone(backup.backup_db(tag="test"))
                 self.assertIsNone(backup.backup_db())
+
+    def test_background_loop_offloads_backup_and_can_be_cancelled(self):
+        async def run():
+            with patch.object(backup.asyncio, "sleep", new=AsyncMock(side_effect=[None, asyncio.CancelledError()])), patch.object(backup.asyncio, "to_thread", new=AsyncMock(return_value=None)) as to_thread:
+                with self.assertRaises(asyncio.CancelledError):
+                    await backup.backup_loop()
+                to_thread.assert_awaited_once_with(backup.backup_db)
+        asyncio.run(run())
+
+    def test_missing_database_returns_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch.object(backup, "DB_PATH", root / "missing.db"), patch.object(backup, "BACKUP_DIR", root / "backups"):
+                self.assertIsNone(backup.backup_db())
+            self.assertFalse((root / "backups").exists())
 
     def test_retention_keeps_configured_number_of_snapshots(self):
         with tempfile.TemporaryDirectory() as tmp:
