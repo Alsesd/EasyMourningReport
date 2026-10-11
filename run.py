@@ -5,7 +5,7 @@ import os
 
 import uvicorn
 
-from app.main import app
+from app.api import app
 from app.models import DB_PATH
 
 if __name__ == "__main__":
