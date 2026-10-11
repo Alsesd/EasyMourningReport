@@ -28,9 +28,10 @@ class DatabaseConfigurationTests(unittest.TestCase):
         self.assertTrue(callable(get_db))
 
     def test_admin_backup_route_is_registered(self):
-        """Importing the app must register backup routes without Pydantic annotation errors."""
-        paths = {route.path for route in app.routes}
+        """Verify the actual public schema, not FastAPI's internal route objects."""
+        paths = app.openapi()["paths"]
         self.assertIn("/admin/backup/download", paths)
+        self.assertIn("get", paths["/admin/backup/download"])
 
 
 if __name__ == "__main__":
