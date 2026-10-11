@@ -2,8 +2,8 @@
 
 from collections import defaultdict
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlmodel import select
+from sqlmodel import Session
 
 from app.db.models.product import Product, ProductPrice
 from app.services.pricing import BASE_PERIOD, History
