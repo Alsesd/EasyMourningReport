@@ -1,8 +1,8 @@
-"""Where the app keeps its persistent files (reports.db, secret.key, backups/).
+"""Resolve persistent data beside the executable or project directory.
 
-Nuitka does not set sys.frozen, and in a onefile exe __file__ points into a temporary
-folder that is deleted on exit, so data written there is lost. Nuitka exposes the folder that
-holds the exe as __compiled__.containing_dir instead.
+PyOxidizer marks its runtime as frozen; one-file/freezer extraction paths must not be
+used for persistent SQLite, secret-key, or backup files. When the executable folder is
+not writable, use the per-user application data directory instead.
 """
 
 import os
