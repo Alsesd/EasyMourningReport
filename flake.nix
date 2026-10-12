@@ -3,11 +3,13 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # poetry2nix is older than nixpkgs-unstable; pin its compatible package set.
+    poetryNixpkgs.url = "github:NixOS/nixpkgs/75e28c029ef2605f9841e0baa335d70065fe7ae2";
     poetry2nix.url = "github:nix-community/poetry2nix";
-    poetry2nix.inputs.nixpkgs.follows = "nixpkgs";
+    poetry2nix.inputs.nixpkgs.follows = "poetryNixpkgs";
   };
 
-  outputs = { self, nixpkgs, poetry2nix }:
+  outputs = { self, nixpkgs, poetryNixpkgs, poetry2nix }:
     let
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
@@ -23,10 +25,14 @@
             src = poetry2nix;
             patches = [ ./nix/poetry2nix-riscv64.patch ];
           };
-          poetry2nixLib = import "${poetry2nixSource}/default.nix" { inherit pkgs; };
+          poetryPkgs = import poetryNixpkgs {
+            inherit system;
+            allowUnfree = true;
+          };
+          poetry2nixLib = import "${poetry2nixSource}/default.nix" { pkgs = poetryPkgs; };
           pythonEnv = poetry2nixLib.mkPoetryEnv {
             projectDir = ./.;
-            python = pkgs.python311;
+            python = poetryPkgs.python311;
             groups = [ "main" ];
           };
           tailscaleHelper = pkgs.buildGoModule {
