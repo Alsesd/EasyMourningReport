@@ -1,8 +1,8 @@
-"""Resolve persistent data beside the executable or project directory.
+"""Resolve persistent data outside the bundled runtime and extraction directory.
 
-PyOxidizer marks its runtime as frozen; one-file/freezer extraction paths must not be
-used for persistent SQLite, secret-key, or backup files. When the executable folder is
-not writable, use the per-user application data directory instead.
+Use the executable's directory when writable; otherwise fall back to the per-user
+application data directory. Never store mutable application data inside PyInstaller's
+temporary one-file extraction directory.
 """
 
 import os
@@ -13,12 +13,8 @@ APP_NAME = "LegkyiZvit"
 
 
 def _app_dir() -> Path:
-    """Folder of the exe (compiled build) or of the project (running from source)."""
-    compiled = globals().get("__compiled__")
-    if compiled is not None:
-        folder = getattr(compiled, "containing_dir", None)
-        return Path(folder) if folder else Path(sys.argv[0]).resolve().parent
-    if getattr(sys, "frozen", False):  # other freezers, e.g. PyInstaller
+    """Folder of the executable when frozen, or the project root in source mode."""
+    if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent.parent
 

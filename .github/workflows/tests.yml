@@ -4,17 +4,18 @@ on:
   push:
     branches:
       - main
-      - packaging/nix-flake
   pull_request:
-    branches:
-      - main
 
 permissions:
   contents: read
 
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   python-tests:
-    if: github.head_ref != 'fix/windows-binary-reliability-tailscale'
+    name: Python regression tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -23,16 +24,16 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: pyproject.toml
-      - name: Install application and test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install "fastapi>=0.115" "uvicorn>=0.30" "sqlmodel==0.0.24" "sqlalchemy>=2.0" "jinja2>=3.1" "python-multipart>=0.0.9" "itsdangerous>=2.2" "openpyxl>=3.1.5" "pytest>=8.3" "pytest-cov>=6.0" "httpx>=0.27"
+          cache-dependency-path: poetry.lock
+      - name: Install Poetry
+        run: python -m pip install "poetry==2.4.3"
+      - name: Install locked dependencies
+        run: poetry install --no-interaction
       - name: Run Python regression tests
-        run: python -m pytest -q
+        run: poetry run pytest -q
 
   go-helper:
-    if: github.head_ref != 'fix/windows-binary-reliability-tailscale'
+    name: Compile Tailscale helper
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -41,17 +42,10 @@ jobs:
         with:
           go-version: "1.24.x"
           cache: true
-          cache-dependency-path: tailscale-helper/go.mod
-      - name: Compile embedded Tailscale helper
+          cache-dependency-path: tailscale-helper/go.sum
+      - name: Verify helper modules and compile
         working-directory: tailscale-helper
         run: |
-          go mod tidy
-          go build -o /tmp/tailscale-helper .
-      - name: Upload pinned Go module graph
-        uses: actions/upload-artifact@v4
-        with:
-          name: tailscale-helper-module-lock
-          path: |
-            tailscale-helper/go.mod
-            tailscale-helper/go.sum
-          retention-days: 7
+          go mod download
+          go test ./...
+          go build -trimpath -o "$RUNNER_TEMP/tailscale-helper" .
