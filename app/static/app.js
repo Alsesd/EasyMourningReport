@@ -24,10 +24,6 @@
     });
 
 
-    });
-    document.addEventListener("fullscreenchange", syncFullscreenButton);
-    syncFullscreenButton();
-
     // Preserve the user's viewport after ordinary POST/redirect forms (e.g. store edits).
     const scrollKey = "easyMourningReport.restoreScrollY";
     try {
