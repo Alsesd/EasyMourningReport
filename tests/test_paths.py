@@ -61,6 +61,13 @@ class DataDirTests(unittest.TestCase):
             self.assertEqual(result, Path(home) / paths.APP_NAME)
             self.assertTrue(result.is_dir())
 
+    def test_frozen_build_uses_executable_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            executable = Path(tmp) / "LegkyiZvit.exe"
+            with patch.object(paths.sys, "frozen", True, create=True), \
+                    patch.object(paths.sys, "executable", str(executable)):
+                self.assertEqual(paths._app_dir(), executable.resolve().parent)
+
     def test_windows_user_data_folder(self):
         with tempfile.TemporaryDirectory() as tmp, \
              patch.object(paths.sys, "platform", "win32"), \
