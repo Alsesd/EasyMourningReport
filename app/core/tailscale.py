@@ -40,6 +40,7 @@ def _helper_path() -> Path | None:
     executable_name = "tailscale-helper.exe" if os.name == "nt" else "tailscale-helper"
     roots = [
         Path(sys.argv[0]).resolve().parent,
+        Path(__file__).resolve().parents[2] / "tailscale-helper" / "bin",
         Path(__file__).resolve().parents[2] / "build",
     ]
     for root in roots:
