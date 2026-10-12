@@ -18,7 +18,8 @@
             inherit system;
             allowUnfree = true;
           };
-          pythonEnv = poetry2nix.lib.mkPoetryEnv {
+          poetry2nixLib = poetry2nix.lib.mkPoetry2Nix { inherit pkgs; };
+          pythonEnv = poetry2nixLib.mkPoetryEnv {
             projectDir = ./.;
             python = pkgs.python311;
             groups = [ "main" ];
