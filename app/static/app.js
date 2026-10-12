@@ -1,6 +1,42 @@
 (() => {
     "use strict";
 
+    // Persist a manual light/dark choice; storage is optional and failures are harmless.
+    const themeButton = document.getElementById("theme-toggle");
+    const root = document.documentElement;
+    function applyTheme(theme) {
+        root.dataset.theme = theme;
+        if (themeButton) {
+            const light = theme === "light";
+            themeButton.textContent = light ? "☾ Темна тема" : "☼ Світла тема";
+            themeButton.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+            themeButton.setAttribute("aria-pressed", String(light));
+        }
+    }
+    let storedTheme = "";
+    try { storedTheme = localStorage.getItem("easyMourningReport.theme") || ""; } catch (_error) { }
+    applyTheme(storedTheme === "light" ? "light" : "dark");
+    themeButton?.addEventListener("click", () => {
+        const next = root.dataset.theme === "light" ? "dark" : "light";
+        applyTheme(next);
+        try { localStorage.setItem("easyMourningReport.theme", next); } catch (_error) { }
+    });
+
+    // The creator mark stays discreet until deliberately tapped or focused.
+    const makerMark = document.querySelector(".maker-mark");
+    const makerButton = makerMark?.querySelector(".maker-mark-trigger");
+    makerButton?.addEventListener("click", () => {
+        const revealed = makerMark.classList.toggle("is-revealed");
+        makerButton.setAttribute("aria-expanded", String(revealed));
+        makerButton.setAttribute("aria-label", revealed ? "Hide creator credit" : "Reveal creator credit");
+    });
+    document.addEventListener("click", event => {
+        if (makerMark && !makerMark.contains(event.target)) {
+            makerMark.classList.remove("is-revealed");
+            makerButton?.setAttribute("aria-expanded", "false");
+        }
+    });
+
     if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
             navigator.serviceWorker.register("/sw.js").catch(() => {
