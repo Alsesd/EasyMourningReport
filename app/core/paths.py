@@ -41,6 +41,15 @@ def _user_data_dir() -> Path:
     return Path(root) / APP_NAME
 
 
+def user_data_dir() -> Path:
+    """Return per-user storage suitable for private identity and credential state."""
+    folder = _user_data_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        folder.chmod(0o700)
+    return folder
+
+
 def _writable(folder: Path) -> bool:
     try:
         folder.mkdir(parents=True, exist_ok=True)
