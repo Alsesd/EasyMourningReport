@@ -10,7 +10,13 @@ on:
         default: false
   push:
     branches:
+      - main
       - fix/windows-binary-reliability-tailscale
+      - chore/pyinstaller-cleanup
+      - packaging/nix-flake
+    tags:
+      - "v*"
+  pull_request:
 
 permissions:
   contents: read
@@ -33,7 +39,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: poetry.lock
 
       - name: Set up Go for bundled Tailscale helper
         uses: actions/setup-go@v5
@@ -50,17 +56,61 @@ jobs:
           New-Item -ItemType Directory -Force -Path bin | Out-Null
           go build -trimpath -ldflags "-s -w" -o bin/tailscale-helper.exe .
 
-      - name: Install runtime and freezer
+      - name: Install Poetry and locked dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install fastapi==0.115.12 uvicorn==0.34.0 sqlmodel==0.0.24 sqlalchemy==2.0.40 jinja2==3.1.6 python-multipart==0.0.20 itsdangerous==2.2.0 openpyxl==3.1.5 pyinstaller==6.16.0
+          python -m pip install "poetry==2.4.3"
+          poetry install --no-interaction
+          poetry run python -m pip install "pyinstaller==6.16.0"
+
+      - name: Run Python regression tests
+        run: poetry run pytest -q
 
       - name: Build single-file Windows executable
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --add-binary "tailscale-helper/bin/tailscale-helper.exe;." --collect-all openpyxl --hidden-import app.__main__ app/__main__.py
+          poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --add-binary "tailscale-helper/bin/tailscale-helper.exe;." --collect-all openpyxl --collect-submodules uvicorn run.py
           if (!(Test-Path "dist/LegkyiZvit.exe")) { throw "PyInstaller did not produce dist/LegkyiZvit.exe" }
           if ((Get-Item "dist/LegkyiZvit.exe").Length -le 1MB) { throw "Executable is unexpectedly small; refusing to publish incomplete output" }
+
+      - name: Smoke-test packaged executable
+        shell: pwsh
+        run: |
+          $env:HOST = "127.0.0.1"
+          $env:PORT = "18765"
+          $env:LEGKYI_AUTO_OPEN_BROWSER = "0"
+          $env:LEGKYI_DATA_DIR = Join-Path $env:RUNNER_TEMP "legkyi-smoke-data"
+          $stdout = Join-Path $env:RUNNER_TEMP "legkyi-smoke.stdout.log"
+          $stderr = Join-Path $env:RUNNER_TEMP "legkyi-smoke.stderr.log"
+          $app = Start-Process -FilePath "dist/LegkyiZvit.exe" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $ready = $false
+          try {
+            for ($i = 0; $i -lt 60; $i++) {
+              if ($app.HasExited) {
+                $out = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { "" }
+                $err = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
+                throw "Packaged app exited with code $($app.ExitCode). stdout: $out stderr: $err"
+              }
+              try {
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:18765/" -TimeoutSec 2 -UseBasicParsing
+                if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) { $ready = $true; break }
+              } catch {
+                if ($_.Exception.Response) {
+                  $statusCode = [int]$_.Exception.Response.StatusCode
+                  if ($statusCode -ge 200 -and $statusCode -lt 500) { $ready = $true; break }
+                }
+              }
+              Start-Sleep -Seconds 1
+            }
+            if (!$ready) {
+              $out = if (Test-Path $stdout) { Get-Content $stdout -Raw } else { "" }
+              $err = if (Test-Path $stderr) { Get-Content $stderr -Raw } else { "" }
+              throw "Packaged app did not become ready within 60 seconds. stdout: $out stderr: $err"
+            }
+            Write-Host "Packaged Windows executable started and answered HTTP requests."
+          } finally {
+            if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force }
+          }
 
       - name: Upload single-file executable
         uses: actions/upload-artifact@v4
