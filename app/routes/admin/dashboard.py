@@ -50,8 +50,6 @@ def admin_page(
         item = {
             "p": p,
             "used": used.get(p.id, 0),
-            "prev": lines[0],
-            "change": (lines[0], lines[-1]) if len(lines) >= 2 else None,
             "changes": lines,
         }
         (products if p.active else inactive_products).append(item)
