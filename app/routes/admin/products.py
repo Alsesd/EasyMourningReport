@@ -1,4 +1,4 @@
-"""Admin product management endpoints: CRUD, Excel import, and multi-price history."""
+"""Admin product management endpoints: CRUD, Excel import, and monthly price history."""
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from app.core.dependencies import admin_required, clean_name, to_cents
