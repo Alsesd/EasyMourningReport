@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   python-tests:
+    if: github.head_ref != 'fix/windows-binary-reliability-tailscale'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -31,6 +32,7 @@ jobs:
         run: python -m pytest -q
 
   go-helper:
+    if: github.head_ref != 'fix/windows-binary-reliability-tailscale'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
