@@ -3,6 +3,7 @@
 
     // Persist a manual light/dark choice; storage is optional and failures are harmless.
     const themeButton = document.getElementById("theme-toggle");
+    const appearanceMenu = themeButton?.closest(".appearance-menu");
     const root = document.documentElement;
     function applyTheme(theme) {
         root.dataset.theme = theme;
@@ -21,6 +22,10 @@
         const next = root.dataset.theme === "light" ? "dark" : "light";
         applyTheme(next);
         try { localStorage.setItem("easyMourningReport.theme", next); } catch (_error) { }
+        appearanceMenu?.removeAttribute("open");
+    });
+    document.addEventListener("click", event => {
+        if (appearanceMenu && !appearanceMenu.contains(event.target)) appearanceMenu.removeAttribute("open");
     });
 
 
