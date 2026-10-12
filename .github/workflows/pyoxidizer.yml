@@ -13,8 +13,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: windows-release-build
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('windows-pr-{0}', github.event.pull_request.number) || 'windows-release-build' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-windows:
