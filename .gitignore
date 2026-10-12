@@ -11,3 +11,4 @@ dist/
 
 # Locally built Tailscale helper binaries
 /tailscale-helper/bin/
+LegkyiZvit.spec
