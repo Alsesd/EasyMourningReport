@@ -46,3 +46,11 @@ jobs:
         run: |
           go mod tidy
           go build -o /tmp/tailscale-helper .
+      - name: Upload pinned Go module graph
+        uses: actions/upload-artifact@v4
+        with:
+          name: tailscale-helper-module-lock
+          path: |
+            tailscale-helper/go.mod
+            tailscale-helper/go.sum
+          retention-days: 7
