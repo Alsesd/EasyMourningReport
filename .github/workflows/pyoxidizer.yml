@@ -41,6 +41,7 @@ jobs:
         shell: pwsh
         working-directory: tailscale-helper
         run: |
+          go mod tidy
           New-Item -ItemType Directory -Force -Path bin | Out-Null
           go build -o bin/tailscale-helper.exe .
 
