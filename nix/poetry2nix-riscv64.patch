@@ -21,3 +21,24 @@ diff --git a/overrides/default.nix b/overrides/default.nix
 @@ -159,1 +159,1 @@
 -          lib.optionals final.isPy27 [ (final.backports-functools-lru-cache or final.backports_functools_lru_cache) ]
 +          lib.optionals (final.isPy27 or false) [ (final.backports-functools-lru-cache or final.backports_functools_lru_cache) ]
+diff --git a/vendor/pyproject.nix/lib/pypa.nix b/vendor/pyproject.nix/lib/pypa.nix
+--- a/vendor/pyproject.nix/lib/pypa.nix
++++ b/vendor/pyproject.nix/lib/pypa.nix
+@@ -99,9 +99,13 @@
+   parseABITag =
+     tag:
+     let
+       m = match "([a-z]+)([0-9]*)_?([a-z0-9]*)" tag;
+     in
+-    assert m != null;
+-    {
++    if m == null then {
++      # Unknown future ABI tags should be treated as incompatible wheels.
++      implementation = "unknown";
++      version = "";
++      rest = tag;
++    } else {
+       implementation = normalizeImpl (elemAt m 0);
+       version = optionalString (elemAt m 1);
+       rest = elemAt m 2;
+     };
