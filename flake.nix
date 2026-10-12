@@ -39,7 +39,7 @@
             pname = "tailscale-helper";
             version = "0.1.0";
             src = ./tailscale-helper;
-            vendorHash = pkgs.lib.fakeHash;
+            vendorHash = "sha256-EDoGKs5XDkKfX5Lk+9PTdBtdvDuH65Vy9YIZ2P9wnq0=";
             subPackages = [ "." ];
             doCheck = false;
           };
