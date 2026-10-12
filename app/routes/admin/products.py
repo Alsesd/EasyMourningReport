@@ -100,7 +100,6 @@ async def product_edit(
     canonical_history = [
         (start, value) for start, value in history if period_month(start) != period
     ]
-    before_now = offered_prices(canonical_history, period)[-1]
     new_history, prev_price, now_price = apply_price_change(
         canonical_history, period, cents
     )
@@ -109,7 +108,7 @@ async def product_edit(
         p.price_cents = latest_price(new_history)
         if len(offered_prices(new_history, period)) == 2:
             said.append(
-                f"Ціну змінено: {money(before_now)} → {money(now_price)} з {period}. "
+                f"Ціну змінено: {money(prev_price)} → {money(now_price)} з {period}. "
                 f"У звітах {period} збережуться попередня й нова ціни; "
                 f"у наступних місяцях діятиме лише {money(now_price)}."
             )
