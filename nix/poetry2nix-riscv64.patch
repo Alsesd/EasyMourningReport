@@ -48,3 +48,9 @@ diff --git a/overrides/default.nix b/overrides/default.nix
 @@ -163,1 +163,1 @@
 -        inherit (final) buildPythonPackage flit-core packaging pyproject-hooks tomli;
 +        inherit (final) buildPythonPackage flit-core packaging pyproject-hooks;
+diff --git a/overrides/default.nix b/overrides/default.nix
+--- a/overrides/default.nix
++++ b/overrides/default.nix
+@@ -179,1 +179,1 @@
+-        inherit (final) buildPythonPackage flit-core tomli;
++        inherit (final) buildPythonPackage flit-core;
