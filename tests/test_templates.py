@@ -12,7 +12,20 @@ env.filters["money"] = lambda c: f"{c / 100:.2f}"
 
 
 def render(name, path="/", **ctx):
-    base = dict(request=NS(url=NS(path=path)), user=None, flash=None, this_period="2026-10", nav_period="2026-10")
+    base = dict(
+        request=NS(url=NS(path=path)),
+        user=None,
+        flash=None,
+        this_period="2026-10",
+        nav_period="2026-10",
+        tailscale={
+            "enabled": False,
+            "state": "disabled",
+            "public_url": "",
+            "login_url": "",
+            "error": "",
+        },
+    )
     base.update(ctx)
     return env.get_template(name).render(**base)
 
@@ -83,6 +96,8 @@ class Templates(unittest.TestCase):
         self.assertIn("1.20 ₴", html)
         self.assertIn("1.30 ₴", html)
         self.assertIn('id="product-search"', html)
+        self.assertIn("Enable Public Funnel", html)
+        self.assertIn('name="confirm_public"', html)
         self.assertIn("Архів товарів", html)
         self.assertIn("Архів магазинів", html)
         self.assertIn("піде в архів", html)            # delete confirmation for a product that has data
