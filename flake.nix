@@ -18,7 +18,11 @@
             inherit system;
             allowUnfree = true;
           };
-          poetry2nixLib = poetry2nix.lib.mkPoetry2Nix { inherit pkgs; };
+          poetry2nixSource = pkgs.applyPatches {
+            src = poetry2nix;
+            patches = [ ./nix/poetry2nix-riscv64.patch ];
+          };
+          poetry2nixLib = import "${poetry2nixSource}/default.nix" { inherit pkgs; };
           pythonEnv = poetry2nixLib.mkPoetryEnv {
             projectDir = ./.;
             python = pkgs.python311;
