@@ -21,6 +21,7 @@ from app.db.models.report import Report
 from app.core.security import hash_pw
 from app.main import app
 from app.core.dependencies import get_db
+from app.core.ui import current_period
 from app.services.pricing import BASE_PERIOD
 
 from app.routes.root import index
@@ -244,11 +245,27 @@ class RouteIntegrationTests(unittest.TestCase):
             new_p = db.query(Product).filter(Product.name == "New Milk").first()
             self.assertIsNotNone(new_p)
 
-            # Edit product with multiple prices for current month
+            # Legacy clients may still submit extra_price fields. Only the single price is saved,
+            # and any old same-month variant records are collapsed into one monthly price change.
+            db.add(
+                ProductPrice(
+                    product_id=new_p.id,
+                    period=f"{current_period()}_1",
+                    price_cents=280,
+                )
+            )
+            db.commit()
             form_dict = [("name", "New Milk"), ("price", "2.60"), ("extra_price", "2.80"), ("active", "on")]
             req_edit = self._mock_request(form_data=form_dict)
             resp_edit = asyncio.run(product_edit(req_edit, new_p.id, admin_user, db))
             self.assertEqual(resp_edit.status_code, 303)
+            month_prices = db.query(ProductPrice).filter(
+                ProductPrice.product_id == new_p.id,
+                ProductPrice.period.like(f"{current_period()}%"),
+            ).all()
+            self.assertEqual(len(month_prices), 1)
+            self.assertEqual(month_prices[0].period, current_period())
+            self.assertEqual(month_prices[0].price_cents, 260)
 
             # Delete and restore product
             resp_del = product_delete(req, new_p.id, admin_user, db)
