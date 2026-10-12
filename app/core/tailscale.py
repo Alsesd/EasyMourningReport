@@ -13,14 +13,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-from app.core.paths import data_dir
+from app.core.paths import user_data_dir
 
 _process: subprocess.Popen | None = None
 _log_handle = None
 
 
 def _state_root() -> Path:
-    path = data_dir() / "tailscale"
+    path = user_data_dir() / "tailscale"
     path.mkdir(parents=True, exist_ok=True)
     if os.name != "nt":
         path.chmod(0o700)
@@ -28,7 +28,7 @@ def _state_root() -> Path:
 
 
 def _enabled_file() -> Path:
-    return data_dir() / ".tailscale-funnel-enabled"
+    return user_data_dir() / ".tailscale-funnel-enabled"
 
 
 def _helper_path() -> Path | None:
@@ -120,13 +120,17 @@ def start_funnel(auth_key: str | None = None) -> dict[str, Any]:
                 str(root / "status.json"),
                 "--target",
                 f"http://127.0.0.1:{os.getenv('PORT', '8000')}",
+                "--auth-key-stdin",
             ],
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE,
             stdout=_log_handle,
             stderr=subprocess.STDOUT,
             env=env,
             close_fds=True,
         )
+        if _process.stdin is not None:
+            _process.stdin.write((supplied_key + "\\n").encode("utf-8"))
+            _process.stdin.close()
     except (OSError, ValueError) as exc:
         if _log_handle:
             _log_handle.close()
