@@ -42,8 +42,13 @@ def _user_data_dir() -> Path:
 
 
 def user_data_dir() -> Path:
-    """Return per-user storage suitable for private identity and credential state."""
-    folder = _user_data_dir()
+    """Return per-user storage suitable for private identity and credential state.
+
+    Honor LEGKYI_DATA_DIR as an explicit all-data override so tests and portable
+    deployments can isolate every persistent artifact in one known location.
+    """
+    override = os.getenv("LEGKYI_DATA_DIR")
+    folder = Path(override).expanduser().resolve() if override else _user_data_dir()
     folder.mkdir(parents=True, exist_ok=True)
     if os.name != "nt":
         folder.chmod(0o700)
