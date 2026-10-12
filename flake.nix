@@ -1,13 +1,67 @@
 {
-  description = "EasyMourningReport development environment";
+  description = "EasyMourningReport application package and development environment";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    poetry2nix.url = "github:nix-community/poetry2nix";
+    poetry2nix.inputs.nixpkgs.follows = "nixpkgs";
+  };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, poetry2nix }:
     let
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
     in {
+      packages = forAllSystems (system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            allowUnfree = true;
+          };
+          pythonEnv = poetry2nix.lib.mkPoetryEnv {
+            projectDir = ./.;
+            python = pkgs.python311;
+            groups = [ "main" ];
+          };
+          tailscaleHelper = pkgs.buildGoModule {
+            pname = "tailscale-helper";
+            version = "0.1.0";
+            src = ./tailscale-helper;
+            vendorHash = pkgs.lib.fakeHash;
+            subPackages = [ "." ];
+            doCheck = false;
+          };
+          app = pkgs.stdenvNoCC.mkDerivation {
+            pname = "easymourningreport";
+            version = "1.0.0";
+            dontUnpack = true;
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            installPhase = ''
+              appRoot="$out/share/easymourningreport"
+              mkdir -p "$appRoot" "$out/bin" "$appRoot/tailscale-helper/bin"
+              cp -r ${./app} "$appRoot/app"
+              cp ${./run.py} "$appRoot/run.py"
+              cp ${tailscaleHelper}/bin/tailscale-helper "$appRoot/tailscale-helper/bin/tailscale-helper"
+              chmod -R a-w "$appRoot"
+
+              makeWrapper ${pythonEnv}/bin/python "$out/bin/easymourningreport" \
+                --chdir "$appRoot" \
+                --set PYTHONPATH "$appRoot" \
+                --add-flags "$appRoot/run.py"
+            '';
+          };
+        in {
+          default = app;
+          tailscale-helper = tailscaleHelper;
+        });
+
+      apps = forAllSystems (system: {
+        default = {
+          type = "app";
+          program = "${self.packages.${system}.default}/bin/easymourningreport";
+        };
+      });
+
       devShells = forAllSystems (system:
         let
           pkgs = import nixpkgs {
@@ -46,5 +100,5 @@
             '';
           };
         });
-    }
+    };
 }
