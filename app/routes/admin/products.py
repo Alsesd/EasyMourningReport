@@ -123,7 +123,7 @@ async def product_edit(
             user.login,
             user.role,
             "змінено ціну товару",
-            f"{p.name} · {money(before_now)} → {money(now_price)} з {period}",
+            f"{p.name} · {money(prev_price)} → {money(now_price)} з {period}",
         )
 
     notes = []
