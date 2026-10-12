@@ -64,7 +64,7 @@ class Templates(unittest.TestCase):
         archived = NS(id=8, name="Старий товар")
         s = NS(id=3, name="Магазин 1")
         html = render("admin.html", "/admin", user=ADMIN,
-                      products=[{"p": p, "used": 4, "prev": 120, "change": (120, 130), "changes": [120, 130]}], inactive_products=[],
+                      products=[{"p": p, "used": 4, "changes": [120, 130]}], inactive_products=[],
                       archived_products=[{"p": archived, "used": 2}],
                       stores=[{"store": s, "user": NS(login="store1"), "reports": 2}],
                       archived_stores=[{"store": NS(id=4, name="Закритий"), "user": NS(login="old"), "reports": 5}])
