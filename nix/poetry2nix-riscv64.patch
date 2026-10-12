@@ -24,7 +24,7 @@ diff --git a/overrides/default.nix b/overrides/default.nix
 diff --git a/vendor/pyproject.nix/lib/pypa.nix b/vendor/pyproject.nix/lib/pypa.nix
 --- a/vendor/pyproject.nix/lib/pypa.nix
 +++ b/vendor/pyproject.nix/lib/pypa.nix
-@@ -99,9 +99,13 @@
+@@ -98,11 +98,15 @@
    parseABITag =
      tag:
      let
