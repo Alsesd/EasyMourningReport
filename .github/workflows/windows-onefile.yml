@@ -46,7 +46,9 @@ jobs:
         with:
           go-version: "1.24.x"
           cache: true
-          cache-dependency-path: tailscale-helper/go.mod
+          cache-dependency-path: |
+            tailscale-helper/go.mod
+            tailscale-helper/go.sum
 
       - name: Compile Tailscale helper
         shell: pwsh
@@ -203,3 +205,26 @@ jobs:
             if ($funnel -and !$funnel.HasExited) { $funnel.Kill(); $funnel.WaitForExit(5000) | Out-Null }
             if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force }
           }
+
+  release:
+    name: Publish tagged Windows release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified Windows executable
+        uses: actions/download-artifact@v4
+        with:
+          name: LegkyiZvit-Windows-x64
+          path: release
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/LegkyiZvit.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
