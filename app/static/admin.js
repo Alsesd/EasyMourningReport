@@ -159,6 +159,7 @@
         if (!entry || !submit || submit.disabled) return;
 
         const previousLabel = submit.textContent;
+        const previousTop = entry.getBoundingClientRect().top;
         submit.disabled = true;
         submit.textContent = "Зберігаю…";
         entry.setAttribute("aria-busy", "true");
@@ -194,11 +195,14 @@
             targetSection.append(refreshed);
             insertProductInNameOrder(targetSection, refreshed);
             targetSection.open = true;
+            // Replacing/re-sorting a card must not make the viewport jump.
+            const newTop = refreshed.getBoundingClientRect().top;
+            window.scrollBy(0, newTop - previousTop);
             initializeFormTracking(refreshed.querySelector("form.product-form"));
             refreshProductSearch();
             refreshed.removeAttribute("aria-busy");
             showProductFeedback(refreshed, serverMessage || "Зміни збережено.", "good");
-            refreshed.querySelector(".price-toggle")?.focus({ preventScroll: true });
+            // Do not steal focus or scroll after a background save.
         } catch (error) {
             entry.removeAttribute("aria-busy");
             submit.disabled = false;

@@ -341,3 +341,58 @@ html[data-theme="light"] .tabs{background:rgba(255,255,255,.92);border-top-color
 html[data-theme="light"] .top{background:rgba(242,245,248,.9);border-bottom-color:#d8e1e9}
 
 .maker-mark-trigger{min-height:25px;padding:0;border-radius:8px}
+
+
+/* Interaction stability and real theme overrides. */
+html{scroll-behavior:auto;scroll-padding-top:76px}
+body{overscroll-behavior-y:contain}
+main{scroll-margin-top:0;transition:none!important;transform:none!important}
+main.page-leaving{opacity:1!important;transform:none!important;pointer-events:auto!important}
+.product-entry:hover,.price-option:hover{transform:none!important}
+.product-entry,.price-option,.card,.product-list{overflow-anchor:auto}
+.price-options{grid-template-columns:repeat(2,minmax(0,1fr))!important;align-items:stretch}
+.price-option{min-width:0;padding:clamp(7px,1vw,13px)}
+.price-option-field{min-width:0;gap:4px}
+.price-option-field input{min-width:0;flex:1 1 0;width:1%;padding-inline:5px;font-size:clamp(.78rem,1.1vw,.95rem);letter-spacing:-.035em}
+.price-option-suffix{font-size:.72rem;padding:0}
+.price-editor-content{min-width:0}
+.product-quick-actions .price-toggle{min-width:0}
+.top-actions{flex-wrap:wrap}
+.fullscreen-toggle{min-height:36px;padding:0 9px;font-size:.78rem;white-space:nowrap}
+html:fullscreen,html:fullscreen body{width:100%;height:100%;overflow:auto}
+html:fullscreen body{padding-top:env(safe-area-inset-top)}
+@media(max-width:520px){
+ .price-options{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px}
+ .price-option{padding:7px}
+ .price-option-field input{padding-inline:3px;font-size:.8rem;letter-spacing:-.045em}
+ .price-option-suffix{font-size:.68rem}
+ .top-actions{gap:5px}
+ .theme-toggle,.fullscreen-toggle{padding-inline:7px;font-size:.73rem}
+}
+@media(prefers-reduced-motion:reduce){
+ html{scroll-behavior:auto!important}
+ *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+/* Keep the manual light theme readable even in components with custom surfaces. */
+html[data-theme="light"] .product-list,
+html[data-theme="light"] .card,
+html[data-theme="light"] .entry,
+html[data-theme="light"] .product-entry{background:#fff!important;color:#202c38;border-color:#d8e1e9}
+html[data-theme="light"] .product-list>summary{background:#edf3f8!important;color:#344c65}
+html[data-theme="light"] .product-entry:hover{background:#f7faff!important}
+html[data-theme="light"] .product-status,
+html[data-theme="light"] .product-meta{background:#f0f5fa!important;border-color:#d9e3ed;color:#526c86}
+html[data-theme="light"] .product-quick-actions .price-toggle{background:#edf4fa!important;border-color:#d7e3ef;color:#202c38}
+html[data-theme="light"] .price-current strong{color:#315f8d!important}
+html[data-theme="light"] .product-toolbar .search-field input,
+html[data-theme="light"] input:not([type=checkbox]),
+html[data-theme="light"] select{background:#fff;color:#202c38}
+html[data-theme="light"] .import-tile{background:linear-gradient(135deg,#edf4fa,#fff)!important;border-color:#d7e3ef}
+html[data-theme="light"] .create-form:not([hidden]){background:#fff!important;border-color:#d7e3ef}
+html[data-theme="light"] .price-editor.is-open .price-editor-content{background:#f5f8fc!important;border-color:#d7e3ef}
+html[data-theme="light"] .price-option{background:#fff!important;border-color:#d8e1e9}
+html[data-theme="light"] .price-option--new{background:#f4f7fb!important}
+html[data-theme="light"] .tabs{background:rgba(255,255,255,.96)!important;border-top-color:#d8e1e9}
+html[data-theme="light"] .top{background:rgba(242,245,248,.96)!important;border-bottom-color:#d8e1e9}
+html[data-theme="light"] .product-toolbar .search-field input{background:#fff!important}
+html[data-theme="light"] .theme-toggle,html[data-theme="light"] .fullscreen-toggle{background:#fff;color:#202c38;border-color:#d8e1e9}
