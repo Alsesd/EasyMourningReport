@@ -39,9 +39,10 @@ jobs:
 
       - name: Build the embedded Tailscale helper
         shell: pwsh
+        working-directory: tailscale-helper
         run: |
-          New-Item -ItemType Directory -Force -Path tailscale-helper/bin | Out-Null
-          go build -o tailscale-helper/bin/tailscale-helper.exe ./tailscale-helper
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
+          go build -o bin/tailscale-helper.exe .
 
       - name: Install pinned runtime and PyOxidizer dependencies
         run: |
