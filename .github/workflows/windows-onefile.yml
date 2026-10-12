@@ -24,8 +24,6 @@ jobs:
     name: Build standalone Windows executable
     runs-on: windows-2022
     timeout-minutes: 45
-    env:
-      HAS_TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,8 +62,16 @@ jobs:
           if (!(Test-Path "dist/LegkyiZvit.exe")) { throw "PyInstaller did not produce dist/LegkyiZvit.exe" }
           if ((Get-Item "dist/LegkyiZvit.exe").Length -le 1MB) { throw "Executable is unexpectedly small; refusing to publish incomplete output" }
 
+      - name: Upload single-file executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: LegkyiZvit-Windows-x64
+          path: dist/LegkyiZvit.exe
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Verify real Tailscale Funnel (optional)
-        if: inputs.verify_funnel || env.HAS_TAILSCALE_AUTH_KEY == 'true'
+        if: inputs.verify_funnel
         shell: pwsh
         env:
           TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
@@ -147,11 +153,3 @@ jobs:
             if ($funnel -and !$funnel.HasExited) { $funnel.Kill(); $funnel.WaitForExit(5000) | Out-Null }
             if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force }
           }
-
-      - name: Upload single-file executable
-        uses: actions/upload-artifact@v4
-        with:
-          name: LegkyiZvit-Windows-x64
-          path: dist/LegkyiZvit.exe
-          if-no-files-found: error
-          retention-days: 30
