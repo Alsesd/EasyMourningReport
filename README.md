@@ -70,24 +70,22 @@
 ```text
 EasyMourningReport/
 ├── app/
-│   ├── core/             # Інфраструктура (paths, security, ratelimit, ui, dependencies)
-│   ├── db/               # SQLModel-моделі, сесії, репозиторії, міграції та backup
-│   ├── services/         # Чиста бізнес-логіка (pricing, excel)
-│   ├── routes/           # Модульні маршрути (auth, report, root, pwa, admin/*)
-│   ├── static/           # PWA та статичні ресурси
+│   ├── core/             # Безпека, шляхи, обмеження запитів, UI
+│   ├── db/               # SQLModel, сесії, репозиторії, міграції та backup
+│   ├── services/         # Бізнес-логіка: ціни та Excel
+│   ├── routes/           # HTTP-маршрути
+│   ├── static/           # CSS, JavaScript та PWA-ресурси
 │   ├── templates/        # Шаблони Jinja2
-│   └── main.py           # Композиція FastAPI, життєвий цикл і middleware
-├── tests/                # pytest, FastAPI TestClient та ізольовані тести БД
-├── build.py              # Скрипт збірки standalone EXE через PyOxidizer
-├── pyoxidizer.bzl        # Конфігурація пакування PyOxidizer
-├── DOCS.md               # Повна архітектурна та технічна документація
-├── README.md
-├── pyproject.toml
-├── poetry.lock
-├── run.py                # Головна точка входу (uvicorn)
-├── flake.nix             # Nix flake для автоматизації на Linux
-├── start.bat             # Скрипт автоматизації для Windows (Tailscale Funnel)
-└── backups/              # Снапшоти бази даних SQLite
+│   ├── launcher.py       # Запуск Uvicorn та локального браузера
+│   └── main.py           # Композиція FastAPI-застосунку
+├── tailscale-helper/     # Go tsnet-помічник для опційного Funnel
+├── tests/                # Регресійні та архітектурні тести
+├── .github/workflows/    # CI тестів і Windows one-file збірки
+├── pyproject.toml        # Прямі залежності та конфігурація Poetry/pytest
+├── poetry.lock           # Зафіксований граф Python-залежностей
+├── flake.nix             # Опційне середовище розробки Nix
+├── run.py                # Основна точка входу
+└── start.bat             # Запуск із Windows
 ```
 
 Архітектура розділена за відповідальністю: `main.py` лише збирає FastAPI-застосунок, `routes/` відповідає за HTTP, `services/` — за бізнес-логіку, `db/models/` — за SQLModel-схему, а `db/repositories/` — за запити до даних. Внутрішні пакети не переекспортують функції через динамічні фасади: імпортуй символ безпосередньо з модуля, де його визначено.
@@ -153,22 +151,7 @@ start.bat
 
 Цей сценарій автоматично налаштовує середовище та запускає локальний сервер.
 
-#### Як запускати просто `uvicorn` у Windows
-
-Один раз запустіть PowerShell у корені проєкту та виконайте:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\setup-windows-uvicorn.ps1
-```
-
-Закрийте й відкрийте PowerShell. Після цього в корені проєкту команда працюватиме коротко:
-
-```powershell
-uvicorn --app-dir . app.main:app --reload
-```
-
-Скрипт додає функцію `uvicorn` до вашого PowerShell-профілю. У каталозі, де є `pyproject.toml`, вона автоматично запускає Uvicorn через Poetry; в інших каталогах передає виклик звичайному глобальному `uvicorn`, якщо він установлений. Це налаштування виконується один раз для вашого облікового запису Windows.
-
+Запуск через `python run.py` використовує той самий launcher, що й упакована програма; для звичайного локального запуску окрема PowerShell-функція не потрібна.
 
 ### Варіант 4: запуск готового EXE
 
@@ -227,7 +210,7 @@ uvicorn --app-dir . app.main:app --reload
 - раз на годину при зміні даних;
 - перед видаленням важливих елементів.
 
-Резервні копії зберігаються в каталозі `backups/`.
+Резервні копії зберігаються в підкаталозі `backups/` каталогу даних застосунку.
 
 ## Тести
 
@@ -238,30 +221,29 @@ nix develop
 test
 ```
 
-Команда `test` запускає pytest і зупиняється з помилкою, якщо тести не пройшли або покриття застосунку нижче 95%. Для точкового запуску можна передати аргументи, наприклад `test tests/test_fastapi.py -q`.
+Команда `test` запускає pytest і зупиняється з помилкою, якщо тести не пройшли або покриття застосунку нижче 95%. Для точкового запуску можна передати аргументи, наприклад `test tests/test_routes.py -q`.
 
 Тести охоплюють бізнес-логіку, репозиторії, маршрути й HTTP-поведінку FastAPI через TestClient. Мінімальний поріг покриття коду застосунку — 95%; штучно зламаних тестів немає.
 
-## Розробка та збірка standalone EXE (PyOxidizer)
+## Збірка standalone EXE для Windows (PyInstaller)
 
-Проект підтримує збірку застосунку за допомогою `PyOxidizer 0.24` (ця версія вбудовує CPython 3.10):
+Windows-збірка використовує PyInstaller у режимі `--onefile`: Python runtime, залежності, шаблони, статичні файли та Go-помічник Tailscale вбудовуються в один `LegkyiZvit.exe`. Після збірки не потрібно переносити поруч окремі каталоги `lib/`, `app/` або `tailscale-helper.exe`.
+
+Локальна збірка потребує Windows, Python/Poetry і Go:
 
 ```powershell
-python -m pip install pyoxidizer==0.24.0
-python build.py
+poetry install
+New-Item -ItemType Directory -Force tailscale-helper\bin | Out-Null
+Push-Location tailscale-helper
+go build -trimpath -ldflags "-s -w" -o bin/tailscale-helper.exe .
+Pop-Location
+poetry run python -m pip install "pyinstaller==6.16.0"
+poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --add-binary "tailscale-helper/bin/tailscale-helper.exe;." --collect-all openpyxl --collect-submodules uvicorn run.py
 ```
 
-Результат — `dist/LegkyiZvit.exe` разом із каталогами `dist/lib/` і `dist/app/`. **Не переносіть EXE окремо:** `lib/` містить Python-залежності, а `app/` — шаблони й PWA-ресурси. Конфігурація закріплює версії залежностей, сумісні з Python 3.10. Єдиний workflow запускається вручну: відновлює кеш залежностей, виконує pytest з порогом покриття 95%, і лише після успіху збирає та перевіряє EXE. Детальніше дивіться у [DOCS.md](DOCS.md).
+Результат: `dist/LegkyiZvit.exe`. Збірка в GitHub Actions запускає регресійні тести, збирає EXE та перевіряє, що упакований застосунок справді запускає HTTP-сервер до публікації артефакту. Для локальної діагностики використовуйте консольний запуск — не закривайте вікно, поки працює сервер.
 
-Головний запусковий файл:
-
-```bash
-run.py
-```
-
-База даних `reports.db`, `secret.key` і каталог `backups/` створюються автоматично поруч із `LegkyiZvit.exe` (незалежно від того, звідки його запущено) і не губляться після перезапуску. Якщо ця папка тільки для читання (наприклад, `Program Files`), дані зберігаються в `%LOCALAPPDATA%\LegkyiZvit`. Свою папку можна задати змінною середовища `LEGKYI_DATA_DIR`. Шлях до папки з даними виводиться у вікні при старті.
-
-Розпакуйте zip-архів перед запуском: з вікна перегляду архіву Windows запускає exe з тимчасової папки.
+Дані програми не записуються в тимчасову папку розпакування PyInstaller. База `reports.db`, ключ сесії та резервні копії зберігаються у каталозі даних поруч із EXE, якщо він доступний для запису; інакше використовується `%LOCALAPPDATA%\LegkyiZvit`. Шлях можна перевизначити через `LEGKYI_DATA_DIR`.
 
 ## Tailscale Funnel (необов'язково)
 
