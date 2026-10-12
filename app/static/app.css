@@ -339,3 +339,5 @@ html[data-theme="light"] .price-option{background:#fff}
 html[data-theme="light"] .price-option--new{background:#f4f7fb}
 html[data-theme="light"] .tabs{background:rgba(255,255,255,.92);border-top-color:#d8e1e9}
 html[data-theme="light"] .top{background:rgba(242,245,248,.9);border-bottom-color:#d8e1e9}
+
+.maker-mark-trigger{min-height:25px;padding:0;border-radius:8px}
