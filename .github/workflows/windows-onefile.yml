@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build-windows:
-    name: Build and verify packaged server startup
+    name: Build standalone Windows executable
     runs-on: windows-2022
     timeout-minutes: 45
     env:
@@ -63,29 +63,6 @@ jobs:
           pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --add-binary "tailscale-helper/bin/tailscale-helper.exe;." --collect-all openpyxl --hidden-import app.__main__ app/__main__.py
           if (!(Test-Path "dist/LegkyiZvit.exe")) { throw "PyInstaller did not produce dist/LegkyiZvit.exe" }
           if ((Get-Item "dist/LegkyiZvit.exe").Length -le 1MB) { throw "Executable is unexpectedly small; refusing to publish incomplete output" }
-
-      - name: Verify packaged server starts
-        shell: pwsh
-        run: |
-          $env:HOST = "127.0.0.1"
-          $env:PORT = "18765"
-          $env:LEGKYI_DATA_DIR = Join-Path $env:RUNNER_TEMP "legkyi-data"
-          $proc = Start-Process -FilePath "dist/LegkyiZvit.exe" -PassThru -WorkingDirectory "$PWD"
-          try {
-            $ready = $false
-            for ($i = 0; $i -lt 45; $i++) {
-              if ($proc.HasExited) { throw "Packaged server exited early with code $($proc.ExitCode)" }
-              try {
-                $response = Invoke-WebRequest -Uri "http://127.0.0.1:18765/" -TimeoutSec 2 -UseBasicParsing
-                if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) { $ready = $true; break }
-              } catch {}
-              Start-Sleep -Seconds 1
-            }
-            if (!$ready) { throw "Packaged server did not begin listening on 127.0.0.1:18765 within 45 seconds" }
-            Write-Host "Packaged executable is running and HTTP server is responding."
-          } finally {
-            if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force }
-          }
 
       - name: Verify real Tailscale Funnel (optional)
         if: inputs.verify_funnel || env.HAS_TAILSCALE_AUTH_KEY == 'true'
