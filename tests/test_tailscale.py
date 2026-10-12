@@ -37,7 +37,7 @@ class TailscaleManagerTests(unittest.TestCase):
         self.old_log = tailscale._log_handle
         tailscale._process = None
         tailscale._log_handle = None
-        self.patcher = patch("app.core.tailscale.data_dir", return_value=self.root)
+        self.patcher = patch("app.core.tailscale.user_data_dir", return_value=self.root)
         self.patcher.start()
         self.helper = self.root / ("tailscale-helper.exe" if os.name == "nt" else "tailscale-helper")
         self.helper.write_text("test helper", encoding="utf-8")
@@ -62,8 +62,11 @@ class TailscaleManagerTests(unittest.TestCase):
             tailscale.start_funnel("tskey-test-secret")
         args, kwargs = popen.call_args
         self.assertNotIn("tskey-test-secret", args[0])
-        self.assertEqual(kwargs["env"]["TS_AUTHKEY"], "tskey-test-secret")
+        self.assertNotIn("TS_AUTHKEY", kwargs["env"])
+        self.assertIn("--auth-key-stdin", args[0])
+        self.assertEqual(kwargs["stdin"], -1)  # subprocess.PIPE
         self.assertNotIn("tskey-test-secret", (self.root / ".tailscale-funnel-enabled").read_text())
+        self.assertEqual(fake.stdin, None)
         self.assertNotIn("tskey-test-secret", json.dumps(tailscale.get_status()))
 
     def test_disable_clears_opt_in_and_stops_child(self):
