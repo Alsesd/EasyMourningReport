@@ -1,26 +1,38 @@
 (() => {
     "use strict";
 
-    const period = document.querySelector("[data-admin-period]")?.dataset.adminPeriod || "";
+    // The controller survives soft tab swaps; duplicate script tags must not bind twice.
+    if (window.__easyMourningAdminScriptLoaded) {
+        document.dispatchEvent(new CustomEvent("app:page-updated"));
+        return;
+    }
+    window.__easyMourningAdminScriptLoaded = true;
+
     const normalizeSearch = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim().replace(/\s+/g, " ");
-    const search = document.getElementById("product-search");
 
     if (location.hash === "#archive") document.getElementById("archive")?.scrollIntoView();
 
-    // Remember foldouts separately; storage failure must not block the page.
+    // Remember foldouts separately; bind newly swapped-in admin pages too.
     const foldoutStorageKey = "easyMourningReport.admin.foldouts.v1";
     let foldoutState = {};
     try {
         foldoutState = JSON.parse(localStorage.getItem(foldoutStorageKey) || "{}") || {};
     } catch (_error) { /* Optional preference. */ }
-    [...document.querySelectorAll("details[id], #archive details")].forEach((details, index) => {
-        const key = details.id || (details.closest("#archive") ? "archive-section-" + index : "foldout-" + index);
-        if (Object.prototype.hasOwnProperty.call(foldoutState, key)) details.open = !!foldoutState[key];
-        details.addEventListener("toggle", () => {
-            foldoutState[key] = details.open;
-            try { localStorage.setItem(foldoutStorageKey, JSON.stringify(foldoutState)); } catch (_error) { }
+
+    function bindFoldouts() {
+        [...document.querySelectorAll("details[id], #archive details")].forEach((details, index) => {
+            if (details.dataset.foldoutBound === "true") return;
+            const key = details.id || (details.closest("#archive") ? "archive-section-" + index : "foldout-" + index);
+            if (Object.prototype.hasOwnProperty.call(foldoutState, key)) details.open = !!foldoutState[key];
+            details.dataset.foldoutBound = "true";
+            details.addEventListener("toggle", () => {
+                foldoutState[key] = details.open;
+                try { localStorage.setItem(foldoutStorageKey, JSON.stringify(foldoutState)); } catch (_error) { }
+            });
         });
-    });
+    }
+
+    bindFoldouts();
 
     function centsFromValue(value) {
         const raw = String(value ?? "").trim().replace(/\s/g, "").replace(",", ".");
@@ -82,7 +94,7 @@
         if (!note) return;
         const changed = priceEditorHasChanges(editor);
         note.hidden = !changed;
-        if (changed) note.textContent = "Нові ціни діятимуть з " + period + ". Попередні місяці та вже внесені кількості у звітах не зміняться.";
+        if (changed) note.textContent = "Нові ціни діятимуть з " + (document.querySelector("[data-admin-period]")?.dataset.adminPeriod || "") + ". Попередні місяці та вже внесені кількості у звітах не зміняться.";
     }
 
     function setPriceEditorOpen(button, open) {
@@ -124,7 +136,7 @@
     }
 
     function refreshProductSearch() {
-        const query = normalizeSearch(search?.value);
+        const query = normalizeSearch(document.getElementById("product-search")?.value);
         document.querySelectorAll(".product-entry").forEach(entry => {
             const name = normalizeSearch(entry.querySelector('input[name="name"]')?.value || entry.dataset.productName);
             entry.hidden = !name.includes(query);
@@ -217,6 +229,7 @@
     }
 
     document.addEventListener("input", event => {
+        if (event.target.matches && event.target.matches("#product-search")) refreshProductSearch();
         const form = event.target.closest && event.target.closest("form.entry-form");
         if (form) refreshSaveButton(form);
         const editor = event.target.closest && event.target.closest(".price-editor");
@@ -238,6 +251,19 @@
     });
 
     document.addEventListener("click", event => {
+        const createButton = event.target.closest && event.target.closest("#show-product-form, #show-store-form");
+        if (createButton) {
+            const product = createButton.id === "show-product-form";
+            const form = document.getElementById(product ? "new-product-form" : "new-store-form");
+            if (!form) return;
+            const show = form.hidden;
+            form.hidden = !show;
+            createButton.setAttribute("aria-expanded", String(show));
+            createButton.textContent = show ? "Скасувати" : (product ? "＋ Створити товар" : "＋ Створити магазин");
+            if (show) form.querySelector('input:not([type="file"])')?.focus({ preventScroll: true });
+            return;
+        }
+
         const toggle = event.target.closest && event.target.closest(".price-toggle");
         if (toggle) {
             setPriceEditorOpen(toggle, toggle.getAttribute("aria-expanded") !== "true");
@@ -280,19 +306,13 @@
         }
     });
 
-    [["show-product-form", "new-product-form", "товар"], ["show-store-form", "new-store-form", "магазин"]]
-        .forEach(([buttonId, formId, noun]) => {
-            const button = document.getElementById(buttonId);
-            const form = document.getElementById(formId);
-            if (!button || !form) return;
-            button.addEventListener("click", () => {
-                const show = form.hidden;
-                form.hidden = !show;
-                button.setAttribute("aria-expanded", String(show));
-                button.textContent = show ? "Скасувати" : "＋ Створити " + noun;
-                if (show) form.querySelector("input")?.focus();
-            });
+    // Partial tab navigation replaces <main> without re-executing this script.
+    // Re-initialize controls for the new page; event handlers above are delegated.
+    document.addEventListener("app:page-updated", () => {
+        bindFoldouts();
+        document.querySelectorAll("form.entry-form").forEach(form => {
+            if (!form.dataset.originalSnapshot) initializeFormTracking(form);
         });
-
-    if (search) search.addEventListener("input", refreshProductSearch);
+        refreshProductSearch();
+    });
 })();

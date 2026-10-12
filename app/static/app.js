@@ -3,6 +3,7 @@
 
     // Persist a manual light/dark choice; storage is optional and failures are harmless.
     const themeButton = document.getElementById("theme-toggle");
+    const appearanceMenu = themeButton?.closest(".appearance-menu");
     const root = document.documentElement;
     function applyTheme(theme) {
         root.dataset.theme = theme;
@@ -21,32 +22,12 @@
         const next = root.dataset.theme === "light" ? "dark" : "light";
         applyTheme(next);
         try { localStorage.setItem("easyMourningReport.theme", next); } catch (_error) { }
+        appearanceMenu?.removeAttribute("open");
+    });
+    document.addEventListener("click", event => {
+        if (appearanceMenu && !appearanceMenu.contains(event.target)) appearanceMenu.removeAttribute("open");
     });
 
-
-    // Fullscreen is best-effort in browser tabs; installed PWA uses manifest display mode.
-    const fullscreenButton = document.getElementById("fullscreen-toggle");
-    function syncFullscreenButton() {
-        if (!fullscreenButton) return;
-        const active = !!document.fullscreenElement;
-        fullscreenButton.textContent = active ? "⛶ Выход из полного экрана" : "⛶ На весь экран";
-        fullscreenButton.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
-        fullscreenButton.setAttribute("aria-pressed", String(active));
-    }
-    fullscreenButton?.addEventListener("click", async () => {
-        try {
-            if (document.fullscreenElement) await document.exitFullscreen();
-            else await document.documentElement.requestFullscreen({ navigationUI: "hide" });
-        } catch (_error) {
-            if (fullscreenButton) {
-                fullscreenButton.textContent = "Установите приложение для полного экрана";
-                fullscreenButton.setAttribute("aria-label", "Install app for fullscreen mode");
-            }
-        }
-        syncFullscreenButton();
-    });
-    document.addEventListener("fullscreenchange", syncFullscreenButton);
-    syncFullscreenButton();
 
     // Preserve the user's viewport after ordinary POST/redirect forms (e.g. store edits).
     const scrollKey = "easyMourningReport.restoreScrollY";
@@ -135,8 +116,19 @@
                     if (active) tab.setAttribute("aria-current", "page");
                     else tab.removeAttribute("aria-current");
                 });
-                // Keep the viewport steady across tab swaps; users can scroll intentionally.
-                document.dispatchEvent(new CustomEvent("app:page-updated"));
+                // DOMParser does not execute scripts embedded in the swapped-in page.
+                // Load the admin controller when first entering Settings from another tab.
+                const needsAdminScript = Boolean(nextDoc.querySelector('script[src="/static/admin.js"]'));
+                const announcePageUpdated = () => document.dispatchEvent(new CustomEvent("app:page-updated"));
+                if (needsAdminScript && !window.__easyMourningAdminScriptLoaded) {
+                    const adminScript = document.createElement("script");
+                    adminScript.src = "/static/admin.js";
+                    adminScript.onload = announcePageUpdated;
+                    adminScript.onerror = () => { location.href = link.href; };
+                    document.body.append(adminScript);
+                } else {
+                    announcePageUpdated();
+                }
             } catch (_error) {
                 location.href = link.href;
             } finally {
