@@ -23,9 +23,7 @@ class FakePipe:
 
 
 class FakeProcess:
-    def __init__(self, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
+    def __init__(self):
         self.returncode = None
         self.stdin = FakePipe()
 
@@ -69,20 +67,27 @@ class TailscaleManagerTests(unittest.TestCase):
         self.assertFalse(tailscale.get_status()["enabled"])
         self.assertIsNone(tailscale.start_if_enabled())
 
-    def test_auth_key_is_only_passed_in_child_environment(self):
+    def test_auth_key_is_only_passed_over_stdin(self):
         fake = FakeProcess()
         with patch("app.core.tailscale.subprocess.Popen", return_value=fake) as popen:
             tailscale.start_funnel("tskey-test-secret")
         args, kwargs = popen.call_args
         self.assertNotIn("tskey-test-secret", args[0])
         self.assertNotIn("TS_AUTHKEY", kwargs["env"])
+        self.assertNotIn("TS_AUTH_KEY", kwargs["env"])
         self.assertIn("--auth-key-stdin", args[0])
         self.assertEqual(kwargs["stdin"], -1)  # subprocess.PIPE
-        self.assertEqual(fake.stdin.data, b"tskey-test-secret\\n")
+        self.assertEqual(fake.stdin.data, b"tskey-test-secret\n")
         self.assertTrue(fake.stdin.closed)
         self.assertNotIn("tskey-test-secret", (self.root / ".tailscale-funnel-enabled").read_text())
-        self.assertTrue(fake.stdin.closed)
         self.assertNotIn("tskey-test-secret", json.dumps(tailscale.get_status()))
+
+    def test_shutdown_preserves_explicit_opt_in_for_next_start(self):
+        with patch("app.core.tailscale.subprocess.Popen", return_value=FakeProcess()):
+            tailscale.start_funnel()
+        tailscale.shutdown()
+        self.assertTrue((self.root / ".tailscale-funnel-enabled").exists())
+        self.assertIsNone(tailscale._process)
 
     def test_disable_clears_opt_in_and_stops_child(self):
         with patch("app.core.tailscale.subprocess.Popen", return_value=FakeProcess()):
