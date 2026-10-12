@@ -2,6 +2,12 @@ name: Windows single-file build
 
 on:
   workflow_dispatch:
+    inputs:
+      verify_funnel:
+        description: "Also verify a real Tailscale Funnel URL (requires TAILSCALE_AUTH_KEY secret and Funnel permission)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -74,6 +80,84 @@ jobs:
             Write-Host "Packaged executable is running and HTTP server is responding."
           } finally {
             if (!$proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+          }
+
+      - name: Verify real Tailscale Funnel (optional)
+        if: inputs.verify_funnel
+        shell: pwsh
+        env:
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TAILSCALE_AUTH_KEY)) {
+            throw "verify_funnel was selected, but repository secret TAILSCALE_AUTH_KEY is not configured."
+          }
+
+          $env:HOST = "127.0.0.1"
+          $env:PORT = "18765"
+          $env:LEGKYI_DATA_DIR = Join-Path $env:RUNNER_TEMP "legkyi-funnel-data"
+          $stateDir = Join-Path $env:RUNNER_TEMP "tailscale-funnel-state"
+          $statusFile = Join-Path $env:RUNNER_TEMP "tailscale-funnel-status.json"
+          New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
+
+          $app = $null
+          $funnel = $null
+          try {
+            $app = Start-Process -FilePath "dist/LegkyiZvit.exe" -PassThru -WorkingDirectory "$PWD"
+            $localReady = $false
+            for ($i = 0; $i -lt 45; $i++) {
+              if ($app.HasExited) { throw "Packaged server exited before Funnel check (code $($app.ExitCode))" }
+              try {
+                $local = Invoke-WebRequest -Uri "http://127.0.0.1:18765/" -TimeoutSec 2 -UseBasicParsing
+                if ($local.StatusCode -ge 200 -and $local.StatusCode -lt 500) { $localReady = $true; break }
+              } catch {}
+              Start-Sleep -Seconds 1
+            }
+            if (!$localReady) { throw "Local packaged server did not become ready for Funnel check." }
+
+            $helperArgs = @(
+              "--state-dir", $stateDir,
+              "--status-file", $statusFile,
+              "--target", "http://127.0.0.1:18765",
+              "--auth-key-stdin"
+            )
+            $funnel = Start-Process -FilePath "tailscale-helper/bin/tailscale-helper.exe" -ArgumentList $helperArgs -PassThru -RedirectStandardInput "$env:RUNNER_TEMP/tailscale-auth-stdin.txt" -RedirectStandardOutput "$env:RUNNER_TEMP/tailscale-helper-stdout.log" -RedirectStandardError "$env:RUNNER_TEMP/tailscale-helper-stderr.log"
+            # Feed the short-lived key through stdin; never put it in process arguments or logs.
+            [System.IO.File]::WriteAllText("$env:RUNNER_TEMP/tailscale-auth-stdin.txt", "$($env:TAILSCALE_AUTH_KEY)`n")
+            $env:TAILSCALE_AUTH_KEY = $null
+
+            $publicUrl = $null
+            for ($i = 0; $i -lt 120; $i++) {
+              if ($funnel.HasExited -and !(Test-Path $statusFile)) {
+                throw "Tailscale helper exited before writing status. Check Funnel permissions and auth key."
+              }
+              if (Test-Path $statusFile) {
+                try {
+                  $status = Get-Content $statusFile -Raw | ConvertFrom-Json
+                  if ($status.state -eq "running" -and $status.public_url) { $publicUrl = $status.public_url; break }
+                  if ($status.state -eq "error") { throw "Tailscale Funnel failed: $($status.error)" }
+                  if ($status.state -eq "authentication-required") { throw "Tailscale requires interactive authentication; use a reusable auth key with appropriate permissions." }
+                } catch {
+                  if ($_.Exception.Message -like "Tailscale Funnel failed:*" -or $_.Exception.Message -like "Tailscale requires interactive authentication*") { throw }
+                }
+              }
+              Start-Sleep -Seconds 1
+            }
+            if (!$publicUrl) { throw "Tailscale Funnel did not publish a public URL within 120 seconds." }
+
+            $publicReady = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              try {
+                $response = Invoke-WebRequest -Uri $publicUrl -TimeoutSec 5 -UseBasicParsing
+                if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) { $publicReady = $true; break }
+              } catch {}
+              Start-Sleep -Seconds 2
+            }
+            if (!$publicReady) { throw "Funnel published $publicUrl but the public HTTP check did not succeed." }
+            Write-Host "Tailscale Funnel published and responded successfully."
+          } finally {
+            $env:TAILSCALE_AUTH_KEY = $null
+            if ($funnel -and !$funnel.HasExited) { Stop-Process -Id $funnel.Id -Force }
+            if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force }
           }
 
       - name: Upload single-file executable
