@@ -168,6 +168,9 @@ func main() {
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Preserve the public host for the app's same-origin form protection.
+		// Discard client-supplied forwarding headers so the proxy adds the
+		// actual peer address rather than trusting an attacker-controlled value.
+		r.Header.Del("X-Forwarded-For")
 		r.Header.Set("X-Forwarded-Proto", "https")
 		proxy.ServeHTTP(w, r)
 	})
