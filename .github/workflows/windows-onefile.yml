@@ -114,32 +114,38 @@ jobs:
             }
             if (!$localReady) { throw "Local packaged server did not become ready for Funnel check." }
 
-            $helperArgs = @(
-              "--state-dir", $stateDir,
-              "--status-file", $statusFile,
-              "--target", "http://127.0.0.1:18765",
-              "--auth-key-stdin"
-            )
-            $funnel = Start-Process -FilePath "tailscale-helper/bin/tailscale-helper.exe" -ArgumentList $helperArgs -PassThru -RedirectStandardInput "$env:RUNNER_TEMP/tailscale-auth-stdin.txt" -RedirectStandardOutput "$env:RUNNER_TEMP/tailscale-helper-stdout.log" -RedirectStandardError "$env:RUNNER_TEMP/tailscale-helper-stderr.log"
-            # Feed the short-lived key through stdin; never put it in process arguments or logs.
-            [System.IO.File]::WriteAllText("$env:RUNNER_TEMP/tailscale-auth-stdin.txt", "$($env:TAILSCALE_AUTH_KEY)`n")
+            $psi = [System.Diagnostics.ProcessStartInfo]::new()
+            $psi.FileName = (Resolve-Path "tailscale-helper/bin/tailscale-helper.exe").Path
+            $psi.UseShellExecute = $false
+            $psi.RedirectStandardInput = $true
+            $psi.ArgumentList.Add("--state-dir")
+            $psi.ArgumentList.Add($stateDir)
+            $psi.ArgumentList.Add("--status-file")
+            $psi.ArgumentList.Add($statusFile)
+            $psi.ArgumentList.Add("--target")
+            $psi.ArgumentList.Add("http://127.0.0.1:18765")
+            $psi.ArgumentList.Add("--auth-key-stdin")
+            $funnel = [System.Diagnostics.Process]::new()
+            $funnel.StartInfo = $psi
+            if (!$funnel.Start()) { throw "Could not start the bundled Tailscale helper." }
+            # Send the key only through stdin; do not put it in arguments, env, or files.
+            $funnel.StandardInput.WriteLine($env:TAILSCALE_AUTH_KEY)
+            $funnel.StandardInput.Close()
             $env:TAILSCALE_AUTH_KEY = $null
 
             $publicUrl = $null
             for ($i = 0; $i -lt 120; $i++) {
-              if ($funnel.HasExited -and !(Test-Path $statusFile)) {
-                throw "Tailscale helper exited before writing status. Check Funnel permissions and auth key."
-              }
               if (Test-Path $statusFile) {
                 try {
                   $status = Get-Content $statusFile -Raw | ConvertFrom-Json
                   if ($status.state -eq "running" -and $status.public_url) { $publicUrl = $status.public_url; break }
                   if ($status.state -eq "error") { throw "Tailscale Funnel failed: $($status.error)" }
-                  if ($status.state -eq "authentication-required") { throw "Tailscale requires interactive authentication; use a reusable auth key with appropriate permissions." }
+                  if ($status.state -eq "authentication-required") { throw "Tailscale requires interactive authentication; use an auth key with appropriate permissions." }
                 } catch {
                   if ($_.Exception.Message -like "Tailscale Funnel failed:*" -or $_.Exception.Message -like "Tailscale requires interactive authentication*") { throw }
                 }
               }
+              if ($funnel.HasExited -and !$publicUrl) { throw "Tailscale helper exited before publishing Funnel; check auth key and Funnel permissions." }
               Start-Sleep -Seconds 1
             }
             if (!$publicUrl) { throw "Tailscale Funnel did not publish a public URL within 120 seconds." }
@@ -152,11 +158,11 @@ jobs:
               } catch {}
               Start-Sleep -Seconds 2
             }
-            if (!$publicReady) { throw "Funnel published $publicUrl but the public HTTP check did not succeed." }
+            if (!$publicReady) { throw "Funnel published a URL but the public HTTP check did not succeed." }
             Write-Host "Tailscale Funnel published and responded successfully."
           } finally {
             $env:TAILSCALE_AUTH_KEY = $null
-            if ($funnel -and !$funnel.HasExited) { Stop-Process -Id $funnel.Id -Force }
+            if ($funnel -and !$funnel.HasExited) { $funnel.Kill(); $funnel.WaitForExit(5000) | Out-Null }
             if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force }
           }
 
