@@ -11,7 +11,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   python-tests:
@@ -46,6 +46,16 @@ jobs:
         run: |
           go mod tidy
           go build -o /tmp/tailscale-helper .
+      - name: Commit generated Go checksums once
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/windows-binary-reliability-tailscale'
+        run: |
+          if ! git diff --quiet -- tailscale-helper/go.sum; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add tailscale-helper/go.sum
+            git commit -m "Pin Tailscale helper module checksums"
+            git push
+          fi
       - name: Upload pinned Go module graph
         uses: actions/upload-artifact@v4
         with:
