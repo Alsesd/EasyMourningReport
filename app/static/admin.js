@@ -1,13 +1,6 @@
 (() => {
     "use strict";
 
-    // The controller survives soft tab swaps; duplicate script tags must not bind twice.
-    if (window.__easyMourningAdminScriptLoaded) {
-        document.dispatchEvent(new CustomEvent("app:page-updated"));
-        return;
-    }
-    window.__easyMourningAdminScriptLoaded = true;
-
     const normalizeSearch = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim().replace(/\s+/g, " ");
 
     if (location.hash === "#archive") document.getElementById("archive")?.scrollIntoView();
@@ -42,14 +35,13 @@
     }
 
     function normalizeFieldValue(el) {
-        if (el.name === "price" || el.name === "extra_price") return centsFromValue(el.value);
+        if (el.name === "price") return centsFromValue(el.value);
         return (el.type === "checkbox" || el.type === "radio") ? el.checked : el.value;
     }
 
     function formSnapshot(form) {
         return [...form.elements]
             .filter(el => el.name && !el.disabled && !["submit", "button", "reset"].includes(el.type))
-            .filter(el => !(el.name === "extra_price" && el.value.trim() === ""))
             .map(el => [el.name, normalizeFieldValue(el)]);
     }
 
@@ -272,13 +264,4 @@
         }
     });
 
-    // Partial tab navigation replaces <main> without re-executing this script.
-    // Re-initialize controls for the new page; event handlers above are delegated.
-    document.addEventListener("app:page-updated", () => {
-        bindFoldouts();
-        document.querySelectorAll("form.entry-form").forEach(form => {
-            if (!form.dataset.originalSnapshot) initializeFormTracking(form);
-        });
-        refreshProductSearch();
-    });
 })();
