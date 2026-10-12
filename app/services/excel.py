@@ -4,8 +4,8 @@ import io
 
 from fastapi import HTTPException, Request
 from openpyxl import Workbook, load_workbook
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlmodel import select
+from sqlmodel import Session
 
 from app.core.ui import done
 from app.db.models.product import Product, ProductPrice

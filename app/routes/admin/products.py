@@ -1,28 +1,21 @@
 """Admin product management endpoints: CRUD, Excel import, and multi-price history."""
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session
+from app.core.dependencies import admin_required, clean_name, to_cents
+from app.core.ui import current_period, done, money
+from app.db.backup import backup_db
+from app.db.models.product import Product, ProductPrice
+from app.db.models.report import ReportItem
+from app.db.models.user import User
+from app.db.repositories.audit import audit
+from app.db.repositories.products import history_of, load_history, save_history
+from app.db.session import get_db
+from app.services.excel import parse_products_excel
+from app.services.pricing import BASE_PERIOD, apply_price_change, latest_price, offered_prices, period_month
+from sqlalchemy import delete, func
+from sqlmodel import select
+from sqlmodel import Session
 
-from app.core import (
-    admin_required,
-    clean_name,
-    current_period,
-    done,
-    get_db,
-    money,
-    to_cents,
-)
-from app.db import Product, ProductPrice, ReportItem, User, audit, backup_db
-from app.db.repositories import history_of, load_history, save_history
-from app.services import (
-    BASE_PERIOD,
-    apply_price_change,
-    latest_price,
-    offered_prices,
-    parse_products_excel,
-    period_month,
-)
 
 router = APIRouter()
 MAX_IMPORT_BYTES = 10 * 1024 * 1024

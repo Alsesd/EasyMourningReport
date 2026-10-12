@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends
 
-from app.core import admin_required
+from app.core.dependencies import admin_required
 from app.routes.admin.backup import router as backup_router
 from app.routes.admin.dashboard import router as dashboard_router
 from app.routes.admin.logs import router as logs_router

@@ -60,7 +60,7 @@
 - Python 3.10+
 - FastAPI
 - Uvicorn
-- SQLAlchemy
+- SQLModel (SQLAlchemy Core/engine under the hood)
 - Jinja2
 - SQLite
 - Poetry
@@ -71,13 +71,13 @@
 EasyMourningReport/
 ├── app/
 │   ├── core/             # Інфраструктура (paths, security, ratelimit, ui, dependencies)
-│   ├── db/               # База даних SQLAlchemy (models, repositories, migrations, backup)
+│   ├── db/               # SQLModel-моделі, сесії, репозиторії, міграції та backup
 │   ├── services/         # Чиста бізнес-логіка (pricing, excel)
 │   ├── routes/           # Модульні маршрути (auth, report, root, pwa, admin/*)
 │   ├── static/           # PWA та статичні ресурси
 │   ├── templates/        # Шаблони Jinja2
-│   └── main.py           # Фабрика FastAPI, життєвий цикл і глобальні middleware
-├── tests/                # 12 тестових наборів
+│   └── main.py           # Композиція FastAPI, життєвий цикл і middleware
+├── tests/                # pytest, FastAPI TestClient та ізольовані тести БД
 ├── build.py              # Скрипт збірки standalone EXE через PyOxidizer
 ├── pyoxidizer.bzl        # Конфігурація пакування PyOxidizer
 ├── DOCS.md               # Повна архітектурна та технічна документація
@@ -89,6 +89,8 @@ EasyMourningReport/
 ├── start.bat             # Скрипт автоматизації для Windows (Tailscale Funnel)
 └── backups/              # Снапшоти бази даних SQLite
 ```
+
+Архітектура розділена за відповідальністю: `main.py` лише збирає FastAPI-застосунок, `routes/` відповідає за HTTP, `services/` — за бізнес-логіку, `db/models/` — за SQLModel-схему, а `db/repositories/` — за запити до даних. Внутрішні пакети не переекспортують функції через динамічні фасади: імпортуй символ безпосередньо з модуля, де його визначено.
 
 ## Вимоги
 
@@ -229,13 +231,16 @@ uvicorn --app-dir . app.main:app --reload
 
 ## Тести
 
-Запуск тестів:
+Запуск у Nix dev shell:
 
 ```bash
-python -m unittest discover -s tests
+nix develop
+test
 ```
 
-Тести перевіряють основні правила підрахунку цін та логіки обробки даних.
+Команда `test` запускає pytest і зупиняється з помилкою, якщо тести не пройшли або покриття застосунку нижче 95%. Для точкового запуску можна передати аргументи, наприклад `test tests/test_fastapi.py -q`.
+
+Тести охоплюють бізнес-логіку, репозиторії, маршрути й HTTP-поведінку FastAPI через TestClient. Мінімальний поріг покриття коду застосунку — 95%; штучно зламаних тестів немає.
 
 ## Розробка та збірка standalone EXE (PyOxidizer)
 
@@ -246,7 +251,7 @@ python -m pip install pyoxidizer==0.24.0
 python build.py
 ```
 
-Результат — `dist/LegkyiZvit.exe` разом із каталогами `dist/lib/` і `dist/app/`. **Не переносіть EXE окремо:** `lib/` містить Python-залежності, а `app/` — шаблони й PWA-ресурси. Конфігурація закріплює версії залежностей, сумісні з Python 3.10, а CI запускає зібраний EXE і перевіряє сторінку входу, CSS та збереження бази/секрету після перезапуску. Детальніше дивіться у [DOCS.md](DOCS.md).
+Результат — `dist/LegkyiZvit.exe` разом із каталогами `dist/lib/` і `dist/app/`. **Не переносіть EXE окремо:** `lib/` містить Python-залежності, а `app/` — шаблони й PWA-ресурси. Конфігурація закріплює версії залежностей, сумісні з Python 3.10. Єдиний workflow запускається вручну: відновлює кеш залежностей, виконує pytest з порогом покриття 95%, і лише після успіху збирає та перевіряє EXE. Детальніше дивіться у [DOCS.md](DOCS.md).
 
 Головний запусковий файл:
 

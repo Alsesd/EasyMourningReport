@@ -1,67 +1,76 @@
-"""Architecture guard: application composition imports from public package facades."""
+"""Guard the intended modular application architecture."""
 
 import ast
 from pathlib import Path
-import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
-APPLICATION_ENTRY = ROOT / "app" / "main.py"
-ROUTES = ROOT / "app" / "routes"
-
-PUBLIC_FACADES = {"app.core", "app.db", "app.db.repositories", "app.services"}
-
-
-def implementation_import(module: str | None) -> bool:
-    if not module:
-        return False
-    if module.startswith("app.core.") and module not in PUBLIC_FACADES:
-        return True
-    if module.startswith("app.db.models."):
-        return True
-    if module in {
-        "app.db.base",
-        "app.db.session",
-        "app.db.backup",
-        "app.db.bootstrap",
-    }:
-        return True
-    if module.startswith("app.db.repositories.") and module != "app.db.repositories":
-        return True
-    if module.startswith("app.services."):
-        return True
-    return False
+APP = ROOT / "app"
+APPLICATION_ENTRY = APP / "main.py"
+PACKAGE_ENTRY = APP / "__main__.py"
+FORBIDDEN_FACADES = {"app.core", "app.db", "app.services", "app.db.repositories"}
 
 
-class FacadeImportArchitectureTests(unittest.TestCase):
-    def test_application_entry_and_route_modules_use_public_facades(self):
-        sources = [APPLICATION_ENTRY, *sorted(ROUTES.rglob("*.py"))]
-        violations = []
-        for path in sources:
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ImportFrom):
-                    module = node.module
-                elif isinstance(node, ast.Import):
-                    for alias in node.names:
-                        if implementation_import(alias.name):
-                            violations.append(
-                                f"{path.relative_to(ROOT)}:{node.lineno}: import {alias.name}"
-                            )
-                    continue
-                else:
-                    continue
-                if implementation_import(module):
-                    violations.append(
-                        f"{path.relative_to(ROOT)}:{node.lineno}: from {module} import ..."
-                    )
-
-        self.assertEqual(
-            violations,
-            [],
-            "Application entrypoints/routes must depend on public facades, not internals:\n"
-            + "\n".join(violations),
-        )
+def imported_module(node: ast.AST) -> str | None:
+    if isinstance(node, ast.ImportFrom):
+        return node.module
+    if isinstance(node, ast.Import):
+        return node.names[0].name if node.names else None
+    return None
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_application_modules_import_concrete_owners():
+    violations = []
+    for path in sorted(APP.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            module = imported_module(node)
+            if module in FORBIDDEN_FACADES:
+                violations.append(
+                    f"{path.relative_to(ROOT)}:{node.lineno}: import from package facade {module}"
+                )
+
+    assert violations == [], (
+        "Import from the module that owns the symbol instead of a package facade:\n"
+        + "\n".join(violations)
+    )
+
+
+def test_package_initializers_do_not_define_dynamic_facades():
+    package_entries = [
+        APP / "core" / "__init__.py",
+        APP / "db" / "__init__.py",
+        APP / "services" / "__init__.py",
+        APP / "db" / "repositories" / "__init__.py",
+    ]
+    for path in package_entries:
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(path))
+        dynamic_exports = [
+            node.name
+            for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name in {"__getattr__", "__dir__"}
+        ]
+        assert not dynamic_exports, f"{path.relative_to(ROOT)} still defines {dynamic_exports}"
+        assert "_EXPORTS" not in source and "_DEFERRED" not in source
+
+
+def test_main_is_composition_only():
+    tree = ast.parse(APPLICATION_ENTRY.read_text(encoding="utf-8"))
+    imported = {
+        imported_module(node)
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+    }
+    assert "app.routes" in imported
+    assert "app.db.bootstrap" in imported
+    assert "app.db.backup" in imported
+    package_tree = ast.parse(PACKAGE_ENTRY.read_text(encoding="utf-8"))
+    package_imports = {
+        imported_module(node)
+        for node in ast.walk(package_tree)
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+    }
+    assert "app.db.session" in package_imports
+    assert "app.db" not in package_imports
+    assert not any(module and module.startswith("app.routes.admin.") for module in imported)

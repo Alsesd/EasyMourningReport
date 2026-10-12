@@ -1,13 +1,12 @@
-"""Store ORM model."""
+"""Store entity."""
 
-from sqlalchemy.orm import Mapped, mapped_column
-
-from app.db.base import Base
+from sqlmodel import Field, SQLModel
 
 
-class Store(Base):
+class Store(SQLModel, table=True):
     __tablename__ = "stores"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(unique=True)
-    # Archived = "removed" without losing data: the login stops working, reports stay.
-    archived: Mapped[bool] = mapped_column(default=False)
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(unique=True, index=True)
+    # Archived stores keep their historic reports and audit context.
+    archived: bool = Field(default=False, index=True)
