@@ -6,6 +6,7 @@
     const root = document.documentElement;
     function applyTheme(theme) {
         root.dataset.theme = theme;
+        document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute("content", theme === "light" ? "#f2f5f8" : "#101722"));
         if (themeButton) {
             const light = theme === "light";
             themeButton.textContent = light ? "☾ Темна тема" : "☼ Світла тема";
@@ -21,6 +22,47 @@
         applyTheme(next);
         try { localStorage.setItem("easyMourningReport.theme", next); } catch (_error) { }
     });
+
+
+    // Fullscreen is best-effort in browser tabs; installed PWA uses manifest display mode.
+    const fullscreenButton = document.getElementById("fullscreen-toggle");
+    function syncFullscreenButton() {
+        if (!fullscreenButton) return;
+        const active = !!document.fullscreenElement;
+        fullscreenButton.textContent = active ? "⛶ Выход из полного экрана" : "⛶ На весь экран";
+        fullscreenButton.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
+        fullscreenButton.setAttribute("aria-pressed", String(active));
+    }
+    fullscreenButton?.addEventListener("click", async () => {
+        try {
+            if (document.fullscreenElement) await document.exitFullscreen();
+            else await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+        } catch (_error) {
+            if (fullscreenButton) {
+                fullscreenButton.textContent = "Установите приложение для полного экрана";
+                fullscreenButton.setAttribute("aria-label", "Install app for fullscreen mode");
+            }
+        }
+        syncFullscreenButton();
+    });
+    document.addEventListener("fullscreenchange", syncFullscreenButton);
+    syncFullscreenButton();
+
+    // Preserve the user's viewport after ordinary POST/redirect forms (e.g. store edits).
+    const scrollKey = "easyMourningReport.restoreScrollY";
+    try {
+        const savedY = sessionStorage.getItem(scrollKey);
+        if (savedY !== null) {
+            sessionStorage.removeItem(scrollKey);
+            requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, Number(savedY) || 0)));
+        }
+    } catch (_error) { /* Scroll restoration is an enhancement only. */ }
+    document.addEventListener("submit", event => {
+        const form = event.target;
+        if (!form || !form.matches || !form.matches("form")) return;
+        if (form.matches("form.product-form")) return; // AJAX save already keeps the viewport.
+        try { sessionStorage.setItem(scrollKey, String(window.scrollY)); } catch (_error) { }
+    }, true);
 
     // The creator mark stays discreet until deliberately tapped or focused.
     const makerMark = document.querySelector(".maker-mark");
@@ -93,7 +135,7 @@
                     if (active) tab.setAttribute("aria-current", "page");
                     else tab.removeAttribute("aria-current");
                 });
-                window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+                // Keep the viewport steady across tab swaps; users can scroll intentionally.
                 document.dispatchEvent(new CustomEvent("app:page-updated"));
             } catch (_error) {
                 location.href = link.href;
