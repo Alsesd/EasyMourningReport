@@ -25,7 +25,7 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 45
     env:
-      TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+      HAS_TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -88,8 +88,10 @@ jobs:
           }
 
       - name: Verify real Tailscale Funnel (optional)
-        if: inputs.verify_funnel || env.TAILSCALE_AUTH_KEY != ''
+        if: inputs.verify_funnel || env.HAS_TAILSCALE_AUTH_KEY == 'true'
         shell: pwsh
+        env:
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:TAILSCALE_AUTH_KEY)) {
             throw "verify_funnel was selected, but repository secret TAILSCALE_AUTH_KEY is not configured."
