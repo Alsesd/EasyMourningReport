@@ -43,4 +43,6 @@ jobs:
           cache-dependency-path: tailscale-helper/go.mod
       - name: Compile embedded Tailscale helper
         working-directory: tailscale-helper
-        run: go build -o /tmp/tailscale-helper .
+        run: |
+          go mod tidy
+          go build -o /tmp/tailscale-helper .
