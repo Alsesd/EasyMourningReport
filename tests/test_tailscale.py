@@ -10,11 +10,24 @@ from unittest.mock import patch
 from app.core import tailscale
 
 
+class FakePipe:
+    def __init__(self):
+        self.data = b""
+        self.closed = False
+
+    def write(self, value):
+        self.data += value
+
+    def close(self):
+        self.closed = True
+
+
 class FakeProcess:
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
         self.returncode = None
+        self.stdin = FakePipe()
 
     def poll(self):
         return self.returncode
@@ -65,8 +78,10 @@ class TailscaleManagerTests(unittest.TestCase):
         self.assertNotIn("TS_AUTHKEY", kwargs["env"])
         self.assertIn("--auth-key-stdin", args[0])
         self.assertEqual(kwargs["stdin"], -1)  # subprocess.PIPE
+        self.assertEqual(fake.stdin.data, b"tskey-test-secret\\n")
+        self.assertTrue(fake.stdin.closed)
         self.assertNotIn("tskey-test-secret", (self.root / ".tailscale-funnel-enabled").read_text())
-        self.assertEqual(fake.stdin, None)
+        self.assertTrue(fake.stdin.closed)
         self.assertNotIn("tskey-test-secret", json.dumps(tailscale.get_status()))
 
     def test_disable_clears_opt_in_and_stops_child(self):
