@@ -5,17 +5,12 @@
 <div class="entry product-entry" data-product-name="{{ p.name|lower }}" id="p{{ p.id }}">
     <form class="entry-form product-form" method="post" action="/admin/products/{{ p.id }}">
         <div class="product-main-fields">
-            <label class="field grow"><span>Назва</span><input name="name" value="{{ p.name }}" maxlength="100" required></label>
-            <label class="chk"><input type="checkbox" name="active" {% if is_active %}checked{% endif %}> Активний</label>
+            <label class="field grow"><span>Название</span><input name="name" value="{{ p.name }}" maxlength="100" required></label>
+            <label class="chk"><input type="checkbox" name="active" {% if is_active %}checked{% endif %}> Активен</label>
         </div>
-        <div class="price-summary">
-            <button type="button" class="price-toggle" aria-expanded="false" aria-controls="price-editor-{{ p.id }}">
-                <span class="price-current">
-                    <span class="eyebrow">ЦІНА · {{ this_period }}</span>
-                    <strong>{{ p.price_cents|money }} ₴</strong>
-                </span>
-                <span class="price-toggle-label"><span>Варіанти ціни</span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span>
-            </button>
+        <div class="product-quick-actions"><span class="product-status">{% if is_active %}Активний{% else %}Неактивний{% endif %}</span><span class="product-meta">Звітів: {{ x.used }}</span><button type="button" class="price-toggle" aria-expanded="false" aria-controls="price-editor-{{ p.id }}"><span class="price-current"><strong>{{ p.price_cents|money }} ₴</strong><span class="price-mini-label">Ціна · {{ this_period }}</span></span><span class="price-toggle-label"><span>Змінити</span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span></button></div>
+        <div class="price-summary" hidden>
+            
         </div>
         <div class="price-editor" id="price-editor-{{ p.id }}" hidden aria-hidden="true" inert>
             <div class="price-editor-content">
@@ -59,8 +54,7 @@
     {% if x.change %}<p class="hint price-history-note">У {{ this_period }} ціна змінилася: {{ x.change[0]|money }} → {{ x.change[1]|money }}. У звітах цього місяця збережуться всі варіанти.</p>{% endif %}
     <form class="entry-foot" method="post" action="/admin/products/{{ p.id }}/delete"
         data-confirm="{% if x.used %}«{{ p.name }}» є у звітах ({{ x.used }} рядків). Товар піде в архів, усі дані звітів залишаться. Продовжити?{% else %}«{{ p.name }}» ніде не використовується. Видалити остаточно?{% endif %}">
-        <span class="sub">{% if x.used %}У звітах: {{ x.used }} рядків{% else %}У звітах не використовується{% endif %}</span>
-        <button class="danger sm">Прибрати</button>
+        <span class="product-foot-tags">{% if x.used %}<span class="product-meta">В отчётах: {{ x.used }}</span>{% endif %}</span><button class="danger sm">Удалить</button>
     </form>
 </div>
 {%- endmacro %}
@@ -72,21 +66,27 @@
 <p class="hint">Шукайте за назвою. «Зберегти» змінює назву, ціну й активність лише цього товару. Нова ціна діє з
     поточного місяця ({{ this_period }}). Минулі місяці й уже внесені кількості не змінюються. Неактивні товари не
     показуються в нових звітах, але їхні дані лишаються.</p>
-<label class="field search-field" for="product-search"><span>Пошук товару за назвою</span><input id="product-search"
-        type="search" placeholder="Почніть вводити назву…" autocomplete="off"></label>
-<button type="button" class="primary create-action" id="show-product-form" aria-expanded="false"
-    aria-controls="new-product-form">＋ Створити товар</button>
-<form class="entry entry-form" method="post" action="/admin/products/import" enctype="multipart/form-data">
+<section class="product-toolbar" aria-label="Управление товарами">
+    <div class="import-tile"><form class="entry entry-form" method="post" action="/admin/products/import" enctype="multipart/form-data">
     <label class="field grow"><span>Масове створення з Excel (.xlsx)</span><input type="file" name="file"
             accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></label>
     <button class="primary">Імпортувати товари</button>
-</form>
-<p class="hint">Файл Excel: колонка A — назва товару, колонка B — ціна. Перший рядок із заголовками «Назва» та «Ціна»
-    можна залишити. Дублікати назв буде пропущено.</p>
-<form class="entry entry-form create-form" id="new-product-form" method="post" action="/admin/products" hidden><label
+</form><p class="hint">Файл Excel: колонка A — назва товару, колонка B — ціна. Перший рядок із заголовками «Назва» та «Ціна»
+    можна залишити. Дублікати назв буде пропущено.</p></div>
+    <label class="field search-field" for="product-search"><span>Пошук товару за назвою</span><input id="product-search"
+        type="search" placeholder="Почніть вводити назву…" autocomplete="off"></label>
+    <div class="create-product-row"><button type="button" class="primary create-action" id="show-product-form" aria-expanded="false"
+    aria-controls="new-product-form">＋ Створити товар</button></div>
+    <form class="entry entry-form create-form" id="new-product-form" method="post" action="/admin/products" hidden><label
         class="field grow"><span>Новий товар</span><input name="name" maxlength="100" required></label><label
         class="field price"><span>Ціна</span><input class="price" name="price" inputmode="decimal"
             required></label><button class="primary">Додати товар</button></form>
+</section>
+
+
+
+
+
 <details open class="card product-list" id="active-products">
     <summary>Активні товари ({{ products|length }})</summary>
     {% for x in products %}{{ product_card(x, true) }}{% else %}<p class="note">Активних товарів ще немає.</p>{% endfor %}
