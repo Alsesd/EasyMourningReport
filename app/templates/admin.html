@@ -1,5 +1,72 @@
-{% extends "base.html" %}{% block body %}
-<h1>Налаштування</h1>
+{% extends "base.html" %}
+{% macro product_card(x, is_active) -%}
+{% set p = x.p %}
+{% set current_prices = x.current_prices or [p.price_cents] %}
+<div class="entry product-entry" data-product-name="{{ p.name|lower }}" id="p{{ p.id }}">
+    <form class="entry-form product-form" method="post" action="/admin/products/{{ p.id }}">
+        <div class="product-main-fields">
+            <label class="field grow"><span>Назва</span><input name="name" value="{{ p.name }}" maxlength="100" required></label>
+            <label class="chk"><input type="checkbox" name="active" {% if is_active %}checked{% endif %}> Активний</label>
+        </div>
+        <div class="price-summary">
+            <button type="button" class="price-toggle" aria-expanded="false" aria-controls="price-editor-{{ p.id }}">
+                <span class="price-current">
+                    <span class="eyebrow">ЦІНА · {{ this_period }}</span>
+                    <strong>{{ p.price_cents|money }} ₴</strong>
+                </span>
+                <span class="price-toggle-label"><span>Варіанти ціни</span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span>
+            </button>
+        </div>
+        <div class="price-editor" id="price-editor-{{ p.id }}" hidden aria-hidden="true" inert>
+            <div class="price-editor-content">
+                <div class="price-editor-header">
+                    <div>
+                        <h3>Варіанти на {{ this_period }}</h3>
+                        <p>Змінюйте наявні ціни або додайте новий варіант. Історія попередніх місяців не зміниться.</p>
+                    </div>
+                    <button type="button" class="sm secondary add-price-btn">＋ Варіант</button>
+                </div>
+                <div class="price-options">
+                    {% if x.change %}
+                    <div class="price-option price-option--history">
+                        <div><span class="option-label">До зміни</span><strong class="history-price">{{ x.change[0]|money }} ₴</strong></div>
+                        <span class="option-badge">Історія</span>
+                    </div>
+                    {% endif %}
+                    {% for price in current_prices %}
+                    <label class="price-option price-option--edit">
+                        <span class="option-label">Варіант {{ loop.index }}</span>
+                        <span class="field price-option-field">
+                            <input class="price" name="{% if loop.first %}price{% else %}extra_price{% endif %}" value="{{ price|money }}" inputmode="decimal" {% if loop.first %}required{% endif %} data-original="{{ price|money }}" aria-label="Ціна варіанта {{ loop.index }}">
+                            <span class="price-option-suffix">₴ · {{ this_period }}</span>
+                        </span>
+                    </label>
+                    {% endfor %}
+                    <label class="price-option price-option--new extra-price-field">
+                        <span class="option-label">Нова ціна</span>
+                        <span class="field price-option-field">
+                            <input class="price" name="extra_price" inputmode="decimal" placeholder="0.00" aria-label="Нова ціна">
+                            <span class="price-option-suffix">₴</span>
+                        </span>
+                        <span class="sub">Необов'язкове поле</span>
+                    </label>
+                </div>
+                <p class="hint price-note" hidden></p>
+            </div>
+        </div>
+        <div class="product-actions"><button type="submit" class="primary save-product" hidden>Зберегти</button></div>
+    </form>
+    {% if x.change %}<p class="hint price-history-note">У {{ this_period }} ціна змінилася: {{ x.change[0]|money }} → {{ x.change[1]|money }}. У звітах цього місяця збережуться всі варіанти.</p>{% endif %}
+    <form class="entry-foot" method="post" action="/admin/products/{{ p.id }}/delete"
+        data-confirm="{% if x.used %}«{{ p.name }}» є у звітах ({{ x.used }} рядків). Товар піде в архів, усі дані звітів залишаться. Продовжити?{% else %}«{{ p.name }}» ніде не використовується. Видалити остаточно?{% endif %}">
+        <span class="sub">{% if x.used %}У звітах: {{ x.used }} рядків{% else %}У звітах не використовується{% endif %}</span>
+        <button class="danger sm">Прибрати</button>
+    </form>
+</div>
+{%- endmacro %}
+
+{% block body %}
+<h1 data-admin-period="{{ this_period }}">Налаштування</h1>
 
 <h2 id="products">Товари</h2>
 <p class="hint">Шукайте за назвою. «Зберегти» змінює назву, ціну й активність лише цього товару. Нова ціна діє з
@@ -22,48 +89,11 @@
             required></label><button class="primary">Додати товар</button></form>
 <details open class="card product-list" id="active-products">
     <summary>Активні товари ({{ products|length }})</summary>
-    {% for x in products %}{% set p = x.p %}
-    <div class="entry product-entry" data-product-name="{{ p.name|lower }}" id="p{{ p.id }}">
-        <form class="entry-form" method="post" action="/admin/products/{{ p.id }}">
-            <label class="field grow"><span>Назва</span><input name="name" value="{{ p.name }}" maxlength="100"
-                    required></label>
-            <label class="field price"><span>Ціна</span><input class="price" name="price"
-                    value="{{ p.price_cents|money }}" inputmode="decimal" required data-cur="{{ p.price_cents|money }}"
-                    data-prev="{{ x.prev|money }}"></label>
-            <button type="button" class="sm secondary add-price-btn" title="Додати ще одну зміну ціни в цьому місяці">＋
-                Зміна ціни</button>
-            <span class="extra-prices"></span>
-            <label class="chk"><input type="checkbox" name="active" checked> Активний</label><button
-                class="primary">Зберегти</button>
-        </form>
-        <p class="hint price-note" hidden></p>
-        {% if x.change %}<p class="hint">У {{ this_period }} ціна змінилась: {{ x.change[0]|money }} → {{
-            x.change[1]|money }}. У звітах цього місяця — два рядки.</p>{% endif %}
-        <form class="entry-foot" method="post" action="/admin/products/{{ p.id }}/delete"
-            data-confirm="{% if x.used %}«{{ p.name }}» є у звітах ({{ x.used }} рядків). Товар піде в архів, усі дані звітів залишаться. Продовжити?{% else %}«{{ p.name }}» ніде не використовується. Видалити остаточно?{% endif %}">
-            <span class="sub">{% if x.used %}У звітах: {{ x.used }} рядків{% else %}У звітах не використовується{% endif
-                %}</span><button class="danger sm">Прибрати</button></form>
-    </div>
-    {% else %}<p class="note">Активних товарів ще немає.</p>{% endfor %}
+    {% for x in products %}{{ product_card(x, true) }}{% else %}<p class="note">Активних товарів ще немає.</p>{% endfor %}
 </details>
 <details class="inactive card product-list" id="inactive-products">
     <summary>Неактивні товари ({{ inactive_products|length }})</summary>
-    {% for x in inactive_products %}{% set p = x.p %}<div class="entry product-entry"
-        data-product-name="{{ p.name|lower }}" id="p{{ p.id }}">
-        <form class="entry-form" method="post" action="/admin/products/{{ p.id }}"><label
-                class="field grow"><span>Назва</span><input name="name" value="{{ p.name }}" maxlength="100"
-                    required></label><label class="field price"><span>Ціна</span><input class="price" name="price"
-                    value="{{ p.price_cents|money }}" inputmode="decimal" required data-cur="{{ p.price_cents|money }}"
-                    data-prev="{{ x.prev|money }}"></label><button type="button" class="sm secondary add-price-btn"
-                title="Додати ще одну зміну ціни в цьому місяці">＋ Зміна ціни</button><span
-                class="extra-prices"></span><label class="chk"><input type="checkbox" name="active">
-                Активний</label><button class="primary">Зберегти</button></form>
-        <p class="hint price-note" hidden></p>{% if x.change %}<p class="hint">У {{ this_period }} ціна змінилась: {{
-            x.change[0]|money }} → {{ x.change[1]|money }}.</p>{% endif %}<form class="entry-foot" method="post"
-            action="/admin/products/{{ p.id }}/delete"
-            data-confirm="Прибрати товар «{{ p.name }}»? Якщо він є у звітах, його буде заархівовано."><span
-                class="sub">У звітах: {{ x.used }} рядків</span><button class="danger sm">Прибрати</button></form>
-    </div>{% else %}<p class="note">Неактивних товарів немає.</p>{% endfor %}
+    {% for x in inactive_products %}{{ product_card(x, false) }}{% else %}<p class="note">Неактивних товарів немає.</p>{% endfor %}
 </details>
 
 <h2 id="stores">Магазини</h2>
@@ -130,74 +160,5 @@
     </form>
 </div>
 
-<script>
-    (function () {
-        const period = "{{ this_period }}", f = v => v.toFixed(2);
-        if (location.hash === "#archive") {const d = document.getElementById("archive"); if (d) d.scrollIntoView()}
-
-        // Persist disclosure state independently for each foldable admin section.
-        const foldoutStorageKey = "easyMourningReport.admin.foldouts.v1";
-        let foldoutState = {};
-        try {foldoutState = JSON.parse(localStorage.getItem(foldoutStorageKey) || "{}") || {}} catch (_e) { }
-        const foldouts = [...document.querySelectorAll("details[id], #archive details")];
-        foldouts.forEach((details, index) => {
-            const key = details.id || (details.closest("#archive") ? "archive-section-" + index : "foldout-" + index);
-            if (Object.prototype.hasOwnProperty.call(foldoutState, key)) details.open = !!foldoutState[key];
-            details.addEventListener("toggle", () => {
-                foldoutState[key] = details.open;
-                try {localStorage.setItem(foldoutStorageKey, JSON.stringify(foldoutState))} catch (_e) { }
-            });
-        });
-
-        // Hide submit/save actions until a form differs from its initial values.
-        function formSnapshot(form) {
-            return [...form.elements].filter(el => el.name && !el.disabled && !["submit", "button", "reset"].includes(el.type)).map(el => [
-                el.name, (el.type === "checkbox" || el.type === "radio") ? el.checked : el.value
-            ]);
-        }
-        document.querySelectorAll("form.entry-form").forEach(form => {
-            const submit = form.querySelector('button[type="submit"], button:not([type]), input[type="submit"]');
-            if (!submit) return;
-            const original = JSON.stringify(formSnapshot(form));
-            const refresh = () => {
-                const changed = JSON.stringify(formSnapshot(form)) !== original;
-                submit.hidden = !changed;
-                submit.setAttribute("aria-hidden", String(!changed));
-            };
-            submit.hidden = true;
-            form.addEventListener("input", refresh);
-            form.addEventListener("change", refresh);
-            form.addEventListener("reset", () => requestAnimationFrame(refresh));
-            refresh();
-        });
-
-        function setupToggle(buttonId, formId) {const button = document.getElementById(buttonId), form = document.getElementById(formId); if (!button || !form) return; button.addEventListener("click", () => {const show = form.hidden; form.hidden = !show; button.setAttribute("aria-expanded", String(show)); button.textContent = show ? "Скасувати" : "＋ Створити " + (formId === "new-product-form" ? "товар" : "магазин"); if (show) {const first = form.querySelector("input"); if (first) first.focus()} })}
-        setupToggle("show-product-form", "new-product-form"); setupToggle("show-store-form", "new-store-form");
-        const search = document.getElementById("product-search");
-        if (search) search.addEventListener("input", () => {const q = search.value.trim().toLocaleLowerCase(); document.querySelectorAll(".product-entry").forEach(el => {el.hidden = !el.dataset.productName.includes(q)}); document.querySelectorAll(".product-list").forEach(section => {if (q && [...section.querySelectorAll(".product-entry")].some(el => !el.hidden)) section.open = true})});
-        document.querySelectorAll("input.price[data-cur]").forEach(i => i.addEventListener("input", () => {
-            const note = i.closest(".entry").querySelector(".price-note"), v = parseFloat(i.value.trim().replace(",", "."));
-            const cents = x => Math.round(parseFloat(x) * 100);
-            if (isNaN(v) || cents(v) === cents(i.dataset.cur)) {note.hidden = true; return }
-            note.hidden = false;
-            note.textContent = cents(v) === cents(i.dataset.prev)
-                ? "Це поверне ціну " + i.dataset.prev + ": зміну за " + period + " буде скасовано, у звітах лишиться один рядок."
-                : "Нова ціна " + f(v) + " діятиме з " + period + ": у звітах цього місяця буде два рядки — " + i.dataset.prev + " і " + f(v) + ", далі лише " + f(v) + ".";
-        }));
-        document.querySelectorAll(".add-price-btn").forEach(btn => {
-            btn.addEventListener("click", () => {
-                const form = btn.closest("form"), container = form.querySelector(".extra-prices");
-                if (!container) return;
-                const field = document.createElement("label");
-                field.className = "field price extra-price-field";
-                field.innerHTML = '<span>Ще ціна</span><input class="price" name="extra_price" inputmode="decimal" required placeholder="0.00">';
-                container.appendChild(field);
-                const inp = field.querySelector("input");
-                inp.focus();
-                form.dispatchEvent(new Event("input", {bubbles: true}));
-                form.dispatchEvent(new Event("change", {bubbles: true}));
-            });
-        });
-    })();
-</script>
+<script src="/static/admin.js" defer></script>
 {% endblock %}

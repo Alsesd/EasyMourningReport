@@ -69,6 +69,11 @@ class Templates(unittest.TestCase):
                       stores=[{"store": s, "user": NS(login="store1"), "reports": 2}],
                       archived_stores=[{"store": NS(id=4, name="Закритий"), "user": NS(login="old"), "reports": 5}])
         self.assertIn('action="/admin/products/7"', html)
+        self.assertIn('class="price-editor"', html)
+        self.assertIn('aria-controls="price-editor-7"', html)
+        self.assertIn('placeholder="0.00"', html)
+        self.assertIn('class="save-product" hidden', html)
+        self.assertIn('src="/static/admin.js" defer', html)
         self.assertIn('action="/admin/stores/3/edit"', html)
         self.assertIn("1.20 → 1.30", html)
         self.assertIn('id="product-search"', html)
