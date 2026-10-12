@@ -7,6 +7,9 @@ on:
       - fix/windows-binary-reliability-tailscale
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
