@@ -452,40 +452,63 @@ html[data-theme="light"] .appearance-menu-panel{background:#fff;border-color:#d8
   .top .link-button{font-size:.84rem}
 }
 
-/* Each price variant gets a full-width horizontal row and a genuinely flexible input. */
-.price-editor{width:100%;min-width:0}
-.price-editor.is-open{width:100%;min-width:0}
-.price-editor-content{width:100%;max-width:none;min-width:0}
-.price-options{
-  display:grid;width:100%;min-width:0;
-  grid-template-columns:minmax(0,1fr)!important;
-  grid-auto-flow:row;align-items:stretch;gap:8px;
+/* Single-price editor: predictable full-width input, compact monthly history chips. */
+[hidden]{display:none!important}
+.price-editor[hidden],.create-form[hidden]{display:none!important}
+.price-editor{
+  display:grid;grid-template-rows:0fr;width:100%;min-width:0;margin-top:0;
+  opacity:0;transform:none;transition:grid-template-rows .2s ease,opacity .16s ease,margin-top .2s ease;
 }
-.price-option{
-  grid-column:1/-1;width:100%;min-width:0;min-height:62px;
-  grid-template-columns:minmax(6rem,.25fr) minmax(0,1fr);
-  align-items:center;align-content:center;gap:8px 14px;
-  padding:10px 14px;
+.price-editor.is-open{grid-template-rows:1fr;margin-top:9px;opacity:1}
+.price-editor-content{
+  width:100%;max-width:none;min-width:0;min-height:0;overflow:hidden;
+  padding:0;border:1px solid transparent;border-radius:14px;background:transparent;
+  transition:padding .18s ease,background-color .18s ease,border-color .18s ease;
 }
-.price-option--history{grid-template-columns:minmax(0,1fr) auto;min-height:56px}
-.price-option-field{display:flex;width:100%;min-width:0;align-items:center;gap:8px}
-.price-option-field input{
+.price-editor.is-open .price-editor-content{
+  padding:clamp(12px,1.5vw,18px);border-color:var(--line);
+  background:color-mix(in srgb,var(--surface-soft) 62%,var(--surface));
+}
+.price-single-field{display:grid;gap:8px;width:100%;min-width:0}
+.price-single-input{display:flex;align-items:center;gap:10px;width:100%;min-width:0}
+.price-single-input input{
   display:block;flex:1 1 auto;width:100%;min-width:0;max-width:none;
-  min-height:46px;padding:9px 13px;font-size:1rem;letter-spacing:normal;
+  min-height:48px;padding:10px 14px;font-size:1.05rem;letter-spacing:normal;
   font-variant-numeric:tabular-nums;
 }
-.price-option-suffix{font-size:.86rem;padding:0 4px}
-.price-option--new>.sub{grid-column:2;grid-row:2;margin:0;white-space:normal}
-@media(min-width:900px){
-  .price-option{grid-template-columns:minmax(7rem,.2fr) minmax(0,1fr);padding:12px 18px}
-  .price-option-field input{min-height:48px;font-size:1.02rem}
+.price-single-input .price-option-suffix{flex:none;padding-inline:5px;font-size:.95rem}
+.price-history{
+  display:flex;flex-wrap:wrap;align-items:center;gap:7px;
+  width:100%;min-width:0;margin-top:13px;
 }
+.price-history-title{flex:0 0 100%;font-size:.78rem;line-height:1.35;color:var(--muted)}
+.price-history-chip{
+  display:inline-flex;align-items:center;gap:6px;max-width:100%;
+  padding:6px 10px;border:1px solid var(--line);border-radius:999px;
+  background:var(--surface);font-size:.82rem;line-height:1.25;
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.price-history-chip span{color:var(--muted);font-size:.72rem;font-weight:500}
+.price-history-chip.is-history{border-style:dashed}
+.price-history-chip.is-current{
+  border-color:color-mix(in srgb,var(--accent) 48%,var(--line));
+  background:var(--accent-soft);color:var(--ink);font-weight:700;
+}
+.price-note{margin:10px 0 0;font-size:.8rem;line-height:1.4}
+.price-toggle{min-width:0}
+.price-toggle-label{white-space:nowrap}
+html[data-theme="light"] .price-editor.is-open .price-editor-content{
+  background:#f5f8fc;border-color:#d7e3ef;
+}
+html[data-theme="light"] .price-history-chip{background:#fff;border-color:#d8e1e9}
+html[data-theme="light"] .price-history-chip.is-current{background:#e8f2ed;border-color:#8fb7a8}
 @media(max-width:520px){
-  .price-options{grid-template-columns:minmax(0,1fr)!important;gap:7px}
-  .price-option{grid-template-columns:minmax(4.7rem,.28fr) minmax(0,1fr);gap:7px 9px;padding:9px 10px}
-  .price-option--history{grid-template-columns:minmax(0,1fr) auto}
-  .price-option-field{gap:5px}
-  .price-option-field input{min-height:46px;padding:9px 8px;font-size:.98rem;letter-spacing:normal}
-  .price-option-suffix{font-size:.78rem;padding:0 2px}
-  .price-option--new>.sub{font-size:.72rem}
+  .price-editor.is-open .price-editor-content{padding:11px}
+  .price-single-input input{min-height:48px;padding:10px 11px;font-size:1rem}
+  .price-history{gap:6px;margin-top:11px}
+  .price-history-chip{padding:6px 8px;font-size:.78rem}
+  .price-history-chip span{font-size:.68rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .price-editor,.price-editor-content{transition:none!important}
 }
