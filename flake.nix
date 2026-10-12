@@ -3,9 +3,10 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    runtimeNixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, runtimeNixpkgs }:
     let
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
@@ -16,12 +17,16 @@
             inherit system;
             allowUnfree = true;
           };
-          python = pkgs.python311.override {
+          runtimePkgs = import runtimeNixpkgs {
+            inherit system;
+            allowUnfree = true;
+          };
+          python = runtimePkgs.python311.override {
             packageOverrides = self: super: {
               # Keep SQLModel's declared SQLAlchemy <2.1 constraint satisfied.
               sqlalchemy = super.sqlalchemy.overridePythonAttrs (old: {
                 version = "2.0.54";
-                src = pkgs.fetchPypi {
+                src = runtimePkgs.fetchPypi {
                   pname = "SQLAlchemy";
                   version = "2.0.54";
                   format = "setuptools";
@@ -31,7 +36,7 @@
               });
               sqlmodel = super.sqlmodel.overridePythonAttrs (old: {
                 version = "0.0.24";
-                src = pkgs.fetchPypi {
+                src = runtimePkgs.fetchPypi {
                   pname = "sqlmodel";
                   version = "0.0.24";
                   format = "setuptools";
