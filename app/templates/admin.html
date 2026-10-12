@@ -1,57 +1,44 @@
 {% extends "base.html" %}
 {% macro product_card(x, is_active) -%}
 {% set p = x.p %}
-{% set current_prices = x.current_prices or [p.price_cents] %}
+{% set current_price = x.changes[-1] if x.changes else p.price_cents %}
 <div class="entry product-entry" data-product-name="{{ p.name|lower }}" id="p{{ p.id }}">
     <form class="entry-form product-form" method="post" action="/admin/products/{{ p.id }}">
         <div class="product-main-fields">
             <label class="field grow"><span>Название</span><input name="name" value="{{ p.name }}" maxlength="100" required></label>
             <label class="chk"><input type="checkbox" name="active" {% if is_active %}checked{% endif %}> Активен</label>
         </div>
-        <div class="product-quick-actions"><span class="product-status">{% if is_active %}Активний{% else %}Неактивний{% endif %}</span><span class="product-meta">Звітів: {{ x.used }}</span><button type="button" class="price-toggle" aria-expanded="false" aria-controls="price-editor-{{ p.id }}"><span class="price-current"><strong>{{ p.price_cents|money }} ₴</strong><span class="price-mini-label">Ціна · {{ this_period }}</span></span><span class="price-toggle-label"><span>Змінити</span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span></button></div>
-        <div class="price-summary" hidden>
-            
+        <div class="product-quick-actions">
+            <span class="product-status">{% if is_active %}Активний{% else %}Неактивний{% endif %}</span>
+            <span class="product-meta">Звітів: {{ x.used }}</span>
+            <button type="button" class="price-toggle" aria-expanded="false" aria-controls="price-editor-{{ p.id }}">
+                <span class="price-current"><strong>{{ current_price|money }} ₴</strong><span class="price-mini-label">Ціна · {{ this_period }}</span></span>
+                <span class="price-toggle-label"><span>Змінити ціну</span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span>
+            </button>
         </div>
         <div class="price-editor" id="price-editor-{{ p.id }}" hidden aria-hidden="true" inert>
             <div class="price-editor-content">
-                <div class="price-editor-header">
-                    <div>
-                        <h3>Варіанти на {{ this_period }}</h3>
-                        <p>Змінюйте наявні ціни або додайте новий варіант. Історія попередніх місяців не зміниться.</p>
-                    </div>
-                    <button type="button" class="sm secondary add-price-btn">＋ Варіант</button>
-                </div>
-                <div class="price-options">
-                    {% if x.change %}
-                    <div class="price-option price-option--history">
-                        <div><span class="option-label">До зміни</span><strong class="history-price">{{ x.change[0]|money }} ₴</strong></div>
-                        <span class="option-badge">Історія</span>
-                    </div>
-                    {% endif %}
-                    {% for price in current_prices %}
-                    <label class="price-option price-option--edit">
-                        <span class="option-label">Варіант {{ loop.index }}</span>
-                        <span class="field price-option-field">
-                            <input class="price" name="{% if loop.first %}price{% else %}extra_price{% endif %}" value="{{ price|money }}" inputmode="decimal" {% if loop.first %}required{% endif %} data-original="{{ price|money }}" aria-label="Ціна варіанта {{ loop.index }}">
-                            <span class="price-option-suffix">₴</span>
-                        </span>
-                    </label>
+                <label class="field price-single-field">
+                    <span>Нова ціна за одиницю</span>
+                    <span class="price-single-input">
+                        <input class="price" name="price" value="{{ current_price|money }}" inputmode="decimal" autocomplete="off" required data-original="{{ current_price|money }}" aria-label="Нова ціна">
+                        <span class="price-option-suffix">₴</span>
+                    </span>
+                </label>
+                <div class="price-history" aria-label="Історія цін за цей місяць">
+                    <span class="price-history-title">Цього місяця</span>
+                    {% for price in x.changes %}
+                    <span class="price-history-chip{% if loop.last %} is-current{% else %} is-history{% endif %}">
+                        {{ price|money }} ₴{% if loop.last %}<span>· зараз</span>{% elif loop.first and x.changes|length > 1 %}<span>· до зміни</span>{% endif %}
+                    </span>
                     {% endfor %}
-                    <label class="price-option price-option--new extra-price-field">
-                        <span class="option-label">Нова ціна</span>
-                        <span class="field price-option-field">
-                            <input class="price" name="extra_price" inputmode="decimal" placeholder="0.00" aria-label="Нова ціна">
-                            <span class="price-option-suffix">₴</span>
-                        </span>
-                        <span class="sub">Необов'язкове поле</span>
-                    </label>
                 </div>
                 <p class="hint price-note" hidden></p>
             </div>
         </div>
         <div class="product-actions"><button type="submit" class="primary save-product" hidden>Зберегти</button></div>
     </form>
-    {% if x.change %}<p class="hint price-history-note">У {{ this_period }} ціна змінилася: {{ x.change[0]|money }} → {{ x.change[1]|money }}. У звітах цього місяця збережуться всі варіанти.</p>{% endif %}
+    {% if x.change %}<p class="hint price-history-note">У {{ this_period }} ціна змінилася: {{ x.change[0]|money }} → {{ x.change[1]|money }}. У звітах цього місяця збережуться обидві ціни.</p>{% endif %}
     <form class="entry-foot" method="post" action="/admin/products/{{ p.id }}/delete"
         data-confirm="{% if x.used %}«{{ p.name }}» є у звітах ({{ x.used }} рядків). Товар піде в архів, усі дані звітів залишаться. Продовжити?{% else %}«{{ p.name }}» ніде не використовується. Видалити остаточно?{% endif %}">
         <span class="product-foot-tags">{% if x.used %}<span class="product-meta">В отчётах: {{ x.used }}</span>{% endif %}</span><button class="danger sm">Удалить</button>
