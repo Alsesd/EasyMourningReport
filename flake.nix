@@ -27,7 +27,7 @@
               sqlalchemy = super.sqlalchemy.overridePythonAttrs (old: {
                 version = "2.0.54";
                 src = runtimePkgs.fetchPypi {
-                  pname = "SQLAlchemy";
+                  pname = "sqlalchemy";
                   version = "2.0.54";
                   format = "setuptools";
                   hash = "sha256-uqhSHo7p8k5138eqq8CAIOVR7w1I18PjU29c3fJ3WGs=";
