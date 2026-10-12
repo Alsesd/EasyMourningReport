@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, Request
 from app.core.dependencies import admin_required
+from app.core.tailscale import get_status as tailscale_status
 from app.core.ui import current_period, render
 from app.db.models.product import Product
 from app.db.models.report import Report, ReportItem
@@ -70,5 +71,6 @@ def admin_page(
         "archived_products": archived_products,
         "stores": stores,
         "archived_stores": archived_stores,
+        "tailscale": tailscale_status(),
     }
     return render(request, "admin.html", ctx)
