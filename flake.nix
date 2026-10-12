@@ -3,11 +3,9 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    poetry2nix.url = "github:nix-community/poetry2nix";
-    poetry2nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, poetry2nix }:
+  outputs = { self, nixpkgs }:
     let
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
@@ -18,19 +16,42 @@
             inherit system;
             allowUnfree = true;
           };
-          poetry2nixSource = pkgs.applyPatches {
-            name = "poetry2nix-patched";
-            src = poetry2nix;
-            patches = [ ./nix/poetry2nix-riscv64.patch ];
+          python = pkgs.python311.override {
+            packageOverrides = self: super: {
+              # Keep SQLModel's declared SQLAlchemy <2.1 constraint satisfied.
+              sqlalchemy = super.sqlalchemy.overridePythonAttrs (old: {
+                version = "2.0.54";
+                src = pkgs.fetchPypi {
+                  pname = "SQLAlchemy";
+                  version = "2.0.54";
+                  format = "setuptools";
+                  hash = "sha256-uqhSHo7p8k5138eqq8CAIOVR7w1I18PjU29c3fJ3WGs=";
+                };
+                doCheck = false;
+              });
+              sqlmodel = super.sqlmodel.overridePythonAttrs (old: {
+                version = "0.0.24";
+                src = pkgs.fetchPypi {
+                  pname = "sqlmodel";
+                  version = "0.0.24";
+                  format = "setuptools";
+                  hash = "sha256-zFx2E8GlUzyceGfhqrL9SJp2yeigYZhNoRtOYTwYJCM=";
+                };
+                propagatedBuildInputs = [ self.pydantic self.sqlalchemy ];
+                doCheck = false;
+              });
+            };
           };
-          poetry2nixLib = import "${poetry2nixSource}/default.nix" { inherit pkgs; };
-          pythonEnv = poetry2nixLib.mkPoetryEnv {
-            projectDir = ./.;
-            python = pkgs.python311;
-            groups = [ "main" ];
-            # Avoid stale poetry2nix default overrides that conflict with current nixpkgs.
-            overrides = [ ];
-          };
+          pythonEnv = python.withPackages (ps: [
+            ps.fastapi
+            ps.uvicorn
+            ps.sqlmodel
+            ps.sqlalchemy
+            ps.jinja2
+            ps.python-multipart
+            ps.itsdangerous
+            ps.openpyxl
+          ]);
           tailscaleHelper = pkgs.buildGoModule {
             pname = "tailscale-helper";
             version = "0.1.0";
