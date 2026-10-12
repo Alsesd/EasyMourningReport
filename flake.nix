@@ -16,13 +16,8 @@
           };
           serve = pkgs.writeShellScriptBin "serve" ''
             export HOST="''${HOST:-127.0.0.1}"
-            if command -v tailscale >/dev/null 2>&1; then
-              tailscale funnel --bg "''${PORT:-8000}" || echo "Funnel failed; see README"
-              export COOKIE_SECURE=1
-              tailscale funnel status
-            else
-              echo "tailscale not found: serving locally on http://localhost:''${PORT:-8000}"
-            fi
+            echo "Serving locally on http://localhost:''${PORT:-8000}"
+            echo "Public Tailscale Funnel is never started implicitly."
             exec poetry run python run.py "$@"
           '';
         in {
