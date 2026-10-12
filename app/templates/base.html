@@ -10,10 +10,11 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<script>try{const t=localStorage.getItem("easyMourningReport.theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
 <link rel="stylesheet" href="/static/app.css">
 <title>Легкий звіт</title></head><body class="{% block bodyclass %}{% endblock %}">
-<div class="maker-mark" aria-label="Made by Alsesd"><span class="maker-mark-label">made by</span><span class="maker-mark-name">Alsesd</span></div>
-{% if user %}<header class="top"><span class="brand">{{ user.store.name if user.store else 'Легкий звіт · Адміністратор' }}</span><form method="post" action="/logout" class="inline-form"><button type="submit" class="link-button">Вийти</button></form></header>{% endif %}
+<div class="maker-mark" aria-label="Made by Alsesd"><button type="button" class="maker-mark-trigger" aria-label="Reveal creator credit" aria-expanded="false">A.</button><span class="maker-mark-credit"><span class="maker-mark-label">made by</span><span class="maker-mark-name">Alsesd</span></span></div>
+{% if user %}<header class="top"><span class="brand">{{ user.store.name if user.store else 'Легкий звіт · Адміністратор' }}</span><div class="top-actions"><button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch color theme">☼ Світла тема</button><form method="post" action="/logout" class="inline-form"><button type="submit" class="link-button">Вийти</button></form></div></header>{% endif %}
 <main>
 {% if flash %}<div class="flash {{ flash.kind }}" role="status"><span>{{ flash.text }}</span><button type="button" class="x" aria-label="Закрити" onclick="this.parentNode.remove()">×</button></div>{% endif %}
 {% block body %}{% endblock %}</main>
