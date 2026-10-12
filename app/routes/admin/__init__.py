@@ -11,6 +11,7 @@ from app.routes.admin.reports import router as reports_router
 from app.routes.admin.security import router as security_router
 from app.routes.admin.stores import router as stores_router
 from app.routes.admin.summary import router as summary_router
+from app.routes.admin.tailscale import router as tailscale_router
 
 admin_router = APIRouter(
     dependencies=[Depends(admin_required)],
@@ -25,6 +26,7 @@ admin_router.include_router(summary_router, prefix="/admin/summary", tags=["Admi
 admin_router.include_router(logs_router, prefix="/admin/logs", tags=["Admin Logs"])
 admin_router.include_router(security_router, prefix="/admin/password", tags=["Admin Security"])
 admin_router.include_router(backup_router, prefix="/admin/backup", tags=["Admin Backup"])
+admin_router.include_router(tailscale_router, prefix="/admin/tailscale", tags=["Admin Tailscale"])
 
 __all__ = [
     "admin_router",
@@ -36,4 +38,5 @@ __all__ = [
     "security_router",
     "stores_router",
     "summary_router",
+    "tailscale_router",
 ]
