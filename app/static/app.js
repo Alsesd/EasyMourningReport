@@ -24,26 +24,6 @@
     });
 
 
-    // Fullscreen is best-effort in browser tabs; installed PWA uses manifest display mode.
-    const fullscreenButton = document.getElementById("fullscreen-toggle");
-    function syncFullscreenButton() {
-        if (!fullscreenButton) return;
-        const active = !!document.fullscreenElement;
-        fullscreenButton.textContent = active ? "⛶ Выход из полного экрана" : "⛶ На весь экран";
-        fullscreenButton.setAttribute("aria-label", active ? "Exit fullscreen" : "Enter fullscreen");
-        fullscreenButton.setAttribute("aria-pressed", String(active));
-    }
-    fullscreenButton?.addEventListener("click", async () => {
-        try {
-            if (document.fullscreenElement) await document.exitFullscreen();
-            else await document.documentElement.requestFullscreen({ navigationUI: "hide" });
-        } catch (_error) {
-            if (fullscreenButton) {
-                fullscreenButton.textContent = "Установите приложение для полного экрана";
-                fullscreenButton.setAttribute("aria-label", "Install app for fullscreen mode");
-            }
-        }
-        syncFullscreenButton();
     });
     document.addEventListener("fullscreenchange", syncFullscreenButton);
     syncFullscreenButton();
