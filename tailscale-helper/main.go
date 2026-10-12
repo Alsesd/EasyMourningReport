@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -64,6 +65,9 @@ func (w *statusWriter) update(change func(*status)) {
 		log.Printf("cannot write status: %v", err)
 		return
 	}
+	// Windows does not replace an existing file with os.Rename. Remove the
+	// previous snapshot first; status is noncritical and can be regenerated.
+	_ = os.Remove(w.path)
 	if err := os.Rename(tmp, w.path); err != nil {
 		_ = os.Remove(tmp)
 		log.Printf("cannot replace status: %v", err)
@@ -74,6 +78,7 @@ func main() {
 	stateDir := flag.String("state-dir", "", "private directory for this app's Tailscale identity")
 	statusPath := flag.String("status-file", "", "status JSON file written for the app UI")
 	target := flag.String("target", "http://127.0.0.1:8000", "local application URL")
+	authKeyStdin := flag.Bool("auth-key-stdin", false, "read the optional auth key from stdin")
 	flag.Parse()
 
 	if *stateDir == "" || *statusPath == "" {
@@ -87,12 +92,22 @@ func main() {
 		log.Fatal("--target must be an http:// URL with a host")
 	}
 
+	authKey := ""
+	if *authKeyStdin {
+		line, readErr := bufio.NewReader(os.Stdin).ReadString('\n')
+		if readErr != nil && len(line) == 0 {
+			log.Fatalf("cannot read optional auth key from stdin: %v", readErr)
+		}
+		authKey = strings.TrimSpace(line)
+	}
+
 	state := newStatusWriter(*statusPath)
 	state.update(func(s *status) { s.State = "starting" })
 
 	server := &tsnet.Server{
 		Dir:      *stateDir,
 		Hostname: "legkyi-zvit",
+		AuthKey:  authKey,
 		UserLogf: func(format string, args ...any) {
 			message := fmt.Sprintf(format, args...)
 			log.Print(message)
