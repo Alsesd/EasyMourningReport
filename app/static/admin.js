@@ -2,6 +2,7 @@
     "use strict";
 
     const period = document.querySelector("[data-admin-period]")?.dataset.adminPeriod || "";
+    const normalizeSearch = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim().replace(/\s+/g, " ");
     const search = document.getElementById("product-search");
 
     if (location.hash === "#archive") document.getElementById("archive")?.scrollIntoView();
@@ -43,6 +44,7 @@
     function initializeFormTracking(form) {
         if (!form || !form.matches("form.entry-form")) return;
         form.dataset.originalSnapshot = JSON.stringify(formSnapshot(form));
+        form.classList.remove("has-unsaved");
         const submit = form.querySelector('button[type="submit"], button:not([type]), input[type="submit"]');
         if (submit) {
             submit.hidden = true;
@@ -57,6 +59,11 @@
         const changed = JSON.stringify(formSnapshot(form)) !== form.dataset.originalSnapshot;
         submit.hidden = !changed;
         submit.setAttribute("aria-hidden", String(!changed));
+        form.classList.toggle("has-unsaved", changed);
+        form.closest(".product-entry")?.classList.toggle("has-unsaved", changed);
+        let status = form.querySelector(".dirty-status");
+        if (changed && !status) { status = document.createElement("span"); status.className = "dirty-status"; status.textContent = "Є незбережені зміни"; status.setAttribute("role", "status"); (form.querySelector(".product-actions") || form).prepend(status); }
+        if (!changed) status?.remove();
     }
 
     document.querySelectorAll("form.entry-form").forEach(initializeFormTracking);
@@ -117,9 +124,10 @@
     }
 
     function refreshProductSearch() {
-        const query = (search?.value || "").trim().toLocaleLowerCase();
+        const query = normalizeSearch(search?.value);
         document.querySelectorAll(".product-entry").forEach(entry => {
-            entry.hidden = !entry.dataset.productName.includes(query);
+            const name = normalizeSearch(entry.querySelector('input[name="name"]')?.value || entry.dataset.productName);
+            entry.hidden = !name.includes(query);
         });
         if (query) {
             document.querySelectorAll(".product-list").forEach(section => {
