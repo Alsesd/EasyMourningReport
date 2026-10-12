@@ -19,6 +19,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -36,6 +38,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24.x"
@@ -47,7 +51,7 @@ jobs:
           go mod tidy
           go build -o /tmp/tailscale-helper .
       - name: Commit generated Go checksums once
-        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/windows-binary-reliability-tailscale'
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/windows-binary-reliability-tailscale'
         run: |
           if ! git diff --quiet -- tailscale-helper/go.sum; then
             git config user.name "github-actions[bot]"
