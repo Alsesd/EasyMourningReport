@@ -28,6 +28,8 @@
             projectDir = ./.;
             python = pkgs.python311;
             groups = [ "main" ];
+            # Avoid stale poetry2nix default overrides that conflict with current nixpkgs.
+            overrides = [ ];
           };
           tailscaleHelper = pkgs.buildGoModule {
             pname = "tailscale-helper";
