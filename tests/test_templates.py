@@ -80,7 +80,8 @@ class Templates(unittest.TestCase):
         self.assertIn('Додати товар</button>', html)  # create submit remains visible in the DOM
         self.assertIn('src="/static/admin.js" defer', html)
         self.assertIn('action="/admin/stores/3/edit"', html)
-        self.assertIn("1.20 → 1.30", html)
+        self.assertIn("1.20 ₴", html)
+        self.assertIn("1.30 ₴", html)
         self.assertIn('id="product-search"', html)
         self.assertIn("Архів товарів", html)
         self.assertIn("Архів магазинів", html)
