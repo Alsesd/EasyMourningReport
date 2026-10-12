@@ -4,7 +4,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from fastapi import Depends, HTTPException, Request
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 from app.core.ui import FormError, current_period
 from app.db.models.user import User

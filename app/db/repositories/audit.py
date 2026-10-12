@@ -1,7 +1,7 @@
 """Audit logging repository."""
 
 from fastapi import Request
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 from app.core.security import client_ip
 from app.db.models.audit import AuditLog

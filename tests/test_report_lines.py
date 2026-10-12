@@ -10,7 +10,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.repositories.reports import build_lines, build_summary
-from app.db import Base, Product, ProductPrice, Report, ReportItem, Store
+from app.db.base import Base
+from app.db.models.product import Product, ProductPrice
+from app.db.models.report import Report, ReportItem
+from app.db.models.store import Store
 from app.services.pricing import BASE_PERIOD
 
 

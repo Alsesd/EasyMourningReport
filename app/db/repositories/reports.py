@@ -2,8 +2,8 @@
 
 from collections import defaultdict
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlmodel import select
+from sqlmodel import Session
 
 from app.core.ui import money
 from app.db.models.product import Product

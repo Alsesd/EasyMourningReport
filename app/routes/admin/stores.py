@@ -1,22 +1,21 @@
 """Admin store management endpoints: add, edit, delete, restore, password reset."""
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from sqlalchemy import delete, func, select
+from app.core.dependencies import admin_required, clean_login, clean_name, new_password
+from app.core.security import hash_pw
+from app.core.ui import FormError, done
+from app.db.backup import backup_db
+from app.db.models.report import Report
+from app.db.models.store import Store
+from app.db.models.user import User
+from app.db.repositories.audit import audit
+from app.db.repositories.stores import check_unique_store
+from app.db.session import get_db
+from sqlalchemy import delete, func
+from sqlmodel import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
-from app.core import (
-    FormError,
-    admin_required,
-    clean_login,
-    clean_name,
-    done,
-    get_db,
-    hash_pw,
-    new_password,
-)
-from app.db import Report, Store, User, audit, backup_db
-from app.db.repositories import check_unique_store
 
 router = APIRouter()
 

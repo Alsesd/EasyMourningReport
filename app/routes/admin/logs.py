@@ -1,12 +1,15 @@
 """Admin action log inspection endpoint."""
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from app.core.dependencies import admin_required
+from app.core.ui import render
+from app.db.models.audit import AuditLog
+from app.db.models.user import User
+from app.db.repositories.audit import ACTIONS
+from app.db.session import get_db
+from sqlmodel import select
+from sqlmodel import Session
 
-from app.core import admin_required, get_db, render
-from app.db import AuditLog, User
-from app.db.repositories import ACTIONS
 
 router = APIRouter()
 

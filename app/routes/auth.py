@@ -1,21 +1,17 @@
 """Authentication endpoints: login and logout."""
 
 from fastapi import APIRouter, Depends, Form, Request
+from app.core.ratelimit import clear_failures, record_failure, retry_after
+from app.core.security import check_pw, client_ip
+from app.core.ui import render
+from app.db.models.user import User
+from app.db.repositories.audit import audit
+from app.db.session import get_db
+from app.services.pricing import norm_login
 from fastapi.responses import RedirectResponse, Response
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlmodel import select
+from sqlmodel import Session
 
-from app.core import (
-    check_pw,
-    clear_failures,
-    client_ip,
-    get_db,
-    record_failure,
-    render,
-    retry_after,
-)
-from app.db import User, audit
-from app.services import norm_login
 
 router = APIRouter()
 

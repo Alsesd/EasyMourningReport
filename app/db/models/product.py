@@ -1,27 +1,28 @@
-"""Product and ProductPrice ORM models."""
+"""Product catalogue and period-based price history."""
 
-from sqlalchemy import ForeignKey, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
-
-from app.db.base import Base
+from sqlalchemy import UniqueConstraint
+from sqlmodel import Field, SQLModel
 
 
-class Product(Base):
+class Product(SQLModel, table=True):
     __tablename__ = "products"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str]
-    price_cents: Mapped[int]  # the latest price (cache of the newest ProductPrice row)
-    active: Mapped[bool] = mapped_column(default=True)  # shown in new report forms
-    # Archived = "removed" without losing data: hidden from Settings, saved report lines stay.
-    archived: Mapped[bool] = mapped_column(default=False)
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str
+    # Cache of the latest price; historical values live in ProductPrice.
+    price_cents: int
+    active: bool = Field(default=True)
+    # Archive rather than delete so saved report lines remain available.
+    archived: bool = Field(default=False)
 
 
-class ProductPrice(Base):
-    """Price history: `price_cents` is in force from month `period` ("YYYY-MM") until the next record.
-    The first record of every product uses period "0000-00". See app/pricing.py."""
+class ProductPrice(SQLModel, table=True):
+    """Price in force from period YYYY-MM until the next history row."""
+
     __tablename__ = "product_prices"
     __table_args__ = (UniqueConstraint("product_id", "period"),)
-    id: Mapped[int] = mapped_column(primary_key=True)
-    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
-    period: Mapped[str]
-    price_cents: Mapped[int]
+
+    id: int | None = Field(default=None, primary_key=True)
+    product_id: int = Field(foreign_key="products.id", index=True)
+    period: str = Field(index=True)
+    price_cents: int

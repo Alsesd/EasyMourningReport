@@ -2,7 +2,7 @@
 
 import os
 import secrets
-from sqlalchemy import select
+from sqlmodel import select
 
 from app.db.backup import backup_db
 from app.db.base import Base

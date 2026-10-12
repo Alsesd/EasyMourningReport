@@ -1,10 +1,14 @@
 """Admin password change endpoint."""
 
 from fastapi import APIRouter, Depends, Form, Request
-from sqlalchemy.orm import Session
+from app.core.dependencies import admin_required, new_password
+from app.core.security import hash_pw
+from app.core.ui import done
+from app.db.models.user import User
+from app.db.repositories.audit import audit
+from app.db.session import get_db
+from sqlmodel import Session
 
-from app.core import admin_required, done, get_db, hash_pw, new_password
-from app.db import User, audit
 
 router = APIRouter()
 
