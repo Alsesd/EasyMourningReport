@@ -31,4 +31,7 @@ A quiet, practical reporting tool: paper-like surfaces, evergreen accents, clear
 - `app/templates/base.html` and `admin.html` contain semantic structure only.
 - Global behavior is in `app/static/app.js`; admin-only behavior is in `app/static/admin.js`; styles remain in `app/static/app.css`.
 - Keep visible input labels, keyboard focus rings, touch-sized controls and a responsive single-column price editor.
+- Every price variant occupies a full-width horizontal row; its numeric input expands into the available width instead of being trapped in a narrow grid cell.
+- The app mark and account header form one opaque, layered sticky surface so scrolling content never shows through the header.
+- Theme choice remains available through a small display-preferences menu; fullscreen is not a header action.
 - Use the server's confirmed response as the source of truth. Reduced-motion preferences shorten or remove transitions.
