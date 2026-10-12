@@ -1,4 +1,4 @@
-"""Admin product management endpoints: CRUD, Excel import, and multi-price history."""
+"""Admin product management endpoints: CRUD, Excel import, and monthly price history."""
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from app.core.dependencies import admin_required, clean_name, to_cents
@@ -84,73 +84,46 @@ async def product_edit(
     name = clean_name(raw_name)
     is_active = form.get("active") is not None
 
-    # Support multiple price values in the form (e.g. from dynamically added price fields)
-    all_price_strs = form.getlist("price") + form.getlist("extra_price")
-    all_cents = [to_cents(str(val)) for val in all_price_strs if str(val).strip()]
-    if not all_cents:
-        raise HTTPException(400, "Необхідно вказати хоча б одну ціну")
+    # A product has one price input. Ignore legacy extra_price fields from cached clients.
+    raw_price = str(form.get("price") or "").strip()
+    if not raw_price:
+        raise HTTPException(400, "Необхідно вказати ціну")
 
+    cents = to_cents(raw_price)
     period = current_period()
     said: list[str] = []
     history = history_of(load_history(db), p)
-    before_now = offered_prices(history, period)[-1]  # price in force right now
 
-    if len(all_cents) == 1:
-        cents = all_cents[0]
-        new_history, prev_price, now_price = apply_price_change(
-            history, period, cents
-        )
-        if new_history != history:
-            save_history(db, pid, new_history)
-            p.price_cents = latest_price(new_history)
-            if len(offered_prices(new_history, period)) == 2:
-                said.append(
-                    f"Ціну змінено: {money(before_now)} → {money(now_price)} з {period}. "
-                    f"У звітах {period} усі магазини (зокрема нові) бачать два рядки: "
-                    f"{money(prev_price)} і {money(now_price)}. У наступних місяцях буде лише {money(now_price)}."
-                )
-            else:
-                said.append(
-                    f"Зміну ціни за {period} скасовано: ціна знову {money(now_price)}, "
-                    f"у звітах {period} один рядок."
-                )
-            audit(
-                db,
-                request,
-                user.login,
-                user.role,
-                "змінено ціну товару",
-                f"{p.name} · {money(before_now)} → {money(now_price)} з {period}",
-            )
-    else:
-        # Multiple prices configured for the current month
-        # Keep historical prices before this month, and future prices after this month
-        hist = sorted(history)
-        past_entries = [
-            (s, c) for s, c in hist if period_month(s) < period
-        ]
-        future_entries = [
-            (s, c) for s, c in hist if period_month(s) > period
-        ]
-        # Current month entries
-        month_entries = [(period, all_cents[0])] + [
-            (f"{period}_{i}", cents) for i, cents in enumerate(all_cents[1:], start=1)
-        ]
-        new_history = sorted(past_entries + month_entries + future_entries)
+    # Collapse any legacy same-month variants to one price-change record.
+    # The previous price is retained by apply_price_change as the first monthly history chip
+    # and remains available in reports for this month.
+    canonical_history = [
+        (start, value) for start, value in history if period_month(start) != period
+    ]
+    new_history, prev_price, now_price = apply_price_change(
+        canonical_history, period, cents
+    )
+    if new_history != history:
         save_history(db, pid, new_history)
-        p.price_cents = all_cents[-1]
-        price_list_str = " → ".join(money(c) for c in all_cents)
-        said.append(
-            f"Встановлено декілька цін на {period}: {price_list_str}. "
-            f"У звітах {period} доступні всі ці ціни."
-        )
+        p.price_cents = latest_price(new_history)
+        if len(offered_prices(new_history, period)) == 2:
+            said.append(
+                f"Ціну змінено: {money(prev_price)} → {money(now_price)} з {period}. "
+                f"У звітах {period} збережуться попередня й нова ціни; "
+                f"у наступних місяцях діятиме лише {money(now_price)}."
+            )
+        else:
+            said.append(
+                f"Зміну ціни за {period} скасовано: ціна знову {money(now_price)}, "
+                f"у звітах {period} залишиться один рядок."
+            )
         audit(
             db,
             request,
             user.login,
             user.role,
             "змінено ціну товару",
-            f"{p.name} · {price_list_str} у {period}",
+            f"{p.name} · {money(prev_price)} → {money(now_price)} з {period}",
         )
 
     notes = []

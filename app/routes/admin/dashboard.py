@@ -8,7 +8,7 @@ from app.db.models.report import Report, ReportItem
 from app.db.models.user import User
 from app.db.repositories.products import history_of, load_history
 from app.db.session import get_db
-from app.services.pricing import offered_prices, period_month
+from app.services.pricing import offered_prices
 from sqlalchemy import func, select
 from sqlmodel import Session
 
@@ -47,18 +47,10 @@ def admin_page(
             continue
         product_history = history_of(history, p)
         lines = offered_prices(product_history, period)
-        current_prices = list(dict.fromkeys(
-            cents for start, cents in product_history if period_month(start) == period
-        ))
-        if not current_prices:
-            current_prices = [lines[-1] if lines else p.price_cents]
         item = {
             "p": p,
             "used": used.get(p.id, 0),
-            "prev": lines[0],
-            "change": (lines[0], lines[1]) if len(lines) >= 2 else None,
             "changes": lines,
-            "current_prices": current_prices,
         }
         (products if p.active else inactive_products).append(item)
     stores, archived_stores = [], []

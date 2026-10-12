@@ -1,13 +1,6 @@
 (() => {
     "use strict";
 
-    // The controller survives soft tab swaps; duplicate script tags must not bind twice.
-    if (window.__easyMourningAdminScriptLoaded) {
-        document.dispatchEvent(new CustomEvent("app:page-updated"));
-        return;
-    }
-    window.__easyMourningAdminScriptLoaded = true;
-
     const normalizeSearch = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim().replace(/\s+/g, " ");
 
     if (location.hash === "#archive") document.getElementById("archive")?.scrollIntoView();
@@ -42,19 +35,20 @@
     }
 
     function normalizeFieldValue(el) {
-        if (el.name === "price" || el.name === "extra_price") return centsFromValue(el.value);
+        if (el.name === "price") return centsFromValue(el.value);
         return (el.type === "checkbox" || el.type === "radio") ? el.checked : el.value;
     }
 
     function formSnapshot(form) {
         return [...form.elements]
             .filter(el => el.name && !el.disabled && !["submit", "button", "reset"].includes(el.type))
-            .filter(el => !(el.name === "extra_price" && el.value.trim() === ""))
             .map(el => [el.name, normalizeFieldValue(el)]);
     }
 
     function initializeFormTracking(form) {
         if (!form || !form.matches("form.entry-form")) return;
+        // Creation/import forms must always keep their submit button visible.
+        if (form.matches(".create-form, .import-tile form") || form.querySelector('input[type="file"]')) return;
         form.dataset.originalSnapshot = JSON.stringify(formSnapshot(form));
         form.classList.remove("has-unsaved");
         const submit = form.querySelector('button[type="submit"], button:not([type]), input[type="submit"]');
@@ -65,7 +59,7 @@
     }
 
     function refreshSaveButton(form) {
-        if (!form || !form.matches("form.entry-form")) return;
+        if (!form || !form.matches("form.entry-form") || !form.dataset.originalSnapshot) return;
         const submit = form.querySelector('button[type="submit"], button:not([type]), input[type="submit"]');
         if (!submit || !form.dataset.originalSnapshot) return;
         const changed = JSON.stringify(formSnapshot(form)) !== form.dataset.originalSnapshot;
@@ -81,12 +75,9 @@
     document.querySelectorAll("form.entry-form").forEach(initializeFormTracking);
 
     function priceEditorHasChanges(editor) {
-        return [...editor.querySelectorAll('input[name="price"], input[name="extra_price"]')].some(input => {
-            const current = normalizeFieldValue(input);
-            const original = input.hasAttribute("data-original") ? centsFromValue(input.dataset.original) : "";
-            if (input.name === "extra_price" && current === "" && original === "") return false;
-            return current !== original;
-        });
+        const input = editor?.querySelector('input[name="price"]');
+        if (!input) return false;
+        return centsFromValue(input.value) !== centsFromValue(input.dataset.original ?? input.value);
     }
 
     function refreshPriceNote(editor) {
@@ -94,40 +85,32 @@
         if (!note) return;
         const changed = priceEditorHasChanges(editor);
         note.hidden = !changed;
-        if (changed) note.textContent = "Нові ціни діятимуть з " + (document.querySelector("[data-admin-period]")?.dataset.adminPeriod || "") + ". Попередні місяці та вже внесені кількості у звітах не зміняться.";
+        if (changed) {
+            note.textContent = "Нова ціна діятиме з " +
+                (document.querySelector("[data-admin-period]")?.dataset.adminPeriod || "") +
+                ". Ціни за минулі місяці та вже внесені звіти не зміняться.";
+        }
     }
 
     function setPriceEditorOpen(button, open) {
         const form = button.closest(".product-form");
-        const editor = form && form.querySelector(".price-editor");
+        const editor = form?.querySelector(".price-editor");
         if (!editor) return;
-
-        if (!open && priceEditorHasChanges(editor)) {
-            const note = editor.querySelector(".price-note");
-            if (note) {
-                note.hidden = false;
-                note.textContent = "Спочатку збережіть зміни ціни — після цього редактор можна згорнути.";
-            }
-            const save = form.querySelector(".save-product");
-            if (save && !save.hidden) save.focus();
-            return;
-        }
 
         button.setAttribute("aria-expanded", String(open));
         const label = button.querySelector(".price-toggle-label > span");
-        if (label) label.textContent = open ? "Згорнути варіанти" : "Варіанти ціни";
+        if (label) label.textContent = open ? "Закрити" : "Змінити ціну";
         if (open) {
             editor.hidden = false;
             editor.inert = false;
             editor.setAttribute("aria-hidden", "false");
             requestAnimationFrame(() => editor.classList.add("is-open"));
-            const first = editor.querySelector(".price-option--new input") || editor.querySelector("input");
-            if (first) first.focus({ preventScroll: true });
+            editor.querySelector(".price-single-field input")?.focus({ preventScroll: true });
         } else {
             editor.classList.remove("is-open");
             editor.inert = true;
             editor.setAttribute("aria-hidden", "true");
-            const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 280;
+            const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220;
             window.setTimeout(() => {
                 if (!editor.classList.contains("is-open")) editor.hidden = true;
             }, delay);
@@ -270,32 +253,7 @@
             return;
         }
 
-        const addButton = event.target.closest && event.target.closest(".add-price-btn");
-        if (!addButton) return;
-        const editor = addButton.closest(".price-editor");
-        const container = editor && editor.querySelector(".price-options");
-        if (!container) return;
 
-        const option = document.createElement("label");
-        option.className = "price-option price-option--new extra-price-field";
-        const title = document.createElement("span");
-        title.className = "option-label";
-        title.textContent = "Нова ціна";
-        const field = document.createElement("span");
-        field.className = "field price-option-field";
-        const input = document.createElement("input");
-        input.className = "price";
-        input.name = "extra_price";
-        input.inputMode = "decimal";
-        input.placeholder = "0.00";
-        input.setAttribute("aria-label", "Нова ціна");
-        const suffix = document.createElement("span");
-        suffix.className = "price-option-suffix";
-        suffix.textContent = "₴";
-        field.append(input, suffix);
-        option.append(title, field);
-        container.append(option);
-        input.focus();
     });
 
     document.addEventListener("submit", event => {
@@ -306,13 +264,4 @@
         }
     });
 
-    // Partial tab navigation replaces <main> without re-executing this script.
-    // Re-initialize controls for the new page; event handlers above are delegated.
-    document.addEventListener("app:page-updated", () => {
-        bindFoldouts();
-        document.querySelectorAll("form.entry-form").forEach(form => {
-            if (!form.dataset.originalSnapshot) initializeFormTracking(form);
-        });
-        refreshProductSearch();
-    });
 })();
