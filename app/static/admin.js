@@ -1,6 +1,13 @@
 (() => {
     "use strict";
 
+    // The controller survives soft tab swaps; duplicate script tags must not bind twice.
+    if (window.__easyMourningAdminScriptLoaded) {
+        document.dispatchEvent(new CustomEvent("app:page-updated"));
+        return;
+    }
+    window.__easyMourningAdminScriptLoaded = true;
+
     const normalizeSearch = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim().replace(/\s+/g, " ");
 
     if (location.hash === "#archive") document.getElementById("archive")?.scrollIntoView();
