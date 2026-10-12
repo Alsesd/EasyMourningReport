@@ -78,6 +78,7 @@ EasyMourningReport/
 │   ├── templates/        # Шаблони Jinja2
 │   └── main.py           # Композиція FastAPI, життєвий цикл і middleware
 ├── tests/                # pytest, FastAPI TestClient та ізольовані тести БД
+├── tailscale-helper/     # Окремий Go-процес на основі Tailscale tsnet
 ├── build.py              # Скрипт збірки standalone EXE через PyOxidizer
 ├── pyoxidizer.bzl        # Конфігурація пакування PyOxidizer
 ├── DOCS.md               # Повна архітектурна та технічна документація
@@ -120,6 +121,17 @@ poetry install
 ```
 
 У Windows, якщо команда `poetry` не доступна в PATH, можна використовувати `python -m poetry install`. Для відтворюваного середовища не встановлюйте залежності застосунку окремо через `pip`.
+
+## Nix package
+
+Для Linux flake надає пакет і команду запуску. Runtime-залежності беруться з зафіксованого у `flake.lock` Nixpkgs; версії SQLModel і SQLAlchemy узгоджені з обмеженнями проєкту. Poetry залишається менеджером залежностей для розробницького середовища:
+
+```bash
+nix build .#default
+nix run .#default
+```
+
+Підтримуються `x86_64-linux` і `aarch64-linux`. Пакет встановлює незмінний код у Nix store, а базу даних, ключ сесій і стан Tailscale зберігає в каталозі даних користувача поза store. У розробницькому середовищі використовуйте `poetry install` для синхронізації з `poetry.lock`.
 
 ## Запуск
 
