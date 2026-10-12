@@ -93,7 +93,6 @@ async def product_edit(
     period = current_period()
     said: list[str] = []
     history = history_of(load_history(db), p)
-    before_now = offered_prices(history, period)[-1]  # price in force right now
 
     # Collapse any legacy same-month variants to one price-change record.
     # The previous price is retained by apply_price_change as the first monthly history chip
@@ -101,6 +100,7 @@ async def product_edit(
     canonical_history = [
         (start, value) for start, value in history if period_month(start) != period
     ]
+    before_now = offered_prices(canonical_history, period)[-1]
     new_history, prev_price, now_price = apply_price_change(
         canonical_history, period, cents
     )
