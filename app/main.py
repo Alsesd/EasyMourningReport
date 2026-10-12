@@ -19,7 +19,6 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.core.paths import asset_dir
 from app.core.security import load_secret, same_origin_post_guard
 from app.core.tailscale import shutdown as shutdown_tailscale
-from app.core.tailscale import start_if_enabled as start_tailscale_if_enabled
 from app.core.ui import FormError, done, render, safe_referer
 from app.db.backup import backup_db, backup_loop
 from app.db.bootstrap import migrate, seed
@@ -32,9 +31,6 @@ async def lifespan(_: FastAPI):
     migrate()
     seed()
     await asyncio.to_thread(backup_db)
-    # Public Funnel is never started on first launch. It is retried automatically
-    # only after an administrator has explicitly enabled it in the admin UI.
-    await asyncio.to_thread(start_tailscale_if_enabled)
     backup_task = asyncio.create_task(backup_loop(), name="database-backup-loop")
     try:
         yield

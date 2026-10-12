@@ -14,6 +14,7 @@ if hasattr(sys.stdout, "reconfigure"):
 import uvicorn
 
 from app.main import app
+from app.core.tailscale import start_if_enabled as start_tailscale_if_enabled
 
 
 def _bind_available_socket(
@@ -115,6 +116,25 @@ def server_start(
         browser_host = f"[{browser_host}]"
     url = f"http://{browser_host}:{actual_port}"
     print(f"Local web app: {url}", flush=True)
+
+    # Launch the opted-in Funnel helper before Uvicorn starts accepting app
+    # requests. Its reverse proxy can come online first; it will return a clear
+    # 502 only during the short interval before the local app becomes ready.
+    try:
+        funnel_status = start_tailscale_if_enabled()
+        if funnel_status:
+            state = funnel_status.get("state", "starting")
+            if state == "error":
+                print(
+                    f"Tailscale Funnel did not start: {funnel_status.get('error', 'unknown error')}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            else:
+                print(f"Tailscale Funnel startup requested (state: {state}).", flush=True)
+    except Exception as exc:
+        # A Funnel failure must not prevent the local app from starting.
+        print(f"Tailscale Funnel startup failed: {exc}", file=sys.stderr, flush=True)
 
     server = uvicorn.Server(uvicorn.Config(app, host=resolved_host, port=actual_port))
     auto_open = os.getenv("LEGKYI_AUTO_OPEN_BROWSER", "1").strip().lower()
