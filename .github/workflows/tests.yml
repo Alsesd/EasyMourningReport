@@ -53,12 +53,12 @@ jobs:
       - name: Commit generated Go checksums once
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/windows-binary-reliability-tailscale'
         run: |
-          if ! git diff --quiet -- tailscale-helper/go.sum; then
+          if [ -n "$(git status --porcelain -- tailscale-helper/go.mod tailscale-helper/go.sum)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add tailscale-helper/go.sum
+            git add tailscale-helper/go.mod tailscale-helper/go.sum
             git commit -m "Pin Tailscale helper module checksums"
-            git push
+            git push origin HEAD:refs/heads/fix/windows-binary-reliability-tailscale
           fi
       - name: Upload pinned Go module graph
         uses: actions/upload-artifact@v4
