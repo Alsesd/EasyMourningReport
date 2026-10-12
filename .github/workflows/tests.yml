@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - fix/windows-binary-reliability-tailscale
       - packaging/nix-flake
   pull_request:
     branches:
