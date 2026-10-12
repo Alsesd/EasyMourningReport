@@ -9,3 +9,15 @@ diff --git a/vendor/pyproject.nix/lib/pep599.nix b/vendor/pyproject.nix/lib/pep5
      ppc64 = "powerpc64";
      ppc64le = "powerpc64le";
      s390x = "s390x";
+diff --git a/mk-poetry-dep.nix b/mk-poetry-dep.nix
+--- a/mk-poetry-dep.nix
++++ b/mk-poetry-dep.nix
+@@ -127,1 +127,1 @@
+-      ++ lib.optional (!pythonPackages.isPy27) hooks.poetry2nixPythonRequiresPatchHook
++      ++ lib.optional (!(pythonPackages.isPy27 or false)) hooks.poetry2nixPythonRequiresPatchHook
+diff --git a/overrides/default.nix b/overrides/default.nix
+--- a/overrides/default.nix
++++ b/overrides/default.nix
+@@ -159,1 +159,1 @@
+-          lib.optionals final.isPy27 [ (final.backports-functools-lru-cache or final.backports_functools_lru_cache) ]
++          lib.optionals (final.isPy27 or false) [ (final.backports-functools-lru-cache or final.backports_functools_lru_cache) ]
