@@ -3,7 +3,7 @@ name: Python and helper tests
 on:
   push:
     branches:
-      - "**"
+      - main
   pull_request:
 
 permissions:
