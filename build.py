@@ -66,6 +66,11 @@ def _copy_distribution(executable: Path) -> Path:
             if source.is_dir():
                 shutil.copytree(source, DIST_DIR / folder, dirs_exist_ok=True)
 
+    helper_name = "tailscale-helper.exe" if target_executable.suffix.lower() == ".exe" else "tailscale-helper"
+    helper_source = ROOT / "tailscale-helper" / "bin" / helper_name
+    if helper_source.is_file():
+        shutil.copy2(helper_source, DIST_DIR / helper_name)
+
     if not target_executable.is_file():
         raise FileNotFoundError(f"Expected executable was not staged at {target_executable}")
     for relative in ("lib/app/main.py", "app/templates", "app/static"):
@@ -117,7 +122,11 @@ def build(release: bool = True, target_triple: str | None = None) -> int:
         return 1
 
     print(f"Successfully packaged runnable distribution: {target}", flush=True)
-    print("Keep both lib/ and app/ beside the executable; they contain runtime modules and web assets.", flush=True)
+    print("Keep lib/ and app/ beside the executable; they contain runtime modules and web assets.", flush=True)
+    if (DIST_DIR / ("tailscale-helper.exe" if target.suffix.lower() == ".exe" else "tailscale-helper")).is_file():
+        print("Bundled Tailscale helper staged beside the application.", flush=True)
+    else:
+        print("Tailscale helper not built; public Funnel controls will report it missing.", flush=True)
     return 0
 
 
