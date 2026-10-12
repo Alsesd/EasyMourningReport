@@ -1,8 +1,8 @@
 """Lifecycle and persistent opt-in for the app-specific Tailscale helper.
 
-The auth key is passed only through the helper process environment and is never
-written to disk, included in command-line arguments, or returned by status APIs.
-A public Funnel is attempted on startup only after an administrator has opted in.
+Auth keys are passed to the helper over stdin only; they are never written to
+disk, included in command-line arguments, or placed in the child environment.
+A public Funnel is attempted at startup only after an administrator has opted in.
 """
 
 import json
@@ -81,6 +81,10 @@ def start_funnel(auth_key: str | None = None) -> dict[str, Any]:
     """Explicitly opt in and start the bundled helper; never persist auth_key."""
     global _process, _log_handle
 
+    supplied_key = (auth_key or "").strip()
+    if "\n" in supplied_key or "\r" in supplied_key:
+        return {**get_status(), "state": "error", "error": "Invalid auth key format."}
+
     helper = _helper_path()
     if helper is None:
         return {
@@ -92,21 +96,19 @@ def start_funnel(auth_key: str | None = None) -> dict[str, Any]:
             ),
         }
 
+    if _process is not None and _process.poll() is None:
+        return get_status()
+
     root = _state_root()
     enabled = _enabled_file()
     enabled.write_text("enabled\n", encoding="utf-8")
     if os.name != "nt":
         enabled.chmod(0o600)
 
-    if _process is not None and _process.poll() is None:
-        return get_status()
-
     env = os.environ.copy()
-    supplied_key = (auth_key or "").strip()
-    if supplied_key:
-        if "\n" in supplied_key or "\r" in supplied_key:
-            return {**get_status(), "state": "error", "error": "Invalid auth key format."}
-        env["TS_AUTHKEY"] = supplied_key
+    # Prevent inherited auth keys from being exposed in the child environment.
+    env.pop("TS_AUTHKEY", None)
+    env.pop("TS_AUTH_KEY", None)
 
     log_path = root / "helper.log"
     try:
@@ -129,27 +131,36 @@ def start_funnel(auth_key: str | None = None) -> dict[str, Any]:
             close_fds=True,
         )
         if _process.stdin is not None:
-            _process.stdin.write((supplied_key + "\\n").encode("utf-8"))
+            _process.stdin.write((supplied_key + "\n").encode("utf-8"))
             _process.stdin.close()
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, BrokenPipeError) as exc:
         if _log_handle:
             _log_handle.close()
             _log_handle = None
         return {**get_status(), "state": "error", "error": f"Could not start helper: {exc}"}
-    # The helper writes its detailed state asynchronously. Avoid claiming that
+
+    # The helper writes its detailed state asynchronously. Do not claim that
     # Funnel is live before it has actually acquired the public listener.
     time.sleep(0.05)
     return get_status()
 
 
 def stop_funnel() -> dict[str, Any]:
-    """Disable public exposure and stop the helper if this process owns it."""
+    """Disable public exposure and clear the persistent opt-in."""
     global _process, _log_handle
 
     try:
         _enabled_file().unlink(missing_ok=True)
     except OSError as exc:
         return {**get_status(), "state": "error", "error": f"Could not disable Funnel: {exc}"}
+
+    _stop_child()
+    return get_status()
+
+
+def _stop_child() -> None:
+    """Stop the helper without changing the persisted opt-in setting."""
+    global _process, _log_handle
 
     if _process is not None:
         if _process.poll() is None:
@@ -163,7 +174,6 @@ def stop_funnel() -> dict[str, Any]:
     if _log_handle:
         _log_handle.close()
         _log_handle = None
-    return get_status()
 
 
 def start_if_enabled() -> dict[str, Any] | None:
@@ -174,6 +184,5 @@ def start_if_enabled() -> dict[str, Any] | None:
 
 
 def shutdown() -> None:
-    """Stop the child helper during orderly application shutdown."""
-    if _process is not None:
-        stop_funnel()
+    """Stop the child on orderly shutdown but preserve the administrator's opt-in."""
+    _stop_child()
