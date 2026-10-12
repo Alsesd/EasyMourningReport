@@ -22,6 +22,14 @@ jobs:
         uses: cachix/install-nix-action@v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Refresh the Poetry lock from pyproject.toml
+        run: |
+          python -m pip install "poetry==2.4.3"
+          poetry lock --no-interaction
       - name: Resolve and lock flake inputs
         run: nix flake lock
       - name: Build the default application package
