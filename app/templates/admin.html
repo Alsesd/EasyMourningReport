@@ -41,7 +41,6 @@
         </div>
         <div class="product-actions"><button type="submit" class="primary save-product" hidden>Зберегти</button></div>
     </form>
-    {% if x.change %}<p class="hint price-history-note">У {{ this_period }} ціна змінилася: {{ x.change[0]|money }} → {{ x.change[1]|money }}. У звітах цього місяця збережуться обидві ціни.</p>{% endif %}
     <form class="entry-foot" method="post" action="/admin/products/{{ p.id }}/delete"
         data-confirm="{% if x.used %}«{{ p.name }}» є у звітах ({{ x.used }} рядків). Товар піде в архів, усі дані звітів залишаться. Продовжити?{% else %}«{{ p.name }}» ніде не використовується. Видалити остаточно?{% endif %}">
         <span class="product-foot-tags">{% if x.used %}<span class="product-meta">В отчётах: {{ x.used }}</span>{% endif %}</span><button class="danger sm">Удалить</button>
