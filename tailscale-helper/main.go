@@ -1,5 +1,4 @@
 // Copyright (c) Alsesd
-// SPDX-License-Identifier: MIT
 
 // tailscale-helper runs the app-specific Tailscale node. It is intentionally
 // separate from the Python process so the app does not need the system
