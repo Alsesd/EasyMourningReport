@@ -39,6 +39,7 @@ def _helper_path() -> Path | None:
 
     executable_name = "tailscale-helper.exe" if os.name == "nt" else "tailscale-helper"
     roots = [
+        Path(sys.executable).resolve().parent,
         Path(sys.argv[0]).resolve().parent,
         Path(__file__).resolve().parents[2] / "tailscale-helper" / "bin",
         Path(__file__).resolve().parents[2] / "build",
@@ -97,7 +98,11 @@ def start_funnel(auth_key: str | None = None) -> dict[str, Any]:
         }
 
     if _process is not None and _process.poll() is None:
-        return get_status()
+        current = get_status()
+        if current.get("state") == "running" or not supplied_key:
+            return current
+        # A key was supplied to retry a failed/unauthenticated attempt.
+        _stop_child()
 
     root = _state_root()
     enabled = _enabled_file()
