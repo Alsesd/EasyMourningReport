@@ -1,0 +1,12 @@
+diff --git a/vendor/pyproject.nix/lib/pep599.nix b/vendor/pyproject.nix/lib/pep599.nix
+index 0000000..0000000 100644
+--- a/vendor/pyproject.nix/lib/pep599.nix
++++ b/vendor/pyproject.nix/lib/pep599.nix
+@@ -10,6 +10,7 @@
+     i686 = "i686";
+     aarch64 = "aarch64";
+     armv7l = "armv7l";
++    riscv64 = "riscv64";
+     ppc64 = "powerpc64";
+     ppc64le = "powerpc64le";
+     s390x = "s390x";
