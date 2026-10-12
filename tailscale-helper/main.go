@@ -150,6 +150,22 @@ func main() {
 		log.Printf("local app proxy failed: %v", proxyErr)
 		http.Error(w, "The local application is not ready yet.", http.StatusBadGateway)
 	}
+	// Funnel terminates HTTPS, while the local app intentionally serves plain
+	// HTTP on loopback. Mark cookies Secure at the public TLS boundary.
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		cookies := resp.Header.Values("Set-Cookie")
+		if len(cookies) == 0 {
+			return nil
+		}
+		resp.Header.Del("Set-Cookie")
+		for _, cookie := range cookies {
+			if !strings.Contains(strings.ToLower(cookie), "; secure") {
+				cookie += "; Secure"
+			}
+			resp.Header.Add("Set-Cookie", cookie)
+		}
+		return nil
+	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Preserve the public host for the app's same-origin form protection.
 		r.Header.Set("X-Forwarded-Proto", "https")
