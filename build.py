@@ -68,8 +68,12 @@ def _copy_distribution(executable: Path) -> Path:
 
     helper_name = "tailscale-helper.exe" if target_executable.suffix.lower() == ".exe" else "tailscale-helper"
     helper_source = ROOT / "tailscale-helper" / "bin" / helper_name
+    helper_target = DIST_DIR / helper_name
     if helper_source.is_file():
-        shutil.copy2(helper_source, DIST_DIR / helper_name)
+        shutil.copy2(helper_source, helper_target)
+    else:
+        # Never let a stale helper from a previous build masquerade as current.
+        helper_target.unlink(missing_ok=True)
 
     if not target_executable.is_file():
         raise FileNotFoundError(f"Expected executable was not staged at {target_executable}")
