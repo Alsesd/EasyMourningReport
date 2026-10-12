@@ -64,15 +64,20 @@ class Templates(unittest.TestCase):
         archived = NS(id=8, name="Старий товар")
         s = NS(id=3, name="Магазин 1")
         html = render("admin.html", "/admin", user=ADMIN,
-                      products=[{"p": p, "used": 4, "prev": 120, "change": (120, 130)}], inactive_products=[],
+                      products=[{"p": p, "used": 4, "prev": 120, "change": (120, 130), "changes": [120, 130]}], inactive_products=[],
                       archived_products=[{"p": archived, "used": 2}],
                       stores=[{"store": s, "user": NS(login="store1"), "reports": 2}],
                       archived_stores=[{"store": NS(id=4, name="Закритий"), "user": NS(login="old"), "reports": 5}])
         self.assertIn('action="/admin/products/7"', html)
         self.assertIn('class="price-editor"', html)
         self.assertIn('aria-controls="price-editor-7"', html)
-        self.assertIn('placeholder="0.00"', html)
+        self.assertIn('name="price" value="1.30"', html)
+        self.assertIn('class="price-history-chip is-history"', html)
+        self.assertIn('class="price-history-chip is-current"', html)
+        self.assertNotIn('name="extra_price"', html)
+        self.assertNotIn('class="price-options"', html)
         self.assertIn('class="save-product" hidden', html)
+        self.assertIn('Додати товар</button>', html)  # create submit remains visible in the DOM
         self.assertIn('src="/static/admin.js" defer', html)
         self.assertIn('action="/admin/stores/3/edit"', html)
         self.assertIn("1.20 → 1.30", html)
