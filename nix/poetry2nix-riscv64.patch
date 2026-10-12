@@ -1,5 +1,4 @@
 diff --git a/vendor/pyproject.nix/lib/pep599.nix b/vendor/pyproject.nix/lib/pep599.nix
-index 0000000..0000000 100644
 --- a/vendor/pyproject.nix/lib/pep599.nix
 +++ b/vendor/pyproject.nix/lib/pep599.nix
 @@ -10,6 +10,7 @@
