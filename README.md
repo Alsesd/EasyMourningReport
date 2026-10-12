@@ -124,14 +124,14 @@ poetry install
 
 ## Nix package
 
-Для Linux flake надає пакет і команду запуску. Збірка включає Python-залежності з `poetry.lock` та Go-помічник Tailscale:
+Для Linux flake надає пакет і команду запуску. Runtime-залежності беруться з зафіксованого у `flake.lock` Nixpkgs; версії SQLModel і SQLAlchemy узгоджені з обмеженнями проєкту. Poetry залишається менеджером залежностей для розробницького середовища:
 
 ```bash
 nix build .#default
 nix run .#default
 ```
 
-Підтримуються `x86_64-linux` і `aarch64-linux`. Пакет встановлює незмінний код у Nix store, а базу даних, ключ сесій і стан Tailscale зберігає в каталозі даних користувача поза store.
+Підтримуються `x86_64-linux` і `aarch64-linux`. Пакет встановлює незмінний код у Nix store, а базу даних, ключ сесій і стан Tailscale зберігає в каталозі даних користувача поза store. У розробницькому середовищі використовуйте `poetry install` для синхронізації з `poetry.lock`.
 
 ## Запуск
 
