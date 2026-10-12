@@ -10,10 +10,7 @@
     in {
       devShells = forAllSystems (system:
         let
-          pkgs = import nixpkgs {
-            inherit system;
-            allowUnfree = true;
-          };
+          pkgs = import nixpkgs { inherit system; };
           serve = pkgs.writeShellScriptBin "serve" ''
             export HOST="''${HOST:-127.0.0.1}"
             echo "Serving locally on http://localhost:''${PORT:-8000}"
@@ -22,18 +19,14 @@
           '';
         in {
           default = pkgs.mkShell {
-            packages = [ pkgs.python311 pkgs.poetry pkgs.git serve pkgs.antigravity-cli ];
+            packages = [ pkgs.python311 pkgs.poetry pkgs.git serve ];
             shellHook = ''
               export POETRY_VIRTUALENVS_IN_PROJECT=true
               echo "EasyMourningReport development shell (Poetry)"
               if [ ! -d .venv ]; then
                 echo "Run 'poetry install' once to create the project environment."
               fi
-              if ! poetry check --lock >/dev/null 2>&1; then
-                echo "Refreshing Poetry lock file for the current pyproject.toml..."
-                poetry lock --no-interaction
-              fi
-              poetry install --no-interaction
+              echo "Run 'poetry install' after cloning or changing dependencies."
               test() {
                 if [ "$#" -eq 0 ]; then
                   poetry run pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
