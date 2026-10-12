@@ -115,8 +115,19 @@
                     if (active) tab.setAttribute("aria-current", "page");
                     else tab.removeAttribute("aria-current");
                 });
-                // Keep the viewport steady across tab swaps; users can scroll intentionally.
-                document.dispatchEvent(new CustomEvent("app:page-updated"));
+                // DOMParser does not execute scripts embedded in the swapped-in page.
+                // Load the admin controller when first entering Settings from another tab.
+                const needsAdminScript = Boolean(nextDoc.querySelector('script[src="/static/admin.js"]'));
+                const announcePageUpdated = () => document.dispatchEvent(new CustomEvent("app:page-updated"));
+                if (needsAdminScript && !window.__easyMourningAdminScriptLoaded) {
+                    const adminScript = document.createElement("script");
+                    adminScript.src = "/static/admin.js";
+                    adminScript.onload = announcePageUpdated;
+                    adminScript.onerror = () => { location.href = link.href; };
+                    document.body.append(adminScript);
+                } else {
+                    announcePageUpdated();
+                }
             } catch (_error) {
                 location.href = link.href;
             } finally {
