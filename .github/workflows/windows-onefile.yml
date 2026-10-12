@@ -8,6 +8,9 @@ on:
         required: false
         type: boolean
         default: false
+  push:
+    branches:
+      - fix/windows-binary-reliability-tailscale
 
 permissions:
   contents: read
@@ -21,6 +24,8 @@ jobs:
     name: Build and verify packaged server startup
     runs-on: windows-2022
     timeout-minutes: 45
+    env:
+      TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -83,10 +88,8 @@ jobs:
           }
 
       - name: Verify real Tailscale Funnel (optional)
-        if: inputs.verify_funnel
+        if: inputs.verify_funnel || env.TAILSCALE_AUTH_KEY != ''
         shell: pwsh
-        env:
-          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:TAILSCALE_AUTH_KEY)) {
             throw "verify_funnel was selected, but repository secret TAILSCALE_AUTH_KEY is not configured."
