@@ -18,6 +18,7 @@ def _app_dir() -> Path:
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent.parent
 
+
 def asset_dir(name: str) -> Path:
     """Find a packaged template/static directory in source and frozen layouts."""
     package_assets = Path(__file__).parent.parent / name
