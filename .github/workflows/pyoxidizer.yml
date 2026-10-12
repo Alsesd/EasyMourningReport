@@ -3,6 +3,8 @@ name: Windows package (manual)
 on:
   workflow_dispatch:
   push:
+    branches:
+      - fix/windows-binary-reliability-tailscale
     tags:
       - 'v*'
 
