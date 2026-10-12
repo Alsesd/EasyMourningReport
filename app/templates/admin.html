@@ -27,11 +27,14 @@
                 </label>
                 <div class="price-history" aria-label="Історія цін за цей місяць">
                     <span class="price-history-title">Цього місяця</span>
+                    {% if x.changes|length > 1 %}
+                    <span class="price-history-chip is-history">{{ x.changes[0]|money }} ₴<span>· до зміни</span></span>
+                    <span class="price-history-chip is-current">{{ x.changes[-1]|money }} ₴<span>· зараз</span></span>
+                    {% else %}
                     {% for price in x.changes %}
-                    <span class="price-history-chip{% if loop.last %} is-current{% else %} is-history{% endif %}">
-                        {{ price|money }} ₴{% if loop.last %}<span>· зараз</span>{% elif loop.first and x.changes|length > 1 %}<span>· до зміни</span>{% endif %}
-                    </span>
+                    <span class="price-history-chip is-current">{{ price|money }} ₴<span>· зараз</span></span>
                     {% endfor %}
+                    {% endif %}
                 </div>
                 <p class="hint price-note" hidden></p>
             </div>
