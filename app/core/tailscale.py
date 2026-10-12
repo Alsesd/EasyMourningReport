@@ -41,6 +41,8 @@ def _helper_path() -> Path | None:
     roots = [
         Path(sys.executable).resolve().parent,
         Path(sys.argv[0]).resolve().parent,
+        # PyInstaller --onefile extracts bundled binaries into _MEIPASS.
+        Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2])),
         Path(__file__).resolve().parents[2] / "tailscale-helper" / "bin",
         Path(__file__).resolve().parents[2] / "build",
     ]
