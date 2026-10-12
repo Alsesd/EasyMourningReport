@@ -19,6 +19,7 @@
             allowUnfree = true;
           };
           poetry2nixSource = pkgs.applyPatches {
+            name = "poetry2nix-patched";
             src = poetry2nix;
             patches = [ ./nix/poetry2nix-riscv64.patch ];
           };
