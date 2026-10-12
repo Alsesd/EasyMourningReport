@@ -396,3 +396,96 @@ html[data-theme="light"] .tabs{background:rgba(255,255,255,.96)!important;border
 html[data-theme="light"] .top{background:rgba(242,245,248,.96)!important;border-bottom-color:#d8e1e9}
 html[data-theme="light"] .product-toolbar .search-field input{background:#fff!important}
 html[data-theme="light"] .theme-toggle,html[data-theme="light"] .fullscreen-toggle{background:#fff;color:#202c38;border-color:#d8e1e9}
+
+
+/* Opaque, layered app chrome: page content never bleeds through the sticky header. */
+html{scroll-padding-top:110px}
+.app-chrome{
+  position:sticky;top:0;z-index:1000;isolation:isolate;width:100%;
+  background:var(--bg);border-bottom:1px solid var(--line);
+  box-shadow:0 9px 24px rgba(0,0,0,.18);
+}
+.app-chrome::after{
+  content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 24%,var(--line)),transparent);
+}
+.maker-mark{position:relative;z-index:auto;padding-top:5px;opacity:.52}
+.top{
+  position:relative;top:auto;z-index:auto;max-width:none;width:100%;
+  margin:0 auto;padding:8px clamp(14px,3vw,44px);
+  background:transparent!important;backdrop-filter:none;-webkit-backdrop-filter:none;
+  border:0;box-shadow:none;gap:12px;
+}
+.brand{min-width:0;max-width:70%;overflow-wrap:anywhere}
+.top-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:none;flex-wrap:nowrap}
+.top-actions .inline-form{flex:none}
+.appearance-menu{position:relative;flex:none}
+.appearance-menu>summary{
+  display:flex;align-items:center;justify-content:center;list-style:none;
+  width:32px;height:32px;min-height:32px;padding:0;border:1px solid var(--line);
+  border-radius:50%;background:transparent;color:var(--muted);font-size:1rem;
+  cursor:pointer;user-select:none;transition:background-color .16s ease,border-color .16s ease,color .16s ease;
+}
+.appearance-menu>summary::-webkit-details-marker{display:none}
+.appearance-menu>summary::marker{content:""}
+.appearance-menu>summary:hover,.appearance-menu[open]>summary{
+  background:var(--surface);border-color:var(--accent);color:var(--accent)
+}
+.appearance-menu-panel{
+  position:absolute;top:calc(100% + 9px);right:0;z-index:1100;min-width:190px;
+  padding:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 12px 28px rgba(0,0,0,.24);
+}
+.appearance-menu-panel .theme-toggle{
+  width:100%;min-height:38px;padding:0 10px;border:0;border-radius:8px;
+  background:transparent;color:var(--ink);font-size:.84rem;justify-content:flex-start;
+}
+.appearance-menu-panel .theme-toggle:hover{background:var(--surface-soft);box-shadow:none}
+html[data-theme="light"] .app-chrome{background:#f2f5f8;border-bottom-color:#d8e1e9}
+html[data-theme="light"] .appearance-menu-panel{background:#fff;border-color:#d8e1e9}
+@media(max-width:520px){
+  .maker-mark{padding-top:4px}
+  .top{padding:7px 12px;gap:8px}
+  .brand{max-width:68%;font-size:.94rem;line-height:1.25}
+  .top-actions{gap:6px}
+  .appearance-menu>summary{width:30px;height:30px;min-height:30px}
+  .top .link-button{font-size:.84rem}
+}
+
+/* Each price variant gets a full-width horizontal row and a genuinely flexible input. */
+.price-editor{width:100%;min-width:0}
+.price-editor.is-open{width:100%;min-width:0}
+.price-editor-content{width:100%;max-width:none;min-width:0}
+.price-options{
+  display:grid;width:100%;min-width:0;
+  grid-template-columns:minmax(0,1fr)!important;
+  grid-auto-flow:row;align-items:stretch;gap:8px;
+}
+.price-option{
+  grid-column:1/-1;width:100%;min-width:0;min-height:62px;
+  grid-template-columns:minmax(6rem,.25fr) minmax(0,1fr);
+  align-items:center;align-content:center;gap:8px 14px;
+  padding:10px 14px;
+}
+.price-option--history{grid-template-columns:minmax(0,1fr) auto;min-height:56px}
+.price-option-field{display:flex;width:100%;min-width:0;align-items:center;gap:8px}
+.price-option-field input{
+  display:block;flex:1 1 auto;width:100%;min-width:0;max-width:none;
+  min-height:46px;padding:9px 13px;font-size:1rem;letter-spacing:normal;
+  font-variant-numeric:tabular-nums;
+}
+.price-option-suffix{font-size:.86rem;padding:0 4px}
+.price-option--new>.sub{grid-column:2;grid-row:2;margin:0;white-space:normal}
+@media(min-width:900px){
+  .price-option{grid-template-columns:minmax(7rem,.2fr) minmax(0,1fr);padding:12px 18px}
+  .price-option-field input{min-height:48px;font-size:1.02rem}
+}
+@media(max-width:520px){
+  .price-options{grid-template-columns:minmax(0,1fr)!important;gap:7px}
+  .price-option{grid-template-columns:minmax(4.7rem,.28fr) minmax(0,1fr);gap:7px 9px;padding:9px 10px}
+  .price-option--history{grid-template-columns:minmax(0,1fr) auto}
+  .price-option-field{gap:5px}
+  .price-option-field input{min-height:46px;padding:9px 8px;font-size:.98rem;letter-spacing:normal}
+  .price-option-suffix{font-size:.78rem;padding:0 2px}
+  .price-option--new>.sub{font-size:.72rem}
+}
