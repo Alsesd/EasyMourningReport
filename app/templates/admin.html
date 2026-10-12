@@ -33,7 +33,7 @@
                         <span class="option-label">Варіант {{ loop.index }}</span>
                         <span class="field price-option-field">
                             <input class="price" name="{% if loop.first %}price{% else %}extra_price{% endif %}" value="{{ price|money }}" inputmode="decimal" {% if loop.first %}required{% endif %} data-original="{{ price|money }}" aria-label="Ціна варіанта {{ loop.index }}">
-                            <span class="price-option-suffix">₴ · {{ this_period }}</span>
+                            <span class="price-option-suffix">₴</span>
                         </span>
                     </label>
                     {% endfor %}
