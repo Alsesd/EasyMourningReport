@@ -32,6 +32,9 @@ if %errorlevel% neq 0 (
 tailscale status >nul 2>nul
 if %errorlevel% neq 0 (
     echo [*] Tailscale is not logged in or daemon is stopped. Opening login...
+    echo If this is a headless setup, create an auth key here:
+    echo https://login.tailscale.com/admin/settings/keys
+    echo Do not commit or share the auth key. For this script, interactive login is the default.
     tailscale login
     tailscale status >nul 2>nul
     if %errorlevel% neq 0 (

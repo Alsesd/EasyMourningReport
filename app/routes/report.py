@@ -29,36 +29,16 @@ def report_page(
     user: User = Depends(store_required),
     db: Session = Depends(get_db),
 ):
-    period = parse_period(period)
-    current = current_period()
+    selected = parse_period(period)
     known = store_periods(db, user.store_id)
-    if period != current and period not in known:
+    if selected != current_period() and selected not in known:
         return done(
             request,
             "/report",
-            f"Звіту за {period} немає. Можна відкрити поточний місяць "
-            "або місяці, за які вже подано звіти.",
+            f"Звіту за {selected} немає. Можна відкрити поточний місяць або місяці, за які вже є звіти.",
             "err",
         )
-    report = find_report(db, user.store_id, period)
-    rows, inactive, inactive_total = build_lines(
-        db, period, report.items if report else []
-    )
-    allowed = sorted(known | {current})
-    ctx = {
-        "user": user,
-        "period": period,
-        "rows": rows,
-        "inactive_rows": inactive,
-        "inactive_total": inactive_total,
-        "total": sum(r["sum"] for r in rows) + inactive_total,
-        "status": report.status if report else "new",
-        "min_period": allowed[0],
-        "max_period": allowed[-1],
-        "prev_period": max((x for x in allowed if x < period), default=None),
-        "next_period": min((x for x in allowed if x > period), default=None),
-    }
-    return render(request, "report.html", ctx)
+    return render(request, "report.html", {"user": user, "period": selected})
 
 
 @router.post("/report")

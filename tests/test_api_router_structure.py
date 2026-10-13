@@ -24,6 +24,11 @@ class RouterCompositionTests(unittest.TestCase):
         self.assertIn("/admin/summary.xlsx", paths)
         self.assertIn("/login", paths)
         self.assertIn("/report", paths)
+        self.assertIn("/api/v1/session", paths)
+        self.assertIn("/api/v1/admin/products", paths)
+        self.assertIn("/api/v1/admin/stores", paths)
+        self.assertIn("/api/v1/store/reports/{period}", paths)
+        self.assertIn("/api/v1/admin/summary", paths)
 
 
 if __name__ == "__main__":
