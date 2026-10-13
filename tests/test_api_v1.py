@@ -224,7 +224,10 @@ class RestApiTests(unittest.TestCase):
     def test_admin_reports_summary_and_log_filters_return_dtos(self):
         with self.Session() as db:
             db.add(Store(name="Store without report"))
+            archived_store = Store(name="Archived without report", archived=True)
+            db.add(archived_store)
             db.commit()
+            archived_store_id = archived_store.id
 
         reports = self.admin_client.get(f"/api/v1/admin/reports?period={self.period}")
         self.assertEqual(reports.status_code, 200)
@@ -232,17 +235,74 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(by_name["API Test Store"]["status"], "draft")
         self.assertEqual(by_name["Store without report"]["status"], "none")
         self.assertIsNone(by_name["Store without report"]["report_id"])
+        self.assertNotIn("Archived without report", by_name)
 
-        summary = self.admin_client.get(f"/api/v1/admin/summary?period={self.period}")
+        with self.Session() as db:
+            archived_report = Report(store_id=archived_store_id, period=self.period, status="draft")
+            db.add(archived_report)
+            db.commit()
+            archived_report_id = archived_report.id
+
+        reports_with_archived = self.admin_client.get(f"/api/v1/admin/reports?period={self.period}")
+        self.assertEqual(reports_with_archived.status_code, 200)
+        by_name = {row["store_name"]: row for row in reports_with_archived.json()}
+        self.assertEqual(by_name["Archived without report"]["status"], "draft")
+        self.assertTrue(by_name["Archived without report"]["store_archived"])
+
+        detail = self.admin_client.get(f"/api/v1/admin/reports/{self.report_id}")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["report_id"], self.report_id)
+        self.assertEqual(detail.json()["period"], self.period)
+        self.assertEqual(
+            self.admin_client.get("/api/v1/admin/reports/987654").status_code,
+            404,
+        )
+
+        submitted = self.admin_client.patch(
+            f"/api/v1/admin/reports/{self.report_id}",
+            json={"status": "submitted"},
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(submitted.status_code, 200)
+        self.assertEqual(submitted.json()["status"], "submitted")
+
+        summary = self.admin_client.get(
+            f"/api/v1/admin/summary?period={self.period}&submitted_only=true"
+        )
         self.assertEqual(summary.status_code, 200)
-        self.assertEqual(summary.json()["period"], self.period)
+        self.assertTrue(summary.json()["submitted_only"])
         self.assertIn("grand_total_cents", summary.json())
+
+        reopened = self.admin_client.patch(
+            f"/api/v1/admin/reports/{self.report_id}",
+            json={"status": "draft"},
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(reopened.status_code, 200)
+        self.assertEqual(reopened.json()["status"], "draft")
+        self.assertEqual(
+            self.admin_client.patch(
+                "/api/v1/admin/reports/987654",
+                json={"status": "submitted"},
+                headers={"origin": "http://testserver"},
+            ).status_code,
+            404,
+        )
+
+        # Also cover the ordinary, unfiltered summary response.
+        ordinary_summary = self.admin_client.get(f"/api/v1/admin/summary?period={self.period}")
+        self.assertEqual(ordinary_summary.status_code, 200)
+        self.assertFalse(ordinary_summary.json()["submitted_only"])
 
         actions = self.admin_client.get("/api/v1/admin/log-actions")
         self.assertEqual(actions.status_code, 200)
         self.assertIn("вхід", actions.json())
-        logs = self.admin_client.get("/api/v1/admin/logs?limit=10")
+        logs = self.admin_client.get(
+            "/api/v1/admin/logs?login=APIADMIN&action=вхід&limit=10"
+        )
         self.assertEqual(logs.status_code, 200)
+        self.assertTrue(logs.json())
+        self.assertTrue(all(row["login"] == "apiadmin" for row in logs.json()))
         self.assertTrue(all("password_hash" not in row for row in logs.json()))
 
     def test_excel_import_and_admin_password_return_json_dtos(self):
