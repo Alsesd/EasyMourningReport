@@ -31,7 +31,6 @@ from app.services.pricing import (
     apply_price_change,
     latest_price,
     offered_prices,
-    period_month,
 )
 
 from app.dto import (
@@ -279,9 +278,8 @@ def update_product(
     cents = to_cents(payload.price)
     period = current_period()
     history = history_of(load_history(db), product)
-    # Keep one canonical price change per month; old report snapshots remain untouched.
-    canonical = [(start, value) for start, value in history if period_month(start) != period]
-    new_history, previous, now = apply_price_change(canonical, period, cents)
+    # A price update is a new event, not a replacement of this month's history.
+    new_history, previous, now = apply_price_change(history, period, cents)
     if new_history != history:
         save_history(db, pid, new_history)
         product.price_cents = latest_price(new_history)
