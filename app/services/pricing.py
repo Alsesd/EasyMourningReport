@@ -23,71 +23,100 @@ History = list[tuple[str, int]]  # [(period, price_cents), ...] sorted by period
 
 
 def period_month(p: str) -> str:
-    return p.split("_")[0] if "_" in p else p.split("#")[0]
+    """Return YYYY-MM for both canonical and within-month history keys."""
+    separators = [i for i in (p.find("_"), p.find("#")) if i >= 0]
+    return p[:min(separators)] if separators else p
 
 
-_period_month = period_month
+def _sequence(period_key: str) -> tuple[int, str]:
+    """Sequence number and suffix for a price-change key.
+
+    The bare YYYY-MM key is the first change that month; older rows may use
+    underscore or hash suffixes. Numeric suffixes sort numerically (not lexically).
+    """
+    month = period_month(period_key)
+    if len(period_key) == len(month):
+        return 0, ""
+    suffix = period_key[len(month) + 1 :]
+    return (int(suffix), suffix) if suffix.isdigit() else (0, suffix)
+
+
+def _history_sort_key(period_key: str) -> tuple[str, int, int, str]:
+    month = period_month(period_key)
+    if len(period_key) == len(month):
+        return month, 0, 0, ""
+    seq, suffix = _sequence(period_key)
+    return month, 1, seq, suffix
+
+
+def sort_history(history: History) -> History:
+    """Sort by month, then by the within-month price-change sequence."""
+    return sorted(history, key=lambda item: _history_sort_key(item[0]))
 
 
 def offered_prices(history: History, period: str) -> list[int]:
-    """Prices a report for ``period`` must offer, in display order (old price first, then new)."""
-    hist = sorted(history)
-    before = [cents for start, cents in hist if _period_month(start) < period]
-    current_month_prices = [
-        cents for start, cents in hist if _period_month(start) == period
+    """Return every distinct price that was in force at some point in this month.
+
+    The previous month's closing price comes first, followed by each price recorded
+    during the selected month. Repeated values are included once: changing back to
+    a previous price remains a history event but does not create duplicate report rows.
+    """
+    hist = sort_history(history)
+    before = [cents for start, cents in hist if period_month(start) < period]
+    current_month = [
+        cents for start, cents in hist if period_month(start) == period
     ]
-
-    if current_month_prices:
-        if before:
-            # Preserve old price first if different from first new price
-            old = before[-1]
-            out = [old] if old not in current_month_prices else []
-            for p in current_month_prices:
-                if p not in out:
-                    out.append(p)
-            return out
-        # No prices before this month: just deduplicated current month prices
-        seen = []
-        for p in current_month_prices:
-            if p not in seen:
-                seen.append(p)
-        return seen
-
+    offered: list[int] = []
     if before:
-        return [before[-1]]
-
-    return []
+        offered.append(before[-1])
+    for cents in current_month:
+        if cents not in offered:
+            offered.append(cents)
+    return offered
 
 
 def apply_price_change(
     history: History, period: str, new_cents: int
 ) -> tuple[History, int, int]:
-    """Return (new_history, price_before_this_month, price_in_force_after_change).
+    """Append a real price change while preserving all earlier changes this month.
 
-    The change applies from ``period`` (the month in which the admin makes it):
-      * a second change in the same month replaces the first one (the "old" price stays the price
-        from before the month, so there are never more than two lines);
-      * changing back to the price from before the month cancels the change (one line again);
-      * nothing happens if the price in force already equals ``new_cents``.
+    Each product can have any number of price changes per month. The initial record
+    for a month uses YYYY-MM; subsequent records use YYYY-MM_1, YYYY-MM_2, etc.
+    Suffixes are ordered numerically. A no-op is ignored, but returning to an earlier
+    price is recorded as another change so the full monthly price sequence survives.
     """
-    hist = sorted(history)
-    before = [p for s, p in hist if _period_month(s) < period]
+    hist = sort_history(history)
+    before = [item for item in hist if period_month(item[0]) < period]
     if not before:
         raise ValueError("history has no price before this period")
-    prev_price = before[-1]
-    current = {s: p for s, p in hist}
-    in_force = current.get(period, prev_price)
-    if new_cents == in_force:
-        return hist, prev_price, in_force
-    if new_cents == prev_price:
-        current.pop(period, None)
+
+    previous_month_price = before[-1][1]
+    current_month = [
+        (key, cents) for key, cents in hist if period_month(key) == period
+    ]
+    current_price = current_month[-1][1] if current_month else previous_month_price
+    if new_cents == current_price:
+        return hist, previous_month_price, current_price
+
+    if not current_month:
+        key = period
     else:
-        current[period] = new_cents
-    return sorted(current.items()), prev_price, new_cents
+        used = {key for key, _ in current_month}
+        sequence = max((_sequence(key)[0] for key, _ in current_month), default=0) + 1
+        key = f"{period}_{sequence}"
+        while key in used:
+            sequence += 1
+            key = f"{period}_{sequence}"
+
+    new_history = sort_history([*hist, (key, new_cents)])
+    return new_history, previous_month_price, new_cents
 
 
 def latest_price(history: History) -> int:
-    return sorted(history)[-1][1]
+    ordered = sort_history(history)
+    if not ordered:
+        raise ValueError("history is empty")
+    return ordered[-1][1]
 
 
 def line_labels(derived: list[int], extra: list[int]) -> list[tuple[int, str]]:
