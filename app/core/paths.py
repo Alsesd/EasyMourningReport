@@ -35,6 +35,20 @@ def _user_data_dir() -> Path:
     return Path(root) / APP_NAME
 
 
+def user_data_dir() -> Path:
+    """Return private per-user storage for Tailscale identity and helper state.
+
+    LEGKYI_DATA_DIR intentionally overrides the location so portable installs and
+    tests can keep identity state alongside the rest of the application's data.
+    """
+    override = os.getenv("LEGKYI_DATA_DIR")
+    folder = Path(override).expanduser().resolve() if override else _user_data_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        folder.chmod(0o700)
+    return folder
+
+
 def _writable(folder: Path) -> bool:
     try:
         folder.mkdir(parents=True, exist_ok=True)
