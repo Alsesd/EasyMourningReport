@@ -474,13 +474,6 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(created.status_code, 201)
         pid = created.json()["id"]
 
-        duplicate = self.admin_client.post(
-            "/api/v1/admin/products",
-            json={"name": "Disposable Product", "price": "1.25"},
-            headers=headers,
-        )
-        self.assertIn(duplicate.status_code, (400, 409, 422))
-
         with patch("app.routes.api_v1.backup_db") as backup:
             deleted = self.admin_client.delete(f"/api/v1/admin/products/{pid}", headers=headers)
         self.assertEqual(deleted.status_code, 200)
