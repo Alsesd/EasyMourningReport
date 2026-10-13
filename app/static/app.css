@@ -47,6 +47,17 @@ details.inactive{margin:10px 0;border:1px dashed var(--line);border-radius:16px;
 details.inactive summary{padding:12px 14px;cursor:pointer;color:var(--muted);font-weight:600;font-size:.92rem}
 details.inactive .item{background:transparent}
 
+/* Optional app-specific Tailscale Funnel controls */
+.tailscale-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}
+.status-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.status-dot.state-running{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 16%,transparent)}
+.status-dot.state-authentication-required,.status-dot.state-starting{background:var(--warn)}
+.status-dot.state-error,.status-dot.state-stopped{background:var(--danger)}
+.tailscale-form{margin:12px 0 6px}
+.tailscale-form .chk{flex:1 1 100%}
+.tailscale-form button{flex:0 0 auto}
+.tailscale-card .flash{position:static;box-shadow:none}
+
 /* settings entries: one product or store = one block with labelled fields */
 .entry{display:grid;gap:10px;padding:12px 14px;border-top:1px solid var(--line);scroll-margin-top:90px}
 .entry:first-child{border-top:0}
