@@ -54,10 +54,16 @@ def _helper_path() -> Path | None:
         if candidate.is_file():
             return candidate
 
+    # Reuse a previously built source-mode helper across application restarts.
+    global _helper_build_error
+    destination_dir = user_data_dir() / "tailscale" / "bin"
+    destination = destination_dir / executable_name
+    if destination.is_file():
+        return destination
+
     # Source checkouts do not contain compiled helper binaries. Build it lazily
     # into the user's private data directory so running from source works too,
     # without dirtying the checkout or requiring a manual build step.
-    global _helper_build_error
     source_dir = Path(__file__).resolve().parents[2] / "tailscale-helper"
     if not getattr(sys, "frozen", False) and (source_dir / "go.mod").is_file():
         go = shutil.which("go")
@@ -67,8 +73,6 @@ def _helper_path() -> Path | None:
                 "Install Go or enter the project's Nix development shell, then retry."
             )
             return None
-        destination_dir = user_data_dir() / "tailscale" / "bin"
-        destination = destination_dir / executable_name
         try:
             destination_dir.mkdir(parents=True, exist_ok=True)
             build = subprocess.run(
