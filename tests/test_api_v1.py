@@ -158,6 +158,19 @@ class RestApiTests(unittest.TestCase):
             ],
         )
 
+        # Once active, the store report offers each distinct price seen this month
+        # even though the complete timeline records the return to 2.80 as a fourth event.
+        reactivated = self.admin_client.put(
+            f"/api/v1/admin/products/{created_data['id']}",
+            json={"name": "Fresh Milk", "price": "2.80", "active": True},
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(reactivated.status_code, 200)
+        report_response = self.store_client.get(f"/api/v1/store/reports/{self.period}")
+        self.assertEqual(report_response.status_code, 200)
+        milk_row = next(row for row in report_response.json()["rows"] if row["id"] == created_data["id"])
+        self.assertEqual([line["price_cents"] for line in milk_row["inputs"]], [250, 280, 310])
+
         archived = self.admin_client.delete(
             f"/api/v1/admin/products/{self.product_id}",
             headers={"origin": "http://testserver"},
