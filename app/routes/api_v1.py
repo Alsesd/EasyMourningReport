@@ -43,6 +43,7 @@ from app.dto import (
     InactiveReportLineDTO,
     MessageDTO,
     MutationDTO,
+    PasswordDTO,
     PricePointDTO,
     ProductCreateDTO,
     ProductDTO,
@@ -469,7 +470,7 @@ def restore_store(
 
 @router.put("/admin/password", response_model=MessageDTO)
 def update_admin_password(
-    payload: StorePasswordDTO,
+    payload: PasswordDTO,
     request: Request,
     user: User = Depends(api_admin_required),
     db: Session = Depends(get_db),

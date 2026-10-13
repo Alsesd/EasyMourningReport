@@ -1,6 +1,9 @@
 """Integration tests for the versioned REST API and its DTO boundary."""
 import os
 import unittest
+from io import BytesIO
+
+from openpyxl import Workbook
 
 os.environ.setdefault("SECRET_KEY", "api-test-session-secret")
 
@@ -160,6 +163,58 @@ class RestApiTests(unittest.TestCase):
             headers={"origin": "http://testserver"},
         )
         self.assertEqual(locked.status_code, 409)
+
+    def test_admin_reports_summary_and_log_filters_return_dtos(self):
+        with self.Session() as db:
+            db.add(Store(name="Store without report"))
+            db.commit()
+
+        reports = self.admin_client.get(f"/api/v1/admin/reports?period={self.period}")
+        self.assertEqual(reports.status_code, 200)
+        by_name = {row["store_name"]: row for row in reports.json()}
+        self.assertEqual(by_name["API Test Store"]["status"], "draft")
+        self.assertEqual(by_name["Store without report"]["status"], "none")
+        self.assertIsNone(by_name["Store without report"]["report_id"])
+
+        summary = self.admin_client.get(f"/api/v1/admin/summary?period={self.period}")
+        self.assertEqual(summary.status_code, 200)
+        self.assertEqual(summary.json()["period"], self.period)
+        self.assertIn("grand_total_cents", summary.json())
+
+        actions = self.admin_client.get("/api/v1/admin/log-actions")
+        self.assertEqual(actions.status_code, 200)
+        self.assertIn("вхід", actions.json())
+        logs = self.admin_client.get("/api/v1/admin/logs?limit=10")
+        self.assertEqual(logs.status_code, 200)
+        self.assertTrue(all("password_hash" not in row for row in logs.json()))
+
+    def test_excel_import_and_admin_password_return_json_dtos(self):
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(["Назва", "Ціна"])
+        sheet.append(["Imported Flour", 14.25])
+        stream = BytesIO()
+        workbook.save(stream)
+        stream.seek(0)
+
+        imported = self.admin_client.post(
+            "/api/v1/admin/products/import",
+            files={"file": ("products.xlsx", stream.getvalue(),
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(imported.status_code, 200)
+        self.assertIn("Імпорт завершено", imported.json()["message"])
+        names = [item["name"] for item in self.admin_client.get("/api/v1/admin/products").json()]
+        self.assertIn("Imported Flour", names)
+
+        changed = self.admin_client.put(
+            "/api/v1/admin/password",
+            json={"password": "new-admin-password"},
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(changed.status_code, 200)
+        self.assertEqual(changed.json()["message"], "Ваш пароль змінено.")
 
     def test_mutating_api_rejects_requests_without_same_origin_header(self):
         response = self.admin_client.post(

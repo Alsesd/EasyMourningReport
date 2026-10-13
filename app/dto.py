@@ -64,8 +64,12 @@ class StoreUpdateDTO(BaseModel):
     login: str = Field(min_length=2, max_length=40)
 
 
-class StorePasswordDTO(BaseModel):
+class PasswordDTO(BaseModel):
     password: str = Field(min_length=6, max_length=256)
+
+
+class StorePasswordDTO(PasswordDTO):
+    pass
 
 
 class MessageDTO(DTO):
