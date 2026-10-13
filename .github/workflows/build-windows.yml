@@ -43,6 +43,22 @@ jobs:
           poetry install --no-interaction
           poetry run python -m pip install "pyinstaller==6.16.0"
 
+      - name: Set up Go for the embedded Tailscale node
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: tailscale-helper/go.mod
+          cache: true
+          cache-dependency-path: tailscale-helper/go.sum
+
+      - name: Build the app-specific Tailscale Funnel helper
+        shell: pwsh
+        working-directory: tailscale-helper
+        run: |
+          go mod download
+          go build -trimpath -ldflags "-s -w" -o tailscale-helper.exe .
+          if (!(Test-Path "tailscale-helper.exe")) { throw "Tailscale helper build failed" }
+          if ((Get-Item "tailscale-helper.exe").Length -le 1MB) { throw "Tailscale helper is unexpectedly small" }
+
       - name: Download pinned Alpine runtime for offline-capable packaging
         shell: pwsh
         run: |
@@ -58,7 +74,7 @@ jobs:
       - name: Build single-file Windows executable
         shell: pwsh
         run: |
-          poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --collect-all fastapi --collect-all starlette --collect-all sqlmodel --collect-all sqlalchemy --collect-all jinja2 --collect-all openpyxl --collect-all uvicorn run.py
+          poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --add-binary "tailscale-helper/tailscale-helper.exe;." --collect-all fastapi --collect-all starlette --collect-all sqlmodel --collect-all sqlalchemy --collect-all jinja2 --collect-all openpyxl --collect-all uvicorn run.py
           if (!(Test-Path "dist/LegkyiZvit.exe")) { throw "PyInstaller did not produce dist/LegkyiZvit.exe" }
           if ((Get-Item "dist/LegkyiZvit.exe").Length -le 1MB) { throw "Executable is unexpectedly small; refusing to publish incomplete output" }
 
