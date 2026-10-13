@@ -115,6 +115,48 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(updated.status_code, 200)
         self.assertEqual(updated.json()["price_cents"], 280)
         self.assertFalse(updated.json()["active"])
+        self.assertEqual(updated.json()["month_prices_cents"], [250, 280])
+
+        # Each subsequent edit during the same month becomes a separate history event.
+        updated_again = self.admin_client.put(
+            f"/api/v1/admin/products/{created_data['id']}",
+            json={"name": "Fresh Milk", "price": "3.10", "active": False},
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(updated_again.status_code, 200)
+        self.assertEqual(updated_again.json()["price_cents"], 310)
+        self.assertEqual(updated_again.json()["month_prices_cents"], [250, 280, 310])
+        self.assertEqual(
+            [point["period"] for point in updated_again.json()["price_history"]],
+            [BASE_PERIOD, self.period, f"{self.period}_1"],
+        )
+
+        # Returning to an earlier amount is recorded too. The UI timeline preserves
+        # the repeated amount, but report input options remain de-duplicated by price.
+        changed_back = self.admin_client.put(
+            f"/api/v1/admin/products/{created_data['id']}",
+            json={"name": "Fresh Milk", "price": "2.80", "active": False},
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(changed_back.status_code, 200)
+        self.assertEqual(changed_back.json()["price_cents"], 280)
+        self.assertEqual(changed_back.json()["month_prices_cents"], [250, 280, 310, 280])
+        with self.Session() as db:
+            history = [
+                (row.period, row.price_cents)
+                for row in db.scalars(
+                    select(ProductPrice).where(ProductPrice.product_id == created_data["id"])
+                )
+            ]
+        self.assertEqual(
+            history,
+            [
+                (BASE_PERIOD, 250),
+                (self.period, 280),
+                (f"{self.period}_1", 310),
+                (f"{self.period}_2", 280),
+            ],
+        )
 
         archived = self.admin_client.delete(
             f"/api/v1/admin/products/{self.product_id}",
