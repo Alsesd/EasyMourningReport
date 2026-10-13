@@ -26,6 +26,13 @@ class Templates(unittest.TestCase):
         for f in TEMPLATES.glob("*.html"):
             env.get_template(f.name)
 
+    def test_base_loads_page_components_before_alpine_runtime(self):
+        html = render("base.html", "/admin", user=ADMIN)
+        self.assertIn("alpine-load-failed", html)
+        self.assertLess(html.index("/static/api-client.js"), html.index("/static/admin-app.js"))
+        self.assertLess(html.index("/static/admin-app.js"), html.index("/static/alpine.min.js"))
+        self.assertIn("https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js", html)
+
     def test_flash_and_tabs_keep_month(self):
         html = render("login.html", error=None, flash={"kind": "ok", "text": "Збережено <b>"})
         self.assertIn('class="flash ok"', html)
