@@ -68,6 +68,31 @@ from app.dto import (
 
 router = APIRouter(tags=["REST API v1"])
 
+def api_user_required(
+    request: Request, db: Session = Depends(get_db)
+) -> User:
+    """Authenticate using the existing signed session cookie, but return JSON errors."""
+    uid = request.session.get("uid")
+    user = db.get(User, uid) if uid else None
+    if user and user.role == "store" and (not user.store or user.store.archived):
+        user = None
+    if not user:
+        raise HTTPException(status_code=401, detail="Увійдіть у систему.")
+    return user
+
+
+def api_admin_required(user: User = Depends(api_user_required)) -> User:
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Лише для адміністраторів.")
+    return user
+
+
+def api_store_required(user: User = Depends(api_user_required)) -> User:
+    if user.role != "store":
+        raise HTTPException(status_code=403, detail="Лише для користувачів магазинів.")
+    return user
+
+
 @router.get("/admin/tailscale")
 def get_tailscale_status(
     user: User = Depends(api_admin_required),
@@ -105,34 +130,6 @@ def disable_tailscale_funnel(
     if result.get("state") == "error":
         raise HTTPException(status_code=500, detail=result.get("error") or "Не вдалося вимкнути Funnel.")
     return result
-
-
-
-
-def api_user_required(
-    request: Request, db: Session = Depends(get_db)
-) -> User:
-    """Authenticate using the existing signed session cookie, but return JSON errors."""
-    uid = request.session.get("uid")
-    user = db.get(User, uid) if uid else None
-    if user and user.role == "store" and (not user.store or user.store.archived):
-        user = None
-    if not user:
-        raise HTTPException(status_code=401, detail="Увійдіть у систему.")
-    return user
-
-
-def api_admin_required(user: User = Depends(api_user_required)) -> User:
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Лише для адміністраторів.")
-    return user
-
-
-def api_store_required(user: User = Depends(api_user_required)) -> User:
-    if user.role != "store":
-        raise HTTPException(status_code=403, detail="Лише для користувачів магазинів.")
-    return user
-
 
 def _product_dto(
     db: Session,
