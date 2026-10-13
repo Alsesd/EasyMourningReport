@@ -16,18 +16,13 @@
           };
           serve = pkgs.writeShellScriptBin "serve" ''
             export HOST="''${HOST:-127.0.0.1}"
-            if command -v tailscale >/dev/null 2>&1; then
-              tailscale funnel --bg "''${PORT:-8000}" || echo "Funnel failed; see README"
-              export COOKIE_SECURE=1
-              tailscale funnel status
-            else
-              echo "tailscale not found: serving locally on http://localhost:''${PORT:-8000}"
-            fi
+            echo "Serving locally on http://localhost:''${PORT:-8000}"
+            echo "Manage the app-specific Tailscale Funnel from Settings → Tailscale Funnel."
             exec poetry run python run.py "$@"
           '';
         in {
           default = pkgs.mkShell {
-            packages = [ pkgs.python311 pkgs.poetry pkgs.git serve pkgs.antigravity-cli ];
+            packages = [ pkgs.python311 pkgs.poetry pkgs.go pkgs.git serve pkgs.antigravity-cli ];
             shellHook = ''
               export POETRY_VIRTUALENVS_IN_PROJECT=true
               echo "EasyMourningReport development shell (Poetry)"
