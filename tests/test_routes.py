@@ -245,12 +245,12 @@ class RouteIntegrationTests(unittest.TestCase):
             new_p = db.query(Product).filter(Product.name == "New Milk").first()
             self.assertIsNotNone(new_p)
 
-            # Legacy clients may still submit extra_price fields. Only the single price is saved,
-            # and any old same-month variant records are collapsed into one monthly price change.
+            # Legacy extra_price form fields are ignored, while each existing monthly
+            # price event remains in history when another price is saved.
             db.add(
                 ProductPrice(
                     product_id=new_p.id,
-                    period=f"{current_period()}_1",
+                    period=current_period(),
                     price_cents=280,
                 )
             )
@@ -263,9 +263,10 @@ class RouteIntegrationTests(unittest.TestCase):
                 ProductPrice.product_id == new_p.id,
                 ProductPrice.period.like(f"{current_period()}%"),
             ).all()
-            self.assertEqual(len(month_prices), 1)
-            self.assertEqual(month_prices[0].period, current_period())
-            self.assertEqual(month_prices[0].price_cents, 260)
+            self.assertEqual(
+                {row.period: row.price_cents for row in month_prices},
+                {current_period(): 280, f"{current_period()}_1": 260},
+            )
 
             # Delete and restore product
             resp_del = product_delete(req, new_p.id, admin_user, db)
