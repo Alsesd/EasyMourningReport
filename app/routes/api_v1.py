@@ -30,6 +30,7 @@ from app.services.pricing import (
     BASE_PERIOD,
     apply_price_change,
     latest_price,
+    month_price_timeline,
     offered_prices,
 )
 
@@ -109,7 +110,7 @@ def _product_dto(
         active=product.active,
         archived=product.archived,
         used_count=used_count,
-        month_prices_cents=offered_prices(product_history, active_period),
+        month_prices_cents=month_price_timeline(product_history, active_period),
         price_history=[PricePointDTO(period=month, price_cents=cents) for month, cents in product_history],
     )
 
