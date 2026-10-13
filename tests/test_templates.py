@@ -42,42 +42,31 @@ class Templates(unittest.TestCase):
         self.assertIn("Надіслати звіт", html)
         self.assertIn("period=2026-09", html)            # previous-month link
 
-    def test_store_report_locked_has_no_buttons(self):
-        rows = [{"id": 1, "name": "Хліб", "repriced": False, "sum": 0, "inputs": [{"price": 120, "qty": 0, "label": ""}]}]
-        html = render("report.html", "/report", user=STORE, period="2026-10", rows=rows, inactive_rows=[
-            {"name": "Старий", "archived": True, "lines": "2 × 1.00", "sum": 200}], inactive_total=200,
-            total=200, status="submitted", min_period="2026-10", max_period="2026-10", prev_period=None, next_period=None)
-        self.assertNotIn('value="submit"', html)
-        self.assertIn("Неактивні позиції (1)", html)
-        self.assertIn(" disabled", html)
+    def test_store_report_template_binds_locking_state_from_api(self):
+        html = render("report.html", "/report", user=STORE, period="2026-10")
+        self.assertIn('x-data="storeReportApp(\'2026-10\')"', html)
+        self.assertIn(':disabled="report.read_only"', html)
+        self.assertIn('x-show="!report.read_only"', html)
+        self.assertIn('x-show="report.read_only"', html)
+        self.assertIn("Неактивні позиції", html)
 
-    def test_admin_settings(self):
-        p = NS(id=7, name='Хліб "свіжий"', price_cents=130, active=True)
-        archived = NS(id=8, name="Старий товар")
-        s = NS(id=3, name="Магазин 1")
-        html = render("admin.html", "/admin", user=ADMIN,
-                      products=[{"p": p, "used": 4, "changes": [120, 130]}], inactive_products=[],
-                      archived_products=[{"p": archived, "used": 2}],
-                      stores=[{"store": s, "user": NS(login="store1"), "reports": 2}],
-                      archived_stores=[{"store": NS(id=4, name="Закритий"), "user": NS(login="old"), "reports": 5}])
-        self.assertIn('action="/admin/products/7"', html)
-        self.assertIn('class="price-editor"', html)
-        self.assertIn('aria-controls="price-editor-7"', html)
-        self.assertIn('name="price" value="1.30"', html)
-        self.assertIn('class="price-history-chip is-history"', html)
-        self.assertIn('class="price-history-chip is-current"', html)
+    def test_admin_settings_renders_product_editors_on_the_client(self):
+        html = render("admin.html", "/admin", user=ADMIN)
+        self.assertIn('x-data="adminApp()"', html)
+        self.assertIn('x-init="init()"', html)
+        self.assertIn('x-for="p in activeProducts"', html)
+        self.assertIn('@submit.prevent="saveProduct(p)"', html)
+        self.assertIn('x-model="p.editPrice"', html)
+        self.assertIn(':id="\'price-editor-\' + p.id"', html)
+        self.assertIn('x-for="(price, index) in p.month_prices_cents"', html)
+        self.assertIn("'· зміна ' + index", html)
         self.assertNotIn('name="extra_price"', html)
         self.assertNotIn('class="price-options"', html)
-        self.assertIn('class="primary save-product" hidden', html)
-        self.assertIn('Додати товар</button>', html)  # create submit remains visible in the DOM
-        self.assertIn('src="/static/admin.js" defer', html)
-        self.assertIn('action="/admin/stores/3/edit"', html)
-        self.assertIn("1.20 ₴", html)
-        self.assertIn("1.30 ₴", html)
         self.assertIn('id="product-search"', html)
         self.assertIn('@submit.prevent="importProducts($event.currentTarget)"', html)
         self.assertIn('@submit.prevent="changeAdminPassword()"', html)
         self.assertIn("Змінити пароль", html)
+
 
     def test_admin_settings_shell_does_not_require_server_side_catalogue(self):
         html = render("admin.html", "/admin", user=ADMIN)
@@ -89,7 +78,7 @@ class Templates(unittest.TestCase):
         html = render("reports.html", "/admin/reports", user=ADMIN, period="2026-10")
         self.assertIn('x-data="adminReportsApp(', html)
         self.assertIn('x-for="row in rows"', html)
-        self.assertIn('src="/static/admin-reports-app.js"', html)
+        self.assertIn("/static/admin-reports-app.js", render("base.html", "/admin/reports", user=ADMIN))
         html = render("report_view.html", "/admin/reports/5", user=ADMIN, report_id=5)
         self.assertIn('x-data="adminReportDetailApp(5)"', html)
         self.assertIn("Заблокувати звіт", html)
@@ -99,7 +88,7 @@ class Templates(unittest.TestCase):
         self.assertIn('x-data="adminSummaryApp(', html)
         self.assertIn("Лише надіслані", html)
         self.assertIn(':checked="submittedOnly"', html)
-        self.assertIn('src="/static/admin-summary-app.js"', html)
+        self.assertIn("/static/admin-summary-app.js", render("base.html", "/admin/summary", user=ADMIN))
 
     def test_logs_uses_rest_filters(self):
         html = render("logs.html", "/admin/logs", user=ADMIN)
