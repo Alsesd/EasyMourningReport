@@ -75,6 +75,23 @@ def offered_prices(history: History, period: str) -> list[int]:
     return offered
 
 
+def month_price_timeline(history: History, period: str) -> list[int]:
+    """Return the full monthly price timeline, retaining repeated values.
+
+    Unlike offered_prices(), this is for the administration UI: it includes the
+    price at month start and each subsequent change, even if a later change returns
+    to a previously used amount.
+    """
+    hist = sort_history(history)
+    before = [cents for start, cents in hist if period_month(start) < period]
+    current_month = [
+        cents for start, cents in hist if period_month(start) == period
+    ]
+    timeline: list[int] = [before[-1]] if before else []
+    timeline.extend(current_month)
+    return timeline
+
+
 def apply_price_change(
     history: History, period: str, new_cents: int
 ) -> tuple[History, int, int]:
