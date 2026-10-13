@@ -40,20 +40,40 @@ class Templates(unittest.TestCase):
         self.assertIn('x-for="row in rows"', html)
         self.assertIn("Зберегти чернетку", html)
         self.assertIn("Надіслати звіт", html)
-        self.assertIn('src="/static/report-app.js"', html)
+        self.assertIn("period=2026-09", html)            # previous-month link
 
-    def test_store_report_lock_and_inactive_rows_are_client_controlled(self):
-        html = render("report.html", "/report", user=STORE, period="2026-10")
-        self.assertIn(':disabled="report.read_only"', html)
-        self.assertIn('x-show="!report.read_only"', html)
-        self.assertIn("Неактивні позиції", html)
-        self.assertIn('src="/static/report-app.js"', html)
+    def test_store_report_locked_has_no_buttons(self):
+        rows = [{"id": 1, "name": "Хліб", "repriced": False, "sum": 0, "inputs": [{"price": 120, "qty": 0, "label": ""}]}]
+        html = render("report.html", "/report", user=STORE, period="2026-10", rows=rows, inactive_rows=[
+            {"name": "Старий", "archived": True, "lines": "2 × 1.00", "sum": 200}], inactive_total=200,
+            total=200, status="submitted", min_period="2026-10", max_period="2026-10", prev_period=None, next_period=None)
+        self.assertNotIn('value="submit"', html)
+        self.assertIn("Неактивні позиції (1)", html)
+        self.assertIn(" disabled", html)
 
-    def test_admin_settings_uses_rest_and_alpine_client_rendering(self):
-        html = render("admin.html", "/admin", user=ADMIN, this_period="2026-10")
-        self.assertIn('x-data="adminApp()"', html)
-        self.assertIn('x-for="p in activeProducts"', html)
-        self.assertIn('x-for="s in activeStores"', html)
+    def test_admin_settings(self):
+        p = NS(id=7, name='Хліб "свіжий"', price_cents=130, active=True)
+        archived = NS(id=8, name="Старий товар")
+        s = NS(id=3, name="Магазин 1")
+        html = render("admin.html", "/admin", user=ADMIN,
+                      products=[{"p": p, "used": 4, "changes": [120, 130]}], inactive_products=[],
+                      archived_products=[{"p": archived, "used": 2}],
+                      stores=[{"store": s, "user": NS(login="store1"), "reports": 2}],
+                      archived_stores=[{"store": NS(id=4, name="Закритий"), "user": NS(login="old"), "reports": 5}])
+        self.assertIn('action="/admin/products/7"', html)
+        self.assertIn('class="price-editor"', html)
+        self.assertIn('aria-controls="price-editor-7"', html)
+        self.assertIn('name="price" value="1.30"', html)
+        self.assertIn('class="price-history-chip is-history"', html)
+        self.assertIn('class="price-history-chip is-current"', html)
+        self.assertNotIn('name="extra_price"', html)
+        self.assertNotIn('class="price-options"', html)
+        self.assertIn('class="primary save-product" hidden', html)
+        self.assertIn('Додати товар</button>', html)  # create submit remains visible in the DOM
+        self.assertIn('src="/static/admin.js" defer', html)
+        self.assertIn('action="/admin/stores/3/edit"', html)
+        self.assertIn("1.20 ₴", html)
+        self.assertIn("1.30 ₴", html)
         self.assertIn('id="product-search"', html)
         self.assertIn('@submit.prevent="importProducts($event.currentTarget)"', html)
         self.assertIn('@submit.prevent="changeAdminPassword()"', html)
