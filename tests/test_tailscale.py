@@ -174,9 +174,9 @@ class TailscaleManagerTests(unittest.TestCase):
         start.assert_called_once_with()
 
     def test_stop_reports_marker_removal_failure(self):
-        with patch("app.core.tailscale._enabled_file", return_value=self.root / "blocked"), \\
-             patch("pathlib.Path.unlink", side_effect=OSError("read only")):
-            result = tailscale.stop_funnel()
+        with patch("app.core.tailscale._enabled_file", return_value=self.root / "blocked"):
+            with patch("pathlib.Path.unlink", side_effect=OSError("read only")):
+                result = tailscale.stop_funnel()
         self.assertEqual(result["state"], "error")
         self.assertIn("read only", result["error"])
 
