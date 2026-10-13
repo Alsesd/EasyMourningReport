@@ -14,7 +14,7 @@
     <template x-if="report && !loading">
         <div>
             <div class="head"><h1 x-text="period"></h1><span class="pill" :class="'pill ' + report.status" x-text="statusLabel"></span></div>
-            <p class="note" x-show="!report.read_only && rows.some(row => row.repriced)">Ціна деяких товарів змінилась цього місяця, тому для них є окремі рядки за старою й новою ціною.</p>
+            <p class="note" x-show="!report.read_only && rows.some(row => row.repriced)">Ціни деяких товарів змінювалися протягом місяця. Для кожної унікальної ціни, що діяла цього місяця, є окремий рядок.</p>
             <div class="card">
                 <template x-for="row in rows" :key="row.id">
                     <div class="item lines">
