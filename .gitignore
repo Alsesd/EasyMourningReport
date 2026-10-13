@@ -9,3 +9,4 @@ htmlcov/
 build/
 dist/
 *.spec
+app/static/alpine.min.js
