@@ -142,7 +142,8 @@ class RouteEdgeTests(unittest.TestCase):
             db.flush()
             report.items.append(ReportItem(product_id=self.product_id, quantity=0, unit_price_cents=100))
             db.commit()
-            response = report_view(report.id, make_request(), admin, db)
+            request = make_request()
+            response = report_view(report.id, request, admin, db)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(request.session["period"], current_period())
             self.assertEqual(response.context["report_id"], report.id)
@@ -198,8 +199,9 @@ class RouteEdgeTests(unittest.TestCase):
             response = logs_page(make_request(), " ADMIN ", "вхід", db.get(User, self.admin_id), db)
             self.assertEqual(response.status_code, 200)
             self.assertIn(b'x-data="adminLogsApp()"', response.body)
-            # Query filters are initialized client-side and fetched from the REST API.
-            self.assertIn(b"/api/v1/admin/logs?", (awaitless := b"/api/v1/admin/logs?") if False else b"/api/v1/admin/logs" )
+            self.assertIn(b'x-model="login"', response.body)
+            self.assertIn(b'x-model="action"', response.body)
+            # Filter values are fetched from the REST API by the browser component.
 
 
 if __name__ == "__main__":
