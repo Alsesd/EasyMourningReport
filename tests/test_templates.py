@@ -29,8 +29,10 @@ class Templates(unittest.TestCase):
     def test_base_loads_page_components_before_alpine_runtime(self):
         html = render("base.html", "/admin", user=ADMIN)
         self.assertIn("alpine-load-failed", html)
-        self.assertLess(html.index("/static/api-client.js"), html.index("/static/admin-app.js"))
-        self.assertLess(html.index("/static/admin-app.js"), html.index("/static/alpine.min.js"))
+        self.assertLess(
+            html.index('for (const src of ["/static/api-client.js", pageScript])'),
+            html.index('let alpineLoaded = await loadScript("/static/alpine.min.js")'),
+        )
         self.assertIn("https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js", html)
 
     def test_flash_and_tabs_keep_month(self):
