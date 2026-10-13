@@ -186,6 +186,50 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(restored.status_code, 200)
         self.assertFalse(restored.json()["archived"])
 
+    def test_tailscale_funnel_controls_are_admin_only_and_do_not_return_secrets(self):
+        status = {
+            "enabled": False,
+            "state": "disabled",
+            "public_url": "",
+            "login_url": "",
+            "error": "",
+        }
+        with patch("app.routes.api_v1.tailscale_status", return_value=status):
+            response = self.admin_client.get("/api/v1/admin/tailscale")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["state"], "disabled")
+
+        refused = self.admin_client.post(
+            "/api/v1/admin/tailscale",
+            json={"confirm_public": False},
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(refused.status_code, 400)
+
+        running = {**status, "enabled": True, "state": "authentication-required",
+                   "login_url": "https://login.tailscale.com/example"}
+        with patch("app.routes.api_v1.start_funnel", return_value=running) as start:
+            response = self.admin_client.post(
+                "/api/v1/admin/tailscale",
+                json={"confirm_public": True, "auth_key": "tskey-test-secret"},
+                headers={"origin": "http://testserver"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["state"], "authentication-required")
+        start.assert_called_once_with("tskey-test-secret")
+        self.assertNotIn("auth_key", response.json())
+
+        with patch("app.routes.api_v1.stop_funnel", return_value=status):
+            response = self.admin_client.delete(
+                "/api/v1/admin/tailscale",
+                headers={"origin": "http://testserver"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["enabled"])
+
+        forbidden = self.store_client.get("/api/v1/admin/tailscale")
+        self.assertEqual(forbidden.status_code, 403)
+
     def test_store_report_round_trip_and_locking(self):
         response = self.store_client.get(f"/api/v1/store/reports/{self.period}")
         self.assertEqual(response.status_code, 200)
