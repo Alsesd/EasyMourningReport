@@ -22,6 +22,7 @@
             editActive: Boolean(product.active),
             priceOpen: false,
             saving: false,
+            priceSaving: false,
             feedback: ""
         };
     }
@@ -110,9 +111,13 @@
             hasProductChanges(product) {
                 const nameChanged = String(product.editName ?? "").trim() !== product.name;
                 const activeChanged = Boolean(product.editActive) !== Boolean(product.active);
-                const priceChanged = product.priceOpen &&
+                return nameChanged || activeChanged;
+            },
+
+            hasPriceChanges(product) {
+                return Boolean(product.priceOpen) &&
+                    Number.isFinite(centsFromPrice(product.editPrice)) &&
                     centsFromPrice(product.editPrice) !== Number(product.price_cents);
-                return nameChanged || activeChanged || priceChanged;
             },
 
             hasStoreChanges(store) {
@@ -239,32 +244,67 @@
 
             async saveProduct(product) {
                 if (product.saving || !this.hasProductChanges(product)) return;
-                const priceChanged = product.priceOpen &&
-                    centsFromPrice(product.editPrice) !== Number(product.price_cents);
-                if (priceChanged && !Number.isFinite(centsFromPrice(product.editPrice))) {
-                    product.feedback = "Введіть коректну невід’ємну ціну.";
-                    this.notify(product.feedback, "err");
-                    return;
-                }
                 product.saving = true;
                 product.feedback = "";
                 const keepPriceOpen = product.priceOpen;
+                const keepEditPrice = product.editPrice;
                 try {
                     const updated = await window.apiRequest("/api/v1/admin/products/" + product.id, {
                         method: "PUT",
                         body: {
                             name: product.editName,
-                            price: priceChanged ? product.editPrice : this.formatMoney(product.price_cents),
+                            price: this.formatMoney(product.price_cents),
                             active: Boolean(product.editActive)
                         }
                     });
-                    Object.assign(product, editProduct(updated), { priceOpen: keepPriceOpen });
+                    Object.assign(product, editProduct(updated), {
+                        priceOpen: keepPriceOpen,
+                        editPrice: keepPriceOpen ? keepEditPrice : this.formatMoney(updated.price_cents)
+                    });
                     this.notify("Зміни товару збережено.");
                 } catch (error) {
                     product.feedback = error.message || "Не вдалося зберегти товар.";
                     this.notify(product.feedback, "err");
                 } finally {
                     product.saving = false;
+                }
+            },
+
+            async savePrice(product) {
+                if (product.priceSaving || !product.priceOpen) return;
+                const cents = centsFromPrice(product.editPrice);
+                if (!Number.isFinite(cents) || cents < 0) {
+                    product.feedback = "Введіть коректну невід’ємну ціну.";
+                    this.notify(product.feedback, "err");
+                    return;
+                }
+                if (cents === Number(product.price_cents)) return;
+
+                product.priceSaving = true;
+                product.feedback = "";
+                const draftName = product.editName;
+                const draftActive = product.editActive;
+                try {
+                    const updated = await window.apiRequest("/api/v1/admin/products/" + product.id, {
+                        method: "PUT",
+                        body: {
+                            name: product.name,
+                            price: product.editPrice,
+                            active: Boolean(product.active)
+                        }
+                    });
+                    Object.assign(product, editProduct(updated), {
+                        priceOpen: true,
+                        editName: draftName,
+                        editActive: draftActive
+                    });
+                    product.feedback = "Ціну збережено. Історію за цей місяць оновлено.";
+                    this.notify(product.feedback);
+                } catch (error) {
+                    product.feedback = error.message || "Не вдалося зберегти ціну.";
+                    this.notify(product.feedback, "err");
+                } finally {
+                    product.priceSaving = false;
                 }
             },
 
