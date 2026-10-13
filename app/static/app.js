@@ -29,6 +29,14 @@
     });
 
 
+    // Clicking the already active navigation tab should be a no-op, not a full reload.
+    document.querySelectorAll(".tabs a[aria-current='page']").forEach(link => {
+        link.addEventListener("click", event => {
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+        });
+    });
+
     // Preserve the user's viewport after ordinary POST/redirect forms (e.g. store edits).
     const scrollKey = "easyMourningReport.restoreScrollY";
     try {
