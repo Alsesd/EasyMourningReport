@@ -273,6 +273,267 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(changed.status_code, 200)
         self.assertEqual(changed.json()["message"], "Ваш пароль змінено.")
 
+    def test_session_roles_archived_store_and_missing_product_paths(self):
+        session = self.admin_client.get("/api/v1/session")
+        self.assertEqual(session.status_code, 200)
+        self.assertEqual(session.json()["login"], "apiadmin")
+        self.assertEqual(session.json()["role"], "admin")
+
+        admin_as_store = self.admin_client.get(f"/api/v1/store/reports/{self.period}")
+        self.assertEqual(admin_as_store.status_code, 403)
+        store_as_admin = self.store_client.get("/api/v1/admin/products")
+        self.assertEqual(store_as_admin.status_code, 403)
+
+        with self.Session() as db:
+            store = db.get(Store, self.store_id)
+            store.archived = True
+            db.commit()
+        archived_session = self.store_client.get("/api/v1/session")
+        self.assertEqual(archived_session.status_code, 401)
+        self.assertEqual(archived_session.json()["detail"], "Увійдіть у систему.")
+
+        headers = {"origin": "http://testserver"}
+        missing_update = self.admin_client.put(
+            "/api/v1/admin/products/987654",
+            json={"name": "Missing", "price": "1.00", "active": True},
+            headers=headers,
+        )
+        self.assertEqual(missing_update.status_code, 404)
+        self.assertEqual(
+            self.admin_client.delete("/api/v1/admin/products/987654", headers=headers).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.admin_client.post("/api/v1/admin/products/987654/restore", headers=headers).status_code,
+            404,
+        )
+
+    def test_admin_store_management_crud_passwords_and_archive_paths(self):
+        headers = {"origin": "http://testserver"}
+        listed = self.admin_client.get("/api/v1/admin/stores")
+        self.assertEqual(listed.status_code, 200)
+        self.assertIn("API Test Store", [row["name"] for row in listed.json()])
+
+        created = self.admin_client.post(
+            "/api/v1/admin/stores",
+            json={"name": "Branch North", "login": "branchnorth", "password": "branch-pass"},
+            headers=headers,
+        )
+        self.assertEqual(created.status_code, 201)
+        sid = created.json()["id"]
+        self.assertEqual(created.json()["reports_count"], 0)
+
+        changed = self.admin_client.put(
+            f"/api/v1/admin/stores/{sid}",
+            json={"name": "Branch North Updated", "login": "branchnorth2"},
+            headers=headers,
+        )
+        self.assertEqual(changed.status_code, 200)
+        self.assertEqual(changed.json()["name"], "Branch North Updated")
+        # A no-op update still succeeds but does not need to create an audit change entry.
+        no_op = self.admin_client.put(
+            f"/api/v1/admin/stores/{sid}",
+            json={"name": "Branch North Updated", "login": "branchnorth2"},
+            headers=headers,
+        )
+        self.assertEqual(no_op.status_code, 200)
+
+        with patch("app.routes.api_v1.check_unique_store"):
+            conflict_update = self.admin_client.put(
+                f"/api/v1/admin/stores/{sid}",
+                json={"name": "API Test Store", "login": "branchnorth2"},
+                headers=headers,
+            )
+        self.assertEqual(conflict_update.status_code, 409)
+
+        with patch("app.routes.api_v1.check_unique_store"):
+            conflict_create = self.admin_client.post(
+                "/api/v1/admin/stores",
+                json={"name": "API Test Store", "login": "anotherbranch", "password": "branch-pass"},
+                headers=headers,
+            )
+        self.assertEqual(conflict_create.status_code, 409)
+
+        changed_password = self.admin_client.put(
+            f"/api/v1/admin/stores/{sid}/password",
+            json={"password": "new-branch-pass"},
+            headers=headers,
+        )
+        self.assertEqual(changed_password.status_code, 200)
+        self.assertIn("змінено", changed_password.json()["message"])
+
+        with patch("app.routes.api_v1.backup_db") as backup:
+            deleted = self.admin_client.delete(f"/api/v1/admin/stores/{sid}", headers=headers)
+        self.assertEqual(deleted.status_code, 200)
+        self.assertTrue(deleted.json()["deleted"])
+        backup.assert_called_once()
+        self.assertEqual(
+            self.admin_client.put(
+                f"/api/v1/admin/stores/{sid}",
+                json={"name": "Gone", "login": "gone"},
+                headers=headers,
+            ).status_code,
+            404,
+        )
+        self.assertEqual(self.admin_client.delete(f"/api/v1/admin/stores/{sid}", headers=headers).status_code, 404)
+        self.assertEqual(
+            self.admin_client.post(f"/api/v1/admin/stores/{sid}/restore", headers=headers).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.admin_client.put(
+                f"/api/v1/admin/stores/{sid}/password",
+                json={"password": "new-branch-pass"},
+                headers=headers,
+            ).status_code,
+            404,
+        )
+
+        # This store has a report, so deletion must archive it rather than remove it.
+        archived = self.admin_client.delete(f"/api/v1/admin/stores/{self.store_id}", headers=headers)
+        self.assertEqual(archived.status_code, 200)
+        self.assertTrue(archived.json()["archived"])
+        restored = self.admin_client.post(
+            f"/api/v1/admin/stores/{self.store_id}/restore",
+            headers=headers,
+        )
+        self.assertEqual(restored.status_code, 200)
+        self.assertFalse(restored.json()["archived"])
+        self.assertEqual(
+            self.admin_client.delete("/api/v1/admin/stores/987654", headers=headers).status_code,
+            404,
+        )
+
+    def test_unused_product_delete_and_invalid_excel_uploads(self):
+        headers = {"origin": "http://testserver"}
+        created = self.admin_client.post(
+            "/api/v1/admin/products",
+            json={"name": "Disposable Product", "price": "1.00"},
+            headers=headers,
+        )
+        self.assertEqual(created.status_code, 201)
+        pid = created.json()["id"]
+
+        duplicate = self.admin_client.post(
+            "/api/v1/admin/products",
+            json={"name": "Disposable Product", "price": "1.25"},
+            headers=headers,
+        )
+        self.assertIn(duplicate.status_code, (400, 409, 422))
+
+        with patch("app.routes.api_v1.backup_db") as backup:
+            deleted = self.admin_client.delete(f"/api/v1/admin/products/{pid}", headers=headers)
+        self.assertEqual(deleted.status_code, 200)
+        self.assertTrue(deleted.json()["deleted"])
+        backup.assert_called_once()
+
+        wrong_type = self.admin_client.post(
+            "/api/v1/admin/products/import",
+            files={"file": ("products.csv", b"not an Excel workbook", "text/csv")},
+            headers=headers,
+        )
+        self.assertEqual(wrong_type.status_code, 400)
+
+        empty = self.admin_client.post(
+            "/api/v1/admin/products/import",
+            files={"file": ("empty.xlsx", b"", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            headers=headers,
+        )
+        self.assertEqual(empty.status_code, 400)
+
+        oversized = self.admin_client.post(
+            "/api/v1/admin/products/import",
+            files={"file": ("large.xlsx", b"x" * (10 * 1024 * 1024 + 1), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            headers=headers,
+        )
+        self.assertEqual(oversized.status_code, 400)
+
+    def test_store_report_validation_preservation_and_missing_report_creation(self):
+        headers = {"origin": "http://testserver"}
+        self.assertEqual(
+            self.store_client.get("/api/v1/store/reports/2000-01").status_code,
+            404,
+        )
+        self.assertEqual(
+            self.store_client.put(
+                "/api/v1/store/reports/2000-01",
+                json={"action": "draft", "quantities": []},
+                headers=headers,
+            ).status_code,
+            403,
+        )
+
+        duplicate = self.store_client.put(
+            f"/api/v1/store/reports/{self.period}",
+            json={
+                "action": "draft",
+                "quantities": [
+                    {"product_id": self.product_id, "price_cents": 150, "quantity": 1},
+                    {"product_id": self.product_id, "price_cents": 150, "quantity": 2},
+                ],
+            },
+            headers=headers,
+        )
+        self.assertEqual(duplicate.status_code, 422)
+
+        stale_price = self.store_client.put(
+            f"/api/v1/store/reports/{self.period}",
+            json={
+                "action": "draft",
+                "quantities": [{"product_id": self.product_id, "price_cents": 999, "quantity": 1}],
+            },
+            headers=headers,
+        )
+        self.assertEqual(stale_price.status_code, 409)
+
+        archived = self.admin_client.delete(
+            f"/api/v1/admin/products/{self.product_id}",
+            headers=headers,
+        )
+        self.assertTrue(archived.json()["archived"])
+        preserved = self.store_client.put(
+            f"/api/v1/store/reports/{self.period}",
+            json={"action": "draft", "quantities": []},
+            headers=headers,
+        )
+        self.assertEqual(preserved.status_code, 200)
+        self.assertEqual(preserved.json()["total_cents"], 150)
+        self.assertEqual(len(preserved.json()["inactive_rows"]), 1)
+
+        self.admin_client.post(
+            f"/api/v1/admin/products/{self.product_id}/restore",
+            headers=headers,
+        )
+        zero_quantity = self.store_client.put(
+            f"/api/v1/store/reports/{self.period}",
+            json={
+                "action": "draft",
+                "quantities": [{"product_id": self.product_id, "price_cents": 150, "quantity": 0}],
+            },
+            headers=headers,
+        )
+        self.assertEqual(zero_quantity.status_code, 200)
+        self.assertEqual(zero_quantity.json()["total_cents"], 0)
+
+        # The current month can be opened again if its report row was removed.
+        with self.Session() as db:
+            for item in db.query(ReportItem).filter(ReportItem.report_id == self.report_id).all():
+                db.delete(item)
+            report = db.get(Report, self.report_id)
+            db.delete(report)
+            db.commit()
+        reopened = self.store_client.put(
+            f"/api/v1/store/reports/{self.period}",
+            json={
+                "action": "draft",
+                "quantities": [{"product_id": self.product_id, "price_cents": 150, "quantity": 3}],
+            },
+            headers=headers,
+        )
+        self.assertEqual(reopened.status_code, 200)
+        self.assertEqual(reopened.json()["status"], "draft")
+        self.assertEqual(reopened.json()["total_cents"], 450)
+
     def test_mutating_api_rejects_requests_without_same_origin_header(self):
         response = self.admin_client.post(
             "/api/v1/admin/products", json={"name": "Missing Origin", "price": "1.00"}
