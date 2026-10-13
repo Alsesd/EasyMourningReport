@@ -48,6 +48,7 @@ from app.dto import (
     ReportLineDTO,
     ReportQuantityDTO,
     ReportSaveDTO,
+    ReportStatusDTO,
     SessionDTO,
     StoreCreateDTO,
     StoreDTO,
@@ -88,9 +89,15 @@ def api_store_required(user: User = Depends(api_user_required)) -> User:
     return user
 
 
-def _product_dto(db: Session, product: Product, used_count: int = 0, period: str | None = None) -> ProductDTO:
+def _product_dto(
+    db: Session,
+    product: Product,
+    used_count: int = 0,
+    period: str | None = None,
+    all_history: dict[int, list[tuple[str, int]]] | None = None,
+) -> ProductDTO:
     active_period = parse_period(period or current_period())
-    history = load_history(db)
+    history = all_history if all_history is not None else load_history(db)
     product_history = history_of(history, product)
     return ProductDTO(
         id=product.id,
@@ -204,8 +211,12 @@ def list_products(
 ) -> list[ProductDTO]:
     active_period = parse_period(period)
     used = _product_usage(db)
+    history = load_history(db)
     products = db.scalars(select(Product).order_by(Product.name)).all()
-    return [_product_dto(db, product, used.get(product.id, 0), active_period) for product in products]
+    return [
+        _product_dto(db, product, used.get(product.id, 0), active_period, history)
+        for product in products
+    ]
 
 
 @router.post("/admin/products", response_model=ProductDTO, status_code=status.HTTP_201_CREATED)
@@ -595,14 +606,12 @@ def read_admin_report(
 @router.patch("/admin/reports/{rid}", response_model=AdminReportDTO)
 def update_admin_report_status(
     rid: int,
-    payload: dict,
+    payload: ReportStatusDTO,
     request: Request,
     user: User = Depends(api_admin_required),
     db: Session = Depends(get_db),
 ) -> AdminReportDTO:
-    target = payload.get("status") if isinstance(payload, dict) else None
-    if target not in ("draft", "submitted"):
-        raise HTTPException(status_code=422, detail="Статус має бути draft або submitted.")
+    target = payload.status
     report = db.get(Report, rid)
     if not report:
         raise HTTPException(status_code=404, detail="Звіт не знайдено.")

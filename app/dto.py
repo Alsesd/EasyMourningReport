@@ -114,6 +114,10 @@ class ReportSaveDTO(BaseModel):
     quantities: list[ReportQuantityDTO] = Field(default_factory=list, max_length=5000)
 
 
+class ReportStatusDTO(BaseModel):
+    status: Literal["draft", "submitted"]
+
+
 class StoreReportDTO(DTO):
     report_id: int | None = None
     store_name: str

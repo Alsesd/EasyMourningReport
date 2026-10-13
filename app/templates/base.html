@@ -9,6 +9,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<style>[x-cloak]{display:none!important}</style>
 <script>try{const t=localStorage.getItem("easyMourningReport.theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
 <link rel="stylesheet" href="/static/app.css">
 <title>Легкий звіт</title></head><body class="{% block bodyclass %}{% endblock %}">
@@ -24,5 +25,10 @@
 <a href="/admin/reports?period={{ nav_period }}"{% if p.startswith('/admin/reports') %} aria-current="page"{% endif %}>Звіти</a>
 <a href="/admin/summary?period={{ nav_period }}"{% if p.startswith('/admin/summary') %} aria-current="page"{% endif %}>Зведений</a>
 <a href="/admin/logs"{% if p.startswith('/admin/logs') %} aria-current="page"{% endif %}>Журнал</a></nav>{% endif %}
+{% if request.url.path in ['/admin', '/report'] %}
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js"></script>
+<script defer src="/static/api-client.js"></script>
+{% if request.url.path == '/admin' %}<script defer src="/static/admin-app.js"></script>{% else %}<script defer src="/static/report-app.js"></script>{% endif %}
+{% endif %}
 <script src="/static/app.js" defer></script>
 </body></html>

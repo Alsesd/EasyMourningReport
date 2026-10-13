@@ -59,43 +59,21 @@ class Templates(unittest.TestCase):
         self.assertIn("Неактивні позиції (1)", html)
         self.assertIn(" disabled", html)
 
-    def test_admin_settings(self):
-        p = NS(id=7, name='Хліб "свіжий"', price_cents=130, active=True)
-        archived = NS(id=8, name="Старий товар")
-        s = NS(id=3, name="Магазин 1")
-        html = render("admin.html", "/admin", user=ADMIN,
-                      products=[{"p": p, "used": 4, "changes": [120, 130]}], inactive_products=[],
-                      archived_products=[{"p": archived, "used": 2}],
-                      stores=[{"store": s, "user": NS(login="store1"), "reports": 2}],
-                      archived_stores=[{"store": NS(id=4, name="Закритий"), "user": NS(login="old"), "reports": 5}])
-        self.assertIn('action="/admin/products/7"', html)
-        self.assertIn('class="price-editor"', html)
-        self.assertIn('aria-controls="price-editor-7"', html)
-        self.assertIn('name="price" value="1.30"', html)
-        self.assertIn('class="price-history-chip is-history"', html)
-        self.assertIn('class="price-history-chip is-current"', html)
-        self.assertNotIn('name="extra_price"', html)
-        self.assertNotIn('class="price-options"', html)
-        self.assertIn('class="save-product" hidden', html)
-        self.assertIn('Додати товар</button>', html)  # create submit remains visible in the DOM
-        self.assertIn('src="/static/admin.js" defer', html)
-        self.assertIn('action="/admin/stores/3/edit"', html)
-        self.assertIn("1.20 ₴", html)
-        self.assertIn("1.30 ₴", html)
+    def test_admin_settings_uses_rest_and_alpine_client_rendering(self):
+        html = render("admin.html", "/admin", user=ADMIN, this_period="2026-10")
+        self.assertIn('x-data="adminApp()"', html)
+        self.assertIn('x-for="p in activeProducts"', html)
+        self.assertIn('x-for="s in activeStores"', html)
         self.assertIn('id="product-search"', html)
-        self.assertIn("Архів товарів", html)
-        self.assertIn("Архів магазинів", html)
-        self.assertIn("піде в архів", html)            # delete confirmation for a product that has data
-        self.assertIn('action="/admin/products/8/restore"', html)
-        self.assertIn('action="/admin/stores/4/restore"', html)
-        self.assertIn("&#34;свіжий&#34;", html)         # quotes in names cannot break out of attributes
+        self.assertIn('action="/admin/products/import"', html)
+        self.assertIn('action="/admin/password"', html)
+        self.assertIn("Змінити пароль", html)
 
-    def test_admin_settings_empty(self):
-        html = render("admin.html", "/admin", user=ADMIN, products=[], inactive_products=[], archived_products=[], stores=[], archived_stores=[])
-        self.assertIn("Активних товарів ще немає", html)
-        self.assertIn("Неактивні товари (0)", html)
-        self.assertIn('id="product-search"', html)
-        self.assertNotIn('id="archive"', html)
+    def test_admin_settings_shell_does_not_require_server_side_catalogue(self):
+        html = render("admin.html", "/admin", user=ADMIN)
+        self.assertIn('x-init="init()"', html)
+        self.assertIn('x-show="loading"', html)
+        self.assertIn('id="archive"', html)
 
     def test_admin_report_pages(self):
         store = NS(name="Магазин 1", archived=True)

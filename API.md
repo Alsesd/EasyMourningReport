@@ -1,0 +1,70 @@
+# REST API v1
+
+The web UI for administration and store reports uses a versioned, same-origin JSON API. Existing session-cookie authentication is reused; there are no bearer tokens, duplicated identities, or new auth dependencies.
+
+## Contract
+
+- Base path: `/api/v1`
+- Requests and responses use JSON except binary exports.
+- Prices and calculated amounts are integer **cents** in DTOs. Send editable price values as strings (for example `"12.50"`) so decimal parsing remains server-side and supports comma decimals.
+- Every resource response is a DTO, not a serialized SQLModel/ORM instance. Password hashes and persistence-only fields are never exposed.
+- The browser uses the existing signed session cookie. Unauthenticated requests return `401`, role violations return `403`, missing resources return `404`, conflicting state returns `409`, and invalid payloads return `422`.
+- Unsafe methods (POST, PUT, PATCH, DELETE) require a same-origin `Origin` or `Referer` header. Browser `fetch` supplies the origin automatically for these requests.
+- Existing HTML routes remain as a compatibility layer, including the Excel-import and password-change forms.
+
+## Endpoints
+
+| Method | Path | Access | Purpose |
+|---|---|---|---|
+| GET | `/session` | Signed-in user | Current identity and period |
+| GET | `/admin/products?period=YYYY-MM` | Admin | Product DTOs, usage counts, current-month price choices, and price history |
+| POST | `/admin/products` | Admin | Create product |
+| PUT | `/admin/products/{id}` | Admin | Update name, price, and active state |
+| DELETE | `/admin/products/{id}` | Admin | Archive products with report history; otherwise delete |
+| POST | `/admin/products/{id}/restore` | Admin | Restore an archived product |
+| GET | `/admin/stores` | Admin | Store DTOs and report counts |
+| POST | `/admin/stores` | Admin | Create store and login |
+| PUT | `/admin/stores/{id}` | Admin | Update store name/login |
+| DELETE | `/admin/stores/{id}` | Admin | Archive stores with reports; otherwise delete |
+| POST | `/admin/stores/{id}/restore` | Admin | Restore an archived store |
+| PUT | `/admin/stores/{id}/password` | Admin | Reset store password |
+| GET | `/store/reports/{period}` | Store | Current report state and editable lines |
+| PUT | `/store/reports/{period}` | Store | Save a report snapshot as a draft or submit it |
+| GET | `/admin/reports?period=YYYY-MM` | Admin | Reports for a month |
+| GET | `/admin/reports/{id}` | Admin | Report detail |
+| PATCH | `/admin/reports/{id}` | Admin | Lock/unlock by setting status |
+| GET | `/admin/summary?period=YYYY-MM&submitted_only=false` | Admin | Summary DTO and totals |
+| GET | `/admin/logs?login=&action=&limit=200` | Admin | Recent audit logs |
+
+## Example requests
+
+Create a product:
+
+```http
+POST /api/v1/admin/products
+Content-Type: application/json
+
+{"name":"Хліб","price":"25.50"}
+```
+
+Update a product:
+
+```http
+PUT /api/v1/admin/products/12
+Content-Type: application/json
+
+{"name":"Хліб","price":"26,00","active":true}
+```
+
+Save the full set of editable report quantities. The server revalidates every product/price pair against its own history, preserves quantities for inactive or archived products, and blocks further edits after submission:
+
+```http
+PUT /api/v1/store/reports/2026-10
+Content-Type: application/json
+
+{"action":"draft","quantities":[{"product_id":12,"price_cents":2600,"quantity":4}]}
+```
+
+## Client rendering
+
+The admin catalogue/store view and store report editor are Alpine.js components. They fetch DTOs, update the DOM client-side, show loading/error states, and use JSON writes. Jinja remains responsible for the HTML shell and for the non-migrated report list, summary, logs, login, and export views; this keeps the change incremental and avoids introducing a frontend bundler into the portable Windows build.

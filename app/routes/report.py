@@ -1,23 +1,13 @@
-"""Store monthly report interface (quantities only)."""
-
-import re
-from app.core.dependencies import parse_period, store_required
-from app.core.ui import FormError, current_period, done, render
-from app.db.models.product import Product
-from app.db.models.report import Report, ReportItem
-from app.db.models.user import User
-from app.db.repositories.audit import audit
-from app.db.repositories.products import history_of, load_history
-from app.db.repositories.reports import build_lines, find_report
-from app.db.repositories.stores import store_periods
-from app.db.session import get_db
-from app.services.pricing import offered_prices
-from collections import defaultdict
+"""Store report page shell. Report DTOs are loaded by the browser via REST."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlmodel import select
 from sqlmodel import Session
 
+from app.core.dependencies import parse_period, store_required
+from app.core.ui import current_period, done, render
+from app.db.models.user import User
+from app.db.repositories.stores import store_periods
+from app.db.session import get_db
 
 router = APIRouter()
 
@@ -29,36 +19,16 @@ def report_page(
     user: User = Depends(store_required),
     db: Session = Depends(get_db),
 ):
-    period = parse_period(period)
-    current = current_period()
+    selected = parse_period(period)
     known = store_periods(db, user.store_id)
-    if period != current and period not in known:
+    if selected != current_period() and selected not in known:
         return done(
             request,
             "/report",
-            f"Звіту за {period} немає. Можна відкрити поточний місяць "
-            "або місяці, за які вже подано звіти.",
+            f"Звіту за {selected} немає. Можна відкрити поточний місяць або місяці, за які вже є звіти.",
             "err",
         )
-    report = find_report(db, user.store_id, period)
-    rows, inactive, inactive_total = build_lines(
-        db, period, report.items if report else []
-    )
-    allowed = sorted(known | {current})
-    ctx = {
-        "user": user,
-        "period": period,
-        "rows": rows,
-        "inactive_rows": inactive,
-        "inactive_total": inactive_total,
-        "total": sum(r["sum"] for r in rows) + inactive_total,
-        "status": report.status if report else "new",
-        "min_period": allowed[0],
-        "max_period": allowed[-1],
-        "prev_period": max((x for x in allowed if x < period), default=None),
-        "next_period": min((x for x in allowed if x > period), default=None),
-    }
-    return render(request, "report.html", ctx)
+    return render(request, "report.html", {"user": user, "period": selected})
 
 
 @router.post("/report")
