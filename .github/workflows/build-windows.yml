@@ -52,14 +52,6 @@ jobs:
             throw "Pinned Alpine runtime download failed or returned an incomplete file."
           }
 
-      - name: Export refreshed Poetry lock for repository update
-        if: github.event_name == 'pull_request' && github.head_ref == 'soupv2-fixes'
-        uses: actions/upload-artifact@v4
-        with:
-          name: refreshed-poetry-lock
-          path: poetry.lock
-          retention-days: 1
-
       - name: Run regression tests
         run: poetry run python -m pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
 
