@@ -86,7 +86,8 @@ EasyMourningReport/
 ├── poetry.lock
 ├── run.py                # Головна точка входу (uvicorn)
 ├── flake.nix             # Nix flake для автоматизації на Linux
-├── start.bat             # Скрипт автоматизації для Windows (Tailscale Funnel)
+├── start.bat             # Запуск Windows та необов'язковий Tailscale Funnel
+└── setup-windows-uvicorn.ps1 # Одноразове налаштування команди uvicorn у PowerShell
 └── backups/              # Снапшоти бази даних SQLite
 ```
 
@@ -163,7 +164,7 @@ start.bat
 powershell -ExecutionPolicy Bypass -File .\setup-windows-uvicorn.ps1
 ```
 
-Закрийте й відкрийте PowerShell. Після цього в корені проєкту команда працюватиме коротко:
+Закрийте й відкрийте PowerShell. У корені проєкту команда працюватиме коротко:
 
 ```powershell
 uvicorn --app-dir . app.main:app --reload
@@ -246,7 +247,7 @@ test
 
 ## Розробка та збірка standalone EXE (PyInstaller)
 
-Windows-реліз збирається як один автономний файл за допомогою PyInstaller. PyOxidizer більше не використовується.
+Windows-реліз збирається як один автономний файл за допомогою PyInstaller.
 
 Для локальної збірки на Windows із установленим Python і Poetry:
 
