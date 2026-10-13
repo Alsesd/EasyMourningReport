@@ -16,12 +16,12 @@ def _assert_assets_exist(source: str, pattern: str, context: str) -> None:
 def test_service_worker_precache_assets_exist():
     source = (STATIC / "sw.js").read_text(encoding="utf-8")
     _assert_assets_exist(
-        source, r'["\\'](/static/[^"\\']+)["\\']', "Service worker"
+        source, r"""["'](/static/[^"']+)["']""", "Service worker"
     )
 
 
 def test_base_template_static_assets_exist():
     source = (ROOT / "app" / "templates" / "base.html").read_text(encoding="utf-8")
     _assert_assets_exist(
-        source, r'(?:href|src)=["\\'](/static/[^"\\']+)["\\']', "Base template"
+        source, r"""(?:href|src)=["'](/static/[^"']+)["']""", "Base template"
     )
