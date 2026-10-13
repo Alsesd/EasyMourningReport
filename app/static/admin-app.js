@@ -115,9 +115,9 @@
             },
 
             hasPriceChanges(product) {
+                const cents = centsFromPrice(product.editPrice);
                 return Boolean(product.priceOpen) &&
-                    Number.isFinite(centsFromPrice(product.editPrice)) &&
-                    centsFromPrice(product.editPrice) !== Number(product.price_cents);
+                    (!Number.isFinite(cents) || cents !== Number(product.price_cents));
             },
 
             hasStoreChanges(store) {
