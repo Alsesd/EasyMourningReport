@@ -221,6 +221,7 @@ class RestApiTests(unittest.TestCase):
             "/api/v1/admin/products", json={"name": "Missing Origin", "price": "1.00"}
         )
         self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "Відхилено запит без перевірки джерела.")
 
 
 if __name__ == "__main__":

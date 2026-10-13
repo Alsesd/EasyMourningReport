@@ -7,7 +7,7 @@ import secrets
 from urllib.parse import urlparse
 
 from fastapi import Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from app.core.paths import data_dir
 
@@ -45,10 +45,17 @@ async def same_origin_post_guard(request: Request, call_next):
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
         source = request.headers.get("origin") or request.headers.get("referer")
         parsed = urlparse(source) if source else None
+        is_api = request.url.path == "/api/v1" or request.url.path.startswith("/api/v1/")
         if not parsed or parsed.scheme not in ("http", "https") or not parsed.netloc:
-            return Response("Відхилено запит без перевірки джерела.", status_code=403)
+            message = "Відхилено запит без перевірки джерела."
+            if is_api:
+                return JSONResponse({"detail": message}, status_code=403)
+            return Response(message, status_code=403)
         if parsed.netloc.lower() != request.headers.get("host", "").lower():
-            return Response("Відхилено запит з іншого джерела.", status_code=403)
+            message = "Відхилено запит з іншого джерела."
+            if is_api:
+                return JSONResponse({"detail": message}, status_code=403)
+            return Response(message, status_code=403)
     return await call_next(request)
 
 

@@ -10,7 +10,7 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 - Every resource response is a DTO, not a serialized SQLModel/ORM instance. Password hashes and persistence-only fields are never exposed.
 - The browser uses the existing signed session cookie. Unauthenticated requests return `401`, role violations return `403`, missing resources return `404`, conflicting state returns `409`, and invalid payloads return `422`.
 - Unsafe methods (POST, PUT, PATCH, DELETE) require a same-origin `Origin` or `Referer` header. Browser `fetch` supplies the origin automatically for these requests.
-- Legacy HTML form routes remain registered for compatibility, but migrated admin/store actions use the JSON API.
+- Legacy HTML form routes remain registered for compatibility, but migrated admin/store actions use the JSON API. API CSRF failures also return JSON.
 
 ## Endpoints
 
