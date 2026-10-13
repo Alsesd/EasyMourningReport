@@ -85,6 +85,17 @@ class Templates(unittest.TestCase):
         self.assertIn('tailscale.login_url', html)
 
 
+    def test_admin_client_hides_unchanged_saves_and_current_tab_is_noop(self):
+        static = TEMPLATES.parent / "static"
+        admin_js = (static / "admin-app.js").read_text(encoding="utf-8")
+        app_js = (static / "app.js").read_text(encoding="utf-8")
+        self.assertIn("hasProductChanges(product)", admin_js)
+        self.assertIn("product.priceOpen", admin_js)
+        self.assertIn("if (product.saving || !this.hasProductChanges(product)) return", admin_js)
+        self.assertIn("hasStoreChanges(store)", admin_js)
+        self.assertIn(".tabs a[aria-current='page']", app_js)
+        self.assertIn("event.preventDefault()", app_js)
+
     def test_admin_settings_shell_does_not_require_server_side_catalogue(self):
         html = render("admin.html", "/admin", user=ADMIN)
         self.assertIn('x-init="init()"', html)
