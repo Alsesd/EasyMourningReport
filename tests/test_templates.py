@@ -76,7 +76,7 @@ class Templates(unittest.TestCase):
         self.assertIn('class="price-history-chip is-current"', html)
         self.assertNotIn('name="extra_price"', html)
         self.assertNotIn('class="price-options"', html)
-        self.assertIn('class="save-product" hidden', html)
+        self.assertIn('class="primary save-product" hidden', html)
         self.assertIn('Додати товар</button>', html)  # create submit remains visible in the DOM
         self.assertIn('src="/static/admin.js" defer', html)
         self.assertIn('action="/admin/stores/3/edit"', html)
