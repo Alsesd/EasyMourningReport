@@ -107,7 +107,8 @@ class Templates(unittest.TestCase):
         log = NS(ts=datetime(2026, 10, 1, 12, 0), login="admin", role="admin", action="змінено ціну товару",
                  detail="Хліб · 1.20 → 1.30", ip="1.2.3.4")
         html = render("logs.html", "/admin/logs", user=ADMIN, logs=[log], actions=["вхід"], login="", action="")
-        self.assertIn("змінено ціну товару", html)
+        self.assertIn('x-data="adminLogsApp()"', html)
+        self.assertIn('x-model="action"', html)
         self.assertIn("Сторінку не знайдено", render("error.html", code=404, message="Not Found"))
         self.assertIn("Лише для адміністраторів", render("error.html", code=403, message="Лише для адміністраторів"))
 
