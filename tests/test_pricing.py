@@ -1,6 +1,6 @@
 import unittest
 
-from app.services.pricing import (BASE_PERIOD, apply_price_change, dedupe_logins, latest_price, line_labels,
+from app.services.pricing import (BASE_PERIOD, apply_price_change, dedupe_logins, latest_price, line_labels, month_price_timeline,
                          norm_login, offered_prices, same_name, valid_login)
 
 
@@ -49,6 +49,18 @@ class OfferedPrices(unittest.TestCase):
             ("2026-10_2", 130),
         ]
         self.assertEqual(offered_prices(history, "2026-10"), [100, 110, 130, 210])
+
+    def test_month_price_timeline_preserves_repeated_change_events(self):
+        history = [
+            (BASE_PERIOD, 100),
+            ("2026-10", 120),
+            ("2026-10_1", 150),
+            ("2026-10_2", 120),
+        ]
+        self.assertEqual(month_price_timeline(history, "2026-10"), [100, 120, 150, 120])
+        # Reports need one input per distinct price, not duplicate fields for repeated amounts.
+        self.assertEqual(offered_prices(history, "2026-10"), [100, 120, 150])
+        self.assertEqual(month_price_timeline(history, "2026-11"), [120])
 
     def test_empty_history(self):
         self.assertEqual(offered_prices([], "2026-10"), [])
