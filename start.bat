@@ -30,10 +30,10 @@ if %errorlevel% neq 0 (
 
 :: Check the actual Tailscale backend state. "status" can exit successfully while logged out.
 set "TS_STATE=Unknown"
-del "%TEMP%\\legkyi-ts-status.json" >nul 2>nul
-tailscale status --json > "%TEMP%\\legkyi-ts-status.json" 2>nul
-for /f "usebackq delims=" %%S in (`powershell -NoProfile -Command "try { (ConvertFrom-Json -InputObject (Get-Content -Raw '%TEMP%\\legkyi-ts-status.json')).BackendState } catch { 'Unknown' }"`) do set "TS_STATE=%%S"
-del "%TEMP%\\legkyi-ts-status.json" >nul 2>nul
+del "%TEMP%\legkyi-ts-status.json" >nul 2>nul
+tailscale status --json > "%TEMP%\legkyi-ts-status.json" 2>nul
+for /f "usebackq delims=" %%S in (`powershell -NoProfile -Command "try { (ConvertFrom-Json -InputObject (Get-Content -Raw '%TEMP%\legkyi-ts-status.json')).BackendState } catch { 'Unknown' }"`) do set "TS_STATE=%%S"
+del "%TEMP%\legkyi-ts-status.json" >nul 2>nul
 
 if /i not "!TS_STATE!"=="Running" (
     echo [*] Tailscale needs sign-in or is stopped. Opening browser authentication...
@@ -42,10 +42,10 @@ if /i not "!TS_STATE!"=="Running" (
     echo Complete the Tailscale sign-in in your browser, then press any key to continue.
     pause >nul
     set "TS_STATE=Unknown"
-    del "%TEMP%\\legkyi-ts-status.json" >nul 2>nul
-    tailscale status --json > "%TEMP%\\legkyi-ts-status.json" 2>nul
-    for /f "usebackq delims=" %%S in (`powershell -NoProfile -Command "try { (ConvertFrom-Json -InputObject (Get-Content -Raw '%TEMP%\\legkyi-ts-status.json')).BackendState } catch { 'Unknown' }"`) do set "TS_STATE=%%S"
-    del "%TEMP%\\legkyi-ts-status.json" >nul 2>nul
+    del "%TEMP%\legkyi-ts-status.json" >nul 2>nul
+    tailscale status --json > "%TEMP%\legkyi-ts-status.json" 2>nul
+    for /f "usebackq delims=" %%S in (`powershell -NoProfile -Command "try { (ConvertFrom-Json -InputObject (Get-Content -Raw '%TEMP%\legkyi-ts-status.json')).BackendState } catch { 'Unknown' }"`) do set "TS_STATE=%%S"
+    del "%TEMP%\legkyi-ts-status.json" >nul 2>nul
     if /i not "!TS_STATE!"=="Running" (
         echo [!] Tailscale is still not connected. Skipping Funnel and running locally.
         goto :START_APP
