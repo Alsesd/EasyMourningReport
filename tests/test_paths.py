@@ -54,7 +54,7 @@ class DataDirTests(unittest.TestCase):
             env = {"LOCALAPPDATA": home, "XDG_DATA_HOME": home}
             with patch.object(paths.sys, "frozen", True, create=True), \
                     patch.object(paths.sys, "executable", str(executable)), \
-                    patch.object(paths, "_writable", side_effect=lambda f: Path(f) != Path(exe_dir)), \
+                    patch.object(paths, "_writable", side_effect=[False]), \
                     patch.dict(os.environ, env):
                 os.environ.pop("LEGKYI_DATA_DIR", None)
                 result = paths.data_dir()
