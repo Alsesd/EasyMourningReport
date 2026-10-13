@@ -2,6 +2,7 @@
 import os
 import unittest
 from io import BytesIO
+from unittest.mock import patch
 
 from openpyxl import Workbook
 
@@ -62,6 +63,7 @@ class RestApiTests(unittest.TestCase):
             self.store_id = store.id
             self.store_user_id = store_user.id
             self.product_id = product.id
+            self.report_id = report.id
 
         self.admin_client = TestClient(app, follow_redirects=False)
         self.store_client = TestClient(app, follow_redirects=False)
