@@ -140,7 +140,7 @@ class TailscaleManagerTests(unittest.TestCase):
         self.assertEqual(result["login_url"], "")
 
     def test_start_rejects_bad_key_and_missing_helper(self):
-        invalid = tailscale.start_funnel("bad\\nkey")
+        invalid = tailscale.start_funnel("bad\nkey")
         self.assertEqual(invalid["state"], "error")
         self.assertIn("Invalid auth key", invalid["error"])
         with patch("app.core.tailscale._helper_path", return_value=None):
@@ -157,7 +157,7 @@ class TailscaleManagerTests(unittest.TestCase):
             tailscale.start_funnel("tskey-retry")
             self.assertEqual(popen.call_count, 2)
         self.assertEqual(first.returncode, 0)
-        self.assertEqual(second.stdin.data, b"tskey-retry\\n")
+        self.assertEqual(second.stdin.data, b"tskey-retry\n")
 
     def test_start_failure_returns_error_and_closes_log(self):
         with patch("app.core.tailscale.subprocess.Popen", side_effect=OSError("process denied")):
