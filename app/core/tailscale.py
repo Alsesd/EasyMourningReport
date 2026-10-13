@@ -7,6 +7,7 @@ A public Funnel is attempted at startup only after an administrator has opted in
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -17,6 +18,7 @@ from app.core.paths import user_data_dir
 
 _process: subprocess.Popen | None = None
 _log_handle = None
+_helper_build_error = ""
 
 
 def _state_root() -> Path:
@@ -51,6 +53,41 @@ def _helper_path() -> Path | None:
         candidate = root / executable_name
         if candidate.is_file():
             return candidate
+
+    # Source checkouts do not contain compiled helper binaries. Build it lazily
+    # into the user's private data directory so running from source works too,
+    # without dirtying the checkout or requiring a manual build step.
+    global _helper_build_error
+    source_dir = Path(__file__).resolve().parents[2] / "tailscale-helper"
+    if not getattr(sys, "frozen", False) and (source_dir / "go.mod").is_file():
+        go = shutil.which("go")
+        if not go:
+            _helper_build_error = (
+                "Go 1.24+ is required to build the Tailscale helper from source. "
+                "Install Go or enter the project's Nix development shell, then retry."
+            )
+            return None
+        destination_dir = user_data_dir() / "tailscale" / "bin"
+        destination = destination_dir / executable_name
+        try:
+            destination_dir.mkdir(parents=True, exist_ok=True)
+            build = subprocess.run(
+                [go, "build", "-trimpath", "-ldflags", "-s -w", "-o", str(destination), "."],
+                cwd=source_dir,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
+            )
+            if build.returncode == 0 and destination.is_file():
+                if os.name != "nt":
+                    destination.chmod(0o700)
+                _helper_build_error = ""
+                return destination
+            details = (build.stderr or build.stdout or "go build returned no diagnostic").strip()
+            _helper_build_error = f"Could not build the Tailscale helper: {details[-1200:]}"
+        except (OSError, subprocess.SubprocessError) as exc:
+            _helper_build_error = f"Could not build the Tailscale helper: {exc}"
     return None
 
 
@@ -94,9 +131,9 @@ def start_funnel(auth_key: str | None = None) -> dict[str, Any]:
         return {
             **get_status(),
             "state": "error",
-            "error": (
-                "The bundled Tailscale helper is missing. Rebuild the application "
-                "with Go installed or set LEGKYI_TAILSCALE_HELPER."
+            "error": _helper_build_error or (
+                "The Tailscale helper is missing. Install Go 1.24+ and retry, "
+                "or set LEGKYI_TAILSCALE_HELPER to an existing helper binary."
             ),
         }
 
