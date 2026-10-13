@@ -11,7 +11,7 @@
     </div>
     <p class="note" x-show="loading">Завантажую звіти…</p>
     <div class="card">
-        <p class="note" x-show="!loading && rows.length === 0">Магазинів ще немає.</p>
+        <p class="note" x-show="!loading && !message && rows.length === 0">Магазинів ще немає.</p>
         <template x-for="row in rows" :key="row.store_id">
             <div>
                 <template x-if="row.report_id">

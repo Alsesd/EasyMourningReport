@@ -78,6 +78,7 @@ class Templates(unittest.TestCase):
         html = render("summary.html", "/admin/summary", user=ADMIN, period="2026-10", submitted_only=True)
         self.assertIn('x-data="adminSummaryApp(', html)
         self.assertIn("Лише надіслані", html)
+        self.assertIn(':checked="submittedOnly"', html)
         self.assertIn('src="/static/admin-summary-app.js"', html)
 
     def test_logs_uses_rest_filters(self):

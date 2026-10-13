@@ -1,5 +1,12 @@
 (() => {
     "use strict";
+    function syncPeriodLinks(period) {
+        document.querySelectorAll('.tabs a[href*="period="]').forEach(link => {
+            const url = new URL(link.href, window.location.origin);
+            url.searchParams.set("period", period);
+            link.href = url.pathname + url.search + url.hash;
+        });
+    }
     const shiftPeriod = (period, offset) => {
         const [year, month] = period.split("-").map(Number);
         const date = new Date(year, month - 1 + offset, 1);
@@ -28,6 +35,7 @@
                 if (this.submittedOnly) url.searchParams.set("submitted_only", "1");
                 else url.searchParams.delete("submitted_only");
                 window.history.replaceState({}, "", url);
+                syncPeriodLinks(this.period);
             } catch (error) { this.message = error.message || "Не вдалося сформувати зведений звіт."; this.messageKind = "err"; }
             finally { this.loading = false; }
         },

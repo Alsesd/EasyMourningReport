@@ -5,7 +5,7 @@
         <a class="step" href="#" @click.prevent="setPeriod(previousPeriod)" aria-label="Попередній місяць">‹</a>
         <input type="month" :value="period" @change="setPeriod($event.target.value)" aria-label="Місяць" pattern="\d{4}-\d{2}">
         <a class="step" href="#" @click.prevent="setPeriod(nextPeriod)" aria-label="Наступний місяць">›</a>
-        <label class="chk"><input type="checkbox" x-model="submittedOnly" @change="load()"> Лише надіслані</label>
+        <label class="chk"><input type="checkbox" :checked="submittedOnly" @change="submittedOnly = $event.target.checked; load()"> Лише надіслані</label>
     </div>
     <div class="flash" x-show="message" :class="'flash ' + messageKind" role="status" aria-live="polite">
         <span x-text="message"></span><button type="button" class="x" aria-label="Закрити" @click="message = ''">×</button>

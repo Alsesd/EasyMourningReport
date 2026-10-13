@@ -10,7 +10,7 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 - Every resource response is a DTO, not a serialized SQLModel/ORM instance. Password hashes and persistence-only fields are never exposed.
 - The browser uses the existing signed session cookie. Unauthenticated requests return `401`, role violations return `403`, missing resources return `404`, conflicting state returns `409`, and invalid payloads return `422`.
 - Unsafe methods (POST, PUT, PATCH, DELETE) require a same-origin `Origin` or `Referer` header. Browser `fetch` supplies the origin automatically for these requests.
-- Existing HTML routes remain as a compatibility layer, including the Excel-import and password-change forms.
+- Legacy HTML form routes remain registered for compatibility, but migrated admin/store actions use the JSON API.
 
 ## Endpoints
 
@@ -70,4 +70,4 @@ Content-Type: application/json
 
 ## Client rendering
 
-The admin catalogue/store view, store report editor, admin report list/detail, monthly summary and audit log are Alpine.js components. They fetch DTOs, update the DOM client-side, show loading/error states, and use JSON writes. Jinja remains responsible for the HTML shell and for the non-migrated report list, summary, logs, login, and export views; this keeps the change incremental and avoids introducing a frontend bundler into the portable Windows build.
+The admin catalogue/store view, store report editor, admin report list/detail, monthly summary and audit log are Alpine.js components. They fetch DTOs, update the DOM client-side, show loading/error states, and use JSON writes. Jinja renders the lightweight page shells and still handles login/logout and the binary Excel export. This keeps the change incremental and avoids introducing a frontend bundler into the portable Windows build.
