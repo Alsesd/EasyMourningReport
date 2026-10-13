@@ -85,6 +85,21 @@ class DataDirTests(unittest.TestCase):
                 Path(tmp) / ".local" / "share" / paths.APP_NAME,
             )
 
+    def test_user_data_dir_honors_override_and_creates_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "private" / "state"
+            with patch.dict(os.environ, {"LEGKYI_DATA_DIR": str(target)}):
+                self.assertEqual(paths.user_data_dir(), target.resolve())
+            self.assertTrue(target.is_dir())
+
+    def test_user_data_dir_uses_per_user_fallback_without_override(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / paths.APP_NAME
+            with patch.dict(os.environ, {}, clear=True), \
+                 patch.object(paths, "_user_data_dir", return_value=target):
+                self.assertEqual(paths.user_data_dir(), target)
+            self.assertTrue(target.is_dir())
+
     def test_writable_reports_false_for_a_file_path(self):
         with tempfile.NamedTemporaryFile() as f:
             self.assertFalse(paths._writable(Path(f.name)))
