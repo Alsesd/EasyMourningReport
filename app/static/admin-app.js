@@ -5,6 +5,15 @@
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .toLocaleLowerCase().trim().replace(/\s+/g, " ");
 
+    const centsFromPrice = value => {
+        const raw = String(value ?? "").trim().replace(/\s/g, "").replace(",", ".");
+        if (!raw) return NaN;
+        const amount = Number(raw);
+        return Number.isFinite(amount) && amount >= 0
+            ? Math.round((amount + Number.EPSILON) * 100)
+            : NaN;
+    };
+
     function editProduct(product) {
         return {
             ...product,
@@ -45,6 +54,11 @@
             changingAdminPassword: false,
             newProduct: { name: "", price: "" },
             newStore: { name: "", login: "", password: "" },
+            tailscale: { enabled: false, state: "disabled", public_url: "", login_url: "", error: "" },
+            tailscaleAuthKey: "",
+            confirmPublic: false,
+            tailscaleBusy: false,
+            tailscalePoll: null,
 
             get activeProducts() {
                 return this.products.filter(product => !product.archived && product.active);
@@ -70,6 +84,14 @@
                 } finally {
                     this.loading = false;
                 }
+                try {
+                    await this.refreshTailscale();
+                    this.tailscalePoll = window.setInterval(() => {
+                        this.refreshTailscale().catch(() => {});
+                    }, 2000);
+                } catch (_error) {
+                    // The catalogue remains usable even if helper status is unavailable.
+                }
             },
 
             notify(message, kind = "ok") {
@@ -79,6 +101,23 @@
 
             formatMoney(cents) {
                 return (Number(cents || 0) / 100).toFixed(2);
+            },
+
+            priceCents(value) {
+                return centsFromPrice(value);
+            },
+
+            hasProductChanges(product) {
+                const nameChanged = String(product.editName ?? "").trim() !== product.name;
+                const activeChanged = Boolean(product.editActive) !== Boolean(product.active);
+                const priceChanged = product.priceOpen &&
+                    centsFromPrice(product.editPrice) !== Number(product.price_cents);
+                return nameChanged || activeChanged || priceChanged;
+            },
+
+            hasStoreChanges(store) {
+                return String(store.editName ?? "").trim() !== store.name ||
+                    String(store.editLogin ?? "").trim() !== store.login;
             },
 
             matchesProduct(product) {
@@ -109,7 +148,7 @@
             },
 
             async changeAdminPassword() {
-                if (this.changingAdminPassword) return;
+                if (this.changingAdminPassword || !String(this.adminPassword || "").trim()) return;
                 this.changingAdminPassword = true;
                 try {
                     const result = await window.apiRequest("/api/v1/admin/password", {
@@ -135,6 +174,50 @@
                 this.stores = stores.map(editStore);
             },
 
+            async refreshTailscale() {
+                this.tailscale = await window.apiRequest("/api/v1/admin/tailscale");
+            },
+
+            async startTailscale() {
+                if (this.tailscaleBusy) return;
+                if (!this.confirmPublic) {
+                    this.notify("Підтвердьте публічний доступ перед увімкненням Funnel.", "err");
+                    return;
+                }
+                this.tailscaleBusy = true;
+                try {
+                    this.tailscale = await window.apiRequest("/api/v1/admin/tailscale", {
+                        method: "POST",
+                        body: {
+                            confirm_public: true,
+                            auth_key: this.tailscaleAuthKey.trim() || null
+                        }
+                    });
+                    this.tailscaleAuthKey = "";
+                    this.notify(this.tailscale.login_url
+                        ? "Tailscale очікує авторизацію. Відкрийте посилання нижче."
+                        : "Запуск Tailscale Funnel запитано.");
+                } catch (error) {
+                    this.notify(error.message || "Не вдалося запустити Tailscale Funnel.", "err");
+                    await this.refreshTailscale().catch(() => {});
+                } finally {
+                    this.tailscaleBusy = false;
+                }
+            },
+
+            async stopTailscale() {
+                if (this.tailscaleBusy) return;
+                this.tailscaleBusy = true;
+                try {
+                    this.tailscale = await window.apiRequest("/api/v1/admin/tailscale", { method: "DELETE" });
+                    this.notify("Tailscale Funnel вимкнено.");
+                } catch (error) {
+                    this.notify(error.message || "Не вдалося вимкнути Tailscale Funnel.", "err");
+                } finally {
+                    this.tailscaleBusy = false;
+                }
+            },
+
             async createProduct() {
                 if (this.creatingProduct) return;
                 this.creatingProduct = true;
@@ -155,19 +238,27 @@
             },
 
             async saveProduct(product) {
-                if (product.saving) return;
+                if (product.saving || !this.hasProductChanges(product)) return;
+                const priceChanged = product.priceOpen &&
+                    centsFromPrice(product.editPrice) !== Number(product.price_cents);
+                if (priceChanged && !Number.isFinite(centsFromPrice(product.editPrice))) {
+                    product.feedback = "Введіть коректну невід’ємну ціну.";
+                    this.notify(product.feedback, "err");
+                    return;
+                }
                 product.saving = true;
                 product.feedback = "";
+                const keepPriceOpen = product.priceOpen;
                 try {
-                    await window.apiRequest("/api/v1/admin/products/" + product.id, {
+                    const updated = await window.apiRequest("/api/v1/admin/products/" + product.id, {
                         method: "PUT",
                         body: {
                             name: product.editName,
-                            price: product.editPrice,
+                            price: priceChanged ? product.editPrice : this.formatMoney(product.price_cents),
                             active: Boolean(product.editActive)
                         }
                     });
-                    await this.refreshProducts();
+                    Object.assign(product, editProduct(updated), { priceOpen: keepPriceOpen });
                     this.notify("Зміни товару збережено.");
                 } catch (error) {
                     product.feedback = error.message || "Не вдалося зберегти товар.";
@@ -221,7 +312,7 @@
             },
 
             async saveStore(store) {
-                if (store.saving) return;
+                if (store.saving || !this.hasStoreChanges(store)) return;
                 store.saving = true;
                 try {
                     await window.apiRequest("/api/v1/admin/stores/" + store.id, {
