@@ -257,6 +257,8 @@ Windows-реліз збирається як один автономний фа�
 ```powershell
 python -m poetry install
 python -m poetry run python -m pip install pyinstaller==6.16.0
+Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js" -OutFile app/static/alpine.min.js
+if ((Get-Item app/static/alpine.min.js).Length -lt 10000) { throw "Alpine runtime download was incomplete." }
 python -m poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --collect-all fastapi --collect-all starlette --collect-all sqlmodel --collect-all sqlalchemy --collect-all jinja2 --collect-all openpyxl --collect-all uvicorn run.py
 ```
 
