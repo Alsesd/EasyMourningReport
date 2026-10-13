@@ -1,13 +1,23 @@
-"""Store report page shell. Report DTOs are loaded by the browser via REST."""
+"""Store monthly report interface (quantities only)."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlmodel import Session
-
+import re
 from app.core.dependencies import parse_period, store_required
-from app.core.ui import current_period, done, render
+from app.core.ui import FormError, current_period, done, render
+from app.db.models.product import Product
+from app.db.models.report import Report, ReportItem
 from app.db.models.user import User
+from app.db.repositories.audit import audit
+from app.db.repositories.products import history_of, load_history
+from app.db.repositories.reports import build_lines, find_report
 from app.db.repositories.stores import store_periods
 from app.db.session import get_db
+from app.services.pricing import offered_prices
+from collections import defaultdict
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlmodel import select
+from sqlmodel import Session
+
 
 router = APIRouter()
 
