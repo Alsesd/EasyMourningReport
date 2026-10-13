@@ -13,6 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.paths import asset_dir
 from app.core.security import load_secret, same_origin_post_guard
+from app.core.tailscale import shutdown as shutdown_tailscale, start_if_enabled as start_tailscale_if_enabled
 from app.core.ui import FormError, done, render, safe_referer
 from app.db.backup import backup_db, backup_loop
 from app.db.bootstrap import migrate, seed
@@ -27,8 +28,11 @@ async def lifespan(_: FastAPI):
     await asyncio.to_thread(backup_db)
     backup_task = asyncio.create_task(backup_loop(), name="database-backup-loop")
     try:
+        # Restore the explicitly enabled app-specific Funnel after a restart.
+        await asyncio.to_thread(start_tailscale_if_enabled)
         yield
     finally:
+        await asyncio.to_thread(shutdown_tailscale)
         backup_task.cancel()
         try:
             await backup_task
