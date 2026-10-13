@@ -47,7 +47,7 @@ class Templates(unittest.TestCase):
         self.assertIn('x-for="row in rows"', html)
         self.assertIn("Зберегти чернетку", html)
         self.assertIn("Надіслати звіт", html)
-        self.assertIn("period=2026-09", html)            # previous-month link
+        self.assertIn("previousPeriod", html)  # the browser derives the prior-month URL dynamically
 
     def test_store_report_template_binds_locking_state_from_api(self):
         html = render("report.html", "/report", user=STORE, period="2026-10")
