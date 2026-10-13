@@ -100,7 +100,7 @@ class TailscaleManagerTests(unittest.TestCase):
     def test_helper_override_is_resolved_and_missing_override_is_rejected(self):
         with patch.dict(os.environ, {"LEGKYI_TAILSCALE_HELPER": str(self.helper)}):
             self.assertEqual(tailscale._helper_path(), self.helper)
-        with patch.dict(os.environ, {"LEGKYI_TAILSCALE_HELPER": str(self.root / "missing.exe")}):
+        with patch.dict(os.environ, {"LEGKYI_TAILSCALE_HELPER": str(self.root / "missing.exe")}, clear=True):
             self.assertIsNone(tailscale._helper_path())
 
     def test_status_reads_saved_fields_and_marks_exited_child_stopped(self):
