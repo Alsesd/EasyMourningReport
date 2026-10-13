@@ -10,7 +10,7 @@ os.environ.setdefault("SECRET_KEY", "api-test-session-secret")
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from sqlmodel import create_engine
+from sqlmodel import create_engine, select
 
 from app.core.dependencies import get_db
 from app.core.ui import current_period
