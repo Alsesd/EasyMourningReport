@@ -11,7 +11,7 @@ from app.db.repositories.audit import audit
 from app.db.repositories.products import history_of, load_history, save_history
 from app.db.session import get_db
 from app.services.excel import parse_products_excel
-from app.services.pricing import BASE_PERIOD, apply_price_change, latest_price, offered_prices, period_month
+from app.services.pricing import BASE_PERIOD, apply_price_change, latest_price, offered_prices
 from sqlalchemy import delete, func
 from sqlmodel import select
 from sqlmodel import Session
@@ -94,29 +94,19 @@ async def product_edit(
     said: list[str] = []
     history = history_of(load_history(db), p)
 
-    # Collapse any legacy same-month variants to one price-change record.
-    # The previous price is retained by apply_price_change as the first monthly history chip
-    # and remains available in reports for this month.
-    canonical_history = [
-        (start, value) for start, value in history if period_month(start) != period
-    ]
-    new_history, prev_price, now_price = apply_price_change(
-        canonical_history, period, cents
-    )
+    # Preserve all recorded changes for the current month. Each new price is
+    # appended as a new history event instead of replacing this month's prior value.
+    new_history, prev_price, now_price = apply_price_change(history, period, cents)
     if new_history != history:
         save_history(db, pid, new_history)
         p.price_cents = latest_price(new_history)
-        if len(offered_prices(new_history, period)) == 2:
-            said.append(
-                f"Ціну змінено: {money(prev_price)} → {money(now_price)} з {period}. "
-                f"У звітах {period} збережуться попередня й нова ціни; "
-                f"у наступних місяцях діятиме лише {money(now_price)}."
-            )
-        else:
-            said.append(
-                f"Зміну ціни за {period} скасовано: ціна знову {money(now_price)}, "
-                f"у звітах {period} залишиться один рядок."
-            )
+        month_prices = offered_prices(new_history, period)
+        said.append(
+            f"Ціну змінено: {money(prev_price)} → {money(now_price)}. "
+            f"За {period} у звіті доступні ціни: "
+            f"{', '.join(money(value) for value in month_prices)}; "
+            f"з наступного місяця діятиме {money(now_price)}."
+        )
         audit(
             db,
             request,
