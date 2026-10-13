@@ -6,12 +6,10 @@ A product has a *price history*: a list of (period, price_cents) records, where 
 month ("YYYY-MM") from which that price is in force. The first record uses BASE_PERIOD, so every
 product always has a price for every month.
 
-A report for month X offers these price lines for a product:
-  * the price in force in X (the latest record with period <= X);
-  * plus the price that was in force *before* it, but only when a price change starts exactly in X.
-
-When there are multiple price changes in month X (e.g. period keys with suffixes like 'YYYY-MM_1'),
-all applicable prices in that month are offered (old price followed by each new price).
+A report for month X offers the opening price and each distinct amount that was
+in force at some point in X. The administration UI separately displays every event,
+including repeated values when a price changes back to an earlier amount. History
+records use YYYY-MM, then YYYY-MM_1, YYYY-MM_2, and so on for changes within a month.
 """
 from __future__ import annotations
 
