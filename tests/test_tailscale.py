@@ -98,10 +98,17 @@ class TailscaleManagerTests(unittest.TestCase):
 
 
     def test_helper_override_is_resolved_and_missing_override_is_rejected(self):
-        with patch.dict(os.environ, {"LEGKYI_TAILSCALE_HELPER": str(self.helper)}):
-            self.assertEqual(tailscale._helper_path(), self.helper)
-        with patch.dict(os.environ, {"LEGKYI_TAILSCALE_HELPER": str(self.root / "missing.exe")}, clear=True):
-            self.assertIsNone(tailscale._helper_path())
+        # setUp replaces _helper_path for process-launch tests; restore the real
+        # resolver here so this test actually exercises the environment override.
+        self.helper_patch.stop()
+        try:
+            with patch.dict(os.environ, {"LEGKYI_TAILSCALE_HELPER": str(self.helper)}):
+                self.assertEqual(tailscale._helper_path(), self.helper)
+            with patch.dict(os.environ, {"LEGKYI_TAILSCALE_HELPER": str(self.root / "missing.exe")}, clear=True):
+                with patch("app.core.tailscale.shutil.which", return_value=None):
+                    self.assertIsNone(tailscale._helper_path())
+        finally:
+            self.helper_patch.start()
 
     def test_status_reads_saved_fields_and_marks_exited_child_stopped(self):
         (self.root / ".tailscale-funnel-enabled").write_text("enabled", encoding="utf-8")
