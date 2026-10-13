@@ -55,7 +55,7 @@
     // pinned CDN so they do not need Node/npm just to run the project.
     let alpineLoaded = await loadScript("/static/alpine.min.js");
     if (!alpineLoaded) {
-        alpineLoaded = await loadScript("https://cdn.jsdelivr.net/npm/alpinejs@3.17.5/dist/cdn.min.js");
+        alpineLoaded = await loadScript("https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js");
     }
     if (!alpineLoaded) root.classList.add("alpine-load-failed");
 })();
