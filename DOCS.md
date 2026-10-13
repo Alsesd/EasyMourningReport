@@ -53,7 +53,7 @@ SQLite-база, ключ сесій та резервні копії — це �
 
 ## Windows EXE та PyInstaller
 
-PyOxidizer більше не використовується. Для локальної збірки на Windows:
+Для локальної збірки на Windows:
 
 ```powershell
 python -m poetry install
