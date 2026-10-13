@@ -72,6 +72,10 @@ class MessageDTO(DTO):
     message: str
 
 
+class ImportResultDTO(DTO):
+    message: str
+
+
 class SessionDTO(DTO):
     login: str
     role: Literal["admin", "store"]

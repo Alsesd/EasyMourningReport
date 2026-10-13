@@ -15,11 +15,11 @@
 
     <section class="product-toolbar" aria-label="Керування товарами">
         <div class="import-tile">
-            <form class="entry entry-form" method="post" action="/admin/products/import" enctype="multipart/form-data">
+            <form class="entry entry-form" @submit.prevent="importProducts($event.currentTarget)" enctype="multipart/form-data">
                 <label class="field grow"><span>Масове створення з Excel (.xlsx)</span>
                     <input type="file" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
                 </label>
-                <button class="primary">Імпортувати товари</button>
+                <button class="primary" type="submit" :disabled="importingProducts" x-text="importingProducts ? 'Імпортую…' : 'Імпортувати товари'"></button>
             </form>
             <p class="hint">Excel: колонка A — назва, колонка B — ціна. Дублікати назв пропускаються.</p>
         </div>
@@ -156,9 +156,9 @@
 
     <h2 id="password">Ваш пароль адміністратора</h2>
     <div class="card">
-        <form class="entry entry-form" method="post" action="/admin/password">
-            <label class="field grow"><span>Новий пароль (від 6 символів)</span><input name="password" type="password" autocomplete="new-password" minlength="6" required></label>
-            <button type="submit">Змінити пароль</button>
+        <form class="entry entry-form" @submit.prevent="changeAdminPassword()">
+            <label class="field grow"><span>Новий пароль (від 6 символів)</span><input x-model="adminPassword" type="password" autocomplete="new-password" minlength="6" required></label>
+            <button type="submit" :disabled="changingAdminPassword" x-text="changingAdminPassword ? 'Змінюю…' : 'Змінити пароль'"></button>
         </form>
     </div>
 </div>

@@ -40,6 +40,9 @@
             newStoreOpen: false,
             creatingProduct: false,
             creatingStore: false,
+            importingProducts: false,
+            adminPassword: "",
+            changingAdminPassword: false,
             newProduct: { name: "", price: "" },
             newStore: { name: "", login: "", password: "" },
 
@@ -80,6 +83,46 @@
 
             matchesProduct(product) {
                 return normalize(product.editName || product.name).includes(normalize(this.query));
+            },
+
+            async importProducts(form) {
+                if (this.importingProducts || !form) return;
+                const file = form.querySelector('input[type="file"]')?.files?.[0];
+                if (!file) {
+                    this.notify("Оберіть .xlsx файл для імпорту.", "err");
+                    return;
+                }
+                this.importingProducts = true;
+                try {
+                    const result = await window.apiRequest("/api/v1/admin/products/import", {
+                        method: "POST",
+                        body: new FormData(form)
+                    });
+                    form.reset();
+                    await this.refreshProducts();
+                    this.notify(result.message || "Імпорт завершено.");
+                } catch (error) {
+                    this.notify(error.message || "Не вдалося імпортувати Excel-файл.", "err");
+                } finally {
+                    this.importingProducts = false;
+                }
+            },
+
+            async changeAdminPassword() {
+                if (this.changingAdminPassword) return;
+                this.changingAdminPassword = true;
+                try {
+                    const result = await window.apiRequest("/api/v1/admin/password", {
+                        method: "PUT",
+                        body: { password: this.adminPassword }
+                    });
+                    this.adminPassword = "";
+                    this.notify(result.message || "Пароль змінено.");
+                } catch (error) {
+                    this.notify(error.message || "Не вдалося змінити пароль.", "err");
+                } finally {
+                    this.changingAdminPassword = false;
+                }
             },
 
             async refreshProducts() {

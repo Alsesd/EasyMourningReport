@@ -19,6 +19,7 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 | GET | `/session` | Signed-in user | Current identity and period |
 | GET | `/admin/products?period=YYYY-MM` | Admin | Product DTOs, usage counts, current-month price choices, and price history |
 | POST | `/admin/products` | Admin | Create product |
+| POST | `/admin/products/import` | Admin | Bounded `.xlsx` import with a message DTO |
 | PUT | `/admin/products/{id}` | Admin | Update name, price, and active state |
 | DELETE | `/admin/products/{id}` | Admin | Archive products with report history; otherwise delete |
 | POST | `/admin/products/{id}/restore` | Admin | Restore an archived product |
@@ -28,6 +29,7 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 | DELETE | `/admin/stores/{id}` | Admin | Archive stores with reports; otherwise delete |
 | POST | `/admin/stores/{id}/restore` | Admin | Restore an archived store |
 | PUT | `/admin/stores/{id}/password` | Admin | Reset store password |
+| PUT | `/admin/password` | Admin | Change the current administrator password |
 | GET | `/store/reports/{period}` | Store | Current report state and editable lines |
 | PUT | `/store/reports/{period}` | Store | Save a report snapshot as a draft or submit it |
 | GET | `/admin/reports?period=YYYY-MM` | Admin | Reports for all visible stores for a month, including missing submissions |

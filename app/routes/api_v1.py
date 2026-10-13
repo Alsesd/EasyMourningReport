@@ -6,7 +6,7 @@ for the Excel upload flow while the UI is migrated incrementally.
 """
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import delete, func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -25,6 +25,7 @@ from app.db.repositories.products import history_of, load_history, save_history
 from app.db.repositories.reports import build_lines, build_summary, find_report, report_total
 from app.db.repositories.stores import check_unique_store, store_periods
 from app.db.session import get_db
+from app.services.excel import parse_products_excel
 from app.services.pricing import (
     BASE_PERIOD,
     apply_price_change,
@@ -38,6 +39,7 @@ from app.dto import (
     AdminReportDetailDTO,
     AdminReportListItemDTO,
     AuditLogDTO,
+    ImportResultDTO,
     InactiveReportLineDTO,
     MessageDTO,
     MutationDTO,
@@ -218,6 +220,28 @@ def list_products(
         _product_dto(db, product, used.get(product.id, 0), active_period, history)
         for product in products
     ]
+
+
+@router.post("/admin/products/import", response_model=ImportResultDTO)
+async def import_products(
+    request: Request,
+    file: UploadFile = File(...),
+    user: User = Depends(api_admin_required),
+    db: Session = Depends(get_db),
+) -> ImportResultDTO:
+    """Import an Excel workbook through the JSON API with a bounded upload."""
+    max_import_bytes = 10 * 1024 * 1024
+    if not (file.filename or "").lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Завантажте файл Excel у форматі .xlsx")
+    payload = await file.read(max_import_bytes + 1)
+    if not payload or len(payload) > max_import_bytes:
+        raise HTTPException(status_code=400, detail="Файл порожній або перевищує 10 МБ")
+    # Reuse the existing import parser/transaction. Its legacy redirect is discarded;
+    # the flash message is returned as a DTO to the client-rendered page.
+    request.session.pop("flash", None)
+    parse_products_excel(payload, db, user, request)
+    flash = request.session.pop("flash", None) or {}
+    return ImportResultDTO(message=flash.get("text", "Імпорт завершено."))
 
 
 @router.post("/admin/products", response_model=ProductDTO, status_code=status.HTTP_201_CREATED)
@@ -441,6 +465,19 @@ def restore_store(
     audit(db, request, user.login, user.role, "відновлено магазин", store.name)
     db.commit()
     return _store_dto(db, store, account)
+
+
+@router.put("/admin/password", response_model=MessageDTO)
+def update_admin_password(
+    payload: StorePasswordDTO,
+    request: Request,
+    user: User = Depends(api_admin_required),
+    db: Session = Depends(get_db),
+) -> MessageDTO:
+    user.password_hash = hash_pw(new_password(payload.password))
+    audit(db, request, user.login, user.role, "змінено пароль адміністратора")
+    db.commit()
+    return MessageDTO(message="Ваш пароль змінено.")
 
 
 @router.put("/admin/stores/{sid}/password", response_model=MessageDTO)

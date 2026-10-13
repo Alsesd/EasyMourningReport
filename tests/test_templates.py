@@ -65,8 +65,8 @@ class Templates(unittest.TestCase):
         self.assertIn('x-for="p in activeProducts"', html)
         self.assertIn('x-for="s in activeStores"', html)
         self.assertIn('id="product-search"', html)
-        self.assertIn('action="/admin/products/import"', html)
-        self.assertIn('action="/admin/password"', html)
+        self.assertIn('@submit.prevent="importProducts($event.currentTarget)"', html)
+        self.assertIn('@submit.prevent="changeAdminPassword()"', html)
         self.assertIn("Змінити пароль", html)
 
     def test_admin_settings_shell_does_not_require_server_side_catalogue(self):
@@ -79,7 +79,7 @@ class Templates(unittest.TestCase):
         html = render("reports.html", "/admin/reports", user=ADMIN, period="2026-10")
         self.assertIn('x-data="adminReportsApp(', html)
         self.assertIn('x-for="row in rows"', html)
-        self.assertIn("/api/v1/admin/reports", env.get_template("reports.html").render(user=ADMIN, period="2026-10", request=NS(url=NS(path="/admin/reports")), flash=None, nav_period="2026-10", this_period="2026-10"))
+        self.assertIn('src="/static/admin-reports-app.js"', html)
         html = render("report_view.html", "/admin/reports/5", user=ADMIN, report_id=5)
         self.assertIn('x-data="adminReportDetailApp(5)"', html)
         self.assertIn("Заблокувати звіт", html)
