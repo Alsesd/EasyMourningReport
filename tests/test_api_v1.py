@@ -63,8 +63,8 @@ class RestApiTests(unittest.TestCase):
             self.store_user_id = store_user.id
             self.product_id = product.id
 
-        self.admin_client = TestClient(app)
-        self.store_client = TestClient(app)
+        self.admin_client = TestClient(app, follow_redirects=False)
+        self.store_client = TestClient(app, follow_redirects=False)
         admin_login = self.admin_client.post(
             "/login", data={"login": "apiadmin", "password": "admin123"},
             headers={"origin": "http://testserver"},
@@ -145,7 +145,7 @@ class RestApiTests(unittest.TestCase):
             history = [
                 (row.period, row.price_cents)
                 for row in db.scalars(
-                    select(ProductPrice).where(ProductPrice.product_id == created_data["id"])
+                    select(ProductPrice).where(ProductPrice.product_id == created_data["id"]).order_by(ProductPrice.id)
                 )
             ]
         self.assertEqual(
