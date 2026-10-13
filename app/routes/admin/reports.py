@@ -23,23 +23,8 @@ def reports_page(
     user: User = Depends(admin_required),
     db: Session = Depends(get_db),
 ):
-    period = admin_period(request, period)
-    reports = {
-        r.store_id: r
-        for r in db.scalars(select(Report).where(Report.period == period))
-    }
-    rows = [
-        {
-            "store": s,
-            "report": reports.get(s.id),
-            "total": report_total(reports[s.id]) if s.id in reports else 0,
-        }
-        for s in db.scalars(select(Store).order_by(Store.name))
-        if not s.archived or s.id in reports
-    ]
-    return render(
-        request, "reports.html", {"user": user, "period": period, "rows": rows}
-    )
+    selected = admin_period(request, period)
+    return render(request, "reports.html", {"user": user, "period": selected})
 
 
 @router.get("/{rid}")
@@ -52,29 +37,8 @@ def report_view(
     report = db.get(Report, rid)
     if not report:
         raise HTTPException(404)
-    request.session["period"] = report.period  # the tabs keep showing this month
-    rows, inactive, inactive_total = build_lines(db, report.period, report.items)
-    lines = [
-        {
-            "name": r["name"],
-            "label": i["label"],
-            "price": i["price"],
-            "qty": i["qty"],
-            "sum": i["qty"] * i["price"],
-        }
-        for r in rows
-        for i in r["inputs"]
-        if i["qty"] or r["repriced"]
-    ]
-    ctx = {
-        "user": user,
-        "report": report,
-        "period": report.period,
-        "lines": lines,
-        "inactive_rows": inactive,
-        "total": report_total(report),
-    }
-    return render(request, "report_view.html", ctx)
+    request.session["period"] = report.period
+    return render(request, "report_view.html", {"user": user, "report_id": rid})
 
 
 @router.post("/{rid}/status")
