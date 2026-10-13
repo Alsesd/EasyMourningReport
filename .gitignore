@@ -10,3 +10,6 @@ build/
 dist/
 *.spec
 app/static/alpine.min.js
+
+# Generated Windows Tailscale helper binary
+/tailscale-helper/tailscale-helper.exe
