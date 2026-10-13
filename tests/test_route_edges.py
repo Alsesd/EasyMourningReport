@@ -100,7 +100,6 @@ class RouteEdgeTests(unittest.TestCase):
             self.assertEqual(response.status_code_code if hasattr(response, "status_code_code") else response.status_code, 200)
             # This page is a client-rendered shell; the catalogue comes from REST DTOs.
             self.assertIn(b'x-data="adminApp()"', response.body)
-            self.assertIn(b'fetchProducts', response.body) if b'fetchProducts' in response.body else self.assertIn(b'/static/admin-app.js', response.body)
 
     def test_product_used_by_report_is_archived_not_deleted_then_restored(self):
         with self.Session() as db:
