@@ -75,8 +75,11 @@ class AdminMutationTests(unittest.TestCase):
             req_revert = make_request([("name", "Bread"), ("price", "1.00"), ("active", "on")])
             asyncio.run(product_edit(req_revert, self.product_id, admin, db))
             history = [(row.period, row.price_cents) for row in db.scalars(select(ProductPrice).where(ProductPrice.product_id == self.product_id))]
-            self.assertEqual(history, [(BASE_PERIOD, 100)])
-            self.assertIn("скасовано", req_revert.session["flash"]["text"])
+            self.assertEqual(
+                history,
+                [(BASE_PERIOD, 100), (current_period(), 200), (f"{current_period()}_1", 100)],
+            )
+            self.assertIn("1.00", req_revert.session["flash"]["text"])
 
     def test_product_edit_changes_name_and_toggles_active_state_both_ways(self):
         with self.Session() as db:
