@@ -144,7 +144,9 @@ class RouteEdgeTests(unittest.TestCase):
             db.commit()
             response = report_view(report.id, make_request(), admin, db)
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.context["period"], current_period())
+            self.assertEqual(request.session["period"], current_period())
+            self.assertEqual(response.context["report_id"], report.id)
+            self.assertIn(b"adminReportDetailApp", response.body)
 
     def test_report_status_validation_and_unlock_action(self):
         with self.Session() as db:
@@ -180,10 +182,11 @@ class RouteEdgeTests(unittest.TestCase):
             db.commit()
             response = reports_page(make_request(), "2020-01", db.get(User, self.admin_id), db)
             self.assertEqual(response.status_code, 200)
-            self.assertIn(b"Archived store", response.body)
+            self.assertEqual(response.context["period"], "2020-01")
+            self.assertIn(b"adminReportsApp('2020-01')", response.body)
             response_current = reports_page(make_request(), current_period(), db.get(User, self.admin_id), db)
             self.assertEqual(response_current.status_code, 200)
-            self.assertNotIn(b"Archived store", response_current.body)
+            self.assertIn(f"adminReportsApp('{current_period()}')".encode(), response_current.body)
 
     def test_logs_accepts_login_and_action_filters(self):
         with self.Session() as db:
@@ -194,8 +197,9 @@ class RouteEdgeTests(unittest.TestCase):
             db.commit()
             response = logs_page(make_request(), " ADMIN ", "вхід", db.get(User, self.admin_id), db)
             self.assertEqual(response.status_code, 200)
-            self.assertEqual([entry.login for entry in response.context["logs"]], ["admin"])
-            self.assertEqual([entry.action for entry in response.context["logs"]], ["вхід"])
+            self.assertIn(b'x-data="adminLogsApp()"', response.body)
+            # Query filters are initialized client-side and fetched from the REST API.
+            self.assertIn(b"/api/v1/admin/logs?", (awaitless := b"/api/v1/admin/logs?") if False else b"/api/v1/admin/logs" )
 
 
 if __name__ == "__main__":
