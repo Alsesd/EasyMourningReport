@@ -28,24 +28,40 @@ if %errorlevel% neq 0 (
     timeout /t 2 /nobreak >nul
 )
 
-:: Check login/daemon status
-tailscale status >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [*] Tailscale is not logged in or daemon is stopped. Opening login...
+:: Check the actual Tailscale backend state. "status" can exit successfully while logged out.
+set "TS_STATE=Unknown"
+del "%TEMP%\\legkyi-ts-status.json" >nul 2>nul
+tailscale status --json > "%TEMP%\\legkyi-ts-status.json" 2>nul
+for /f "usebackq delims=" %%S in (`powershell -NoProfile -Command "try { (ConvertFrom-Json -InputObject (Get-Content -Raw '%TEMP%\\legkyi-ts-status.json')).BackendState } catch { 'Unknown' }"`) do set "TS_STATE=%%S"
+del "%TEMP%\\legkyi-ts-status.json" >nul 2>nul
+
+if /i not "!TS_STATE!"=="Running" (
+    echo [*] Tailscale needs sign-in or is stopped. Opening browser authentication...
     tailscale login
-    tailscale status >nul 2>nul
-    if %errorlevel% neq 0 (
-        echo [!] Login not completed. Skipping Funnel.
+    echo.
+    echo Complete the Tailscale sign-in in your browser, then press any key to continue.
+    pause >nul
+    set "TS_STATE=Unknown"
+    del "%TEMP%\\legkyi-ts-status.json" >nul 2>nul
+    tailscale status --json > "%TEMP%\\legkyi-ts-status.json" 2>nul
+    for /f "usebackq delims=" %%S in (`powershell -NoProfile -Command "try { (ConvertFrom-Json -InputObject (Get-Content -Raw '%TEMP%\\legkyi-ts-status.json')).BackendState } catch { 'Unknown' }"`) do set "TS_STATE=%%S"
+    del "%TEMP%\\legkyi-ts-status.json" >nul 2>nul
+    if /i not "!TS_STATE!"=="Running" (
+        echo [!] Tailscale is still not connected. Skipping Funnel and running locally.
         goto :START_APP
     )
 )
 
-:: Enable Funnel
+:: Enable Funnel only after successful Tailscale login.
 echo [*] Starting Tailscale Funnel on port %PORT%...
 tailscale funnel --bg %PORT%
-set COOKIE_SECURE=1
-echo.
-tailscale funnel status
+if errorlevel 1 (
+    echo [!] Funnel could not be enabled. The app will still run locally.
+) else (
+    set COOKIE_SECURE=1
+    echo.
+    tailscale funnel status
+)
 
 :: ==========================================
 :: 2. APPLICATION LAUNCH
