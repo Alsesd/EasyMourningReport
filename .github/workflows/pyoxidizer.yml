@@ -8,6 +8,7 @@ on:
       - soupv2-fixes
     tags:
       - 'v*'
+      - 'Soup.v*'
 
 permissions:
   contents: write
