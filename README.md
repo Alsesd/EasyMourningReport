@@ -79,7 +79,7 @@ EasyMourningReport/
 │   ├── templates/        # Шаблони Jinja2
 │   └── main.py           # Композиція FastAPI, життєвий цикл і middleware
 ├── tests/                # pytest, FastAPI TestClient та ізольовані тести БД
-├── .github/workflows/   # Тести та збірка Windows EXE через PyInstaller
+├── .github/workflows/    # Тести та збірка Windows EXE через PyInstaller
 ├── DOCS.md               # Архітектурна та технічна документація
 ├── README.md
 ├── pyproject.toml
@@ -88,7 +88,6 @@ EasyMourningReport/
 ├── flake.nix             # Nix flake для автоматизації на Linux
 ├── start.bat             # Запуск Windows та необов'язковий Tailscale Funnel
 └── setup-windows-uvicorn.ps1 # Одноразове налаштування команди uvicorn у PowerShell
-└── backups/              # Снапшоти бази даних SQLite
 ```
 
 Архітектура розділена за відповідальністю: `main.py` лише збирає FastAPI-застосунок, `routes/` відповідає за HTTP, `services/` — за бізнес-логіку, `db/models/` — за SQLModel-схему, а `db/repositories/` — за запити до даних. Внутрішні пакети не переекспортують функції через динамічні фасади: імпортуй символ безпосередньо з модуля, де його визначено.
