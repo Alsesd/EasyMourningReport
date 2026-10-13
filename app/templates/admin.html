@@ -6,9 +6,9 @@
 
     <section class="card" id="tailscale-help" aria-labelledby="tailscale-help-title">
         <h2 id="tailscale-help-title">Ключ авторизації Tailscale</h2>
-        <p class="hint">Відкрийте консоль Tailscale за посиланням нижче, увійдіть до облікового запису з відповідними правами та натисніть <strong>Generate auth key</strong>. За можливості виберіть одноразове використання й короткий строк дії.</p>
-        <p><a href="https://login.tailscale.com/admin/settings/keys" target="_blank" rel="noopener noreferrer">Де отримати ключ Tailscale ↗</a></p>
-        <p class="hint">Зберігайте ключ у таємниці: не публікуйте його й не додавайте до Git або файлів запуску. <a href="https://tailscale.com/docs/features/access-control/auth-keys" target="_blank" rel="noopener noreferrer">Офіційна документація ↗</a></p>
+        <p class="hint">Щоб отримати ключ, відкрийте офіційну консоль Tailscale, перейдіть у розділ Keys і натисніть <strong>Generate auth key</strong>.</p>
+        <p><a href="https://login.tailscale.com/admin/settings/keys" target="_blank" rel="noopener noreferrer">Відкрити Tailscale Admin Console → Keys ↗</a></p>
+        <p class="hint">Виберіть потрібні параметри ключа та скопіюйте його після створення. Для безпеки використовуйте короткий строк дії й одноразове використання, якщо це підходить для вашого сценарію. Не публікуйте ключ і не додавайте його до Git чи файлів запуску. <a href="https://tailscale.com/docs/features/access-control/auth-keys" target="_blank" rel="noopener noreferrer">Офіційна документація про auth keys ↗</a></p>
     </section>
 
     <div class="flash" x-show="message" :class="'flash ' + messageKind" role="status" aria-live="polite">
