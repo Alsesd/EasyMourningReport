@@ -75,7 +75,7 @@ def get_status() -> dict[str, Any]:
     except (OSError, ValueError):
         pass
     if not enabled:
-        result.update(state="disabled", public_url="", error="")
+        result.update(state="disabled", public_url="", login_url="", error="")
     elif _process is not None and _process.poll() is not None and not result["error"]:
         result["state"] = "stopped"
     return result
