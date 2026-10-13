@@ -91,7 +91,8 @@
                                     </span>
                                 </template>
                             </div>
-                            <p class="hint price-note">Ціни за минулі місяці та вже внесені звіти не зміняться.</p>
+                            <button type="button" class="primary save-price" x-show="hasPriceChanges(p)" :disabled="p.priceSaving || p.saving || !hasPriceChanges(p)" @click="savePrice(p)" x-text="p.priceSaving ? 'Зберігаю ціну…' : 'Зберегти ціну'"></button>
+                            <p class="hint price-note">Кожна зміна зберігається окремо. У звітах цього місяця будуть усі використані ціни; з наступного місяця залишиться остання. Уже збережені звіти не змінюються.</p>
                         </div>
                     </div>
                     <div class="product-actions">
