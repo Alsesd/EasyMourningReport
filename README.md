@@ -251,7 +251,7 @@ test
 
 Windows-реліз збирається як один автономний файл за допомогою PyInstaller; CI спершу компілює окремий Tailscale helper на Go та вкладає його в EXE.
 
-Для локальної збірки на Windows із установленим Python і Poetry:
+Для локальної збірки на Windows потрібні Python, Poetry та Go 1.24+:
 
 ```powershell
 python -m poetry install
