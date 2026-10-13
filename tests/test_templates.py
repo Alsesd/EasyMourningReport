@@ -75,6 +75,14 @@ class Templates(unittest.TestCase):
         self.assertIn('@submit.prevent="importProducts($event.currentTarget)"', html)
         self.assertIn('@submit.prevent="changeAdminPassword()"', html)
         self.assertIn("Змінити пароль", html)
+        self.assertIn('x-show="hasProductChanges(p)"', html)
+        self.assertIn('x-show="hasStoreChanges(s)"', html)
+        self.assertIn('x-show="s.newPassword.length > 0"', html)
+        self.assertIn('x-show="adminPassword.length > 0"', html)
+        self.assertIn('x-show="p.priceOpen"', html)
+        self.assertIn('id="tailscale"', html)
+        self.assertIn('@submit.prevent="startTailscale()"', html)
+        self.assertIn('tailscale.login_url', html)
 
 
     def test_admin_settings_shell_does_not_require_server_side_catalogue(self):
