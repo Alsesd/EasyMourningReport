@@ -36,6 +36,7 @@ from app.services.pricing import (
 from app.dto import (
     AdminReportDTO,
     AdminReportDetailDTO,
+    AdminReportListItemDTO,
     AuditLogDTO,
     InactiveReportLineDTO,
     MessageDTO,
@@ -543,12 +544,12 @@ def save_store_report(
 
 # --- Administrator: submitted reports and monthly summary -------------------
 
-@router.get("/admin/reports", response_model=list[AdminReportDTO])
+@router.get("/admin/reports", response_model=list[AdminReportListItemDTO])
 def list_admin_reports(
     period: str | None = None,
     _: User = Depends(api_admin_required),
     db: Session = Depends(get_db),
-) -> list[AdminReportDTO]:
+) -> list[AdminReportListItemDTO]:
     selected = parse_period(period)
     reports_by_store = {
         report.store_id: report
@@ -559,18 +560,16 @@ def list_admin_reports(
         report = reports_by_store.get(store.id)
         if store.archived and not report:
             continue
-        if not report:
-            continue
         result.append(
-            AdminReportDTO(
-                report_id=report.id,
+            AdminReportListItemDTO(
                 store_id=store.id,
                 store_name=store.name,
                 store_archived=store.archived,
+                report_id=report.id if report else None,
                 period=selected,
-                status=report.status,
-                total_cents=report_total(report),
-                item_count=len(report.items),
+                status=report.status if report else "none",
+                total_cents=report_total(report) if report else 0,
+                item_count=len(report.items) if report else 0,
             )
         )
     return result
@@ -667,6 +666,13 @@ def read_admin_summary(
         store_totals_cents=totals,
         grand_total_cents=grand,
     )
+
+
+@router.get("/admin/log-actions", response_model=list[str])
+def read_admin_log_actions(
+    _: User = Depends(api_admin_required),
+) -> list[str]:
+    return ACTIONS
 
 
 @router.get("/admin/logs", response_model=list[AuditLogDTO])

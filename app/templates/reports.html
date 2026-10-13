@@ -1,8 +1,36 @@
-{% extends "base.html" %}{% import "_ui.html" as ui %}{% block body %}
-<h1>Звіти</h1>
-{{ ui.month_nav('/admin/reports', period, prev_period, next_period) }}
-<div class="card">{% for x in rows %}{% if x.report %}<a class="item three" href="/admin/reports/{{ x.report.id }}">{% else %}<div class="item three">{% endif %}
-<span>{{ x.store.name }}{% if x.store.archived %}<span class="sub">В архіві</span>{% endif %}</span>{{ ui.pill(x.report.status if x.report else 'none') }}<span class="sum">{{ x.total|money }}</span>
-{% if x.report %}</a>{% else %}</div>{% endif %}{% else %}<p class="note">Магазинів ще немає.</p>{% endfor %}</div>
-<p><a class="btn" href="/admin/summary?period={{ period }}">Відкрити зведений звіт</a></p>
+{% extends "base.html" %}{% block body %}
+<div x-data="adminReportsApp('{{ period }}')" x-init="init()" x-cloak>
+    <h1>Звіти</h1>
+    <div class="month-nav" aria-label="Вибір місяця">
+        <a class="step" href="#" @click.prevent="setPeriod(previousPeriod)" aria-label="Попередній місяць">‹</a>
+        <input type="month" :value="period" @change="setPeriod($event.target.value)" aria-label="Місяць" pattern="\d{4}-\d{2}">
+        <a class="step" href="#" @click.prevent="setPeriod(nextPeriod)" aria-label="Наступний місяць">›</a>
+    </div>
+    <div class="flash" x-show="message" :class="'flash ' + messageKind" role="status" aria-live="polite">
+        <span x-text="message"></span><button type="button" class="x" aria-label="Закрити" @click="message = ''">×</button>
+    </div>
+    <p class="note" x-show="loading">Завантажую звіти…</p>
+    <div class="card">
+        <p class="note" x-show="!loading && rows.length === 0">Магазинів ще немає.</p>
+        <template x-for="row in rows" :key="row.store_id">
+            <div>
+                <template x-if="row.report_id">
+                    <a class="item three" :href="'/admin/reports/' + row.report_id">
+                        <span><span x-text="row.store_name"></span><span class="sub" x-show="row.store_archived">В архіві</span></span>
+                        <span class="pill" :class="statusClass(row.status)" x-text="statusLabel(row.status)"></span>
+                        <span class="sum" x-text="formatMoney(row.total_cents)"></span>
+                    </a>
+                </template>
+                <template x-if="!row.report_id">
+                    <div class="item three">
+                        <span><span x-text="row.store_name"></span><span class="sub" x-show="row.store_archived">В архіві</span></span>
+                        <span class="pill" x-text="statusLabel(row.status)"></span>
+                        <span class="sum" x-text="formatMoney(row.total_cents)"></span>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+    <p><a class="btn" :href="'/admin/summary?period=' + period">Відкрити зведений звіт</a></p>
+</div>
 {% endblock %}

@@ -131,6 +131,17 @@ class StoreReportDTO(DTO):
     available_periods: list[str] = Field(default_factory=list)
 
 
+class AdminReportListItemDTO(DTO):
+    store_id: int
+    store_name: str
+    store_archived: bool
+    report_id: int | None = None
+    period: str
+    status: Literal["none", "draft", "submitted"]
+    total_cents: int = 0
+    item_count: int = 0
+
+
 class AdminReportDTO(DTO):
     report_id: int
     store_id: int

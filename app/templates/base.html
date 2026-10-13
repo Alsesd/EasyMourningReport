@@ -25,10 +25,16 @@
 <a href="/admin/reports?period={{ nav_period }}"{% if p.startswith('/admin/reports') %} aria-current="page"{% endif %}>Звіти</a>
 <a href="/admin/summary?period={{ nav_period }}"{% if p.startswith('/admin/summary') %} aria-current="page"{% endif %}>Зведений</a>
 <a href="/admin/logs"{% if p.startswith('/admin/logs') %} aria-current="page"{% endif %}>Журнал</a></nav>{% endif %}
-{% if request.url.path in ['/admin', '/report'] %}
+{% if request.url.path in ['/admin', '/report', '/admin/reports', '/admin/summary', '/admin/logs'] or request.url.path.startswith('/admin/reports/') %}
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js"></script>
 <script defer src="/static/api-client.js"></script>
-{% if request.url.path == '/admin' %}<script defer src="/static/admin-app.js"></script>{% else %}<script defer src="/static/report-app.js"></script>{% endif %}
+{% if request.url.path == '/admin' %}<script defer src="/static/admin-app.js"></script>
+{% elif request.url.path == '/report' %}<script defer src="/static/report-app.js"></script>
+{% elif request.url.path == '/admin/reports' %}<script defer src="/static/admin-reports-app.js"></script>
+{% elif request.url.path.startswith('/admin/reports/') %}<script defer src="/static/admin-report-detail-app.js"></script>
+{% elif request.url.path == '/admin/summary' %}<script defer src="/static/admin-summary-app.js"></script>
+{% elif request.url.path == '/admin/logs' %}<script defer src="/static/admin-logs-app.js"></script>
+{% endif %}
 {% endif %}
 <script src="/static/app.js" defer></script>
 </body></html>

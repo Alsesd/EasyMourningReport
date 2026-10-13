@@ -30,10 +30,11 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 | PUT | `/admin/stores/{id}/password` | Admin | Reset store password |
 | GET | `/store/reports/{period}` | Store | Current report state and editable lines |
 | PUT | `/store/reports/{period}` | Store | Save a report snapshot as a draft or submit it |
-| GET | `/admin/reports?period=YYYY-MM` | Admin | Reports for a month |
+| GET | `/admin/reports?period=YYYY-MM` | Admin | Reports for all visible stores for a month, including missing submissions |
 | GET | `/admin/reports/{id}` | Admin | Report detail |
 | PATCH | `/admin/reports/{id}` | Admin | Lock/unlock by setting status |
 | GET | `/admin/summary?period=YYYY-MM&submitted_only=false` | Admin | Summary DTO and totals |
+| GET | `/admin/log-actions` | Admin | Valid audit action filter values |
 | GET | `/admin/logs?login=&action=&limit=200` | Admin | Recent audit logs |
 
 ## Example requests
@@ -67,4 +68,4 @@ Content-Type: application/json
 
 ## Client rendering
 
-The admin catalogue/store view and store report editor are Alpine.js components. They fetch DTOs, update the DOM client-side, show loading/error states, and use JSON writes. Jinja remains responsible for the HTML shell and for the non-migrated report list, summary, logs, login, and export views; this keeps the change incremental and avoids introducing a frontend bundler into the portable Windows build.
+The admin catalogue/store view, store report editor, admin report list/detail, monthly summary and audit log are Alpine.js components. They fetch DTOs, update the DOM client-side, show loading/error states, and use JSON writes. Jinja remains responsible for the HTML shell and for the non-migrated report list, summary, logs, login, and export views; this keeps the change incremental and avoids introducing a frontend bundler into the portable Windows build.

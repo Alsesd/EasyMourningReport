@@ -75,28 +75,26 @@ class Templates(unittest.TestCase):
         self.assertIn('x-show="loading"', html)
         self.assertIn('id="archive"', html)
 
-    def test_admin_report_pages(self):
-        store = NS(name="Магазин 1", archived=True)
-        html = render("reports.html", "/admin/reports", user=ADMIN, period="2026-10", prev_period="2026-09",
-                      next_period="2026-11", rows=[{"store": store, "report": NS(id=5, status="submitted"), "total": 1234},
-                                                   {"store": NS(name="Б", archived=False), "report": None, "total": 0}])
-        self.assertIn("Надіслано", html)
-        self.assertIn("Немає звіту", html)
-        self.assertIn("В архіві", html)
-        html = render("report_view.html", "/admin/reports/5", user=ADMIN, period="2026-10",
-                      report=NS(id=5, status="draft", period="2026-10", store=store),
-                      lines=[{"name": "Хліб", "label": "new", "price": 130, "qty": 0, "sum": 0}],
-                      inactive_rows=[], total=0)
-        self.assertIn("нова ціна", html)
+    def test_admin_report_pages_use_rest_shells(self):
+        html = render("reports.html", "/admin/reports", user=ADMIN, period="2026-10")
+        self.assertIn('x-data="adminReportsApp(', html)
+        self.assertIn('x-for="row in rows"', html)
+        self.assertIn("/api/v1/admin/reports", env.get_template("reports.html").render(user=ADMIN, period="2026-10", request=NS(url=NS(path="/admin/reports")), flash=None, nav_period="2026-10", this_period="2026-10"))
+        html = render("report_view.html", "/admin/reports/5", user=ADMIN, report_id=5)
+        self.assertIn('x-data="adminReportDetailApp(5)"', html)
         self.assertIn("Заблокувати звіт", html)
 
-    def test_summary_keeps_filter_in_month_links(self):
-        html = render("summary.html", "/admin/summary", user=ADMIN, period="2026-10", prev_period="2026-09",
-                      next_period="2026-11", stores=[NS(name="М1")], submitted_only=True, store_sums=[100], grand=100,
-                      rows=[{"name": "Хліб", "note": "1.20 → 1.30", "cells": [3], "qty": 3, "sum": 100}])
-        self.assertIn("period=2026-09&amp;submitted_only=1", html)
-        self.assertIn("ціна: 1.20 → 1.30", html)
-        self.assertIn("checked", html)
+    def test_summary_uses_rest_and_keeps_excel_export(self):
+        html = render("summary.html", "/admin/summary", user=ADMIN, period="2026-10", submitted_only=True)
+        self.assertIn('x-data="adminSummaryApp(', html)
+        self.assertIn("Лише надіслані", html)
+        self.assertIn("/admin/summary.xlsx", html)
+
+    def test_logs_uses_rest_filters(self):
+        html = render("logs.html", "/admin/logs", user=ADMIN)
+        self.assertIn('x-data="adminLogsApp()"', html)
+        self.assertIn("Журнал дій", html)
+        self.assertIn('x-model="action"', html)
 
     def test_logs_and_error(self):
         log = NS(ts=datetime(2026, 10, 1, 12, 0), login="admin", role="admin", action="змінено ціну товару",

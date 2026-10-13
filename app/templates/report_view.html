@@ -1,11 +1,38 @@
-{% extends "base.html" %}{% import "_ui.html" as ui %}{% block body %}
-{% set locked = report.status == 'submitted' %}
-<p class="crumb"><a href="/admin/reports?period={{ report.period }}">‹ Усі звіти за {{ report.period }}</a></p>
-<div class="head"><div><h1>{{ report.store.name }}</h1><span class="sub">{{ report.period }}</span></div>{{ ui.pill(report.status) }}</div>
-<form class="actions-row" method="post" action="/admin/reports/{{ report.id }}/status"{% if not locked %} data-confirm="Заблокувати звіт? Магазин не зможе його змінити, поки ви не розблокуєте."{% endif %}>
-<input type="hidden" name="status" value="{{ 'draft' if locked else 'submitted' }}"><button class="{{ '' if locked else 'primary' }}">{{ 'Розблокувати для редагування' if locked else 'Заблокувати звіт' }}</button>
-<p class="hint">{{ 'Звіт заблоковано: магазин не може його змінити.' if locked else 'Магазин ще може редагувати цей звіт. Блокування закриває його для змін.' }}</p></form>
-<div class="card">{% for l in lines %}<div class="item two"><span>{{ l.name }}{{ ui.price_tag(l.label) }}<span class="sub">{{ l.qty }} × {{ l.price|money }}</span></span><span class="sum">{{ l.sum|money }}</span></div>{% else %}<p class="note">Кількостей у звіті ще немає.</p>{% endfor %}
-{% for r in inactive_rows %}<div class="item two"><span>{{ r.name }}<span class="sub">{{ 'В архіві' if r.archived else 'Неактивний' }} · {{ r.lines }}</span></span><span class="sum">{{ r.sum|money }}</span></div>{% endfor %}
-<div class="item two"><b>Разом</b><span class="sum">{{ total|money }}</span></div></div>
+{% extends "base.html" %}{% block body %}
+<div x-data="adminReportDetailApp({{ report_id }})" x-init="init()" x-cloak>
+    <p class="crumb"><a :href="'/admin/reports?period=' + (report ? report.period : '')">‹ Усі звіти за <span x-text="report ? report.period : ''"></span></a></p>
+    <div class="flash" x-show="message" :class="'flash ' + messageKind" role="status" aria-live="polite">
+        <span x-text="message"></span><button type="button" class="x" aria-label="Закрити" @click="message = ''">×</button>
+    </div>
+    <p class="note" x-show="loading">Завантажую звіт…</p>
+    <template x-if="report && !loading">
+        <div>
+            <div class="head"><div><h1 x-text="report.store_name"></h1><span class="sub" x-text="report.period"></span></div>
+                <span class="pill" :class="statusClass(report.status)" x-text="statusLabel(report.status)"></span>
+            </div>
+            <div class="actions-row">
+                <button type="button" :class="report.status === 'submitted' ? '' : 'primary'" @click="toggleLock()" :disabled="saving"
+                    x-text="saving ? 'Зберігаю…' : (report.status === 'submitted' ? 'Розблокувати для редагування' : 'Заблокувати звіт')"></button>
+                <p class="hint" x-text="report.status === 'submitted' ? 'Звіт заблоковано: магазин не може його змінити.' : 'Магазин ще може редагувати цей звіт. Блокування закриває його для змін.'"></p>
+            </div>
+            <div class="card">
+                <template x-for="(line, index) in displayLines" :key="line.name + '-' + line.price_cents + '-' + index">
+                    <div class="item two">
+                        <span><span x-text="line.name"></span><span class="tag" :class="priceTagClass(line.label)" x-show="line.label" x-text="priceLabel(line.label)"></span>
+                            <span class="sub"><span x-text="line.quantity"></span> × <span x-text="formatMoney(line.price_cents)"></span></span></span>
+                        <span class="sum" x-text="formatMoney(line.sum_cents)"></span>
+                    </div>
+                </template>
+                <p class="note" x-show="displayLines.length === 0">Кількостей у звіті ще немає.</p>
+                <template x-for="(row, index) in report.inactive_rows" :key="row.name + '-' + index">
+                    <div class="item two">
+                        <span><span x-text="row.name"></span><span class="sub"><span x-text="row.archived ? 'В архіві' : 'Неактивний'"></span> · <span x-text="row.lines"></span></span></span>
+                        <span class="sum" x-text="formatMoney(row.sum_cents)"></span>
+                    </div>
+                </template>
+                <div class="item two"><b>Разом</b><span class="sum" x-text="formatMoney(report.total_cents)"></span></div>
+            </div>
+        </div>
+    </template>
+</div>
 {% endblock %}
