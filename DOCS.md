@@ -13,7 +13,8 @@ EasyMourningReport — серверний FastAPI/Jinja2-застосунок д
 - `app/templates/` містить Jinja2-шаблони сторінок.
 - `app/static/` містить CSS, JavaScript, іконки та ресурси PWA.
 - `run.py` є спільною точкою входу для запуску з вихідного коду та EXE.
-- `start.bat` є Windows-обгорткою запуску; за наявності Tailscale вона може перевірити з'єднання й увімкнути Funnel.
+- `start.bat` запускає локальний застосунок; Tailscale Funnel керується з адміністративного UI.
+- `app/core/tailscale.py` керує життєвим циклом ізольованого вузла; `tailscale-helper/` містить Go `tsnet`-helper і HTTPS reverse proxy.
 - `.github/workflows/build-windows.yml` запускає тести та збирає Windows EXE через PyInstaller.
 
 ## Клієнтський рендеринг
@@ -63,14 +64,18 @@ SQLite-база, ключ сесій та резервні копії — це �
 
 ## Windows EXE та PyInstaller
 
-Для локальної збірки на Windows:
+Для локальної збірки на Windows потрібен Go 1.24+ для `tsnet` helper, Python і Poetry:
 
 ```powershell
 python -m poetry install
 python -m poetry run python -m pip install pyinstaller==6.16.0
 Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js" -OutFile app/static/alpine.min.js
 if ((Get-Item app/static/alpine.min.js).Length -lt 10000) { throw "Alpine runtime download was incomplete." }
-python -m poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --collect-all fastapi --collect-all starlette --collect-all sqlmodel --collect-all sqlalchemy --collect-all jinja2 --collect-all openpyxl --collect-all uvicorn run.py
+cd tailscale-helper
+go mod download
+go build -trimpath -ldflags "-s -w" -o tailscale-helper.exe .
+cd ..
+python -m poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --add-binary "tailscale-helper/tailscale-helper.exe;." --collect-all fastapi --collect-all starlette --collect-all sqlmodel --collect-all sqlalchemy --collect-all jinja2 --collect-all openpyxl --collect-all uvicorn run.py
 ```
 
 Результат — `dist/LegkyiZvit.exe`. PyInstaller збирає Python та залежності в один файл і включає шаблони та статичні ресурси. Не запускайте EXE безпосередньо з вікна перегляду ZIP: спочатку розпакуйте файл у постійну теку.
@@ -88,9 +93,11 @@ CI виконує такі кроки по порядку:
 
 ## Tailscale та Funnel
 
-У Windows `start.bat` використовує встановлений Tailscale CLI. Коли Tailscale не підключений, скрипт запускає `tailscale login`, після чого користувач завершує вхід у браузері. Авторизаційний стан зберігається самим Tailscale; не потрібно зберігати reusable auth key у файлі скрипта чи репозиторії.
+Адміністративна панель керує вбудованим helper на базі Tailscale `tsnet`. Це окремий вузол застосунку з власною ідентичністю в каталозі `%LOCALAPPDATA%\\LegkyiZvit\\tailscale` (або в `LEGKYI_DATA_DIR`), а не керування системним Tailscale daemon.
 
-Funnel може працювати лише за умови, що його дозволено політиками tailnet. Якщо Tailscale або Funnel недоступний, застосунок має продовжувати запуск у локальному режимі. Прапорець `COOKIE_SECURE=1` слід установлювати лише тоді, коли HTTPS Funnel успішно запущено.
+Auth key необов'язковий. Без нього `tsnet` може надати browser login URL; UI регулярно оновлює статус і показує посилання. Якщо key наданий, Python передає його дочірньому helper через stdin. Key не записується у файл, командний рядок, змінні середовища чи статус JSON. Логи helper не повинні містити сам key.
+
+Явне ввімкнення зберігається окремим marker-файлом, тому helper повторно запускається разом із застосунком. Вимкнення з UI видаляє marker і завершує процес. Helper термінує HTTPS на Funnel та проксуює до локального FastAPI; cookies отримують `Secure` лише на HTTPS-межі. Funnel може працювати лише якщо його дозволено політиками tailnet; збій helper не повинен блокувати локальний запуск.
 
 ## Тестування
 
