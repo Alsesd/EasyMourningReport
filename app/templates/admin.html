@@ -4,10 +4,25 @@
     <h1 data-admin-period="{{ this_period }}">Налаштування</h1>
     <p class="hint">Каталог і магазини завантажуються через REST API. Ціни зберігаються в копійках, а зміни ціни діють з поточного місяця; вже збережені рядки звітів не перераховуються.</p>
 
-    <section class="card" id="tailscale-help" aria-labelledby="tailscale-help-title">
-        <h2 id="tailscale-help-title">Підключення Tailscale</h2>
-        <p class="hint">Для публічного HTTPS-доступу запускайте застосунок через <code>start.bat</code>. Якщо Tailscale не підключений, скрипт відкриє браузер для входу. Після входу Tailscale зберігає стан пристрою, тому не потрібно копіювати або зберігати повторно використовуваний auth key.</p>
-        <p><a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener noreferrer">Відкрити пристрої Tailscale ↗</a> · <a href="https://tailscale.com/kb/1223/funnel" target="_blank" rel="noopener noreferrer">Документація Funnel ↗</a></p>
+    <section class="card tailscale-card" id="tailscale" aria-labelledby="tailscale-title">
+        <h2 id="tailscale-title">Tailscale Funnel</h2>
+        <p class="hint">Окремий Tailscale-вузол для цього застосунку. Стан авторизації зберігається локально; ключ не записується у файл чи журнал. Funnel відкриває застосунок для публічного HTTPS-доступу — вмикайте його лише якщо це потрібно.</p>
+        <div class="tailscale-status" role="status" aria-live="polite">
+            <span class="status-dot" :class="'state-' + (tailscale.state || 'disabled')"></span>
+            <strong x-text="({disabled:'Вимкнено',starting:'Запуск…',running:'Працює', 'authentication-required':'Потрібна авторизація','enabled-but-not-running':'Увімкнено, але не запущено',stopped:'Зупинено',error:'Помилка'})[tailscale.state] || tailscale.state"></strong>
+            <span class="sub" x-show="tailscale.enabled">Автозапуск після перезапуску ввімкнений</span>
+        </div>
+        <p class="flash err" x-show="tailscale.error" x-text="tailscale.error"></p>
+        <p x-show="tailscale.login_url"><a :href="tailscale.login_url" target="_blank" rel="noopener noreferrer">Завершити вхід у Tailscale ↗</a></p>
+        <p x-show="tailscale.public_url"><a :href="tailscale.public_url" target="_blank" rel="noopener noreferrer" x-text="tailscale.public_url"></a></p>
+        <form class="entry-form tailscale-form" @submit.prevent="startTailscale()">
+            <label class="field grow"><span>Auth key (необов’язково)</span><input type="password" x-model="tailscaleAuthKey" autocomplete="off" placeholder="Порожньо — браузерна авторизація"></label>
+            <label class="chk"><input type="checkbox" x-model="confirmPublic"> Розумію, що Funnel відкриває публічний доступ</label>
+            <button class="primary" type="submit" :disabled="tailscaleBusy || !confirmPublic" x-text="tailscaleBusy ? 'Зачекайте…' : 'Увімкнути Funnel'"></button>
+            <button type="button" @click="refreshTailscale()" :disabled="tailscaleBusy">Оновити статус</button>
+            <button type="button" class="danger sm" x-show="tailscale.enabled" @click="stopTailscale()" :disabled="tailscaleBusy">Вимкнути</button>
+        </form>
+        <p class="hint"><a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener noreferrer">Пристрої Tailscale ↗</a> · <a href="https://tailscale.com/kb/1223/funnel" target="_blank" rel="noopener noreferrer">Документація Funnel ↗</a></p>
     </section>
 
     <div class="flash" x-show="message" :class="'flash ' + messageKind" role="status" aria-live="polite">
@@ -65,7 +80,7 @@
                     <div class="price-editor" :id="'price-editor-' + p.id" x-show="p.priceOpen">
                         <div class="price-editor-content">
                             <label class="field price-single-field"><span>Нова ціна за одиницю</span>
-                                <span class="price-single-input"><input class="price" x-model="p.editPrice" inputmode="decimal" autocomplete="off" required aria-label="Нова ціна"><span class="price-option-suffix">₴</span></span>
+                                <span class="price-single-input"><input class="price" x-model="p.editPrice" inputmode="decimal" autocomplete="off" :required="p.priceOpen" aria-label="Нова ціна"><span class="price-option-suffix">₴</span></span>
                             </label>
                             <div class="price-history" aria-label="Історія ціни за цей місяць">
                                 <span class="price-history-title">Цього місяця</span>
@@ -80,7 +95,7 @@
                         </div>
                     </div>
                     <div class="product-actions">
-                        <button type="submit" class="primary save-product" :disabled="p.saving" x-text="p.saving ? 'Зберігаю…' : 'Зберегти'"></button>
+                        <button type="submit" class="primary save-product" x-show="hasProductChanges(p)" :disabled="p.saving || !hasProductChanges(p)" x-text="p.saving ? 'Зберігаю…' : 'Зберегти'"></button>
                     </div>
                 </form>
                 <div class="entry-foot"><span class="product-foot-tags"></span>
@@ -104,7 +119,7 @@
                         <span class="product-status">Неактивний</span><span class="product-meta">У звітах: <span x-text="p.used_count"></span></span>
                         <button type="button" class="price-toggle" @click="p.priceOpen = !p.priceOpen" :aria-expanded="String(p.priceOpen)"><span class="price-current"><strong><span x-text="formatMoney(p.price_cents)"></span> ₴</strong><span class="price-mini-label">Ціна · {{ this_period }}</span></span><span class="price-toggle-label"><span x-text="p.priceOpen ? 'Закрити' : 'Змінити ціну'"></span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span></button>
                     </div>
-                    <div class="price-editor" x-show="p.priceOpen"><div class="price-editor-content"><label class="field price-single-field"><span>Нова ціна за одиницю</span><span class="price-single-input"><input class="price" x-model="p.editPrice" inputmode="decimal" required><span class="price-option-suffix">₴</span></span></label><div class="price-history"><span class="price-history-title">Цього місяця</span><template x-for="(price, index) in p.month_prices_cents" :key="String(price) + '-' + index"><span :class="index === p.month_prices_cents.length - 1 ? 'price-history-chip is-current' : 'price-history-chip is-history'"><span x-text="formatMoney(price) + ' ₴'"></span><span x-text="p.month_prices_cents.length === 1 ? '· увесь місяць' : (index === 0 ? '· до зміни' : (index === p.month_prices_cents.length - 1 ? '· зараз' : '· зміна ' + index))"></span></span></template></div></div></div>
+                    <div class="price-editor" x-show="p.priceOpen"><div class="price-editor-content"><label class="field price-single-field"><span>Нова ціна за одиницю</span><span class="price-single-input"><input class="price" x-model="p.editPrice" inputmode="decimal" :required="p.priceOpen"><span class="price-option-suffix">₴</span></span></label><div class="price-history"><span class="price-history-title">Цього місяця</span><template x-for="(price, index) in p.month_prices_cents" :key="String(price) + '-' + index"><span :class="index === p.month_prices_cents.length - 1 ? 'price-history-chip is-current' : 'price-history-chip is-history'"><span x-text="formatMoney(price) + ' ₴'"></span><span x-text="p.month_prices_cents.length === 1 ? '· увесь місяць' : (index === 0 ? '· до зміни' : (index === p.month_prices_cents.length - 1 ? '· зараз' : '· зміна ' + index))"></span></span></template></div></div></div>
                     <div class="product-actions"><button type="submit" class="primary save-product" :disabled="p.saving" x-text="p.saving ? 'Зберігаю…' : 'Зберегти'"></button></div>
                 </form>
                 <div class="entry-foot"><span class="product-foot-tags"></span><button type="button" class="danger sm" @click="deleteProduct(p)">Видалити</button></div>
@@ -133,11 +148,11 @@
                 <form class="entry-form" @submit.prevent="saveStore(s)">
                     <label class="field grow"><span>Назва магазину</span><input x-model="s.editName" maxlength="100" required></label>
                     <label class="field"><span>Логін</span><input x-model="s.editLogin" maxlength="40" autocapitalize="none" autocomplete="off" required></label>
-                    <button class="primary" type="submit" :disabled="s.saving" x-text="s.saving ? 'Зберігаю…' : 'Зберегти'"></button>
+                    <button class="primary" type="submit" x-show="hasStoreChanges(s)" :disabled="s.saving || !hasStoreChanges(s)" x-text="s.saving ? 'Зберігаю…' : 'Зберегти'"></button>
                 </form>
                 <form class="entry-form" @submit.prevent="resetStorePassword(s)">
                     <label class="field grow"><span>Новий пароль (від 6 символів)</span><input type="password" x-model="s.newPassword" autocomplete="new-password" minlength="6" required></label>
-                    <button type="submit" :disabled="s.passwordSaving" x-text="s.passwordSaving ? 'Змінюю…' : 'Змінити пароль'"></button>
+                    <button type="submit" x-show="s.newPassword.length > 0" :disabled="s.passwordSaving || s.newPassword.length < 6" x-text="s.passwordSaving ? 'Змінюю…' : 'Змінити пароль'"></button>
                 </form>
                 <div class="entry-foot"><span class="sub">Звітів: <span x-text="s.reports_count"></span></span><button type="button" class="danger sm" @click="deleteStore(s)">Прибрати</button></div>
             </div>
@@ -164,7 +179,7 @@
     <div class="card">
         <form class="entry entry-form" @submit.prevent="changeAdminPassword()">
             <label class="field grow"><span>Новий пароль (від 6 символів)</span><input x-model="adminPassword" type="password" autocomplete="new-password" minlength="6" required></label>
-            <button type="submit" :disabled="changingAdminPassword" x-text="changingAdminPassword ? 'Змінюю…' : 'Змінити пароль'"></button>
+            <button type="submit" x-show="adminPassword.length > 0" :disabled="changingAdminPassword || adminPassword.length < 6" x-text="changingAdminPassword ? 'Змінюю…' : 'Змінити пароль'"></button>
         </form>
     </div>
 </div>
