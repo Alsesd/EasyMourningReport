@@ -5,10 +5,9 @@
     <p class="hint">Каталог і магазини завантажуються через REST API. Ціни зберігаються в копійках, а зміни ціни діють з поточного місяця; вже збережені рядки звітів не перераховуються.</p>
 
     <section class="card" id="tailscale-help" aria-labelledby="tailscale-help-title">
-        <h2 id="tailscale-help-title">Ключ авторизації Tailscale</h2>
-        <p class="hint">Щоб отримати ключ, відкрийте офіційну консоль Tailscale, перейдіть у розділ Keys і натисніть <strong>Generate auth key</strong>.</p>
-        <p><a href="https://login.tailscale.com/admin/settings/keys" target="_blank" rel="noopener noreferrer">Відкрити Tailscale Admin Console → Keys ↗</a></p>
-        <p class="hint">Виберіть потрібні параметри ключа та скопіюйте його після створення. Для безпеки використовуйте короткий строк дії й одноразове використання, якщо це підходить для вашого сценарію. Не публікуйте ключ і не додавайте його до Git чи файлів запуску. <a href="https://tailscale.com/docs/features/access-control/auth-keys" target="_blank" rel="noopener noreferrer">Офіційна документація про auth keys ↗</a></p>
+        <h2 id="tailscale-help-title">Підключення Tailscale</h2>
+        <p class="hint">Для публічного HTTPS-доступу запускайте застосунок через <code>start.bat</code>. Якщо Tailscale не підключений, скрипт відкриє браузер для входу. Після входу Tailscale зберігає стан пристрою, тому не потрібно копіювати або зберігати повторно використовуваний auth key.</p>
+        <p><a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener noreferrer">Відкрити пристрої Tailscale ↗</a> · <a href="https://tailscale.com/kb/1223/funnel" target="_blank" rel="noopener noreferrer">Документація Funnel ↗</a></p>
     </section>
 
     <div class="flash" x-show="message" :class="'flash ' + messageKind" role="status" aria-live="polite">
