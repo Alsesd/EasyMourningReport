@@ -13,6 +13,7 @@ from sqlmodel import Session, select
 
 from app.core.dependencies import clean_login, clean_name, new_password, parse_period, to_cents
 from app.core.security import hash_pw
+from app.core.tailscale import get_status as tailscale_status, start_funnel, stop_funnel
 from app.core.ui import FormError, current_period, money
 from app.db.backup import backup_db
 from app.db.models.audit import AuditLog
@@ -66,6 +67,46 @@ from app.dto import (
 
 
 router = APIRouter(tags=["REST API v1"])
+
+@router.get("/admin/tailscale")
+def get_tailscale_status(
+    user: User = Depends(api_admin_required),
+) -> dict:
+    """Return the app-specific Tailscale Funnel status without credentials."""
+    return tailscale_status()
+
+
+@router.post("/admin/tailscale")
+def enable_tailscale_funnel(
+    payload: dict,
+    user: User = Depends(api_admin_required),
+) -> dict:
+    """Explicitly enable the optional public Funnel; never persist an auth key."""
+    if payload.get("confirm_public") is not True:
+        raise HTTPException(
+            status_code=400,
+            detail="Підтвердьте, що Funnel відкриває застосунок для публічного доступу.",
+        )
+    auth_key = payload.get("auth_key")
+    if auth_key is not None and not isinstance(auth_key, str):
+        raise HTTPException(status_code=422, detail="Некоректний формат auth key.")
+    result = start_funnel(auth_key or None)
+    if result.get("state") == "error":
+        raise HTTPException(status_code=503, detail=result.get("error") or "Tailscale не запустився.")
+    return result
+
+
+@router.delete("/admin/tailscale")
+def disable_tailscale_funnel(
+    user: User = Depends(api_admin_required),
+) -> dict:
+    """Stop public exposure and clear the persistent opt-in."""
+    result = stop_funnel()
+    if result.get("state") == "error":
+        raise HTTPException(status_code=500, detail=result.get("error") or "Не вдалося вимкнути Funnel.")
+    return result
+
+
 
 
 def api_user_required(
