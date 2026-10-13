@@ -5,11 +5,10 @@
     <p class="hint">Каталог і магазини завантажуються через REST API. Ціни зберігаються в копійках, а зміни ціни діють з поточного місяця; вже збережені рядки звітів не перераховуються.</p>
 
     <section class="card" id="tailscale-help" aria-labelledby="tailscale-help-title">
-        <h2 id="tailscale-help-title">Віддалений доступ через Tailscale</h2>
-        <p class="hint">Щоб під'єднати цей комп'ютер до вашої мережі Tailscale без інтерактивного входу, створіть ключ авторизації в офіційній консолі:</p>
-        <p><a href="https://login.tailscale.com/admin/settings/keys" target="_blank" rel="noopener noreferrer">Відкрити Tailscale Admin Console → Keys ↗</a></p>
-        <p class="hint">У консолі натисніть <strong>Generate auth key</strong>. Використовуйте короткий строк дії та одноразовий ключ, якщо це підходить для вашого сценарію. Ключ потрібен лише для автоматичної реєстрації пристрою; якщо Tailscale уже авторизований на цьому комп'ютері, він зазвичай не потрібен.</p>
-        <p class="hint"><strong>Безпека:</strong> не публікуйте й не додавайте auth key до Git або файлів запуску. Це ключ Tailscale, а не пароль адміністратора EasyMourningReport. <a href="https://tailscale.com/docs/features/access-control/auth-keys" target="_blank" rel="noopener noreferrer">Документація Tailscale про ключі ↗</a></p>
+        <h2 id="tailscale-help-title">Ключ авторизації Tailscale</h2>
+        <p class="hint">Відкрийте консоль Tailscale за посиланням нижче, увійдіть до облікового запису з відповідними правами та натисніть <strong>Generate auth key</strong>. За можливості виберіть одноразове використання й короткий строк дії.</p>
+        <p><a href="https://login.tailscale.com/admin/settings/keys" target="_blank" rel="noopener noreferrer">Де отримати ключ Tailscale ↗</a></p>
+        <p class="hint">Зберігайте ключ у таємниці: не публікуйте його й не додавайте до Git або файлів запуску. <a href="https://tailscale.com/docs/features/access-control/auth-keys" target="_blank" rel="noopener noreferrer">Офіційна документація ↗</a></p>
     </section>
 
     <div class="flash" x-show="message" :class="'flash ' + messageKind" role="status" aria-live="polite">
