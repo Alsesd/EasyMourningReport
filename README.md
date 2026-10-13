@@ -90,7 +90,8 @@ EasyMourningReport/
 ├── poetry.lock
 ├── run.py                # Головна точка входу (uvicorn)
 ├── flake.nix             # Nix flake для автоматизації на Linux
-├── start.bat             # Запуск Windows та необов'язковий Tailscale Funnel
+├── start.bat             # Запуск Windows
+├── tailscale-helper/     # Ізольований tsnet-вузол та reverse proxy для Funnel
 └── setup-windows-uvicorn.ps1 # Одноразове налаштування команди uvicorn у PowerShell
 ```
 
@@ -155,9 +156,7 @@ http://localhost:8000
 start.bat
 ```
 
-Цей сценарій автоматично налаштовує середовище та запускає локальний сервер.
-
-Якщо Tailscale встановлений, сценарій перевіряє його реальний стан, а не лише код завершення команди. Під час першого запуску він відкриває браузер для входу; завершіть авторизацію та поверніться до вікна запуску. Tailscale зберігає власний стан входу, тому повторно вводити auth key при кожному запуску не потрібно. Не зберігайте багаторазовий auth key у `start.bat` або в репозиторії. Після успішного входу сценарій намагається увімкнути Funnel; якщо це не вдалося, застосунок усе одно запускається локально.
+Цей сценарій запускає локальний сервер. Публічний доступ керується окремо в розділі **Налаштування → Tailscale Funnel**; системний Tailscale CLI та його daemon не потрібні для вбудованого helper.
 
 #### Як запускати просто `uvicorn` у Windows
 
@@ -250,7 +249,7 @@ test
 
 ## Розробка та збірка standalone EXE (PyInstaller)
 
-Windows-реліз збирається як один автономний файл за допомогою PyInstaller.
+Windows-реліз збирається як один автономний файл за допомогою PyInstaller; CI спершу компілює окремий Tailscale helper на Go та вкладає його в EXE.
 
 Для локальної збірки на Windows із установленим Python і Poetry:
 
@@ -259,7 +258,12 @@ python -m poetry install
 python -m poetry run python -m pip install pyinstaller==6.16.0
 Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js" -OutFile app/static/alpine.min.js
 if ((Get-Item app/static/alpine.min.js).Length -lt 10000) { throw "Alpine runtime download was incomplete." }
-python -m poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --collect-all fastapi --collect-all starlette --collect-all sqlmodel --collect-all sqlalchemy --collect-all jinja2 --collect-all openpyxl --collect-all uvicorn run.py
+# Build the isolated tsnet helper first
+cd tailscale-helper
+go mod download
+go build -trimpath -ldflags "-s -w" -o tailscale-helper.exe .
+cd ..
+python -m poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --add-binary "tailscale-helper/tailscale-helper.exe;." --collect-all fastapi --collect-all starlette --collect-all sqlmodel --collect-all sqlalchemy --collect-all jinja2 --collect-all openpyxl --collect-all uvicorn run.py
 ```
 
 Готовий файл: `dist/LegkyiZvit.exe`. У ньому містяться Python runtime, залежності, HTML-шаблони та статичні ресурси. Для звичайного використання не потрібно окремо переносити каталоги `lib/` або `app/`.
@@ -272,15 +276,14 @@ python -m poetry run pyinstaller --noconfirm --clean --onefile --console --name 
 
 ## Розгортання через Tailscale Funnel
 
-Для публічного доступу можна використовувати Tailscale Funnel. У Windows `start.bat` перевіряє стан Tailscale та запускає браузерну авторизацію, якщо потрібно. Після успішного входу Tailscale зберігає власний стан пристрою, тому не потрібно вставляти багаторазовий auth key у скрипт або зберігати його в репозиторії. Funnel вмикається лише після успішного підключення; якщо це не вдається, застосунок залишається доступним локально.
+У розділі **Налаштування → Tailscale Funnel** працює вбудований app-specific helper на базі Tailscale `tsnet`. Він створює окремий вузол для застосунку, запускає HTTPS reverse proxy та зберігає стан пристрою у приватному каталозі даних. Не потрібно встановлювати системний Tailscale CLI або окремо запускати daemon.
 
-Для ручного запуску CLI-команда така:
+1. Підтвердьте попередження про публічний доступ.
+2. Залиште поле auth key порожнім, щоб пройти браузерну авторизацію, або введіть тимчасовий/reusable key, якщо це відповідає вашій політиці tailnet.
+3. Якщо потрібна авторизація, відкрийте посилання, яке показує панель, і завершіть вхід.
+4. Після успішного підключення панель показує публічний HTTPS URL.
 
-```bash
-tailscale funnel --bg "${PORT:-8000}"
-```
-
-Funnel працює лише якщо він дозволений політиками вашого tailnet.
+Auth key передається дочірньому процесу через stdin, не аргументами командного рядка чи змінними середовища, і не зберігається на диску. Стан вузла та явне ввімкнення Funnel зберігаються для наступного запуску; вимкнення в панелі зупиняє helper і скасовує автозапуск. Funnel доступний лише якщо його дозволено політиками tailnet.
 
 ## Поради для використання
 
