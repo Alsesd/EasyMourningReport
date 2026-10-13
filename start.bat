@@ -71,7 +71,7 @@ echo.
 echo Local address: http://localhost:%PORT%
 echo.
 
-:: 1. Compiled standalone binary check (PyOxidizer)
+:: 1. Compiled standalone binary check (PyInstaller)
 if exist "dist\LegkyiZvit.exe" (
     echo [*] Binary detected: dist\LegkyiZvit.exe
     echo Close this window or press Ctrl+C to stop the server.
