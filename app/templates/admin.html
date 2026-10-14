@@ -9,16 +9,16 @@
         <p class="hint">Окремий Tailscale-вузол для цього застосунку. Стан авторизації зберігається локально; ключ не записується у файл чи журнал. Funnel відкриває застосунок для публічного HTTPS-доступу — вмикайте його лише якщо це потрібно.</p>
         <div class="tailscale-status" role="status" aria-live="polite">
             <span class="status-dot" :class="'state-' + (tailscale.state || 'disabled')"></span>
-            <strong x-text="({disabled:'Вимкнено',starting:'Запуск…',running:'Працює', 'authentication-required':'Потрібна авторизація','enabled-but-not-running':'Увімкнено, але не запущено',stopped:'Зупинено',error:'Помилка'})[tailscale.state] || tailscale.state"></strong>
+            <strong class="tailscale-state-text" x-text="({disabled:'Вимкнено',starting:'Запуск…',running:'Працює', 'authentication-required':'Потрібна авторизація','enabled-but-not-running':'Увімкнено, але не запущено',stopped:'Зупинено',stopping:'Вимкнення…',error:'Помилка'})[tailscale.state] || tailscale.state"></strong>
             <span class="sub" x-show="tailscale.enabled">Автозапуск після перезапуску ввімкнений</span>
         </div>
         <p class="flash err" x-show="tailscale.error" x-text="tailscale.error"></p>
-        <p x-show="tailscale.login_url"><a :href="tailscale.login_url" target="_blank" rel="noopener noreferrer">Завершити вхід у Tailscale ↗</a></p>
-        <p x-show="tailscale.public_url"><a :href="tailscale.public_url" target="_blank" rel="noopener noreferrer" x-text="tailscale.public_url"></a></p>
+        <p class="tailscale-link-row" x-show="tailscale.login_url"><a class="tailscale-link" :href="tailscale.login_url" target="_blank" rel="noopener noreferrer">Завершити вхід у Tailscale ↗</a></p>
+        <p class="tailscale-link-row" x-show="tailscale.public_url"><a class="tailscale-link" :href="tailscale.public_url" target="_blank" rel="noopener noreferrer" x-text="tailscale.public_url"></a></p>
         <form class="entry-form tailscale-form" @submit.prevent="startTailscale()">
             <label class="field grow"><span>Auth key (необов’язково)</span><input type="password" x-model="tailscaleAuthKey" autocomplete="off" placeholder="Порожньо — браузерна авторизація"></label>
             <label class="chk"><input type="checkbox" x-model="confirmPublic"> Розумію, що Funnel відкриває публічний доступ</label>
-            <button class="primary" type="submit" :disabled="tailscaleBusy || !confirmPublic" x-text="tailscaleBusy ? 'Зачекайте…' : 'Увімкнути Funnel'"></button>
+            <button class="primary" type="submit" :disabled="tailscaleBusy || !confirmPublic" x-text="tailscaleBusy ? 'Зачекайте…' : ((!tailscale.enabled || ['disabled','stopped','error'].includes(tailscale.state)) ? 'Підключити Tailscale' : 'Запустити Funnel')"></button>
             <button type="button" @click="refreshTailscale()" :disabled="tailscaleBusy">Оновити статус</button>
             <button type="button" class="danger sm" x-show="tailscale.enabled" @click="stopTailscale()" :disabled="tailscaleBusy">Вимкнути</button>
         </form>

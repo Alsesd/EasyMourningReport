@@ -523,3 +523,20 @@ html[data-theme="light"] .price-history-chip.is-current{background:#e8f2ed;borde
 @media(prefers-reduced-motion:reduce){
   .price-editor,.price-editor-content{transition:none!important}
 }
+
+
+/* Keep long Tailscale status text and URLs inside their card. */
+.tailscale-card{min-width:0;overflow:hidden}
+.tailscale-card>p,.tailscale-card .tailscale-status{min-width:0;max-width:100%}
+.tailscale-status{align-items:flex-start}
+.tailscale-state-text{min-width:0;overflow-wrap:anywhere;word-break:normal}
+.tailscale-card .tailscale-link-row{overflow-wrap:anywhere;word-break:break-word}
+.tailscale-card .tailscale-link{overflow-wrap:anywhere;word-break:break-word}
+.tailscale-form{min-width:0}
+.tailscale-form .field{min-width:0}
+.tailscale-form input{min-width:0;max-width:100%}
+@media(max-width:600px){
+  .tailscale-form{display:flex;flex-direction:column;align-items:stretch}
+  .tailscale-form .field,.tailscale-form button{width:100%;max-width:100%}
+  .tailscale-form button{white-space:normal}
+}

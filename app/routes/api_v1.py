@@ -302,6 +302,37 @@ def create_product(
     return _product_dto(db, product)
 
 
+@router.put("/admin/products/{pid}/price", response_model=ProductDTO)
+def update_product_price(
+    pid: int,
+    payload: dict,
+    request: Request,
+    user: User = Depends(api_admin_required),
+    db: Session = Depends(get_db),
+) -> ProductDTO:
+    """Change only a product's price, preserving all month history and product edits."""
+    product = db.get(Product, pid)
+    if not product or product.archived:
+        raise HTTPException(status_code=404, detail="Товар не знайдено.")
+    raw_price = str(payload.get("price") or "").strip()
+    if not raw_price:
+        raise HTTPException(status_code=400, detail="Вкажіть нову ціну.")
+    cents = to_cents(raw_price)
+    period = current_period()
+    history = history_of(load_history(db), product)
+    new_history, previous, now = apply_price_change(history, period, cents)
+    if new_history != history:
+        save_history(db, pid, new_history)
+        product.price_cents = latest_price(new_history)
+        audit(
+            db, request, user.login, user.role, "змінено ціну товару",
+            f"{product.name} · {money(previous)} → {money(now)} з {period}",
+        )
+        db.commit()
+        db.refresh(product)
+    return _product_dto(db, product, _product_usage(db).get(pid, 0))
+
+
 @router.put("/admin/products/{pid}", response_model=ProductDTO)
 def update_product(
     pid: int,

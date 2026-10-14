@@ -278,26 +278,22 @@
                     this.notify(product.feedback, "err");
                     return;
                 }
-                if (cents === Number(product.price_cents)) return;
+                if (cents === Number(product.price_cents)) {
+                    product.feedback = "";
+                    return;
+                }
 
                 product.priceSaving = true;
                 product.feedback = "";
-                const draftName = product.editName;
-                const draftActive = product.editActive;
                 try {
-                    const updated = await window.apiRequest("/api/v1/admin/products/" + product.id, {
-                        method: "PUT",
-                        body: {
-                            name: product.name,
-                            price: product.editPrice,
-                            active: Boolean(product.active)
-                        }
-                    });
-                    Object.assign(product, editProduct(updated), {
-                        priceOpen: true,
-                        editName: draftName,
-                        editActive: draftActive
-                    });
+                    // Price changes have their own endpoint: they cannot overwrite
+                    // pending name/active edits or depend on a full product form.
+                    const updated = await window.apiRequest(
+                        "/api/v1/admin/products/" + product.id + "/price",
+                        { method: "PUT", body: { price: product.editPrice } }
+                    );
+                    const wasOpen = product.priceOpen;
+                    Object.assign(product, editProduct(updated), { priceOpen: wasOpen });
                     product.feedback = "Ціну збережено. Історію за цей місяць оновлено.";
                     this.notify(product.feedback);
                 } catch (error) {
