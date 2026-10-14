@@ -6,7 +6,7 @@ from sqlmodel import select
 from sqlmodel import Session
 
 from app.db.models.product import Product, ProductPrice
-from app.services.pricing import BASE_PERIOD, History
+from app.services.pricing import BASE_PERIOD, History, sort_history
 
 
 def load_history(db: Session) -> dict[int, History]:
@@ -17,11 +17,11 @@ def load_history(db: Session) -> dict[int, History]:
     ).order_by(ProductPrice.period)
     for pid, period, cents in db.execute(q):
         out[pid].append((period, cents))
-    return out
+    return {pid: sort_history(history) for pid, history in out.items()}
 
 
 def history_of(history: dict[int, History], p: Product) -> History:
-    return history.get(p.id) or [(BASE_PERIOD, p.price_cents)]
+    return sort_history(history.get(p.id) or [(BASE_PERIOD, p.price_cents)])
 
 
 def in_form(p: Product) -> bool:

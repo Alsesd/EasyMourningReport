@@ -1,11 +1,34 @@
-{% extends "base.html" %}{% import "_ui.html" as ui %}{% block body %}
-<h1>Зведений звіт</h1>
-{% call ui.month_nav('/admin/summary', period, prev_period, next_period, extra=('&submitted_only=1' if submitted_only else '')) %}
-<label class="chk"><input type="checkbox" name="submitted_only" value="1" onchange="this.form.submit()" {{ 'checked' if submitted_only }}> Лише надіслані</label>
-{% endcall %}
-<div class="card scroll"><table>
-<thead><tr><th>Товар</th>{% for s in stores %}<th>{{ s.name }}</th>{% endfor %}<th>Кількість</th><th>Сума</th></tr></thead>
-<tbody>{% for r in rows %}<tr><td>{{ r.name }}{% if r.note %}<span class="sub">ціна: {{ r.note }}</span>{% endif %}</td>{% for c in r.cells %}<td>{{ c }}</td>{% endfor %}<td>{{ r.qty }}</td><td>{{ r.sum|money }}</td></tr>{% endfor %}</tbody>
-<tfoot><tr><th>Разом</th>{% for x in store_sums %}<th>{{ x|money }}</th>{% endfor %}<th></th><th>{{ grand|money }}</th></tr></tfoot></table></div>
-<p><a class="btn" href="/admin/summary.xlsx?period={{ period }}{{ '&submitted_only=1' if submitted_only }}">Завантажити Excel (.xlsx)</a></p>
+{% extends "base.html" %}{% block body %}
+<div x-data="adminSummaryApp('{{ period }}', {{ 'true' if submitted_only else 'false' }})" x-init="init()" x-cloak>
+    <h1>Зведений звіт</h1>
+    <div class="month-nav" aria-label="Вибір місяця">
+        <a class="step" href="#" @click.prevent="setPeriod(previousPeriod)" aria-label="Попередній місяць">‹</a>
+        <input type="month" :value="period" @change="setPeriod($event.target.value)" aria-label="Місяць" pattern="\d{4}-\d{2}">
+        <a class="step" href="#" @click.prevent="setPeriod(nextPeriod)" aria-label="Наступний місяць">›</a>
+        <label class="chk"><input type="checkbox" :checked="submittedOnly" @change="submittedOnly = $event.target.checked; load()"> Лише надіслані</label>
+    </div>
+    <div class="flash" x-show="message" :class="'flash ' + messageKind" role="status" aria-live="polite">
+        <span x-text="message"></span><button type="button" class="x" aria-label="Закрити" @click="message = ''">×</button>
+    </div>
+    <p class="note" x-show="loading">Формую зведений звіт…</p>
+    <div class="card scroll">
+        <table>
+            <thead><tr><th>Товар</th><template x-for="store in (summary ? summary.stores : [])" :key="store.id"><th x-text="store.name"></th></template><th>Кількість</th><th>Сума</th></tr></thead>
+            <tbody>
+                <template x-for="(row, rowIndex) in (summary ? summary.rows : [])" :key="row.name + '-' + row.price_cents + '-' + rowIndex">
+                    <tr>
+                        <td><span x-text="row.name"></span><span class="sub" x-show="row.note" x-text="'ціна: ' + row.note"></span></td>
+                        <template x-for="(cell, cellIndex) in row.cells" :key="cellIndex"><td x-text="cell"></td></template>
+                        <td x-text="row.quantity"></td><td x-text="formatMoney(row.sum_cents)"></td>
+                    </tr>
+                </template>
+                <tr x-show="summary && summary.rows.length === 0"><td :colspan="(summary ? summary.stores.length : 0) + 3" class="empty">Даних за цей місяць немає.</td></tr>
+            </tbody>
+            <tfoot x-show="summary">
+                <tr><th>Разом</th><template x-for="(amount, index) in summary.store_totals_cents" :key="index"><th x-text="formatMoney(amount)"></th></template><th></th><th x-text="formatMoney(summary.grand_total_cents)"></th></tr>
+            </tfoot>
+        </table>
+    </div>
+    <p><a class="btn" :href="excelUrl">Завантажити Excel (.xlsx)</a></p>
+</div>
 {% endblock %}

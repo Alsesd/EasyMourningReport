@@ -2,17 +2,24 @@
 <html lang="uk"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#F4F6F5" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#141B19" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#101722">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Легкий звіт">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
-<link rel="stylesheet" href="/static/app.css">
+<style>[x-cloak]{display:none!important}html.alpine-load-failed #client-runtime-error{display:block!important}</style>
+<script>try{const t=localStorage.getItem("easyMourningReport.theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="stylesheet" href="/static/app.css?v=20261014-tailscale-v1">
 <title>Легкий звіт</title></head><body class="{% block bodyclass %}{% endblock %}">
-{% if user %}<header class="top"><span class="brand">{{ user.store.name if user.store else 'Легкий звіт · Адміністратор' }}</span><form method="post" action="/logout" class="inline-form"><button type="submit" class="link-button">Вийти</button></form></header>{% endif %}
+<div class="app-chrome">
+<div class="maker-mark" aria-label="Made by Alsesd"><button type="button" class="maker-mark-trigger" aria-label="Reveal creator credit" aria-expanded="false">A.</button><span class="maker-mark-credit"><span class="maker-mark-label">made by</span><span class="maker-mark-name">Alsesd</span></span></div>
+{% if user %}<header class="top"><span class="brand">{{ user.store.name if user.store else 'Легкий звіт · Адміністратор' }}</span><div class="top-actions"><details class="appearance-menu"><summary aria-label="Display preferences" title="Display preferences">◐</summary><div class="appearance-menu-panel"><button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch color theme">☼ Світла тема</button></div></details><form method="post" action="/logout" class="inline-form"><button type="submit" class="link-button">Вийти</button></form></div></header>{% endif %}
+</div>
+<div id="client-runtime-error" class="flash err" role="alert" hidden>
+    Не вдалося завантажити браузерний інтерфейс. Перезавантажте сторінку та перевірте підключення до мережі.
+</div>
 <main>
 {% if flash %}<div class="flash {{ flash.kind }}" role="status"><span>{{ flash.text }}</span><button type="button" class="x" aria-label="Закрити" onclick="this.parentNode.remove()">×</button></div>{% endif %}
 {% block body %}{% endblock %}</main>
@@ -21,5 +28,38 @@
 <a href="/admin/reports?period={{ nav_period }}"{% if p.startswith('/admin/reports') %} aria-current="page"{% endif %}>Звіти</a>
 <a href="/admin/summary?period={{ nav_period }}"{% if p.startswith('/admin/summary') %} aria-current="page"{% endif %}>Зведений</a>
 <a href="/admin/logs"{% if p.startswith('/admin/logs') %} aria-current="page"{% endif %}>Журнал</a></nav>{% endif %}
+{% if request.url.path in ['/admin', '/report', '/admin/reports', '/admin/summary', '/admin/logs'] or request.url.path.startswith('/admin/reports/') %}
+<script>
+(async function () {
+    const root = document.documentElement;
+    const loadScript = src => new Promise(resolve => {
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = true;
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+    });
+
+    const pageScript = "{% if request.url.path == '/admin' %}/static/admin-app.js?v=20261014-tailscale-v1{% elif request.url.path == '/report' %}/static/report-app.js{% elif request.url.path == '/admin/reports' %}/static/admin-reports-app.js{% elif request.url.path.startswith('/admin/reports/') %}/static/admin-report-detail-app.js{% elif request.url.path == '/admin/summary' %}/static/admin-summary-app.js{% elif request.url.path == '/admin/logs' %}/static/admin-logs-app.js{% endif %}";
+
+    // Register page components before Alpine starts scanning x-data attributes.
+    for (const src of ["/static/api-client.js", pageScript]) {
+        if (!src || !await loadScript(src)) {
+            root.classList.add("alpine-load-failed");
+            return;
+        }
+    }
+
+    // Packaged builds vendor Alpine locally. Source checkouts fall back to the
+    // pinned CDN so they do not need Node/npm just to run the project.
+    let alpineLoaded = await loadScript("/static/alpine.min.js");
+    if (!alpineLoaded) {
+        alpineLoaded = await loadScript("https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js");
+    }
+    if (!alpineLoaded) root.classList.add("alpine-load-failed");
+})();
+</script>
+{% endif %}
 <script src="/static/app.js" defer></script>
 </body></html>

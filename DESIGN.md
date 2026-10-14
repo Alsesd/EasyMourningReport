@@ -21,9 +21,10 @@ A quiet, practical reporting tool: paper-like surfaces, evergreen accents, clear
 ## Price editing
 
 - Product cards stay compact until the price control is expanded.
-- Expanded editors list every current-month price variant plus the historical price from before a change.
-- A blank optional price field does not count as a change. Existing prices compare numerically, so `1.0` and `1.00` are equivalent.
-- Save appears only for changed values. A successful save replaces just that product card from the server response, closes the editor, and preserves the rest of the page, search query, foldout state and scroll position.
+- Each product has one price input. Expanding it reveals the input and at most two compact history chips: the price before this month's change and the current price.
+- A price change keeps the prior and new prices available to reports for the current month, but only one current-month price record is retained for future months.
+- Save appears only for changed values. Existing prices compare numerically, so `1.0` and `1.00` are equivalent.
+- A successful save replaces just that product card from the server response, closes the editor, and preserves the rest of the page, search query, foldout state and scroll position.
 - Errors remain beside the edited card; the editor stays available for correction.
 
 ## Asset and interaction boundaries
@@ -31,4 +32,8 @@ A quiet, practical reporting tool: paper-like surfaces, evergreen accents, clear
 - `app/templates/base.html` and `admin.html` contain semantic structure only.
 - Global behavior is in `app/static/app.js`; admin-only behavior is in `app/static/admin.js`; styles remain in `app/static/app.css`.
 - Keep visible input labels, keyboard focus rings, touch-sized controls and a responsive single-column price editor.
+- The single price input uses the full available width; history is presented as compact chips, not editable price variants.
+- Bottom tabs use ordinary page navigation rather than replacing the main DOM in place, avoiding stale or missing page-specific event handlers after tab switches.
+- The app mark and account header form one opaque, layered sticky surface so scrolling content never shows through the header.
+- Theme choice remains available through a small display-preferences menu; fullscreen is not a header action.
 - Use the server's confirmed response as the source of truth. Reduced-motion preferences shorten or remove transitions.

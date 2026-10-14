@@ -26,6 +26,15 @@ class Templates(unittest.TestCase):
         for f in TEMPLATES.glob("*.html"):
             env.get_template(f.name)
 
+    def test_base_loads_page_components_before_alpine_runtime(self):
+        html = render("base.html", "/admin", user=ADMIN)
+        self.assertIn("alpine-load-failed", html)
+        self.assertLess(
+            html.index('for (const src of ["/static/api-client.js", pageScript])'),
+            html.index('let alpineLoaded = await loadScript("/static/alpine.min.js")'),
+        )
+        self.assertIn("https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js", html)
+
     def test_flash_and_tabs_keep_month(self):
         html = render("login.html", error=None, flash={"kind": "ok", "text": "Збережено <b>"})
         self.assertIn('class="flash ok"', html)
@@ -34,91 +43,93 @@ class Templates(unittest.TestCase):
         self.assertIn("/admin/reports?period=2026-08", html)
         self.assertIn("/admin/summary?period=2026-08", html)
 
-    def test_store_report_two_price_lines(self):
-        rows = [{"id": 1, "name": "Хліб", "repriced": True, "sum": 360,
-                 "inputs": [{"price": 120, "qty": 3, "label": "old"}, {"price": 130, "qty": 0, "label": "new"}]},
-                {"id": 2, "name": "Молоко", "repriced": False, "sum": 0, "inputs": [{"price": 95, "qty": 0, "label": ""}]}]
-        html = render("report.html", "/report", user=STORE, period="2026-10", rows=rows, inactive_rows=[], inactive_total=0,
-                      total=360, status="draft", min_period="2026-09", max_period="2026-10",
-                      prev_period="2026-09", next_period=None)
-        self.assertIn('name="qty_1_120"', html)
-        self.assertIn('name="qty_1_130"', html)          # both lines exist even though nothing was saved at 1.30
-        self.assertIn("стара ціна", html)
-        self.assertIn("нова ціна", html)
-        self.assertEqual(html.count('name="qty_2_'), 1)  # unchanged product: one line
+    def test_store_report_uses_rest_and_alpine_client_rendering(self):
+        html = render("report.html", "/report", user=STORE, period="2026-10")
+        self.assertIn('x-data="storeReportApp(\'2026-10\')"', html)
+        self.assertIn('x-for="row in rows"', html)
         self.assertIn("Зберегти чернетку", html)
         self.assertIn("Надіслати звіт", html)
-        self.assertIn("period=2026-09", html)            # previous-month link
+        self.assertIn("previousPeriod", html)  # the browser derives the prior-month URL dynamically
 
-    def test_store_report_locked_has_no_buttons(self):
-        rows = [{"id": 1, "name": "Хліб", "repriced": False, "sum": 0, "inputs": [{"price": 120, "qty": 0, "label": ""}]}]
-        html = render("report.html", "/report", user=STORE, period="2026-10", rows=rows, inactive_rows=[
-            {"name": "Старий", "archived": True, "lines": "2 × 1.00", "sum": 200}], inactive_total=200,
-            total=200, status="submitted", min_period="2026-10", max_period="2026-10", prev_period=None, next_period=None)
-        self.assertNotIn('value="submit"', html)
-        self.assertIn("Неактивні позиції (1)", html)
-        self.assertIn(" disabled", html)
+    def test_store_report_template_binds_locking_state_from_api(self):
+        html = render("report.html", "/report", user=STORE, period="2026-10")
+        self.assertIn('x-data="storeReportApp(\'2026-10\')"', html)
+        self.assertIn(':disabled="report.read_only"', html)
+        self.assertIn('x-show="!report.read_only"', html)
+        self.assertIn('x-show="report.read_only"', html)
+        self.assertIn("Неактивні позиції", html)
 
-    def test_admin_settings(self):
-        p = NS(id=7, name='Хліб "свіжий"', price_cents=130, active=True)
-        archived = NS(id=8, name="Старий товар")
-        s = NS(id=3, name="Магазин 1")
-        html = render("admin.html", "/admin", user=ADMIN,
-                      products=[{"p": p, "used": 4, "prev": 120, "change": (120, 130)}], inactive_products=[],
-                      archived_products=[{"p": archived, "used": 2}],
-                      stores=[{"store": s, "user": NS(login="store1"), "reports": 2}],
-                      archived_stores=[{"store": NS(id=4, name="Закритий"), "user": NS(login="old"), "reports": 5}])
-        self.assertIn('action="/admin/products/7"', html)
-        self.assertIn('class="price-editor"', html)
-        self.assertIn('aria-controls="price-editor-7"', html)
-        self.assertIn('placeholder="0.00"', html)
-        self.assertIn('class="save-product" hidden', html)
-        self.assertIn('src="/static/admin.js" defer', html)
-        self.assertIn('action="/admin/stores/3/edit"', html)
-        self.assertIn("1.20 → 1.30", html)
+    def test_admin_settings_renders_product_editors_on_the_client(self):
+        html = render("admin.html", "/admin", user=ADMIN)
+        self.assertIn('x-data="adminApp()"', html)
+        self.assertIn('x-init="init()"', html)
+        self.assertIn('x-for="p in activeProducts"', html)
+        self.assertIn('@submit.prevent="saveProduct(p)"', html)
+        self.assertIn('x-model="p.editPrice"', html)
+        self.assertIn(':id="\'price-editor-\' + p.id"', html)
+        self.assertIn('x-for="(price, index) in p.month_prices_cents"', html)
+        self.assertIn("'· зміна ' + index", html)
+        self.assertNotIn('name="extra_price"', html)
+        self.assertNotIn('class="price-options"', html)
         self.assertIn('id="product-search"', html)
-        self.assertIn("Архів товарів", html)
-        self.assertIn("Архів магазинів", html)
-        self.assertIn("піде в архів", html)            # delete confirmation for a product that has data
-        self.assertIn('action="/admin/products/8/restore"', html)
-        self.assertIn('action="/admin/stores/4/restore"', html)
-        self.assertIn("&#34;свіжий&#34;", html)         # quotes in names cannot break out of attributes
+        self.assertIn('@submit.prevent="importProducts($event.currentTarget)"', html)
+        self.assertIn('@submit.prevent="changeAdminPassword()"', html)
+        self.assertIn("Змінити пароль", html)
+        self.assertIn('x-show="hasProductChanges(p)"', html)
+        self.assertIn('x-show="hasStoreChanges(s)"', html)
+        self.assertIn('x-show="s.newPassword.length > 0"', html)
+        self.assertIn('x-show="adminPassword.length > 0"', html)
+        self.assertIn('x-show="p.priceOpen"', html)
+        self.assertIn('id="tailscale"', html)
+        self.assertIn('@submit.prevent="startTailscale()"', html)
+        self.assertIn('tailscale.login_url', html)
 
-    def test_admin_settings_empty(self):
-        html = render("admin.html", "/admin", user=ADMIN, products=[], inactive_products=[], archived_products=[], stores=[], archived_stores=[])
-        self.assertIn("Активних товарів ще немає", html)
-        self.assertIn("Неактивні товари (0)", html)
-        self.assertIn('id="product-search"', html)
-        self.assertNotIn('id="archive"', html)
 
-    def test_admin_report_pages(self):
-        store = NS(name="Магазин 1", archived=True)
-        html = render("reports.html", "/admin/reports", user=ADMIN, period="2026-10", prev_period="2026-09",
-                      next_period="2026-11", rows=[{"store": store, "report": NS(id=5, status="submitted"), "total": 1234},
-                                                   {"store": NS(name="Б", archived=False), "report": None, "total": 0}])
-        self.assertIn("Надіслано", html)
-        self.assertIn("Немає звіту", html)
-        self.assertIn("В архіві", html)
-        html = render("report_view.html", "/admin/reports/5", user=ADMIN, period="2026-10",
-                      report=NS(id=5, status="draft", period="2026-10", store=store),
-                      lines=[{"name": "Хліб", "label": "new", "price": 130, "qty": 0, "sum": 0}],
-                      inactive_rows=[], total=0)
-        self.assertIn("нова ціна", html)
+    def test_admin_client_hides_unchanged_saves_and_current_tab_is_noop(self):
+        static = TEMPLATES.parent / "static"
+        admin_js = (static / "admin-app.js").read_text(encoding="utf-8")
+        app_js = (static / "app.js").read_text(encoding="utf-8")
+        self.assertIn("hasProductChanges(product)", admin_js)
+        self.assertIn("product.priceOpen", admin_js)
+        self.assertIn("if (product.saving || !this.hasProductChanges(product)) return", admin_js)
+        self.assertIn("hasStoreChanges(store)", admin_js)
+        self.assertIn(".tabs a[aria-current='page']", app_js)
+        self.assertIn("event.preventDefault()", app_js)
+
+    def test_admin_settings_shell_does_not_require_server_side_catalogue(self):
+        html = render("admin.html", "/admin", user=ADMIN)
+        self.assertIn('x-init="init()"', html)
+        self.assertIn('x-show="loading"', html)
+        self.assertIn('id="archive"', html)
+
+    def test_admin_report_pages_use_rest_shells(self):
+        html = render("reports.html", "/admin/reports", user=ADMIN, period="2026-10")
+        self.assertIn('x-data="adminReportsApp(', html)
+        self.assertIn('x-for="row in rows"', html)
+        self.assertIn("/static/admin-reports-app.js", render("base.html", "/admin/reports", user=ADMIN))
+        html = render("report_view.html", "/admin/reports/5", user=ADMIN, report_id=5)
+        self.assertIn('x-data="adminReportDetailApp(5)"', html)
         self.assertIn("Заблокувати звіт", html)
 
-    def test_summary_keeps_filter_in_month_links(self):
-        html = render("summary.html", "/admin/summary", user=ADMIN, period="2026-10", prev_period="2026-09",
-                      next_period="2026-11", stores=[NS(name="М1")], submitted_only=True, store_sums=[100], grand=100,
-                      rows=[{"name": "Хліб", "note": "1.20 → 1.30", "cells": [3], "qty": 3, "sum": 100}])
-        self.assertIn("period=2026-09&amp;submitted_only=1", html)
-        self.assertIn("ціна: 1.20 → 1.30", html)
-        self.assertIn("checked", html)
+    def test_summary_uses_rest_and_keeps_excel_export(self):
+        html = render("summary.html", "/admin/summary", user=ADMIN, period="2026-10", submitted_only=True)
+        self.assertIn('x-data="adminSummaryApp(', html)
+        self.assertIn("Лише надіслані", html)
+        self.assertIn(':checked="submittedOnly"', html)
+        self.assertIn("/static/admin-summary-app.js", render("base.html", "/admin/summary", user=ADMIN))
+
+    def test_logs_uses_rest_filters(self):
+        html = render("logs.html", "/admin/logs", user=ADMIN)
+        self.assertIn('x-data="adminLogsApp()"', html)
+        self.assertIn("Журнал дій", html)
+        self.assertIn('x-model="action"', html)
 
     def test_logs_and_error(self):
         log = NS(ts=datetime(2026, 10, 1, 12, 0), login="admin", role="admin", action="змінено ціну товару",
                  detail="Хліб · 1.20 → 1.30", ip="1.2.3.4")
         html = render("logs.html", "/admin/logs", user=ADMIN, logs=[log], actions=["вхід"], login="", action="")
-        self.assertIn("змінено ціну товару", html)
+        self.assertIn('x-data="adminLogsApp()"', html)
+        self.assertIn('x-model="action"', html)
         self.assertIn("Сторінку не знайдено", render("error.html", code=404, message="Not Found"))
         self.assertIn("Лише для адміністраторів", render("error.html", code=403, message="Лише для адміністраторів"))
 

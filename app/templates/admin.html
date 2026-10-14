@@ -1,164 +1,230 @@
 {% extends "base.html" %}
-{% macro product_card(x, is_active) -%}
-{% set p = x.p %}
-{% set current_prices = x.current_prices or [p.price_cents] %}
-<div class="entry product-entry" data-product-name="{{ p.name|lower }}" id="p{{ p.id }}">
-    <form class="entry-form product-form" method="post" action="/admin/products/{{ p.id }}">
-        <div class="product-main-fields">
-            <label class="field grow"><span>Назва</span><input name="name" value="{{ p.name }}" maxlength="100" required></label>
-            <label class="chk"><input type="checkbox" name="active" {% if is_active %}checked{% endif %}> Активний</label>
+{% block body %}
+<div class="admin-client" x-data="adminApp()" x-init="init()" x-cloak>
+    <h1 data-admin-period="{{ this_period }}">Налаштування</h1>
+    <p class="hint">Каталог і магазини завантажуються через REST API. Ціни зберігаються в копійках, а зміни ціни діють з поточного місяця; вже збережені рядки звітів не перераховуються.</p>
+
+    <section class="card tailscale-card" id="tailscale" aria-labelledby="tailscale-title">
+        <h2 id="tailscale-title">Tailscale Funnel</h2>
+        <p class="hint" x-show="!tailscaleActive">Окремий Tailscale-вузол для цього застосунку. Funnel відкриває застосунок для публічного HTTPS-доступу — вмикайте його лише якщо це потрібно.</p>
+
+        <div class="tailscale-status" role="status" aria-live="polite">
+            <span class="status-dot" :class="'state-' + (tailscale.state || 'disabled')"></span>
+            <strong class="tailscale-state-text" x-text="({disabled:'Вимкнено',starting:'Підключення…',running:'Працює · Funnel активний', 'authentication-required':'Потрібна авторизація', 'enabled-but-not-running':'Автозапуск увімкнений · не запущено',stopped:'Зупинено',stopping:'Вимкнення…',error:'Помилка'})[tailscale.state] || tailscale.state"></strong>
         </div>
-        <div class="price-summary">
-            <button type="button" class="price-toggle" aria-expanded="false" aria-controls="price-editor-{{ p.id }}">
-                <span class="price-current">
-                    <span class="eyebrow">ЦІНА · {{ this_period }}</span>
-                    <strong>{{ p.price_cents|money }} ₴</strong>
-                </span>
-                <span class="price-toggle-label"><span>Варіанти ціни</span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span>
+
+        <p class="flash err" x-show="tailscale.error" x-text="tailscale.error"></p>
+        <p class="tailscale-link-row" x-show="tailscale.login_url"><a class="tailscale-link" :href="tailscale.login_url" target="_blank" rel="noopener noreferrer">Завершити вхід у Tailscale ↗</a></p>
+        <p class="tailscale-link-row" x-show="tailscale.public_url"><a class="tailscale-link" :href="tailscale.public_url" target="_blank" rel="noopener noreferrer" x-text="tailscale.public_url"></a></p>
+
+        <div class="tailscale-active-controls" x-show="tailscaleActive">
+            <button type="button" class="danger tailscale-disconnect" @click="stopTailscale()" :disabled="tailscaleBusy" x-text="tailscaleBusy ? 'Відключення…' : 'Відключити Tailscale'">Відключити Tailscale</button>
+        </div>
+
+        <form class="entry-form tailscale-form" x-show="!tailscaleActive" @submit.prevent="startTailscale()">
+            <label class="field grow"><span>Auth key (необов’язково)</span><input type="password" x-model="tailscaleAuthKey" autocomplete="off" placeholder="Порожньо — браузерна авторизація"></label>
+            <label class="chk"><input type="checkbox" x-model="confirmPublic"> Підтверджую публічний доступ через Funnel</label>
+            <button class="primary" type="submit" :disabled="tailscaleBusy || !confirmPublic" x-text="tailscaleBusy ? 'Підключення…' : 'Підключити Tailscale'">Підключити Tailscale</button>
+        </form>
+
+        <div class="tailscale-preferences">
+            <label class="chk tailscale-autostart">
+                <input type="checkbox" :checked="Boolean(tailscale.autostart)" @change="setTailscaleAutostart($event.target.checked)" :disabled="tailscaleAutoStartBusy || tailscaleBusy">
+                Автоматично підключати після перезапуску застосунку
+            </label>
+            <span class="hint tailscale-refresh-note">Статус оновлюється автоматично</span>
+        </div>
+        <p class="hint tailscale-help-links" x-show="!tailscaleActive"><a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener noreferrer">Пристрої Tailscale ↗</a> · <a href="https://tailscale.com/kb/1223/funnel" target="_blank" rel="noopener noreferrer">Документація Funnel ↗</a></p>
+    </section>
+
+    <div class="flash" x-show="message" :class="'flash ' + messageKind" role="status" aria-live="polite">
+        <span x-text="message"></span>
+        <button type="button" class="x" aria-label="Закрити" @click="message = ''">×</button>
+    </div>
+    <p class="note" x-show="loading">Завантажую каталог і магазини…</p>
+
+    <h2 id="products">Товари</h2>
+    <p class="hint">Шукайте за назвою. Кожна картка зберігає лише власні зміни. Неактивні та архівні товари не з'являються в нових звітах; історичні дані зберігаються.</p>
+
+    <section class="product-toolbar" aria-label="Керування товарами">
+        <div class="import-tile">
+            <form class="entry entry-form" @submit.prevent="importProducts($event.currentTarget)" enctype="multipart/form-data">
+                <label class="field grow"><span>Масове створення з Excel (.xlsx)</span>
+                    <input type="file" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+                </label>
+                <button class="primary" type="submit" :disabled="importingProducts" x-text="importingProducts ? 'Імпортую…' : 'Імпортувати товари'"></button>
+            </form>
+            <p class="hint">Excel: колонка A — назва, колонка B — ціна. Дублікати назв пропускаються.</p>
+        </div>
+        <label class="field search-field" for="product-search"><span>Пошук товару за назвою</span>
+            <input id="product-search" type="search" x-model="query" placeholder="Почніть вводити назву…" autocomplete="off">
+        </label>
+        <div class="create-product-row">
+            <button type="button" class="primary create-action" @click="newProductOpen = !newProductOpen" :aria-expanded="String(newProductOpen)">
+                <span x-text="newProductOpen ? 'Скасувати' : '＋ Створити товар'"></span>
             </button>
         </div>
-        <div class="price-editor" id="price-editor-{{ p.id }}" hidden aria-hidden="true" inert>
-            <div class="price-editor-content">
-                <div class="price-editor-header">
-                    <div>
-                        <h3>Варіанти на {{ this_period }}</h3>
-                        <p>Змінюйте наявні ціни або додайте новий варіант. Історія попередніх місяців не зміниться.</p>
+        <form class="entry entry-form create-form" x-show="newProductOpen" @submit.prevent="createProduct()">
+            <label class="field grow"><span>Новий товар</span><input x-model="newProduct.name" maxlength="100" required></label>
+            <label class="field price"><span>Ціна</span><input class="price" x-model="newProduct.price" inputmode="decimal" required></label>
+            <button class="primary" type="submit" :disabled="creatingProduct" x-text="creatingProduct ? 'Додаю…' : 'Додати товар'"></button>
+        </form>
+    </section>
+
+    <details open class="card product-list" id="active-products">
+        <summary>Активні товари (<span x-text="activeProducts.length"></span>)</summary>
+        <p class="note" x-show="!loading && activeProducts.length === 0">Активних товарів не знайдено.</p>
+        <template x-for="p in activeProducts" :key="p.id">
+            <div class="entry product-entry" :id="'p' + p.id" :hidden="!matchesProduct(p)">
+                <form class="entry-form product-form" @submit.prevent="saveProduct(p)">
+                    <div class="product-main-fields">
+                        <label class="field grow"><span>Назва</span><input x-model="p.editName" maxlength="100" required></label>
+                        <label class="chk"><input type="checkbox" x-model="p.editActive"> Активний</label>
                     </div>
-                    <button type="button" class="sm secondary add-price-btn">＋ Варіант</button>
-                </div>
-                <div class="price-options">
-                    {% if x.change %}
-                    <div class="price-option price-option--history">
-                        <div><span class="option-label">До зміни</span><strong class="history-price">{{ x.change[0]|money }} ₴</strong></div>
-                        <span class="option-badge">Історія</span>
+                    <div class="product-quick-actions">
+                        <span class="product-status">Активний</span>
+                        <span class="product-meta">У звітах: <span x-text="p.used_count"></span></span>
+                        <button type="button" class="price-toggle" @click="p.priceOpen = !p.priceOpen" :aria-expanded="String(p.priceOpen)" :aria-controls="'price-editor-' + p.id">
+                            <span class="price-current"><strong><span x-text="formatMoney(p.price_cents)"></span> ₴</strong><span class="price-mini-label">Ціна · {{ this_period }}</span></span>
+                            <span class="price-toggle-label"><span x-text="p.priceOpen ? 'Закрити' : 'Змінити ціну'"></span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span>
+                        </button>
                     </div>
-                    {% endif %}
-                    {% for price in current_prices %}
-                    <label class="price-option price-option--edit">
-                        <span class="option-label">Варіант {{ loop.index }}</span>
-                        <span class="field price-option-field">
-                            <input class="price" name="{% if loop.first %}price{% else %}extra_price{% endif %}" value="{{ price|money }}" inputmode="decimal" {% if loop.first %}required{% endif %} data-original="{{ price|money }}" aria-label="Ціна варіанта {{ loop.index }}">
-                            <span class="price-option-suffix">₴ · {{ this_period }}</span>
-                        </span>
-                    </label>
-                    {% endfor %}
-                    <label class="price-option price-option--new extra-price-field">
-                        <span class="option-label">Нова ціна</span>
-                        <span class="field price-option-field">
-                            <input class="price" name="extra_price" inputmode="decimal" placeholder="0.00" aria-label="Нова ціна">
-                            <span class="price-option-suffix">₴</span>
-                        </span>
-                        <span class="sub">Необов'язкове поле</span>
-                    </label>
+                    <div class="price-editor" :class="{ 'is-open': p.priceOpen }" :id="'price-editor-' + p.id" x-show="p.priceOpen">
+                        <div class="price-editor-content">
+                            <div class="price-entry-row">
+                                <label class="field price-single-field">
+                                    <span>Нова ціна за одиницю</span>
+                                    <span class="price-single-input">
+                                        <input class="price" x-model="p.editPrice" inputmode="decimal" autocomplete="off" :required="p.priceOpen" aria-label="Нова ціна">
+                                        <span class="price-option-suffix">₴</span>
+                                    </span>
+                                </label>
+                                <button type="button" class="primary save-price" :disabled="p.priceSaving || p.saving || !hasPriceChanges(p)" @click="savePrice(p)" x-text="p.priceSaving ? 'Зберігаю…' : 'Зберегти ціну'">Зберегти ціну</button>
+                            </div>
+                            <div class="price-history" aria-label="Історія ціни за цей місяць">
+                                <span class="price-history-title">Історія ціни · {{ this_period }}</span>
+                                <template x-for="(price, index) in p.month_prices_cents" :key="String(price) + '-' + index">
+                                    <span :class="index === p.month_prices_cents.length - 1 ? 'price-history-chip is-current' : 'price-history-chip is-history'">
+                                        <span x-text="formatMoney(price) + ' ₴'"></span>
+                                        <span x-text="p.month_prices_cents.length === 1 ? '· увесь місяць' : (index === 0 ? '· до зміни' : (index === p.month_prices_cents.length - 1 ? '· зараз' : '· зміна ' + index))"></span>
+                                    </span>
+                                </template>
+                            </div>
+                            <p class="hint price-note">Кожна зміна зберігається окремо. У звітах цього місяця будуть усі використані ціни; з наступного місяця залишиться остання. Уже збережені звіти не змінюються.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="product-actions">
+                        <button type="submit" class="primary save-product" x-show="hasProductChanges(p)" :disabled="p.saving || !hasProductChanges(p)" x-text="p.saving ? 'Зберігаю…' : 'Зберегти'"></button>
+                    </div>
+                </form>
+                <div class="entry-foot"><span class="product-foot-tags"></span>
+                    <button type="button" class="danger sm" @click="deleteProduct(p)">Видалити</button>
                 </div>
-                <p class="hint price-note" hidden></p>
+                <p class="hint product-feedback" x-show="p.feedback" role="status" x-text="p.feedback"></p>
             </div>
-        </div>
-        <div class="product-actions"><button type="submit" class="primary save-product" hidden>Зберегти</button></div>
+        </template>
+    </details>
+
+    <details class="inactive card product-list" id="inactive-products" x-show="inactiveProducts.length > 0">
+        <summary>Неактивні товари (<span x-text="inactiveProducts.length"></span>)</summary>
+        <template x-for="p in inactiveProducts" :key="p.id">
+            <div class="entry product-entry" :id="'p' + p.id" :hidden="!matchesProduct(p)">
+                <form class="entry-form product-form" @submit.prevent="saveProduct(p)">
+                    <div class="product-main-fields">
+                        <label class="field grow"><span>Назва</span><input x-model="p.editName" maxlength="100" required></label>
+                        <label class="chk"><input type="checkbox" x-model="p.editActive"> Активний</label>
+                    </div>
+                    <div class="product-quick-actions">
+                        <span class="product-status">Неактивний</span><span class="product-meta">У звітах: <span x-text="p.used_count"></span></span>
+                        <button type="button" class="price-toggle" @click="p.priceOpen = !p.priceOpen" :aria-expanded="String(p.priceOpen)" :aria-controls="'price-editor-' + p.id"><span class="price-current"><strong><span x-text="formatMoney(p.price_cents)"></span> ₴</strong><span class="price-mini-label">Ціна · {{ this_period }}</span></span><span class="price-toggle-label"><span x-text="p.priceOpen ? 'Закрити' : 'Змінити ціну'"></span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span></button>
+                    </div>
+                    <div class="price-editor" :class="{ 'is-open': p.priceOpen }" :id="'price-editor-' + p.id" x-show="p.priceOpen">
+                        <div class="price-editor-content">
+                            <div class="price-entry-row">
+                                <label class="field price-single-field">
+                                    <span>Нова ціна за одиницю</span>
+                                    <span class="price-single-input">
+                                        <input class="price" x-model="p.editPrice" inputmode="decimal" autocomplete="off" :required="p.priceOpen" aria-label="Нова ціна">
+                                        <span class="price-option-suffix">₴</span>
+                                    </span>
+                                </label>
+                                <button type="button" class="primary save-price" :disabled="p.priceSaving || p.saving || !hasPriceChanges(p)" @click="savePrice(p)" x-text="p.priceSaving ? 'Зберігаю…' : 'Зберегти ціну'">Зберегти ціну</button>
+                            </div>
+                            <div class="price-history" aria-label="Історія ціни за цей місяць">
+                                <span class="price-history-title">Історія ціни · {{ this_period }}</span>
+                                <template x-for="(price, index) in p.month_prices_cents" :key="String(price) + '-' + index">
+                                    <span :class="index === p.month_prices_cents.length - 1 ? 'price-history-chip is-current' : 'price-history-chip is-history'">
+                                        <span x-text="formatMoney(price) + ' ₴'"></span>
+                                        <span x-text="p.month_prices_cents.length === 1 ? '· увесь місяць' : (index === 0 ? '· до зміни' : (index === p.month_prices_cents.length - 1 ? '· зараз' : '· зміна ' + index))"></span>
+                                    </span>
+                                </template>
+                            </div>
+                            <p class="hint price-note">Кожна зміна зберігається окремо. У звітах цього місяця будуть усі використані ціни; з наступного місяця залишиться остання. Уже збережені звіти не змінюються.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="product-actions"><button type="submit" class="primary save-product" :disabled="p.saving" x-text="p.saving ? 'Зберігаю…' : 'Зберегти'"></button></div>
+                </form>
+                <div class="entry-foot"><span class="product-foot-tags"></span><button type="button" class="danger sm" @click="deleteProduct(p)">Видалити</button></div>
+                <p class="hint product-feedback" x-show="p.feedback" role="status" x-text="p.feedback"></p>
+            </div>
+        </template>
+    </details>
+
+    <h2 id="stores">Магазини</h2>
+    <p class="hint">Зміна назви або логіну не впливає на звіти. Пароль змінюється окремо. Архівні магазини залишають історичні звіти.</p>
+    <button type="button" class="primary create-action" @click="newStoreOpen = !newStoreOpen" :aria-expanded="String(newStoreOpen)">
+        <span x-text="newStoreOpen ? 'Скасувати' : '＋ Створити магазин'"></span>
+    </button>
+    <form class="entry entry-form create-form" x-show="newStoreOpen" @submit.prevent="createStore()">
+        <label class="field grow"><span>Новий магазин</span><input x-model="newStore.name" maxlength="100" required></label>
+        <label class="field"><span>Логін</span><input x-model="newStore.login" maxlength="40" autocapitalize="none" autocomplete="off" required></label>
+        <label class="field"><span>Пароль</span><input type="password" x-model="newStore.password" minlength="6" autocomplete="new-password" required></label>
+        <button class="primary" type="submit" :disabled="creatingStore" x-text="creatingStore ? 'Додаю…' : 'Додати магазин'"></button>
     </form>
-    {% if x.change %}<p class="hint price-history-note">У {{ this_period }} ціна змінилася: {{ x.change[0]|money }} → {{ x.change[1]|money }}. У звітах цього місяця збережуться всі варіанти.</p>{% endif %}
-    <form class="entry-foot" method="post" action="/admin/products/{{ p.id }}/delete"
-        data-confirm="{% if x.used %}«{{ p.name }}» є у звітах ({{ x.used }} рядків). Товар піде в архів, усі дані звітів залишаться. Продовжити?{% else %}«{{ p.name }}» ніде не використовується. Видалити остаточно?{% endif %}">
-        <span class="sub">{% if x.used %}У звітах: {{ x.used }} рядків{% else %}У звітах не використовується{% endif %}</span>
-        <button class="danger sm">Прибрати</button>
-    </form>
-</div>
-{%- endmacro %}
 
-{% block body %}
-<h1 data-admin-period="{{ this_period }}">Налаштування</h1>
+    <details class="card" id="store-list" open>
+        <summary>Список магазинів (<span x-text="activeStores.length"></span>)</summary>
+        <p class="note" x-show="!loading && activeStores.length === 0">Магазинів ще немає. Додайте перший.</p>
+        <template x-for="s in activeStores" :key="s.id">
+            <div class="entry" :id="'s' + s.id">
+                <form class="entry-form" @submit.prevent="saveStore(s)">
+                    <label class="field grow"><span>Назва магазину</span><input x-model="s.editName" maxlength="100" required></label>
+                    <label class="field"><span>Логін</span><input x-model="s.editLogin" maxlength="40" autocapitalize="none" autocomplete="off" required></label>
+                    <button class="primary" type="submit" x-show="hasStoreChanges(s)" :disabled="s.saving || !hasStoreChanges(s)" x-text="s.saving ? 'Зберігаю…' : 'Зберегти'"></button>
+                </form>
+                <form class="entry-form" @submit.prevent="resetStorePassword(s)">
+                    <label class="field grow"><span>Новий пароль (від 6 символів)</span><input type="password" x-model="s.newPassword" autocomplete="new-password" minlength="6" required></label>
+                    <button type="submit" x-show="s.newPassword.length > 0" :disabled="s.passwordSaving || s.newPassword.length < 6" x-text="s.passwordSaving ? 'Змінюю…' : 'Змінити пароль'"></button>
+                </form>
+                <div class="entry-foot"><span class="sub">Звітів: <span x-text="s.reports_count"></span></span><button type="button" class="danger sm" @click="deleteStore(s)">Прибрати</button></div>
+            </div>
+        </template>
+    </details>
 
-<h2 id="products">Товари</h2>
-<p class="hint">Шукайте за назвою. «Зберегти» змінює назву, ціну й активність лише цього товару. Нова ціна діє з
-    поточного місяця ({{ this_period }}). Минулі місяці й уже внесені кількості не змінюються. Неактивні товари не
-    показуються в нових звітах, але їхні дані лишаються.</p>
-<label class="field search-field" for="product-search"><span>Пошук товару за назвою</span><input id="product-search"
-        type="search" placeholder="Почніть вводити назву…" autocomplete="off"></label>
-<button type="button" class="primary create-action" id="show-product-form" aria-expanded="false"
-    aria-controls="new-product-form">＋ Створити товар</button>
-<form class="entry entry-form" method="post" action="/admin/products/import" enctype="multipart/form-data">
-    <label class="field grow"><span>Масове створення з Excel (.xlsx)</span><input type="file" name="file"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></label>
-    <button class="primary">Імпортувати товари</button>
-</form>
-<p class="hint">Файл Excel: колонка A — назва товару, колонка B — ціна. Перший рядок із заголовками «Назва» та «Ціна»
-    можна залишити. Дублікати назв буде пропущено.</p>
-<form class="entry entry-form create-form" id="new-product-form" method="post" action="/admin/products" hidden><label
-        class="field grow"><span>Новий товар</span><input name="name" maxlength="100" required></label><label
-        class="field price"><span>Ціна</span><input class="price" name="price" inputmode="decimal"
-            required></label><button class="primary">Додати товар</button></form>
-<details open class="card product-list" id="active-products">
-    <summary>Активні товари ({{ products|length }})</summary>
-    {% for x in products %}{{ product_card(x, true) }}{% else %}<p class="note">Активних товарів ще немає.</p>{% endfor %}
-</details>
-<details class="inactive card product-list" id="inactive-products">
-    <summary>Неактивні товари ({{ inactive_products|length }})</summary>
-    {% for x in inactive_products %}{{ product_card(x, false) }}{% else %}<p class="note">Неактивних товарів немає.</p>{% endfor %}
-</details>
+    <section class="inactive" id="archive" x-show="archivedProducts.length || archivedStores.length">
+        <h2>Архів (товари: <span x-text="archivedProducts.length"></span>, магазини: <span x-text="archivedStores.length"></span>)</h2>
+        <details>
+            <summary>Архів товарів (<span x-text="archivedProducts.length"></span>)</summary>
+            <template x-for="p in archivedProducts" :key="p.id">
+                <div class="entry-foot entry"><span x-text="p.name"></span><button type="button" class="sm" @click="restoreProduct(p)">Відновити</button></div>
+            </template>
+        </details>
+        <details>
+            <summary>Архів магазинів (<span x-text="archivedStores.length"></span>)</summary>
+            <template x-for="s in archivedStores" :key="s.id">
+                <div class="entry-foot entry"><span><span x-text="s.name"></span><span class="sub">Логін <span x-text="s.login"></span> · звітів: <span x-text="s.reports_count"></span></span></span><button type="button" class="sm" @click="restoreStore(s)">Відновити</button></div>
+            </template>
+        </details>
+    </section>
 
-<h2 id="stores">Магазини</h2>
-<p class="hint">«Зберегти» змінює назву й логін магазину; пароль і звіти не змінюються. Логін має бути унікальним,
-    регістр не має значення (Store1 і store1 — той самий логін). Пароль змінюється окремою кнопкою.</p>
-<button type="button" class="primary create-action" id="show-store-form" aria-expanded="false"
-    aria-controls="new-store-form">＋ Створити магазин</button>
-<form class="entry entry-form create-form" id="new-store-form" method="post" action="/admin/stores" hidden>
-    <label class="field grow"><span>Новий магазин</span><input name="name" maxlength="100" required></label>
-    <label class="field"><span>Логін</span><input name="login" maxlength="40" autocapitalize="none" autocomplete="off"
-            required></label>
-    <label class="field"><span>Пароль</span><input name="password" autocomplete="off" minlength="6" required></label>
-    <button class="primary">Додати магазин</button>
-</form>
-<details class="card" id="store-list" open>
-    <summary>Список магазинів ({{ stores|length }})</summary>
-    {% for x in stores %}{% set s = x.store %}
-    <div class="entry" id="s{{ s.id }}">
-        <form class="entry-form" method="post" action="/admin/stores/{{ s.id }}/edit">
-            <label class="field grow"><span>Назва магазину</span><input name="name" value="{{ s.name }}" maxlength="100"
-                    required></label>
-            <label class="field"><span>Логін</span><input name="login" value="{{ x.user.login }}" maxlength="40"
-                    autocapitalize="none" autocomplete="off" required></label>
-            <button class="primary">Зберегти</button>
-        </form>
-        <form class="entry-form" method="post" action="/admin/stores/{{ s.id }}/password">
-            <label class="field grow"><span>Новий пароль (від 6 символів)</span><input name="password"
-                    autocomplete="off" minlength="6" required></label>
-            <button>Змінити пароль</button>
-        </form>
-        <form class="entry-foot" method="post" action="/admin/stores/{{ s.id }}/delete"
-            data-confirm="{% if x.reports %}«{{ s.name }}» має звіти ({{ x.reports }}). Магазин не буде видалено: він піде в архів, вхід вимкнеться, а всі звіти залишаться. Продовжити?{% else %}«{{ s.name }}» не має звітів. Видалити магазин разом із логіном остаточно?{% endif %}">
-            <span class="sub">Звітів: {{ x.reports }}</span>
-            <button class="danger sm">Прибрати</button>
+    <h2 id="password">Ваш пароль адміністратора</h2>
+    <div class="card">
+        <form class="entry entry-form" @submit.prevent="changeAdminPassword()">
+            <label class="field grow"><span>Новий пароль (від 6 символів)</span><input x-model="adminPassword" type="password" autocomplete="new-password" minlength="6" required></label>
+            <button type="submit" x-show="adminPassword.length > 0" :disabled="changingAdminPassword || adminPassword.length < 6" x-text="changingAdminPassword ? 'Змінюю…' : 'Змінити пароль'"></button>
         </form>
     </div>
-    {% else %}<p class="note">Магазинів ще немає. Додайте перший нижче.</p>{% endfor %}
-</details>
-
-{% if archived_products or archived_stores %}
-<section class="inactive" id="archive">
-    <h2>Архів ({{ archived_products|length + archived_stores|length }}): дані звітів збережено</h2>
-    <details>
-        <summary>Архів товарів ({{ archived_products|length }})</summary>{% for x in archived_products %}<form
-            class="entry-foot entry" method="post" action="/admin/products/{{ x.p.id }}/restore"><span>{{ x.p.name
-                }}<span class="sub">Товар · у звітах: {{ x.used }} рядків</span></span><button
-                class="sm">Відновити</button></form>{% else %}<p class="note">Архів товарів порожній.</p>{% endfor %}
-    </details>
-    <details>
-        <summary>Архів магазинів ({{ archived_stores|length }})</summary>{% for x in archived_stores %}<form
-            class="entry-foot entry" method="post" action="/admin/stores/{{ x.store.id }}/restore"><span>{{ x.store.name
-                }}<span class="sub">Магазин · логін {{ x.user.login }} · звітів: {{ x.reports }}</span></span><button
-                class="sm">Відновити</button></form>{% else %}<p class="note">Архів магазинів порожній.</p>{% endfor %}
-    </details>
-</section>
-{% endif %}
-
-<h2 id="password">Ваш пароль адміністратора</h2>
-<div class="card">
-    <form class="entry entry-form" method="post" action="/admin/password">
-        <label class="field grow"><span>Новий пароль (від 6 символів)</span><input name="password" autocomplete="off"
-                minlength="6" required></label>
-        <button>Змінити пароль</button>
-    </form>
 </div>
-
-<script src="/static/admin.js" defer></script>
 {% endblock %}

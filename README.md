@@ -50,6 +50,9 @@
 - Зведені звіти по місяцях
 - Журнал дій та аудиту
 - Історія змін цін з підтримкою місячної логіки
+- Редактор ціни без варіантів: одне широке поле та розгортувана історія змін за місяць
+- Необмежена кількість змін ціни одного товару протягом місяця зберігається в послідовності; у звіті пропонуються всі унікальні ціни, що діяли в цьому місяці
+- Клієнтське відображення каталогу, звітів, зведення та журналу через Alpine.js і REST API v1 без перезавантаження сторінки
 - Архівування товарів і магазинів замість безповоротного видалення
 - Автоматичні резервні копії бази даних
 - Безпечне зберігання паролів через PBKDF2-хешування
@@ -62,6 +65,7 @@
 - Uvicorn
 - SQLModel (SQLAlchemy Core/engine under the hood)
 - Jinja2
+- Alpine.js для клієнтського відображення
 - SQLite
 - Poetry
 
@@ -73,21 +77,22 @@ EasyMourningReport/
 │   ├── core/             # Інфраструктура (paths, security, ratelimit, ui, dependencies)
 │   ├── db/               # SQLModel-моделі, сесії, репозиторії, міграції та backup
 │   ├── services/         # Чиста бізнес-логіка (pricing, excel)
-│   ├── routes/           # Модульні маршрути (auth, report, root, pwa, admin/*)
-│   ├── static/           # PWA та статичні ресурси
+│   ├── routes/           # HTML-маршрути та версійований REST API v1
+│   ├── dto.py            # Типізовані запити й відповіді REST API
+│   ├── static/           # CSS, JS-клієнти, PWA та статичні ресурси
 │   ├── templates/        # Шаблони Jinja2
 │   └── main.py           # Композиція FastAPI, життєвий цикл і middleware
 ├── tests/                # pytest, FastAPI TestClient та ізольовані тести БД
-├── build.py              # Скрипт збірки standalone EXE через PyOxidizer
-├── pyoxidizer.bzl        # Конфігурація пакування PyOxidizer
-├── DOCS.md               # Повна архітектурна та технічна документація
+├── .github/workflows/    # Тести та збірка Windows EXE через PyInstaller
+├── DOCS.md               # Архітектурна та технічна документація
 ├── README.md
 ├── pyproject.toml
 ├── poetry.lock
 ├── run.py                # Головна точка входу (uvicorn)
 ├── flake.nix             # Nix flake для автоматизації на Linux
-├── start.bat             # Скрипт автоматизації для Windows (Tailscale Funnel)
-└── backups/              # Снапшоти бази даних SQLite
+├── start.bat             # Запуск Windows
+├── tailscale-helper/     # Ізольований tsnet-вузол та reverse proxy для Funnel
+└── setup-windows-uvicorn.ps1 # Одноразове налаштування команди uvicorn у PowerShell
 ```
 
 Архітектура розділена за відповідальністю: `main.py` лише збирає FastAPI-застосунок, `routes/` відповідає за HTTP, `services/` — за бізнес-логіку, `db/models/` — за SQLModel-схему, а `db/repositories/` — за запити до даних. Внутрішні пакети не переекспортують функції через динамічні фасади: імпортуй символ безпосередньо з модуля, де його визначено.
@@ -151,7 +156,7 @@ http://localhost:8000
 start.bat
 ```
 
-Цей сценарій автоматично налаштовує середовище та запускає локальний сервер.
+Цей сценарій запускає локальний сервер. Публічний доступ керується окремо в розділі **Налаштування → Tailscale Funnel**; системний Tailscale CLI та його daemon не потрібні для вбудованого helper.
 
 #### Як запускати просто `uvicorn` у Windows
 
@@ -161,7 +166,7 @@ start.bat
 powershell -ExecutionPolicy Bypass -File .\setup-windows-uvicorn.ps1
 ```
 
-Закрийте й відкрийте PowerShell. Після цього в корені проєкту команда працюватиме коротко:
+Закрийте й відкрийте PowerShell. У корені проєкту команда працюватиме коротко:
 
 ```powershell
 uvicorn --app-dir . app.main:app --reload
@@ -242,36 +247,43 @@ test
 
 Тести охоплюють бізнес-логіку, репозиторії, маршрути й HTTP-поведінку FastAPI через TestClient. Мінімальний поріг покриття коду застосунку — 95%; штучно зламаних тестів немає.
 
-## Розробка та збірка standalone EXE (PyOxidizer)
+## Розробка та збірка standalone EXE (PyInstaller)
 
-Проект підтримує збірку застосунку за допомогою `PyOxidizer 0.24` (ця версія вбудовує CPython 3.10):
+Windows-реліз збирається як один автономний файл за допомогою PyInstaller; CI спершу компілює окремий Tailscale helper на Go та вкладає його в EXE.
+
+Для локальної збірки на Windows потрібні Python, Poetry та Go 1.24+:
 
 ```powershell
-python -m pip install pyoxidizer==0.24.0
-python build.py
+python -m poetry install
+python -m poetry run python -m pip install pyinstaller==6.16.0
+Invoke-WebRequest -Uri "https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js" -OutFile app/static/alpine.min.js
+if ((Get-Item app/static/alpine.min.js).Length -lt 10000) { throw "Alpine runtime download was incomplete." }
+# Build the isolated tsnet helper first
+cd tailscale-helper
+go mod download
+go build -trimpath -ldflags "-s -w" -o tailscale-helper.exe .
+cd ..
+python -m poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --add-binary "tailscale-helper/tailscale-helper.exe;." --collect-all fastapi --collect-all starlette --collect-all sqlmodel --collect-all sqlalchemy --collect-all jinja2 --collect-all openpyxl --collect-all uvicorn run.py
 ```
 
-Результат — `dist/LegkyiZvit.exe` разом із каталогами `dist/lib/` і `dist/app/`. **Не переносіть EXE окремо:** `lib/` містить Python-залежності, а `app/` — шаблони й PWA-ресурси. Конфігурація закріплює версії залежностей, сумісні з Python 3.10. Єдиний workflow запускається вручну: відновлює кеш залежностей, виконує pytest з порогом покриття 95%, і лише після успіху збирає та перевіряє EXE. Детальніше дивіться у [DOCS.md](DOCS.md).
+Готовий файл: `dist/LegkyiZvit.exe`. У ньому містяться Python runtime, залежності, HTML-шаблони та статичні ресурси. Для звичайного використання не потрібно окремо переносити каталоги `lib/` або `app/`.
 
-Головний запусковий файл:
+Існуючий Windows workflow автоматично запускає тести, збирає EXE, запускає упакований застосунок для HTTP smoke-тесту та завантажує артефакт. Для тегів `v*` і `Soup.v*` той самий workflow прикріплює EXE до GitHub Release. Перевірки виконуються до публікації; невдалий тест або smoke-тест зупиняє процес.
 
-```bash
-run.py
-```
+Дані користувача не зберігаються у тимчасовій теці PyInstaller. `reports.db`, `secret.key` та резервні копії залишаються в каталозі даних поруч із EXE, якщо він доступний для запису; інакше застосунок використовує `%LOCALAPPDATA%\\LegkyiZvit`. Для явного вибору каталогу можна задати `LEGKYI_DATA_DIR`.
 
-База даних `reports.db`, `secret.key` і каталог `backups/` створюються автоматично поруч із `LegkyiZvit.exe` (незалежно від того, звідки його запущено) і не губляться після перезапуску. Якщо ця папка тільки для читання (наприклад, `Program Files`), дані зберігаються в `%LOCALAPPDATA%\LegkyiZvit`. Свою папку можна задати змінною середовища `LEGKYI_DATA_DIR`. Шлях до папки з даними виводиться у вікні при старті.
-
-Розпакуйте zip-архів перед запуском: з вікна перегляду архіву Windows запускає exe з тимчасової папки.
+Докладніше про архітектуру, запуск, збереження даних і перевірки дивіться у [DOCS.md](DOCS.md).
 
 ## Розгортання через Tailscale Funnel
 
-Для публічного доступу без власного домену можна використовувати Tailscale Funnel:
+У розділі **Налаштування → Tailscale Funnel** працює вбудований app-specific helper на базі Tailscale `tsnet`. Він створює окремий вузол для застосунку, запускає HTTPS reverse proxy та зберігає стан пристрою у приватному каталозі даних. Не потрібно встановлювати системний Tailscale CLI або окремо запускати daemon.
 
-```bash
-tailscale funnel --bg "${PORT:-8000}"
-```
+1. Підтвердьте попередження про публічний доступ.
+2. Залиште поле auth key порожнім, щоб пройти браузерну авторизацію, або введіть тимчасовий/reusable key, якщо це відповідає вашій політиці tailnet.
+3. Якщо потрібна авторизація, відкрийте посилання, яке показує панель, і завершіть вхід.
+4. Після успішного підключення панель показує публічний HTTPS URL.
 
-Це дозволяє підняти локальний застосунок через HTTPS, не купуючи домен.
+Auth key передається дочірньому процесу через stdin, не аргументами командного рядка чи змінними середовища, і не зберігається на диску. Стан вузла та явне ввімкнення Funnel зберігаються для наступного запуску; вимкнення в панелі зупиняє helper і скасовує автозапуск. Funnel доступний лише якщо його дозволено політиками tailnet.
 
 ## Поради для використання
 

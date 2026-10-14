@@ -1,25 +1,31 @@
 (() => {
     "use strict";
 
-    const period = document.querySelector("[data-admin-period]")?.dataset.adminPeriod || "";
-    const search = document.getElementById("product-search");
+    const normalizeSearch = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim().replace(/\s+/g, " ");
 
     if (location.hash === "#archive") document.getElementById("archive")?.scrollIntoView();
 
-    // Remember foldouts separately; storage failure must not block the page.
+    // Remember foldouts separately; bind newly swapped-in admin pages too.
     const foldoutStorageKey = "easyMourningReport.admin.foldouts.v1";
     let foldoutState = {};
     try {
         foldoutState = JSON.parse(localStorage.getItem(foldoutStorageKey) || "{}") || {};
     } catch (_error) { /* Optional preference. */ }
-    [...document.querySelectorAll("details[id], #archive details")].forEach((details, index) => {
-        const key = details.id || (details.closest("#archive") ? "archive-section-" + index : "foldout-" + index);
-        if (Object.prototype.hasOwnProperty.call(foldoutState, key)) details.open = !!foldoutState[key];
-        details.addEventListener("toggle", () => {
-            foldoutState[key] = details.open;
-            try { localStorage.setItem(foldoutStorageKey, JSON.stringify(foldoutState)); } catch (_error) { }
+
+    function bindFoldouts() {
+        [...document.querySelectorAll("details[id], #archive details")].forEach((details, index) => {
+            if (details.dataset.foldoutBound === "true") return;
+            const key = details.id || (details.closest("#archive") ? "archive-section-" + index : "foldout-" + index);
+            if (Object.prototype.hasOwnProperty.call(foldoutState, key)) details.open = !!foldoutState[key];
+            details.dataset.foldoutBound = "true";
+            details.addEventListener("toggle", () => {
+                foldoutState[key] = details.open;
+                try { localStorage.setItem(foldoutStorageKey, JSON.stringify(foldoutState)); } catch (_error) { }
+            });
         });
-    });
+    }
+
+    bindFoldouts();
 
     function centsFromValue(value) {
         const raw = String(value ?? "").trim().replace(/\s/g, "").replace(",", ".");
@@ -29,20 +35,22 @@
     }
 
     function normalizeFieldValue(el) {
-        if (el.name === "price" || el.name === "extra_price") return centsFromValue(el.value);
+        if (el.name === "price") return centsFromValue(el.value);
         return (el.type === "checkbox" || el.type === "radio") ? el.checked : el.value;
     }
 
     function formSnapshot(form) {
         return [...form.elements]
             .filter(el => el.name && !el.disabled && !["submit", "button", "reset"].includes(el.type))
-            .filter(el => !(el.name === "extra_price" && el.value.trim() === ""))
             .map(el => [el.name, normalizeFieldValue(el)]);
     }
 
     function initializeFormTracking(form) {
         if (!form || !form.matches("form.entry-form")) return;
+        // Creation/import forms must always keep their submit button visible.
+        if (form.matches(".create-form, .import-tile form") || form.querySelector('input[type="file"]')) return;
         form.dataset.originalSnapshot = JSON.stringify(formSnapshot(form));
+        form.classList.remove("has-unsaved");
         const submit = form.querySelector('button[type="submit"], button:not([type]), input[type="submit"]');
         if (submit) {
             submit.hidden = true;
@@ -51,23 +59,25 @@
     }
 
     function refreshSaveButton(form) {
-        if (!form || !form.matches("form.entry-form")) return;
+        if (!form || !form.matches("form.entry-form") || !form.dataset.originalSnapshot) return;
         const submit = form.querySelector('button[type="submit"], button:not([type]), input[type="submit"]');
         if (!submit || !form.dataset.originalSnapshot) return;
         const changed = JSON.stringify(formSnapshot(form)) !== form.dataset.originalSnapshot;
         submit.hidden = !changed;
         submit.setAttribute("aria-hidden", String(!changed));
+        form.classList.toggle("has-unsaved", changed);
+        form.closest(".product-entry")?.classList.toggle("has-unsaved", changed);
+        let status = form.querySelector(".dirty-status");
+        if (changed && !status) { status = document.createElement("span"); status.className = "dirty-status"; status.textContent = "Є незбережені зміни"; status.setAttribute("role", "status"); (form.querySelector(".product-actions") || form).prepend(status); }
+        if (!changed) status?.remove();
     }
 
     document.querySelectorAll("form.entry-form").forEach(initializeFormTracking);
 
     function priceEditorHasChanges(editor) {
-        return [...editor.querySelectorAll('input[name="price"], input[name="extra_price"]')].some(input => {
-            const current = normalizeFieldValue(input);
-            const original = input.hasAttribute("data-original") ? centsFromValue(input.dataset.original) : "";
-            if (input.name === "extra_price" && current === "" && original === "") return false;
-            return current !== original;
-        });
+        const input = editor?.querySelector('input[name="price"]');
+        if (!input) return false;
+        return centsFromValue(input.value) !== centsFromValue(input.dataset.original ?? input.value);
     }
 
     function refreshPriceNote(editor) {
@@ -75,40 +85,32 @@
         if (!note) return;
         const changed = priceEditorHasChanges(editor);
         note.hidden = !changed;
-        if (changed) note.textContent = "Нові ціни діятимуть з " + period + ". Попередні місяці та вже внесені кількості у звітах не зміняться.";
+        if (changed) {
+            note.textContent = "Нова ціна діятиме з " +
+                (document.querySelector("[data-admin-period]")?.dataset.adminPeriod || "") +
+                ". Ціни за минулі місяці та вже внесені звіти не зміняться.";
+        }
     }
 
     function setPriceEditorOpen(button, open) {
         const form = button.closest(".product-form");
-        const editor = form && form.querySelector(".price-editor");
+        const editor = form?.querySelector(".price-editor");
         if (!editor) return;
-
-        if (!open && priceEditorHasChanges(editor)) {
-            const note = editor.querySelector(".price-note");
-            if (note) {
-                note.hidden = false;
-                note.textContent = "Спочатку збережіть зміни ціни — після цього редактор можна згорнути.";
-            }
-            const save = form.querySelector(".save-product");
-            if (save && !save.hidden) save.focus();
-            return;
-        }
 
         button.setAttribute("aria-expanded", String(open));
         const label = button.querySelector(".price-toggle-label > span");
-        if (label) label.textContent = open ? "Згорнути варіанти" : "Варіанти ціни";
+        if (label) label.textContent = open ? "Закрити" : "Змінити ціну";
         if (open) {
             editor.hidden = false;
             editor.inert = false;
             editor.setAttribute("aria-hidden", "false");
             requestAnimationFrame(() => editor.classList.add("is-open"));
-            const first = editor.querySelector(".price-option--new input") || editor.querySelector("input");
-            if (first) first.focus({ preventScroll: true });
+            editor.querySelector(".price-single-field input")?.focus({ preventScroll: true });
         } else {
             editor.classList.remove("is-open");
             editor.inert = true;
             editor.setAttribute("aria-hidden", "true");
-            const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 280;
+            const delay = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220;
             window.setTimeout(() => {
                 if (!editor.classList.contains("is-open")) editor.hidden = true;
             }, delay);
@@ -117,9 +119,10 @@
     }
 
     function refreshProductSearch() {
-        const query = (search?.value || "").trim().toLocaleLowerCase();
+        const query = normalizeSearch(document.getElementById("product-search")?.value);
         document.querySelectorAll(".product-entry").forEach(entry => {
-            entry.hidden = !entry.dataset.productName.includes(query);
+            const name = normalizeSearch(entry.querySelector('input[name="name"]')?.value || entry.dataset.productName);
+            entry.hidden = !name.includes(query);
         });
         if (query) {
             document.querySelectorAll(".product-list").forEach(section => {
@@ -151,6 +154,7 @@
         if (!entry || !submit || submit.disabled) return;
 
         const previousLabel = submit.textContent;
+        const previousTop = entry.getBoundingClientRect().top;
         submit.disabled = true;
         submit.textContent = "Зберігаю…";
         entry.setAttribute("aria-busy", "true");
@@ -186,11 +190,14 @@
             targetSection.append(refreshed);
             insertProductInNameOrder(targetSection, refreshed);
             targetSection.open = true;
+            // Replacing/re-sorting a card must not make the viewport jump.
+            const newTop = refreshed.getBoundingClientRect().top;
+            window.scrollBy(0, newTop - previousTop);
             initializeFormTracking(refreshed.querySelector("form.product-form"));
             refreshProductSearch();
             refreshed.removeAttribute("aria-busy");
             showProductFeedback(refreshed, serverMessage || "Зміни збережено.", "good");
-            refreshed.querySelector(".price-toggle")?.focus({ preventScroll: true });
+            // Do not steal focus or scroll after a background save.
         } catch (error) {
             entry.removeAttribute("aria-busy");
             submit.disabled = false;
@@ -205,6 +212,7 @@
     }
 
     document.addEventListener("input", event => {
+        if (event.target.matches && event.target.matches("#product-search")) refreshProductSearch();
         const form = event.target.closest && event.target.closest("form.entry-form");
         if (form) refreshSaveButton(form);
         const editor = event.target.closest && event.target.closest(".price-editor");
@@ -226,38 +234,26 @@
     });
 
     document.addEventListener("click", event => {
+        const createButton = event.target.closest && event.target.closest("#show-product-form, #show-store-form");
+        if (createButton) {
+            const product = createButton.id === "show-product-form";
+            const form = document.getElementById(product ? "new-product-form" : "new-store-form");
+            if (!form) return;
+            const show = form.hidden;
+            form.hidden = !show;
+            createButton.setAttribute("aria-expanded", String(show));
+            createButton.textContent = show ? "Скасувати" : (product ? "＋ Створити товар" : "＋ Створити магазин");
+            if (show) form.querySelector('input:not([type="file"])')?.focus({ preventScroll: true });
+            return;
+        }
+
         const toggle = event.target.closest && event.target.closest(".price-toggle");
         if (toggle) {
             setPriceEditorOpen(toggle, toggle.getAttribute("aria-expanded") !== "true");
             return;
         }
 
-        const addButton = event.target.closest && event.target.closest(".add-price-btn");
-        if (!addButton) return;
-        const editor = addButton.closest(".price-editor");
-        const container = editor && editor.querySelector(".price-options");
-        if (!container) return;
 
-        const option = document.createElement("label");
-        option.className = "price-option price-option--new extra-price-field";
-        const title = document.createElement("span");
-        title.className = "option-label";
-        title.textContent = "Нова ціна";
-        const field = document.createElement("span");
-        field.className = "field price-option-field";
-        const input = document.createElement("input");
-        input.className = "price";
-        input.name = "extra_price";
-        input.inputMode = "decimal";
-        input.placeholder = "0.00";
-        input.setAttribute("aria-label", "Нова ціна");
-        const suffix = document.createElement("span");
-        suffix.className = "price-option-suffix";
-        suffix.textContent = "₴";
-        field.append(input, suffix);
-        option.append(title, field);
-        container.append(option);
-        input.focus();
     });
 
     document.addEventListener("submit", event => {
@@ -268,19 +264,4 @@
         }
     });
 
-    [["show-product-form", "new-product-form", "товар"], ["show-store-form", "new-store-form", "магазин"]]
-        .forEach(([buttonId, formId, noun]) => {
-            const button = document.getElementById(buttonId);
-            const form = document.getElementById(formId);
-            if (!button || !form) return;
-            button.addEventListener("click", () => {
-                const show = form.hidden;
-                form.hidden = !show;
-                button.setAttribute("aria-expanded", String(show));
-                button.textContent = show ? "Скасувати" : "＋ Створити " + noun;
-                if (show) form.querySelector("input")?.focus();
-            });
-        });
-
-    if (search) search.addEventListener("input", refreshProductSearch);
 })();

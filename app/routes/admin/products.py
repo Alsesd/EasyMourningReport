@@ -1,4 +1,4 @@
-"""Admin product management endpoints: CRUD, Excel import, and multi-price history."""
+"""Admin product management endpoints: CRUD, Excel import, and monthly price history."""
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from app.core.dependencies import admin_required, clean_name, to_cents
@@ -11,7 +11,7 @@ from app.db.repositories.audit import audit
 from app.db.repositories.products import history_of, load_history, save_history
 from app.db.session import get_db
 from app.services.excel import parse_products_excel
-from app.services.pricing import BASE_PERIOD, apply_price_change, latest_price, offered_prices, period_month
+from app.services.pricing import BASE_PERIOD, apply_price_change, latest_price, offered_prices
 from sqlalchemy import delete, func
 from sqlmodel import select
 from sqlmodel import Session
@@ -84,65 +84,28 @@ async def product_edit(
     name = clean_name(raw_name)
     is_active = form.get("active") is not None
 
-    # Support multiple price values in the form (e.g. from dynamically added price fields)
-    all_price_strs = form.getlist("price") + form.getlist("extra_price")
-    all_cents = [to_cents(str(val)) for val in all_price_strs if str(val).strip()]
-    if not all_cents:
-        raise HTTPException(400, "Необхідно вказати хоча б одну ціну")
+    # A product has one price input. Ignore legacy extra_price fields from cached clients.
+    raw_price = str(form.get("price") or "").strip()
+    if not raw_price:
+        raise HTTPException(400, "Необхідно вказати ціну")
 
+    cents = to_cents(raw_price)
     period = current_period()
     said: list[str] = []
     history = history_of(load_history(db), p)
-    before_now = offered_prices(history, period)[-1]  # price in force right now
 
-    if len(all_cents) == 1:
-        cents = all_cents[0]
-        new_history, prev_price, now_price = apply_price_change(
-            history, period, cents
-        )
-        if new_history != history:
-            save_history(db, pid, new_history)
-            p.price_cents = latest_price(new_history)
-            if len(offered_prices(new_history, period)) == 2:
-                said.append(
-                    f"Ціну змінено: {money(before_now)} → {money(now_price)} з {period}. "
-                    f"У звітах {period} усі магазини (зокрема нові) бачать два рядки: "
-                    f"{money(prev_price)} і {money(now_price)}. У наступних місяцях буде лише {money(now_price)}."
-                )
-            else:
-                said.append(
-                    f"Зміну ціни за {period} скасовано: ціна знову {money(now_price)}, "
-                    f"у звітах {period} один рядок."
-                )
-            audit(
-                db,
-                request,
-                user.login,
-                user.role,
-                "змінено ціну товару",
-                f"{p.name} · {money(before_now)} → {money(now_price)} з {period}",
-            )
-    else:
-        # Multiple prices configured for the current month
-        # Keep historical prices before this month, and future prices after this month
-        hist = sorted(history)
-        past_entries = [
-            (s, c) for s, c in hist if period_month(s) < period
-        ]
-        future_entries = [
-            (s, c) for s, c in hist if period_month(s) > period
-        ]
-        # Current month entries
-        month_entries = [(period, all_cents[0])] + [
-            (f"{period}_{i}", cents) for i, cents in enumerate(all_cents[1:], start=1)
-        ]
-        new_history = sorted(past_entries + month_entries + future_entries)
+    # Preserve all recorded changes for the current month. Each new price is
+    # appended as a new history event instead of replacing this month's prior value.
+    new_history, prev_price, now_price = apply_price_change(history, period, cents)
+    if new_history != history:
         save_history(db, pid, new_history)
-        p.price_cents = all_cents[-1]
-        price_list_str = " → ".join(money(c) for c in all_cents)
+        p.price_cents = latest_price(new_history)
+        month_prices = offered_prices(new_history, period)
         said.append(
-            f"Встановлено декілька цін на {period}: {price_list_str}. "
-            f"У звітах {period} доступні всі ці ціни."
+            f"Ціну змінено: {money(prev_price)} → {money(now_price)}. "
+            f"За {period} у звіті доступні ціни: "
+            f"{', '.join(money(value) for value in month_prices)}; "
+            f"з наступного місяця діятиме {money(now_price)}."
         )
         audit(
             db,
@@ -150,7 +113,7 @@ async def product_edit(
             user.login,
             user.role,
             "змінено ціну товару",
-            f"{p.name} · {price_list_str} у {period}",
+            f"{p.name} · {money(prev_price)} → {money(now_price)} з {period}",
         )
 
     notes = []

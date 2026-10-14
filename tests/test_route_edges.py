@@ -98,9 +98,8 @@ class RouteEdgeTests(unittest.TestCase):
         with self.Session() as db:
             response = admin_page(make_request(), db.get(User, self.admin_id), db)
             self.assertEqual(response.status_code_code if hasattr(response, "status_code_code") else response.status_code, 200)
-            self.assertIn(b"Archived item", response.body)
-            self.assertIn(b"Old bread", response.body)
-            self.assertIn(b"Archived store", response.body)
+            # This page is a client-rendered shell; the catalogue comes from REST DTOs.
+            self.assertIn(b'x-data="adminApp()"', response.body)
 
     def test_product_used_by_report_is_archived_not_deleted_then_restored(self):
         with self.Session() as db:
@@ -143,9 +142,12 @@ class RouteEdgeTests(unittest.TestCase):
             db.flush()
             report.items.append(ReportItem(product_id=self.product_id, quantity=0, unit_price_cents=100))
             db.commit()
-            response = report_view(report.id, make_request(), admin, db)
+            request = make_request()
+            response = report_view(report.id, request, admin, db)
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.context["period"], current_period())
+            self.assertEqual(request.session["period"], current_period())
+            self.assertEqual(response.context["report_id"], report.id)
+            self.assertIn(b"adminReportDetailApp", response.body)
 
     def test_report_status_validation_and_unlock_action(self):
         with self.Session() as db:
@@ -181,10 +183,11 @@ class RouteEdgeTests(unittest.TestCase):
             db.commit()
             response = reports_page(make_request(), "2020-01", db.get(User, self.admin_id), db)
             self.assertEqual(response.status_code, 200)
-            self.assertIn(b"Archived store", response.body)
+            self.assertEqual(response.context["period"], "2020-01")
+            self.assertIn(b"adminReportsApp('2020-01')", response.body)
             response_current = reports_page(make_request(), current_period(), db.get(User, self.admin_id), db)
             self.assertEqual(response_current.status_code, 200)
-            self.assertNotIn(b"Archived store", response_current.body)
+            self.assertIn(f"adminReportsApp('{current_period()}')".encode(), response_current.body)
 
     def test_logs_accepts_login_and_action_filters(self):
         with self.Session() as db:
@@ -195,8 +198,10 @@ class RouteEdgeTests(unittest.TestCase):
             db.commit()
             response = logs_page(make_request(), " ADMIN ", "вхід", db.get(User, self.admin_id), db)
             self.assertEqual(response.status_code, 200)
-            self.assertEqual([entry.login for entry in response.context["logs"]], ["admin"])
-            self.assertEqual([entry.action for entry in response.context["logs"]], ["вхід"])
+            self.assertIn(b'x-data="adminLogsApp()"', response.body)
+            self.assertIn(b'x-model="login"', response.body)
+            self.assertIn(b'x-model="action"', response.body)
+            # Filter values are fetched from the REST API by the browser component.
 
 
 if __name__ == "__main__":

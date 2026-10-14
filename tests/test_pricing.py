@@ -1,6 +1,6 @@
 import unittest
 
-from app.services.pricing import (BASE_PERIOD, apply_price_change, dedupe_logins, latest_price, line_labels,
+from app.services.pricing import (BASE_PERIOD, apply_price_change, dedupe_logins, latest_price, line_labels, month_price_timeline,
                          norm_login, offered_prices, same_name, valid_login)
 
 
@@ -36,6 +36,32 @@ class OfferedPrices(unittest.TestCase):
         history = [(BASE_PERIOD, 100), ("2026-10", 100), ("2026-10_1", 150), ("2026-10_2", 150)]
         self.assertEqual(offered_prices(history, "2026-10"), [100, 150])
 
+    def test_multiple_month_changes_keep_every_distinct_price_in_order(self):
+        history = [(BASE_PERIOD, 100), ("2026-10", 120), ("2026-10_1", 130), ("2026-10_2", 150)]
+        self.assertEqual(offered_prices(history, "2026-10"), [100, 120, 130, 150])
+        self.assertEqual(offered_prices(history, "2026-11"), [150])
+
+    def test_suffixes_are_sorted_numerically(self):
+        history = [
+            (BASE_PERIOD, 100),
+            ("2026-10", 110),
+            ("2026-10_10", 210),
+            ("2026-10_2", 130),
+        ]
+        self.assertEqual(offered_prices(history, "2026-10"), [100, 110, 130, 210])
+
+    def test_month_price_timeline_preserves_repeated_change_events(self):
+        history = [
+            (BASE_PERIOD, 100),
+            ("2026-10", 120),
+            ("2026-10_1", 150),
+            ("2026-10_2", 120),
+        ]
+        self.assertEqual(month_price_timeline(history, "2026-10"), [100, 120, 150, 120])
+        # Reports need one input per distinct price, not duplicate fields for repeated amounts.
+        self.assertEqual(offered_prices(history, "2026-10"), [100, 120, 150])
+        self.assertEqual(month_price_timeline(history, "2026-11"), [120])
+
     def test_empty_history(self):
         self.assertEqual(offered_prices([], "2026-10"), [])
 
@@ -53,19 +79,39 @@ class ApplyPriceChange(unittest.TestCase):
         self.assertEqual(h, self.base)
         self.assertEqual((prev, now), (2500, 2500))
 
-    def test_second_change_same_month_replaces_first(self):
+    def test_multiple_changes_same_month_are_all_preserved(self):
         h1, _, _ = apply_price_change(self.base, "2026-10", 2700)
         h2, prev, now = apply_price_change(h1, "2026-10", 2800)
-        self.assertEqual(h2, [(BASE_PERIOD, 2500), ("2026-10", 2800)])
+        h3, prev3, now3 = apply_price_change(h2, "2026-10", 3100)
+        self.assertEqual(
+            h3,
+            [
+                (BASE_PERIOD, 2500),
+                ("2026-10", 2700),
+                ("2026-10_1", 2800),
+                ("2026-10_2", 3100),
+            ],
+        )
         self.assertEqual((prev, now), (2500, 2800))
-        self.assertEqual(offered_prices(h2, "2026-10"), [2500, 2800])  # still two lines, never three
+        self.assertEqual((prev3, now3), (2500, 3100))
+        self.assertEqual(offered_prices(h3, "2026-10"), [2500, 2700, 2800, 3100])
+        self.assertEqual(latest_price(h3), 3100)
 
-    def test_change_back_cancels(self):
+    def test_change_back_is_another_history_event(self):
         h1, _, _ = apply_price_change(self.base, "2026-10", 2700)
-        h2, prev, now = apply_price_change(h1, "2026-10", 2500)
-        self.assertEqual(h2, self.base)
-        self.assertEqual(offered_prices(h2, "2026-10"), [2500])
-        self.assertEqual((prev, now), (2500, 2500))
+        h2, _, _ = apply_price_change(h1, "2026-10", 2500)
+        self.assertEqual(
+            h2,
+            [(BASE_PERIOD, 2500), ("2026-10", 2700), ("2026-10_1", 2500)],
+        )
+        self.assertEqual(offered_prices(h2, "2026-10"), [2500, 2700])
+        self.assertEqual(latest_price(h2), 2500)
+
+    def test_same_current_price_is_noop(self):
+        h1, _, _ = apply_price_change(self.base, "2026-10", 2700)
+        h2, prev, now = apply_price_change(h1, "2026-10", 2700)
+        self.assertEqual(h2, h1)
+        self.assertEqual((prev, now), (2500, 2700))
 
     def test_change_in_later_month_keeps_earlier_one(self):
         h1, _, _ = apply_price_change(self.base, "2026-10", 2700)

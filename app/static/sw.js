@@ -1,8 +1,8 @@
 // Network-first service worker: private pages are never cached; only offline/static assets are.
-const CACHE = "legkyi-zvit-v5";
+const CACHE = "legkyi-zvit-v10";
 self.addEventListener("install", event => event.waitUntil(
   caches.open(CACHE)
-    .then(cache => cache.addAll(["/offline", "/static/app.css", "/static/icon.svg", "/static/apple-touch-icon.png"]))
+    .then(cache => cache.addAll(["/offline", "/static/app.css", "/static/icon-192.png", "/static/apple-touch-icon.png"]))
     .then(() => self.skipWaiting())
 ));
 self.addEventListener("activate", event => event.waitUntil(

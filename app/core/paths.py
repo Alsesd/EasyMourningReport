@@ -1,8 +1,6 @@
-"""Resolve persistent data beside the executable or project directory.
+"""Resolve persistent data outside the one-file freezer extraction directory.
 
-PyOxidizer marks its runtime as frozen; one-file/freezer extraction paths must not be
-used for persistent SQLite, secret-key, or backup files. When the executable folder is
-not writable, use the per-user application data directory instead.
+When the executable folder is not writable, use the per-user application data directory.
 """
 
 import os
@@ -14,11 +12,7 @@ APP_NAME = "LegkyiZvit"
 
 def _app_dir() -> Path:
     """Folder of the exe (compiled build) or of the project (running from source)."""
-    compiled = globals().get("__compiled__")
-    if compiled is not None:
-        folder = getattr(compiled, "containing_dir", None)
-        return Path(folder) if folder else Path(sys.argv[0]).resolve().parent
-    if getattr(sys, "frozen", False):  # other freezers, e.g. PyInstaller
+    if getattr(sys, "frozen", False):  # PyInstaller and compatible freezers
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent.parent
 
@@ -39,6 +33,20 @@ def _user_data_dir() -> Path:
     else:
         root = os.getenv("XDG_DATA_HOME") or Path.home() / ".local" / "share"
     return Path(root) / APP_NAME
+
+
+def user_data_dir() -> Path:
+    """Return private per-user storage for Tailscale identity and helper state.
+
+    LEGKYI_DATA_DIR intentionally overrides the location so portable installs and
+    tests can keep identity state alongside the rest of the application's data.
+    """
+    override = os.getenv("LEGKYI_DATA_DIR")
+    folder = Path(override).expanduser().resolve() if override else _user_data_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        folder.chmod(0o700)
+    return folder
 
 
 def _writable(folder: Path) -> bool:

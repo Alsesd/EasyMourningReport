@@ -1,9 +1,4 @@
-"""Compose the FastAPI application and its cross-cutting infrastructure.
-
-Business rules live in services, persistence lives in db repositories/models,
-and HTTP handlers live in routes. This module intentionally only wires them
-together, configures middleware, and owns application lifecycle/error handling.
-"""
+"""Compose the FastAPI application and its cross-cutting infrastructure."""
 
 import asyncio
 import os
@@ -11,13 +6,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.paths import asset_dir
 from app.core.security import load_secret, same_origin_post_guard
+from app.core.tailscale import shutdown as shutdown_tailscale, start_if_enabled as start_tailscale_if_enabled
 from app.core.ui import FormError, done, render, safe_referer
 from app.db.backup import backup_db, backup_loop
 from app.db.bootstrap import migrate, seed
@@ -32,8 +28,11 @@ async def lifespan(_: FastAPI):
     await asyncio.to_thread(backup_db)
     backup_task = asyncio.create_task(backup_loop(), name="database-backup-loop")
     try:
+        # Restore the explicitly enabled app-specific Funnel after a restart.
+        await asyncio.to_thread(start_tailscale_if_enabled)
         yield
     finally:
+        await asyncio.to_thread(shutdown_tailscale)
         backup_task.cancel()
         try:
             await backup_task
@@ -55,19 +54,32 @@ app.mount("/static", StaticFiles(directory=asset_dir("static")), name="static")
 app.include_router(api_router)
 
 
+def _is_api_request(request: Request) -> bool:
+    return request.url.path == "/api/v1" or request.url.path.startswith("/api/v1/")
+
+
 @app.exception_handler(FormError)
 def form_error(request: Request, exc: FormError):
-    """Redirect form errors back to the form that produced them."""
+    """JSON API clients receive machine-readable validation errors."""
+    if _is_api_request(request):
+        return JSONResponse({"detail": exc.message, "code": "validation_error"}, status_code=422)
     return done(request, exc.to or safe_referer(request) or "/", exc.message, "err")
 
 
 @app.exception_handler(RequestValidationError)
 def invalid_form(request: Request, exc: RequestValidationError):
-    """Return readable validation feedback instead of FastAPI's JSON detail."""
-    if request.method == "POST":
-        return done(
-            request, safe_referer(request) or "/", "Заповніть усі поля форми.", "err"
+    """Use JSON for API validation and retain readable feedback for legacy forms."""
+    if _is_api_request(request):
+        errors = [
+            {"loc": [str(part) for part in error.get("loc", ())], "msg": error.get("msg", "Invalid value"), "type": error.get("type", "value_error")}
+            for error in exc.errors()
+        ]
+        return JSONResponse(
+            {"detail": "Некоректні дані запиту.", "errors": errors},
+            status_code=422,
         )
+    if request.method == "POST":
+        return done(request, safe_referer(request) or "/", "Заповніть усі поля форми.", "err")
     return render(
         request,
         "error.html",
@@ -78,7 +90,9 @@ def invalid_form(request: Request, exc: RequestValidationError):
 
 @app.exception_handler(StarletteHTTPException)
 def http_error(request: Request, exc: StarletteHTTPException):
-    """Preserve redirect responses and render all other HTTP errors."""
+    """Preserve legacy redirects and use a consistent JSON error envelope for the API."""
+    if _is_api_request(request):
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
     location = (exc.headers or {}).get("Location")
     if location and 300 <= exc.status_code < 400:
         return RedirectResponse(location, exc.status_code)
