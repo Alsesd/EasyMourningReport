@@ -253,7 +253,9 @@
                 this.tailscaleBusy = true;
                 try {
                     this.tailscale = await window.apiRequest("/api/v1/admin/tailscale", { method: "DELETE" });
-                    this.notify("Tailscale Funnel вимкнено.");
+                    this.notify(this.tailscale.autostart
+                        ? "Tailscale відключено. Автозапуск залишився увімкненим."
+                        : "Tailscale відключено.");
                 } catch (error) {
                     this.notify(error.message || "Не вдалося вимкнути Tailscale Funnel.", "err");
                 } finally {
