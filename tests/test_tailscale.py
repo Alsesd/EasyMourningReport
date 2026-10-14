@@ -148,7 +148,7 @@ class TailscaleManagerTests(unittest.TestCase):
         tailscale._process = fake
         result = tailscale.get_status()
         self.assertEqual(result["state"], "stopped")
-        self.assertEqual(result["public_url"], "https://example.ts.net")
+        self.assertEqual(result["public_url"], "")  # stopped helpers must not expose stale links
         self.assertEqual(result["updated_at"], "2026-10-13T00:00:00Z")
         self.assertNotIn("ignored", result)
         self.assertNotIn("bad_type", result)
