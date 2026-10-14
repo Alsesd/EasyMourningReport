@@ -234,7 +234,7 @@ def start_funnel(auth_key: str | None = None, autostart: bool = True) -> dict[st
 
 
 def stop_funnel() -> dict[str, Any]:
-    """Disable public exposure and clear the persistent opt-in."""
+    """Disconnect the helper and clear transient status while preserving the startup preference."""
     global _process, _log_handle
 
     _stop_child()
