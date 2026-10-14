@@ -150,7 +150,7 @@ def set_autostart(enabled: bool) -> dict[str, Any]:
         else:
             marker.unlink(missing_ok=True)
     except OSError as exc:
-        return {**get_status(), "state": "error", "error": f"Could not update Tailscale autostart: {exc}"}
+        raise OSError(f"Could not update Tailscale autostart: {exc}") from exc
     return get_status()
 
 
@@ -174,9 +174,10 @@ def start_funnel(auth_key: str | None = None, autostart: bool = True) -> dict[st
         }
 
     # Keep the startup preference independent from whether the helper is running now.
-    preference = set_autostart(autostart)
-    if preference.get("error"):
-        return preference
+    try:
+        set_autostart(autostart)
+    except OSError as exc:
+        return {**get_status(), "state": "error", "error": str(exc)}
 
     if _process is not None and _process.poll() is None:
         current = get_status()
@@ -237,6 +238,11 @@ def stop_funnel() -> dict[str, Any]:
     global _process, _log_handle
 
     _stop_child()
+    # Clear the last helper snapshot so a disconnected session cannot look live.
+    try:
+        (_state_root() / "status.json").unlink(missing_ok=True)
+    except OSError:
+        pass
     return get_status()
 
 
@@ -262,7 +268,7 @@ def start_if_enabled() -> dict[str, Any] | None:
     """Retry Funnel at app startup only if an administrator previously opted in."""
     if not _enabled_file().is_file():
         return None
-    return start_funnel(autostart=True)
+    return start_funnel()
 
 
 def shutdown() -> None:

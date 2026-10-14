@@ -133,10 +133,10 @@ def update_tailscale_autostart(
     enabled = payload.get("enabled")
     if not isinstance(enabled, bool):
         raise HTTPException(status_code=422, detail="Некоректне значення автозапуску.")
-    result = set_tailscale_autostart(enabled)
-    if result.get("error"):
-        raise HTTPException(status_code=500, detail=result["error"])
-    return result
+    try:
+        return set_tailscale_autostart(enabled)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.delete("/admin/tailscale")
