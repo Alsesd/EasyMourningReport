@@ -54,17 +54,18 @@ def _helper_path() -> Path | None:
 
 
 def get_status() -> dict[str, Any]:
-    """Return public status without exposing authentication material."""
-    enabled = _enabled_file().is_file()
-    state_root = _state_root()
-    status_path = state_root / "status.json"
+    """Return helper runtime state and the separate persistent autostart preference."""
+    autostart = _enabled_file().is_file()
+    process_running = _process is not None and _process.poll() is None
     result: dict[str, Any] = {
-        "enabled": enabled,
-        "state": "enabled-but-not-running" if enabled else "disabled",
+        "enabled": bool(autostart or process_running),
+        "autostart": autostart,
+        "state": "starting" if process_running else ("enabled-but-not-running" if autostart else "disabled"),
         "public_url": "",
         "login_url": "",
         "error": "",
     }
+    status_path = _state_root() / "status.json"
     try:
         stored = json.loads(status_path.read_text(encoding="utf-8"))
         if isinstance(stored, dict):
@@ -73,15 +74,51 @@ def get_status() -> dict[str, Any]:
                     result[key] = stored[key]
     except (OSError, ValueError):
         pass
-    if not enabled:
-        result.update(state="disabled", public_url="", error="")
-    elif _process is not None and _process.poll() is not None and not result["error"]:
-        result["state"] = "stopped"
+
+    if process_running:
+        # A live process with an empty/old snapshot has just been started.
+        if result["state"] in ("disabled", "stopped", "enabled-but-not-running"):
+            result.update(state="starting", public_url="", login_url="", error="")
+        result["enabled"] = True
+    elif _process is not None:
+        # The child exited. Do not keep advertising a stale Funnel URL.
+        if result["error"]:
+            result.update(state="error", public_url="", login_url="")
+        elif autostart:
+            result.update(state="stopped", public_url="", login_url="")
+        else:
+            result.update(state="disabled", enabled=False, public_url="", login_url="", error="")
+    elif autostart:
+        # Autostart enabled is not the same as an active connection.
+        if result["state"] != "error":
+            result.update(state="enabled-but-not-running", public_url="", login_url="")
+        result["enabled"] = True
+    else:
+        # No process and no startup preference: any saved status is stale.
+        result.update(state="disabled", enabled=False, public_url="", login_url="", error="")
     return result
 
 
-def start_funnel(auth_key: str | None = None) -> dict[str, Any]:
-    """Explicitly opt in and start the bundled helper; never persist auth_key."""
+def set_autostart(enabled: bool) -> dict[str, Any]:
+    """Change startup behavior without connecting or disconnecting the current session."""
+    marker = _enabled_file()
+    try:
+        if enabled:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text("enabled\n", encoding="utf-8")
+            if os.name != "nt":
+                marker.chmod(0o600)
+        else:
+            marker.unlink(missing_ok=True)
+    except OSError as exc:
+        raise OSError(f"Could not update Tailscale autostart: {exc}") from exc
+    return get_status()
+
+
+def start_funnel(
+    auth_key: str | None = None, *, autostart: bool = True
+) -> dict[str, Any]:
+    """Start Funnel after applying the startup preference; never persist the auth key."""
     global _process, _log_handle
 
     supplied_key = (auth_key or "").strip()
@@ -99,21 +136,26 @@ def start_funnel(auth_key: str | None = None) -> dict[str, Any]:
             ),
         }
 
+    try:
+        set_autostart(autostart)
+    except OSError as exc:
+        return {**get_status(), "state": "error", "error": str(exc)}
+
     if _process is not None and _process.poll() is None:
         current = get_status()
         if current.get("state") == "running" or not supplied_key:
             return current
-        # A key was supplied to retry a failed/unauthenticated attempt.
+        # A supplied key retries a failed or unauthenticated attempt.
         _stop_child()
 
     root = _state_root()
-    enabled = _enabled_file()
-    enabled.write_text("enabled\n", encoding="utf-8")
-    if os.name != "nt":
-        enabled.chmod(0o600)
+    # The first poll must not reuse a previous helper's status or public URL.
+    try:
+        (root / "status.json").unlink(missing_ok=True)
+    except OSError:
+        pass
 
     env = os.environ.copy()
-    # Prevent inherited auth keys from being exposed in the child environment.
     env.pop("TS_AUTHKEY", None)
     env.pop("TS_AUTH_KEY", None)
 
@@ -146,22 +188,21 @@ def start_funnel(auth_key: str | None = None) -> dict[str, Any]:
             _log_handle = None
         return {**get_status(), "state": "error", "error": f"Could not start helper: {exc}"}
 
-    # The helper writes its detailed state asynchronously. Do not claim that
-    # Funnel is live before it has actually acquired the public listener.
     time.sleep(0.05)
-    return get_status()
+    result = get_status()
+    if result.get("state") == "disabled":
+        result["state"] = "starting"
+        result["enabled"] = True
+    return result
 
 
 def stop_funnel() -> dict[str, Any]:
-    """Disable public exposure and clear the persistent opt-in."""
-    global _process, _log_handle
-
-    try:
-        _enabled_file().unlink(missing_ok=True)
-    except OSError as exc:
-        return {**get_status(), "state": "error", "error": f"Could not disable Funnel: {exc}"}
-
+    """Disconnect the helper but preserve the independent autostart preference."""
     _stop_child()
+    try:
+        (_state_root() / "status.json").unlink(missing_ok=True)
+    except OSError:
+        pass
     return get_status()
 
 

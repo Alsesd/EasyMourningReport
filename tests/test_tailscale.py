@@ -89,12 +89,50 @@ class TailscaleManagerTests(unittest.TestCase):
         self.assertTrue((self.root / ".tailscale-funnel-enabled").exists())
         self.assertIsNone(tailscale._process)
 
-    def test_disable_clears_opt_in_and_stops_child(self):
+    def test_disconnect_stops_child_but_preserves_autostart(self):
         with patch("app.core.tailscale.subprocess.Popen", return_value=FakeProcess()):
             tailscale.start_funnel()
         result = tailscale.stop_funnel()
-        self.assertFalse(result["enabled"])
+        self.assertTrue(result["autostart"])
+        self.assertTrue(result["enabled"])
+        self.assertEqual(result["state"], "enabled-but-not-running")
+        self.assertTrue((self.root / ".tailscale-funnel-enabled").exists())
+        self.assertFalse((self.root / "tailscale" / "status.json").exists())
+        self.assertIsNone(tailscale._process)
+
+    def test_autostart_can_be_disabled_without_disconnecting(self):
+        fake = FakeProcess()
+        with patch("app.core.tailscale.subprocess.Popen", return_value=fake):
+            tailscale.start_funnel()
+            result = tailscale.set_autostart(False)
+        self.assertTrue(result["enabled"])
+        self.assertFalse(result["autostart"])
+        self.assertIs(tailscale._process, fake)
+        self.assertIsNone(fake.returncode)
         self.assertFalse((self.root / ".tailscale-funnel-enabled").exists())
+
+    def test_connect_without_autostart_still_reports_active_session(self):
+        fake = FakeProcess()
+        with patch("app.core.tailscale.subprocess.Popen", return_value=fake):
+            result = tailscale.start_funnel(autostart=False)
+        self.assertTrue(result["enabled"])
+        self.assertFalse(result["autostart"])
+        self.assertEqual(result["state"], "starting")
+        self.assertIs(tailscale._process, fake)
+        self.assertFalse((self.root / ".tailscale-funnel-enabled").exists())
+
+    def test_auth_key_never_persisted_in_marker_or_status(self):
+        fake = FakeProcess()
+        with patch("app.core.tailscale.subprocess.Popen", return_value=fake) as popen:
+            tailscale.start_funnel("tskey-test-secret")
+        args, kwargs = popen.call_args
+        self.assertNotIn("tskey-test-secret", args[0])
+        self.assertNotIn("TS_AUTHKEY", kwargs["env"])
+        self.assertNotIn("TS_AUTH_KEY", kwargs["env"])
+        self.assertEqual(fake.stdin.data, b"tskey-test-secret\\n")
+        self.assertTrue(fake.stdin.closed)
+        self.assertNotIn("tskey-test-secret", (self.root / ".tailscale-funnel-enabled").read_text())
+        self.assertNotIn("tskey-test-secret", json.dumps(tailscale.get_status()))
 
 
 if __name__ == "__main__":

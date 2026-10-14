@@ -35,8 +35,8 @@ def enable_public_funnel(
 
 @router.post("/disable")
 def disable_public_funnel(request: Request):
-    """Stop public exposure and clear the persistent opt-in."""
+    """Disconnect the current helper while preserving the autostart preference."""
     result = stop_funnel()
     if result.get("state") == "error":
         return done(request, "/admin#tailscale", result["error"], "err")
-    return done(request, "/admin#tailscale", "Публічний Tailscale Funnel вимкнено.")
+    return done(request, "/admin#tailscale", "Tailscale Funnel відключено. Налаштування автозапуску збережено.")
