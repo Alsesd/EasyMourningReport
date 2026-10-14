@@ -264,7 +264,7 @@ class RestApiTests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["state"], "authentication-required")
-        start.assert_called_once_with("tskey-test-secret")
+        start.assert_called_once_with("tskey-test-secret", autostart=True)
         self.assertNotIn("auth_key", response.json())
 
         with patch("app.routes.api_v1.stop_funnel", return_value=status):

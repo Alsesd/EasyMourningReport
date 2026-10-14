@@ -186,6 +186,11 @@ def start_funnel(auth_key: str | None = None, autostart: bool = True) -> dict[st
         _stop_child()
 
     root = _state_root()
+    # Do not let the first poll reuse a previous helper's "running" snapshot.
+    try:
+        (root / "status.json").unlink(missing_ok=True)
+    except OSError:
+        pass
 
     env = os.environ.copy()
     # Prevent inherited auth keys from being exposed in the child environment.

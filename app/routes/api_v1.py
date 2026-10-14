@@ -106,7 +106,7 @@ def enable_tailscale_funnel(
     payload: dict,
     user: User = Depends(api_admin_required),
 ) -> dict:
-    """Explicitly enable the optional public Funnel; never persist an auth key."""
+    """Start the optional public Funnel after explicit confirmation; never persist auth keys."""
     if payload.get("confirm_public") is not True:
         raise HTTPException(
             status_code=400,
@@ -143,7 +143,7 @@ def update_tailscale_autostart(
 def disable_tailscale_funnel(
     user: User = Depends(api_admin_required),
 ) -> dict:
-    """Stop public exposure and clear the persistent opt-in."""
+    """Disconnect the live helper; the autostart preference remains independent."""
     result = stop_funnel()
     if result.get("state") == "error":
         raise HTTPException(status_code=500, detail=result.get("error") or "Не вдалося вимкнути Funnel.")
