@@ -129,7 +129,7 @@ class TailscaleManagerTests(unittest.TestCase):
         self.assertNotIn("tskey-test-secret", args[0])
         self.assertNotIn("TS_AUTHKEY", kwargs["env"])
         self.assertNotIn("TS_AUTH_KEY", kwargs["env"])
-        self.assertEqual(fake.stdin.data, b"tskey-test-secret\\n")
+        self.assertEqual(fake.stdin.data, b"tskey-test-secret\n")
         self.assertTrue(fake.stdin.closed)
         self.assertNotIn("tskey-test-secret", (self.root / ".tailscale-funnel-enabled").read_text())
         self.assertNotIn("tskey-test-secret", json.dumps(tailscale.get_status()))
