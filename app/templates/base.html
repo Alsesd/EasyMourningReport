@@ -41,7 +41,7 @@
         document.head.appendChild(script);
     });
 
-    const pageScript = "{% if request.url.path == '/admin' %}/static/admin-app.js{% elif request.url.path == '/report' %}/static/report-app.js{% elif request.url.path == '/admin/reports' %}/static/admin-reports-app.js{% elif request.url.path.startswith('/admin/reports/') %}/static/admin-report-detail-app.js{% elif request.url.path == '/admin/summary' %}/static/admin-summary-app.js{% elif request.url.path == '/admin/logs' %}/static/admin-logs-app.js{% endif %}";
+    const pageScript = "{% if request.url.path == '/admin' %}/static/admin-app.js?v=20261014-price-editor-v2{% elif request.url.path == '/report' %}/static/report-app.js{% elif request.url.path == '/admin/reports' %}/static/admin-reports-app.js{% elif request.url.path.startswith('/admin/reports/') %}/static/admin-report-detail-app.js{% elif request.url.path == '/admin/summary' %}/static/admin-summary-app.js{% elif request.url.path == '/admin/logs' %}/static/admin-logs-app.js{% endif %}";
 
     // Register page components before Alpine starts scanning x-data attributes.
     for (const src of ["/static/api-client.js", pageScript]) {
