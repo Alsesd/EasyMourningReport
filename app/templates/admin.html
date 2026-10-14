@@ -29,7 +29,7 @@
 
         <div class="tailscale-preferences">
             <label class="chk tailscale-autostart">
-                <input type="checkbox" :checked="Boolean(tailscale.autostart)" @change="setTailscaleAutostart($event.target.checked)" :disabled="tailscaleAutoStartBusy">
+                <input type="checkbox" :checked="Boolean(tailscale.autostart)" @change="setTailscaleAutostart($event.target.checked)" :disabled="tailscaleAutoStartBusy || tailscaleBusy">
                 Автоматично підключати після перезапуску застосунку
             </label>
             <span class="hint tailscale-refresh-note">Статус оновлюється автоматично</span>

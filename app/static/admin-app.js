@@ -189,8 +189,11 @@
                 this.stores = stores.map(editStore);
             },
 
-            async refreshTailscale() {
-                if (this.tailscaleRefreshInFlight) return this.tailscale;
+            async refreshTailscale(force = false) {
+                if (this.tailscaleRefreshInFlight ||
+                    (!force && (this.tailscaleBusy || this.tailscaleAutoStartBusy))) {
+                    return this.tailscale;
+                }
                 this.tailscaleRefreshInFlight = true;
                 try {
                     this.tailscale = await window.apiRequest("/api/v1/admin/tailscale");
@@ -242,7 +245,7 @@
                         : "Запуск Tailscale Funnel запитано.");
                 } catch (error) {
                     this.notify(error.message || "Не вдалося запустити Tailscale Funnel.", "err");
-                    await this.refreshTailscale().catch(() => {});
+                    await this.refreshTailscale(true).catch(() => {});
                 } finally {
                     this.tailscaleBusy = false;
                 }
