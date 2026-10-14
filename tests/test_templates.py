@@ -12,7 +12,20 @@ env.filters["money"] = lambda c: f"{c / 100:.2f}"
 
 
 def render(name, path="/", **ctx):
-    base = dict(request=NS(url=NS(path=path)), user=None, flash=None, this_period="2026-10", nav_period="2026-10")
+    base = dict(
+        request=NS(url=NS(path=path)),
+        user=None,
+        flash=None,
+        this_period="2026-10",
+        nav_period="2026-10",
+        tailscale={
+            "enabled": False,
+            "state": "disabled",
+            "public_url": "",
+            "login_url": "",
+            "error": "",
+        },
+    )
     base.update(ctx)
     return env.get_template(name).render(**base)
 
@@ -71,6 +84,26 @@ class Templates(unittest.TestCase):
         self.assertIn("'· зміна ' + index", html)
         self.assertNotIn('name="extra_price"', html)
         self.assertNotIn('class="price-options"', html)
+        self.assertIn('class="primary save-product" hidden', html)
+        self.assertIn('Додати товар</button>', html)  # create submit remains visible in the DOM
+        self.assertIn('src="/static/admin.js" defer', html)
+        self.assertIn('action="/admin/stores/3/edit"', html)
+        self.assertIn("1.20 ₴", html)
+        self.assertIn("1.30 ₴", html)
+        self.assertIn('id="product-search"', html)
+        self.assertIn("Enable Public Funnel", html)
+        self.assertIn('name="confirm_public"', html)
+        self.assertIn("Архів товарів", html)
+        self.assertIn("Архів магазинів", html)
+        self.assertIn("піде в архів", html)            # delete confirmation for a product that has data
+        self.assertIn('action="/admin/products/8/restore"', html)
+        self.assertIn('action="/admin/stores/4/restore"', html)
+        self.assertIn("&#34;свіжий&#34;", html)         # quotes in names cannot break out of attributes
+
+    def test_admin_settings_empty(self):
+        html = render("admin.html", "/admin", user=ADMIN, products=[], inactive_products=[], archived_products=[], stores=[], archived_stores=[])
+        self.assertIn("Активних товарів ще немає", html)
+        self.assertIn("Неактивні товари (0)", html)
         self.assertIn('id="product-search"', html)
         self.assertIn('@submit.prevent="importProducts($event.currentTarget)"', html)
         self.assertIn('@submit.prevent="changeAdminPassword()"', html)

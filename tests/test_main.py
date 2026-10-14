@@ -83,6 +83,15 @@ class LifespanTests(unittest.TestCase):
                 migrate.assert_called_once_with()
                 seed.assert_called_once_with()
                 self.assertEqual(to_thread.await_count, 4)
+                self.assertEqual(
+                    [call.args[0] for call in to_thread.await_args_list],
+                    [
+                        main.backup_db,
+                        main.start_tailscale_if_enabled,
+                        main.shutdown_tailscale,
+                        main.backup_db,
+                    ],
+                )
                 backup.assert_not_called()  # to_thread was mocked; it did not invoke the callable
 
         asyncio.run(run())

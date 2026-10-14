@@ -5,12 +5,8 @@ cd /d "%~dp0"
 if not defined HOST set "HOST=127.0.0.1"
 if not defined PORT set "PORT=8000"
 
-echo ==========================================
-echo  Legkyi Zvit
-echo ==========================================
-echo.
-echo The app-specific Tailscale Funnel is managed from Settings in the web UI.
-echo No system Tailscale CLI or separate daemon is required for the bundled helper.
+echo EasyMourningReport starts locally by default.
+echo Public Tailscale Funnel is controlled only from the authenticated admin UI.
 echo.
 
 if exist "dist\LegkyiZvit.exe" (
@@ -41,10 +37,13 @@ if not exist ".venv" (
     )
 )
 
-if not exist "run.py" (
-    echo [!] run.py not found.
-    pause
-    exit /b 1
+if exist "run.py" (
+    echo [*] Launching entrypoint via run.py...
+    echo Local address: http://localhost:%PORT%
+    python -m poetry run python run.py
+) else (
+    echo [!] run.py not found. Falling back to module execution...
+    python -m poetry run uvicorn app.main:app --host %HOST% --port %PORT%
 )
 
 echo Local address: http://%HOST%:%PORT%

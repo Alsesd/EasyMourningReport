@@ -7,7 +7,6 @@ A public Funnel is attempted at startup only after an administrator has opted in
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -18,7 +17,6 @@ from app.core.paths import user_data_dir
 
 _process: subprocess.Popen | None = None
 _log_handle = None
-_helper_build_error = ""
 
 
 def _state_root() -> Path:
@@ -45,7 +43,6 @@ def _helper_path() -> Path | None:
         Path(sys.argv[0]).resolve().parent,
         # PyInstaller --onefile extracts bundled binaries into _MEIPASS.
         Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2])),
-        Path(__file__).resolve().parents[2] / "tailscale-helper",
         Path(__file__).resolve().parents[2] / "tailscale-helper" / "bin",
         Path(__file__).resolve().parents[2] / "build",
     ]
@@ -53,62 +50,21 @@ def _helper_path() -> Path | None:
         candidate = root / executable_name
         if candidate.is_file():
             return candidate
-
-    # Reuse a previously built source-mode helper across application restarts.
-    global _helper_build_error
-    destination_dir = user_data_dir() / "tailscale" / "bin"
-    destination = destination_dir / executable_name
-    if destination.is_file():
-        return destination
-
-    # Source checkouts do not contain compiled helper binaries. Build it lazily
-    # into the user's private data directory so running from source works too,
-    # without dirtying the checkout or requiring a manual build step.
-    source_dir = Path(__file__).resolve().parents[2] / "tailscale-helper"
-    if not getattr(sys, "frozen", False) and (source_dir / "go.mod").is_file():
-        go = shutil.which("go")
-        if not go:
-            _helper_build_error = (
-                "Go 1.24+ is required to build the Tailscale helper from source. "
-                "Install Go or enter the project's Nix development shell, then retry."
-            )
-            return None
-        try:
-            destination_dir.mkdir(parents=True, exist_ok=True)
-            build = subprocess.run(
-                [go, "build", "-trimpath", "-ldflags", "-s -w", "-o", str(destination), "."],
-                cwd=source_dir,
-                capture_output=True,
-                text=True,
-                timeout=300,
-                check=False,
-            )
-            if build.returncode == 0 and destination.is_file():
-                if os.name != "nt":
-                    destination.chmod(0o700)
-                _helper_build_error = ""
-                return destination
-            details = (build.stderr or build.stdout or "go build returned no diagnostic").strip()
-            _helper_build_error = f"Could not build the Tailscale helper: {details[-1200:]}"
-        except (OSError, subprocess.SubprocessError) as exc:
-            _helper_build_error = f"Could not build the Tailscale helper: {exc}"
     return None
 
 
 def get_status() -> dict[str, Any]:
-    """Report helper runtime state separately from the persistent autostart preference."""
-    autostart = _enabled_file().is_file()
-    process_running = _process is not None and _process.poll() is None
-    enabled = autostart or process_running
+    """Return public status without exposing authentication material."""
+    enabled = _enabled_file().is_file()
+    state_root = _state_root()
+    status_path = state_root / "status.json"
     result: dict[str, Any] = {
         "enabled": enabled,
-        "autostart": autostart,
-        "state": "starting" if process_running else ("enabled-but-not-running" if autostart else "disabled"),
+        "state": "enabled-but-not-running" if enabled else "disabled",
         "public_url": "",
         "login_url": "",
         "error": "",
     }
-    status_path = _state_root() / "status.json"
     try:
         stored = json.loads(status_path.read_text(encoding="utf-8"))
         if isinstance(stored, dict):
@@ -117,45 +73,15 @@ def get_status() -> dict[str, Any]:
                     result[key] = stored[key]
     except (OSError, ValueError):
         pass
-
-    # A live helper process takes precedence over stale status left by a previous
-    # process. Its next status-file write will refine "starting" to running/auth.
-    if process_running:
-        if result["state"] in ("disabled", "stopped", "enabled-but-not-running"):
-            result.update(state="starting", public_url="", login_url="", error="")
-    elif _process is not None:
-        if autostart and not result["error"]:
-            result.update(state="stopped", public_url="", login_url="")
-        elif not autostart:
-            result.update(state="disabled", public_url="", login_url="", error="")
-    elif autostart:
-        # A persisted startup preference is not proof the Funnel is connected.
-        if result["state"] in ("running", "starting", "authentication-required", "stopped", "disabled"):
-            result.update(state="enabled-but-not-running", public_url="", login_url="")
-    else:
-        # With no process and no autostart preference, saved status is stale.
-        result.update(state="disabled", public_url="", login_url="", error="")
+    if not enabled:
+        result.update(state="disabled", public_url="", error="")
+    elif _process is not None and _process.poll() is not None and not result["error"]:
+        result["state"] = "stopped"
     return result
 
 
-def set_autostart(enabled: bool) -> dict[str, Any]:
-    """Set the startup preference without connecting or disconnecting the running helper."""
-    marker = _enabled_file()
-    try:
-        if enabled:
-            marker.parent.mkdir(parents=True, exist_ok=True)
-            marker.write_text("enabled\n", encoding="utf-8")
-            if os.name != "nt":
-                marker.chmod(0o600)
-        else:
-            marker.unlink(missing_ok=True)
-    except OSError as exc:
-        raise OSError(f"Could not update Tailscale autostart: {exc}") from exc
-    return get_status()
-
-
-def start_funnel(auth_key: str | None = None, autostart: bool = True) -> dict[str, Any]:
-    """Start the bundled helper and apply the desired autostart preference."""
+def start_funnel(auth_key: str | None = None) -> dict[str, Any]:
+    """Explicitly opt in and start the bundled helper; never persist auth_key."""
     global _process, _log_handle
 
     supplied_key = (auth_key or "").strip()
@@ -167,17 +93,11 @@ def start_funnel(auth_key: str | None = None, autostart: bool = True) -> dict[st
         return {
             **get_status(),
             "state": "error",
-            "error": _helper_build_error or (
-                "The Tailscale helper is missing. Install Go 1.24+ and retry, "
-                "or set LEGKYI_TAILSCALE_HELPER to an existing helper binary."
+            "error": (
+                "The bundled Tailscale helper is missing. Rebuild the application "
+                "with Go installed or set LEGKYI_TAILSCALE_HELPER."
             ),
         }
-
-    # Keep the startup preference independent from whether the helper is running now.
-    try:
-        set_autostart(autostart)
-    except OSError as exc:
-        return {**get_status(), "state": "error", "error": str(exc)}
 
     if _process is not None and _process.poll() is None:
         current = get_status()
@@ -187,11 +107,10 @@ def start_funnel(auth_key: str | None = None, autostart: bool = True) -> dict[st
         _stop_child()
 
     root = _state_root()
-    # Do not let the first poll reuse a previous helper's "running" snapshot.
-    try:
-        (root / "status.json").unlink(missing_ok=True)
-    except OSError:
-        pass
+    enabled = _enabled_file()
+    enabled.write_text("enabled\n", encoding="utf-8")
+    if os.name != "nt":
+        enabled.chmod(0o600)
 
     env = os.environ.copy()
     # Prevent inherited auth keys from being exposed in the child environment.
@@ -234,15 +153,15 @@ def start_funnel(auth_key: str | None = None, autostart: bool = True) -> dict[st
 
 
 def stop_funnel() -> dict[str, Any]:
-    """Disconnect the helper and clear transient status while preserving the startup preference."""
+    """Disable public exposure and clear the persistent opt-in."""
     global _process, _log_handle
 
-    _stop_child()
-    # Clear the last helper snapshot so a disconnected session cannot look live.
     try:
-        (_state_root() / "status.json").unlink(missing_ok=True)
-    except OSError:
-        pass
+        _enabled_file().unlink(missing_ok=True)
+    except OSError as exc:
+        return {**get_status(), "state": "error", "error": f"Could not disable Funnel: {exc}"}
+
+    _stop_child()
     return get_status()
 
 

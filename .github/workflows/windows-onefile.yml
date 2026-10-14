@@ -1,0 +1,155 @@
+name: Windows single-file build
+
+on:
+  workflow_dispatch:
+    inputs:
+      verify_funnel:
+        description: "Also verify a real Tailscale Funnel URL (requires TAILSCALE_AUTH_KEY secret and Funnel permission)"
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - fix/windows-binary-reliability-tailscale
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-onefile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    name: Build standalone Windows executable
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Set up Go for bundled Tailscale helper
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache: true
+          cache-dependency-path: tailscale-helper/go.mod
+
+      - name: Compile Tailscale helper
+        shell: pwsh
+        working-directory: tailscale-helper
+        run: |
+          go mod download
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
+          go build -trimpath -ldflags "-s -w" -o bin/tailscale-helper.exe .
+
+      - name: Install runtime and freezer
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install fastapi==0.115.12 uvicorn==0.34.0 sqlmodel==0.0.24 sqlalchemy==2.0.40 jinja2==3.1.6 python-multipart==0.0.20 itsdangerous==2.2.0 openpyxl==3.1.5 pyinstaller==6.16.0
+
+      - name: Build single-file Windows executable
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --add-binary "tailscale-helper/bin/tailscale-helper.exe;." --collect-all openpyxl --hidden-import app.__main__ app/__main__.py
+          if (!(Test-Path "dist/LegkyiZvit.exe")) { throw "PyInstaller did not produce dist/LegkyiZvit.exe" }
+          if ((Get-Item "dist/LegkyiZvit.exe").Length -le 1MB) { throw "Executable is unexpectedly small; refusing to publish incomplete output" }
+
+      - name: Upload single-file executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: LegkyiZvit-Windows-x64
+          path: dist/LegkyiZvit.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Verify real Tailscale Funnel (optional)
+        if: inputs.verify_funnel
+        shell: pwsh
+        env:
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:TAILSCALE_AUTH_KEY)) {
+            throw "verify_funnel was selected, but repository secret TAILSCALE_AUTH_KEY is not configured."
+          }
+
+          $env:HOST = "127.0.0.1"
+          $env:PORT = "18765"
+          $env:LEGKYI_DATA_DIR = Join-Path $env:RUNNER_TEMP "legkyi-funnel-data"
+          $stateDir = Join-Path $env:RUNNER_TEMP "tailscale-funnel-state"
+          $statusFile = Join-Path $env:RUNNER_TEMP "tailscale-funnel-status.json"
+          New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
+
+          $app = $null
+          $funnel = $null
+          try {
+            $app = Start-Process -FilePath "dist/LegkyiZvit.exe" -PassThru -WorkingDirectory "$PWD"
+            $localReady = $false
+            for ($i = 0; $i -lt 45; $i++) {
+              if ($app.HasExited) { throw "Packaged server exited before Funnel check (code $($app.ExitCode))" }
+              try {
+                $local = Invoke-WebRequest -Uri "http://127.0.0.1:18765/" -TimeoutSec 2 -UseBasicParsing
+                if ($local.StatusCode -ge 200 -and $local.StatusCode -lt 500) { $localReady = $true; break }
+              } catch {}
+              Start-Sleep -Seconds 1
+            }
+            if (!$localReady) { throw "Local packaged server did not become ready for Funnel check." }
+
+            $psi = [System.Diagnostics.ProcessStartInfo]::new()
+            $psi.FileName = (Resolve-Path "tailscale-helper/bin/tailscale-helper.exe").Path
+            $psi.UseShellExecute = $false
+            $psi.RedirectStandardInput = $true
+            $psi.ArgumentList.Add("--state-dir")
+            $psi.ArgumentList.Add($stateDir)
+            $psi.ArgumentList.Add("--status-file")
+            $psi.ArgumentList.Add($statusFile)
+            $psi.ArgumentList.Add("--target")
+            $psi.ArgumentList.Add("http://127.0.0.1:18765")
+            $psi.ArgumentList.Add("--auth-key-stdin")
+            $funnel = [System.Diagnostics.Process]::new()
+            $funnel.StartInfo = $psi
+            if (!$funnel.Start()) { throw "Could not start the bundled Tailscale helper." }
+            # Send the key only through stdin; do not put it in arguments, env, or files.
+            $funnel.StandardInput.WriteLine($env:TAILSCALE_AUTH_KEY)
+            $funnel.StandardInput.Close()
+            $env:TAILSCALE_AUTH_KEY = $null
+
+            $publicUrl = $null
+            for ($i = 0; $i -lt 120; $i++) {
+              if (Test-Path $statusFile) {
+                try {
+                  $status = Get-Content $statusFile -Raw | ConvertFrom-Json
+                  if ($status.state -eq "running" -and $status.public_url) { $publicUrl = $status.public_url; break }
+                  if ($status.state -eq "error") { throw "Tailscale Funnel failed: $($status.error)" }
+                  if ($status.state -eq "authentication-required") { throw "Tailscale requires interactive authentication; use an auth key with appropriate permissions." }
+                } catch {
+                  if ($_.Exception.Message -like "Tailscale Funnel failed:*" -or $_.Exception.Message -like "Tailscale requires interactive authentication*") { throw }
+                }
+              }
+              if ($funnel.HasExited -and !$publicUrl) { throw "Tailscale helper exited before publishing Funnel; check auth key and Funnel permissions." }
+              Start-Sleep -Seconds 1
+            }
+            if (!$publicUrl) { throw "Tailscale Funnel did not publish a public URL within 120 seconds." }
+
+            $publicReady = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              try {
+                $response = Invoke-WebRequest -Uri $publicUrl -TimeoutSec 5 -UseBasicParsing
+                if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) { $publicReady = $true; break }
+              } catch {}
+              Start-Sleep -Seconds 2
+            }
+            if (!$publicReady) { throw "Funnel published a URL but the public HTTP check did not succeed." }
+            Write-Host "Tailscale Funnel published and responded successfully."
+          } finally {
+            $env:TAILSCALE_AUTH_KEY = $null
+            if ($funnel -and !$funnel.HasExited) { $funnel.Kill(); $funnel.WaitForExit(5000) | Out-Null }
+            if ($app -and !$app.HasExited) { Stop-Process -Id $app.Id -Force }
+          }

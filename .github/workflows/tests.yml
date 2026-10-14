@@ -1,0 +1,57 @@
+name: Python and helper tests
+
+on:
+  push:
+    branches:
+      - main
+      - packaging/nix-flake
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  python-tests:
+    if: github.head_ref != 'fix/windows-binary-reliability-tailscale'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install application and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "fastapi>=0.115" "uvicorn>=0.30" "sqlmodel==0.0.24" "sqlalchemy>=2.0" "jinja2>=3.1" "python-multipart>=0.0.9" "itsdangerous>=2.2" "openpyxl>=3.1.5" "pytest>=8.3" "pytest-cov>=6.0" "httpx>=0.27"
+      - name: Run Python regression tests
+        run: python -m pytest -q
+
+  go-helper:
+    if: github.head_ref != 'fix/windows-binary-reliability-tailscale'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.x"
+          cache: true
+          cache-dependency-path: tailscale-helper/go.mod
+      - name: Compile embedded Tailscale helper
+        working-directory: tailscale-helper
+        run: |
+          go mod tidy
+          go build -o /tmp/tailscale-helper .
+      - name: Upload pinned Go module graph
+        uses: actions/upload-artifact@v4
+        with:
+          name: tailscale-helper-module-lock
+          path: |
+            tailscale-helper/go.mod
+            tailscale-helper/go.sum
+          retention-days: 7

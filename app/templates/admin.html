@@ -172,16 +172,33 @@
         </template>
     </details>
 
-    <h2 id="stores">Магазини</h2>
-    <p class="hint">Зміна назви або логіну не впливає на звіти. Пароль змінюється окремо. Архівні магазини залишають історичні звіти.</p>
-    <button type="button" class="primary create-action" @click="newStoreOpen = !newStoreOpen" :aria-expanded="String(newStoreOpen)">
-        <span x-text="newStoreOpen ? 'Скасувати' : '＋ Створити магазин'"></span>
-    </button>
-    <form class="entry entry-form create-form" x-show="newStoreOpen" @submit.prevent="createStore()">
-        <label class="field grow"><span>Новий магазин</span><input x-model="newStore.name" maxlength="100" required></label>
-        <label class="field"><span>Логін</span><input x-model="newStore.login" maxlength="40" autocapitalize="none" autocomplete="off" required></label>
-        <label class="field"><span>Пароль</span><input type="password" x-model="newStore.password" minlength="6" autocomplete="new-password" required></label>
-        <button class="primary" type="submit" :disabled="creatingStore" x-text="creatingStore ? 'Додаю…' : 'Додати магазин'"></button>
+<h2 id="tailscale">Публічний доступ через Tailscale Funnel</h2>
+<div class="card">
+    <p class="hint">Funnel відкриває застосунок для доступу з публічного інтернету через HTTPS. Це не замінює пароль застосунку.
+        Увімкнення потребує явного підтвердження. Перший запуск може показати посилання для входу в Tailscale.</p>
+    <p><strong>Статус:</strong> {{ tailscale.state }}</p>
+    {% if tailscale.public_url %}<p>Публічна адреса: <a href="{{ tailscale.public_url }}" rel="noopener noreferrer" target="_blank">{{ tailscale.public_url }}</a></p>{% endif %}
+    {% if tailscale.login_url %}<p>Потрібен вхід у Tailscale: <a href="{{ tailscale.login_url }}" rel="noopener noreferrer" target="_blank">Увійти та авторизувати пристрій</a>. Після підтвердження натисніть «Увімкнути / повторити» нижче.</p>{% endif %}
+    {% if tailscale.error %}<p class="flash err" role="alert">{{ tailscale.error }}</p>{% endif %}
+    {% if tailscale.state == "running" %}
+    <form class="entry entry-form" method="post" action="/admin/tailscale/disable">
+        <button class="danger" type="submit">Вимкнути Public Funnel</button>
+    </form>
+    {% else %}
+    <form class="entry entry-form" method="post" action="/admin/tailscale/enable">
+        <label class="field grow"><span>Auth key (необов’язково; не зберігається застосунком)</span><input type="password" name="auth_key" autocomplete="new-password" spellcheck="false"></label>
+        <label class="chk"><input type="checkbox" name="confirm_public" value="yes" required> Я розумію, що це відкриє застосунок для публічного доступу</label>
+        <button class="primary" type="submit">{% if tailscale.enabled %}Увімкнути / повторити{% else %}Enable Public Funnel{% endif %}</button>
+    </form>
+    {% endif %}
+</div>
+
+<h2 id="password">Ваш пароль адміністратора</h2>
+<div class="card">
+    <form class="entry entry-form" method="post" action="/admin/password">
+        <label class="field grow"><span>Новий пароль (від 6 символів)</span><input name="password" autocomplete="off"
+                minlength="6" required></label>
+        <button>Змінити пароль</button>
     </form>
 
     <details class="card" id="store-list" open>

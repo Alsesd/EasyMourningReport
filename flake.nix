@@ -17,7 +17,7 @@
           serve = pkgs.writeShellScriptBin "serve" ''
             export HOST="''${HOST:-127.0.0.1}"
             echo "Serving locally on http://localhost:''${PORT:-8000}"
-            echo "Manage the app-specific Tailscale Funnel from Settings → Tailscale Funnel."
+            echo "Public Tailscale Funnel is never started implicitly."
             exec poetry run python run.py "$@"
           '';
         in {
