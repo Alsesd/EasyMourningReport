@@ -540,3 +540,24 @@ html[data-theme="light"] .price-history-chip.is-current{background:#e8f2ed;borde
   .tailscale-form .field,.tailscale-form button{width:100%;max-width:100%}
   .tailscale-form button{white-space:normal}
 }
+
+
+/* Dedicated price editor layout (field + save action, then monthly history). */
+.price-editor.is-open{margin-top:10px}
+.price-entry-row{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;
+  gap:12px;width:100%;min-width:0;
+}
+.price-single-field{min-width:0;margin:0}
+.price-single-input{display:flex;align-items:center;min-width:0}
+.price-single-input input{width:100%;min-width:0}
+.price-entry-row .save-price{
+  align-self:end;min-height:46px;margin:0;white-space:nowrap;
+}
+.price-history{padding-top:12px;border-top:1px solid var(--line)}
+.price-history-chip{border-radius:10px;white-space:normal}
+.price-history-chip span{line-height:1.2}
+@media(max-width:520px){
+  .price-entry-row{grid-template-columns:minmax(0,1fr);gap:10px}
+  .price-entry-row .save-price{width:100%}
+}

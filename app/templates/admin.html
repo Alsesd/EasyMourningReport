@@ -77,13 +77,20 @@
                             <span class="price-toggle-label"><span x-text="p.priceOpen ? 'Закрити' : 'Змінити ціну'"></span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span>
                         </button>
                     </div>
-                    <div class="price-editor" :id="'price-editor-' + p.id" x-show="p.priceOpen">
+                    <div class="price-editor" :class="{ 'is-open': p.priceOpen }" :id="'price-editor-' + p.id" x-show="p.priceOpen">
                         <div class="price-editor-content">
-                            <label class="field price-single-field"><span>Нова ціна за одиницю</span>
-                                <span class="price-single-input"><input class="price" x-model="p.editPrice" inputmode="decimal" autocomplete="off" :required="p.priceOpen" aria-label="Нова ціна"><span class="price-option-suffix">₴</span></span>
-                            </label>
+                            <div class="price-entry-row">
+                                <label class="field price-single-field">
+                                    <span>Нова ціна за одиницю</span>
+                                    <span class="price-single-input">
+                                        <input class="price" x-model="p.editPrice" inputmode="decimal" autocomplete="off" :required="p.priceOpen" aria-label="Нова ціна">
+                                        <span class="price-option-suffix">₴</span>
+                                    </span>
+                                </label>
+                                <button type="button" class="primary save-price" :disabled="p.priceSaving || p.saving || !hasPriceChanges(p)" @click="savePrice(p)" x-text="p.priceSaving ? 'Зберігаю…' : 'Зберегти ціну'">Зберегти ціну</button>
+                            </div>
                             <div class="price-history" aria-label="Історія ціни за цей місяць">
-                                <span class="price-history-title">Цього місяця</span>
+                                <span class="price-history-title">Історія ціни · {{ this_period }}</span>
                                 <template x-for="(price, index) in p.month_prices_cents" :key="String(price) + '-' + index">
                                     <span :class="index === p.month_prices_cents.length - 1 ? 'price-history-chip is-current' : 'price-history-chip is-history'">
                                         <span x-text="formatMoney(price) + ' ₴'"></span>
@@ -91,10 +98,10 @@
                                     </span>
                                 </template>
                             </div>
-                            <button type="button" class="primary save-price" x-show="hasPriceChanges(p)" :disabled="p.priceSaving || p.saving || !hasPriceChanges(p)" @click="savePrice(p)" x-text="p.priceSaving ? 'Зберігаю ціну…' : 'Зберегти ціну'"></button>
                             <p class="hint price-note">Кожна зміна зберігається окремо. У звітах цього місяця будуть усі використані ціни; з наступного місяця залишиться остання. Уже збережені звіти не змінюються.</p>
                         </div>
                     </div>
+                    
                     <div class="product-actions">
                         <button type="submit" class="primary save-product" x-show="hasProductChanges(p)" :disabled="p.saving || !hasProductChanges(p)" x-text="p.saving ? 'Зберігаю…' : 'Зберегти'"></button>
                     </div>
@@ -118,9 +125,33 @@
                     </div>
                     <div class="product-quick-actions">
                         <span class="product-status">Неактивний</span><span class="product-meta">У звітах: <span x-text="p.used_count"></span></span>
-                        <button type="button" class="price-toggle" @click="p.priceOpen = !p.priceOpen" :aria-expanded="String(p.priceOpen)"><span class="price-current"><strong><span x-text="formatMoney(p.price_cents)"></span> ₴</strong><span class="price-mini-label">Ціна · {{ this_period }}</span></span><span class="price-toggle-label"><span x-text="p.priceOpen ? 'Закрити' : 'Змінити ціну'"></span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span></button>
+                        <button type="button" class="price-toggle" @click="p.priceOpen = !p.priceOpen" :aria-expanded="String(p.priceOpen)" :aria-controls="'price-editor-' + p.id"><span class="price-current"><strong><span x-text="formatMoney(p.price_cents)"></span> ₴</strong><span class="price-mini-label">Ціна · {{ this_period }}</span></span><span class="price-toggle-label"><span x-text="p.priceOpen ? 'Закрити' : 'Змінити ціну'"></span><span class="price-toggle-icon" aria-hidden="true">⌄</span></span></button>
                     </div>
-                    <div class="price-editor" x-show="p.priceOpen"><div class="price-editor-content"><label class="field price-single-field"><span>Нова ціна за одиницю</span><span class="price-single-input"><input class="price" x-model="p.editPrice" inputmode="decimal" autocomplete="off" :required="p.priceOpen"><span class="price-option-suffix">₴</span></span></label><div class="price-history" aria-label="Історія ціни за цей місяць"><span class="price-history-title">Цього місяця</span><template x-for="(price, index) in p.month_prices_cents" :key="String(price) + '-' + index"><span :class="index === p.month_prices_cents.length - 1 ? 'price-history-chip is-current' : 'price-history-chip is-history'"><span x-text="formatMoney(price) + ' ₴'"></span><span x-text="p.month_prices_cents.length === 1 ? '· увесь місяць' : (index === 0 ? '· до зміни' : (index === p.month_prices_cents.length - 1 ? '· зараз' : '· зміна ' + index))"></span></span></template></div><button type="button" class="primary save-price" x-show="hasPriceChanges(p)" :disabled="p.priceSaving || p.saving || !hasPriceChanges(p)" @click="savePrice(p)" x-text="p.priceSaving ? 'Зберігаю ціну…' : 'Зберегти ціну'"></button><p class="hint price-note">Кожна зміна зберігається окремо. У звітах цього місяця будуть усі використані ціни; з наступного місяця залишиться остання. Уже збережені звіти не змінюються.</p></div></div>
+                    <div class="price-editor" :class="{ 'is-open': p.priceOpen }" :id="'price-editor-' + p.id" x-show="p.priceOpen">
+                        <div class="price-editor-content">
+                            <div class="price-entry-row">
+                                <label class="field price-single-field">
+                                    <span>Нова ціна за одиницю</span>
+                                    <span class="price-single-input">
+                                        <input class="price" x-model="p.editPrice" inputmode="decimal" autocomplete="off" :required="p.priceOpen" aria-label="Нова ціна">
+                                        <span class="price-option-suffix">₴</span>
+                                    </span>
+                                </label>
+                                <button type="button" class="primary save-price" :disabled="p.priceSaving || p.saving || !hasPriceChanges(p)" @click="savePrice(p)" x-text="p.priceSaving ? 'Зберігаю…' : 'Зберегти ціну'">Зберегти ціну</button>
+                            </div>
+                            <div class="price-history" aria-label="Історія ціни за цей місяць">
+                                <span class="price-history-title">Історія ціни · {{ this_period }}</span>
+                                <template x-for="(price, index) in p.month_prices_cents" :key="String(price) + '-' + index">
+                                    <span :class="index === p.month_prices_cents.length - 1 ? 'price-history-chip is-current' : 'price-history-chip is-history'">
+                                        <span x-text="formatMoney(price) + ' ₴'"></span>
+                                        <span x-text="p.month_prices_cents.length === 1 ? '· увесь місяць' : (index === 0 ? '· до зміни' : (index === p.month_prices_cents.length - 1 ? '· зараз' : '· зміна ' + index))"></span>
+                                    </span>
+                                </template>
+                            </div>
+                            <p class="hint price-note">Кожна зміна зберігається окремо. У звітах цього місяця будуть усі використані ціни; з наступного місяця залишиться остання. Уже збережені звіти не змінюються.</p>
+                        </div>
+                    </div>
+                    
                     <div class="product-actions"><button type="submit" class="primary save-product" :disabled="p.saving" x-text="p.saving ? 'Зберігаю…' : 'Зберегти'"></button></div>
                 </form>
                 <div class="entry-foot"><span class="product-foot-tags"></span><button type="button" class="danger sm" @click="deleteProduct(p)">Видалити</button></div>

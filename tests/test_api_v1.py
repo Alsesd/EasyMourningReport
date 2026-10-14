@@ -186,6 +186,54 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(restored.status_code, 200)
         self.assertFalse(restored.json()["archived"])
 
+    def test_dedicated_price_endpoint_preserves_month_history_and_saved_report_rows(self):
+        url = f"/api/v1/admin/products/{self.product_id}/price"
+        headers = {"origin": "http://testserver"}
+
+        first = self.admin_client.put(url, json={"price": "1.80"}, headers=headers)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.json()["price_cents"], 180)
+        self.assertEqual(first.json()["month_prices_cents"], [150, 180])
+
+        second = self.admin_client.put(url, json={"price": "2.10"}, headers=headers)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["month_prices_cents"], [150, 180, 210])
+
+        returned = self.admin_client.put(url, json={"price": "1.80"}, headers=headers)
+        self.assertEqual(returned.status_code, 200)
+        self.assertEqual(returned.json()["name"], "API Bread")
+        self.assertTrue(returned.json()["active"])
+        self.assertEqual(returned.json()["price_cents"], 180)
+        self.assertEqual(returned.json()["month_prices_cents"], [150, 180, 210, 180])
+
+        # A no-op must not append another history event.
+        unchanged = self.admin_client.put(url, json={"price": "1.80"}, headers=headers)
+        self.assertEqual(unchanged.status_code, 200)
+        self.assertEqual(unchanged.json()["month_prices_cents"], [150, 180, 210, 180])
+
+        with self.Session() as db:
+            history = [
+                (row.period, row.price_cents)
+                for row in db.scalars(
+                    select(ProductPrice)
+                    .where(ProductPrice.product_id == self.product_id)
+                    .order_by(ProductPrice.id)
+                )
+            ]
+            saved_item = db.scalar(
+                select(ReportItem).where(ReportItem.report_id == self.report_id)
+            )
+        self.assertEqual(
+            history,
+            [
+                (BASE_PERIOD, 150),
+                (self.period, 180),
+                (f"{self.period}_1", 210),
+                (f"{self.period}_2", 180),
+            ],
+        )
+        self.assertEqual(saved_item.unit_price_cents, 150)
+
     def test_tailscale_funnel_controls_are_admin_only_and_do_not_return_secrets(self):
         status = {
             "enabled": False,

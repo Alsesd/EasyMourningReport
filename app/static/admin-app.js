@@ -271,7 +271,7 @@
             },
 
             async savePrice(product) {
-                if (product.priceSaving || !product.priceOpen) return;
+                if (product.priceSaving || product.saving || !product.priceOpen) return;
                 const cents = centsFromPrice(product.editPrice);
                 if (!Number.isFinite(cents) || cents < 0) {
                     product.feedback = "Введіть коректну невід’ємну ціну.";
@@ -283,17 +283,26 @@
                     return;
                 }
 
+                // Price, name, and activation are independent edits. Keep the two
+                // unsaved product drafts when the server returns the saved price DTO.
+                const draftName = product.editName;
+                const draftActive = product.editActive;
+                const editorWasOpen = product.priceOpen;
+                const productWasSaving = product.saving;
                 product.priceSaving = true;
                 product.feedback = "";
                 try {
-                    // Price changes have their own endpoint: they cannot overwrite
-                    // pending name/active edits or depend on a full product form.
                     const updated = await window.apiRequest(
                         "/api/v1/admin/products/" + product.id + "/price",
                         { method: "PUT", body: { price: product.editPrice } }
                     );
-                    const wasOpen = product.priceOpen;
-                    Object.assign(product, editProduct(updated), { priceOpen: wasOpen });
+                    Object.assign(product, editProduct(updated), {
+                        priceOpen: editorWasOpen,
+                        editName: draftName,
+                        editActive: draftActive,
+                        saving: productWasSaving,
+                        priceSaving: true
+                    });
                     product.feedback = "Ціну збережено. Історію за цей місяць оновлено.";
                     this.notify(product.feedback);
                 } catch (error) {
