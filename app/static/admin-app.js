@@ -61,6 +61,7 @@
             tailscaleBusy: false,
             tailscaleAutoStartBusy: false,
             tailscaleRefreshInFlight: false,
+            tailscaleStateRevision: 0,
             tailscalePoll: null,
 
             get tailscaleActive() {
@@ -195,8 +196,18 @@
                     return this.tailscale;
                 }
                 this.tailscaleRefreshInFlight = true;
+                const revision = this.tailscaleStateRevision;
                 try {
-                    this.tailscale = await window.apiRequest("/api/v1/admin/tailscale");
+                    const status = await window.apiRequest("/api/v1/admin/tailscale");
+                    // Discard a status response that began before a user action; it
+                    // may otherwise overwrite a newer connect/autostart/disconnect result.
+                    if (force || (
+                        revision === this.tailscaleStateRevision &&
+                        !this.tailscaleBusy &&
+                        !this.tailscaleAutoStartBusy
+                    )) {
+                        this.tailscale = status;
+                    }
                     return this.tailscale;
                 } finally {
                     this.tailscaleRefreshInFlight = false;
@@ -206,6 +217,7 @@
             async setTailscaleAutostart(enabled) {
                 if (this.tailscaleAutoStartBusy) return;
                 const previous = Boolean(this.tailscale.autostart);
+                this.tailscaleStateRevision += 1;
                 this.tailscaleAutoStartBusy = true;
                 try {
                     this.tailscale = await window.apiRequest("/api/v1/admin/tailscale/autostart", {
@@ -229,6 +241,7 @@
                     this.notify("Підтвердьте публічний доступ перед увімкненням Funnel.", "err");
                     return;
                 }
+                this.tailscaleStateRevision += 1;
                 this.tailscaleBusy = true;
                 try {
                     this.tailscale = await window.apiRequest("/api/v1/admin/tailscale", {
@@ -253,6 +266,7 @@
 
             async stopTailscale() {
                 if (this.tailscaleBusy) return;
+                this.tailscaleStateRevision += 1;
                 this.tailscaleBusy = true;
                 try {
                     this.tailscale = await window.apiRequest("/api/v1/admin/tailscale", { method: "DELETE" });
