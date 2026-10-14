@@ -89,11 +89,31 @@ class TailscaleManagerTests(unittest.TestCase):
         self.assertTrue((self.root / ".tailscale-funnel-enabled").exists())
         self.assertIsNone(tailscale._process)
 
-    def test_disable_clears_opt_in_and_stops_child(self):
+    def test_disconnect_stops_helper_but_preserves_autostart_preference(self):
         with patch("app.core.tailscale.subprocess.Popen", return_value=FakeProcess()):
             tailscale.start_funnel()
         result = tailscale.stop_funnel()
-        self.assertFalse(result["enabled"])
+        self.assertTrue(result["autostart"])
+        self.assertTrue((self.root / ".tailscale-funnel-enabled").exists())
+        self.assertIsNone(tailscale._process)
+        self.assertEqual(result["state"], "enabled-but-not-running")
+
+    def test_autostart_can_be_disabled_without_disconnecting_helper(self):
+        fake = FakeProcess()
+        with patch("app.core.tailscale.subprocess.Popen", return_value=fake):
+            tailscale.start_funnel()
+            result = tailscale.set_autostart(False)
+        self.assertTrue(result["enabled"])
+        self.assertFalse(result["autostart"])
+        self.assertIs(tailscale._process, fake)
+        self.assertIsNone(fake.returncode)
+
+    def test_start_can_connect_without_enabling_autostart(self):
+        fake = FakeProcess()
+        with patch("app.core.tailscale.subprocess.Popen", return_value=fake):
+            result = tailscale.start_funnel(autostart=False)
+        self.assertTrue(result["enabled"])
+        self.assertFalse(result["autostart"])
         self.assertFalse((self.root / ".tailscale-funnel-enabled").exists())
 
 

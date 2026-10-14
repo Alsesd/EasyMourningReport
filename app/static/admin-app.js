@@ -55,11 +55,17 @@
             changingAdminPassword: false,
             newProduct: { name: "", price: "" },
             newStore: { name: "", login: "", password: "" },
-            tailscale: { enabled: false, state: "disabled", public_url: "", login_url: "", error: "" },
+            tailscale: { enabled: false, autostart: false, state: "disabled", public_url: "", login_url: "", error: "" },
             tailscaleAuthKey: "",
             confirmPublic: false,
             tailscaleBusy: false,
+            tailscaleAutoStartBusy: false,
+            tailscaleRefreshInFlight: false,
             tailscalePoll: null,
+
+            get tailscaleActive() {
+                return ["starting", "running", "authentication-required", "stopping"].includes(this.tailscale.state);
+            },
 
             get activeProducts() {
                 return this.products.filter(product => !product.archived && product.active);
@@ -87,12 +93,16 @@
                 }
                 try {
                     await this.refreshTailscale();
-                    this.tailscalePoll = window.setInterval(() => {
-                        this.refreshTailscale().catch(() => {});
-                    }, 2000);
                 } catch (_error) {
                     // The catalogue remains usable even if helper status is unavailable.
                 }
+                // The status endpoint reads the helper's latest state file. Poll it
+                // every two seconds, but never allow slow requests to stack up.
+                this.tailscalePoll = window.setInterval(() => {
+                    if (document.visibilityState === "visible") {
+                        this.refreshTailscale().catch(() => {});
+                    }
+                }, 2000);
             },
 
             notify(message, kind = "ok") {
@@ -180,7 +190,34 @@
             },
 
             async refreshTailscale() {
-                this.tailscale = await window.apiRequest("/api/v1/admin/tailscale");
+                if (this.tailscaleRefreshInFlight) return this.tailscale;
+                this.tailscaleRefreshInFlight = true;
+                try {
+                    this.tailscale = await window.apiRequest("/api/v1/admin/tailscale");
+                    return this.tailscale;
+                } finally {
+                    this.tailscaleRefreshInFlight = false;
+                }
+            },
+
+            async setTailscaleAutostart(enabled) {
+                if (this.tailscaleAutoStartBusy) return;
+                const previous = Boolean(this.tailscale.autostart);
+                this.tailscaleAutoStartBusy = true;
+                try {
+                    this.tailscale = await window.apiRequest("/api/v1/admin/tailscale/autostart", {
+                        method: "PUT",
+                        body: { enabled: Boolean(enabled) }
+                    });
+                    this.notify(this.tailscale.autostart
+                        ? "Автозапуск Tailscale увімкнено."
+                        : "Автозапуск Tailscale вимкнено.");
+                } catch (error) {
+                    this.tailscale = { ...this.tailscale, autostart: previous };
+                    this.notify(error.message || "Не вдалося змінити автозапуск Tailscale.", "err");
+                } finally {
+                    this.tailscaleAutoStartBusy = false;
+                }
             },
 
             async startTailscale() {
@@ -195,6 +232,7 @@
                         method: "POST",
                         body: {
                             confirm_public: true,
+                            autostart: Boolean(this.tailscale.autostart),
                             auth_key: this.tailscaleAuthKey.trim() || null
                         }
                     });

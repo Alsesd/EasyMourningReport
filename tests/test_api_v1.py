@@ -278,6 +278,45 @@ class RestApiTests(unittest.TestCase):
         forbidden = self.store_client.get("/api/v1/admin/tailscale")
         self.assertEqual(forbidden.status_code, 403)
 
+    def test_tailscale_autostart_toggle_is_admin_only_and_does_not_disconnect(self):
+        enabled = {"enabled": True, "autostart": True, "state": "running",
+                   "public_url": "https://example.ts.net", "login_url": "", "error": ""}
+        with patch("app.routes.api_v1.set_tailscale_autostart", return_value=enabled) as setter:
+            response = self.admin_client.put(
+                "/api/v1/admin/tailscale/autostart",
+                json={"enabled": True},
+                headers={"origin": "http://testserver"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["autostart"])
+        setter.assert_called_once_with(True)
+
+        disabled = {**enabled, "autostart": False}
+        with patch("app.routes.api_v1.set_tailscale_autostart", return_value=disabled) as setter:
+            response = self.admin_client.put(
+                "/api/v1/admin/tailscale/autostart",
+                json={"enabled": False},
+                headers={"origin": "http://testserver"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["autostart"])
+        self.assertEqual(response.json()["state"], "running")
+        setter.assert_called_once_with(False)
+
+        invalid = self.admin_client.put(
+            "/api/v1/admin/tailscale/autostart",
+            json={"enabled": "yes"},
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(invalid.status_code, 422)
+        forbidden = self.store_client.put(
+            "/api/v1/admin/tailscale/autostart",
+            json={"enabled": True},
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(forbidden.status_code, 403)
+
+
     def test_store_report_round_trip_and_locking(self):
         response = self.store_client.get(f"/api/v1/store/reports/{self.period}")
         self.assertEqual(response.status_code, 200)

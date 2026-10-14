@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 
 from app.core.dependencies import clean_login, clean_name, new_password, parse_period, to_cents
 from app.core.security import hash_pw
-from app.core.tailscale import get_status as tailscale_status, start_funnel, stop_funnel
+from app.core.tailscale import get_status as tailscale_status, set_autostart as set_tailscale_autostart, start_funnel, stop_funnel
 from app.core.ui import FormError, current_period, money
 from app.db.backup import backup_db
 from app.db.models.audit import AuditLog
@@ -115,9 +115,27 @@ def enable_tailscale_funnel(
     auth_key = payload.get("auth_key")
     if auth_key is not None and not isinstance(auth_key, str):
         raise HTTPException(status_code=422, detail="Некоректний формат auth key.")
-    result = start_funnel(auth_key or None)
+    autostart = payload.get("autostart", True)
+    if not isinstance(autostart, bool):
+        raise HTTPException(status_code=422, detail="Некоректне значення автозапуску.")
+    result = start_funnel(auth_key or None, autostart=autostart)
     if result.get("state") == "error":
         raise HTTPException(status_code=503, detail=result.get("error") or "Tailscale не запустився.")
+    return result
+
+
+@router.put("/admin/tailscale/autostart")
+def update_tailscale_autostart(
+    payload: dict,
+    user: User = Depends(api_admin_required),
+) -> dict:
+    """Toggle startup autostart without changing the current Funnel session."""
+    enabled = payload.get("enabled")
+    if not isinstance(enabled, bool):
+        raise HTTPException(status_code=422, detail="Некоректне значення автозапуску.")
+    result = set_tailscale_autostart(enabled)
+    if result.get("error"):
+        raise HTTPException(status_code=500, detail=result["error"])
     return result
 
 
