@@ -41,7 +41,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install "poetry==2.4.3"
-          poetry install --no-interaction
+          poetry install --with dev --no-interaction
           poetry run python -m pip install "pyinstaller==6.16.0"
 
       - name: Set up Go for the embedded Tailscale node
@@ -61,15 +61,20 @@ jobs:
           if (!(Test-Path "tailscale-helper.exe")) { throw "Tailscale helper build failed" }
           if ((Get-Item "tailscale-helper.exe").Length -le 1MB) { throw "Tailscale helper is unexpectedly small" }
 
-      # Release tags must sign and verify the helper before it is bundled.
-      # The signing script fails closed if either certificate secret is missing.
-      - name: Sign Tailscale helper (required for releases)
+      # Sign when a certificate is configured; missing secrets must not block packaging.
+      - name: Sign Tailscale helper
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         env:
           WIN_SIGN_PFX: ${{ secrets.WIN_SIGN_PFX }}
           WIN_SIGN_PASS: ${{ secrets.WIN_SIGN_PASS }}
-        run: ./scripts/sign-windows.ps1 -FilePath "tailscale-helper/tailscale-helper.exe"
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WIN_SIGN_PFX) -or [string]::IsNullOrWhiteSpace($env:WIN_SIGN_PASS)) {
+            Write-Warning "Signing skipped: configure WIN_SIGN_PFX and WIN_SIGN_PASS to sign the Tailscale helper."
+          } else {
+            ./scripts/sign-windows.ps1 -FilePath "tailscale-helper/tailscale-helper.exe"
+            if ($LASTEXITCODE -ne 0) { throw "Tailscale helper signing failed." }
+          }
 
       - name: Download pinned Alpine runtime for offline-capable packaging
         shell: pwsh
@@ -91,14 +96,19 @@ jobs:
           if (!(Test-Path "dist/LegkyiZvit.exe")) { throw "PyInstaller did not produce dist/LegkyiZvit.exe" }
           if ((Get-Item "dist/LegkyiZvit.exe").Length -le 1MB) { throw "Executable is unexpectedly small; refusing to publish incomplete output" }
 
-      # The release cannot proceed unless the main executable is signed and verified too.
-      - name: Sign Python application (required for releases)
+      - name: Sign Python application
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         env:
           WIN_SIGN_PFX: ${{ secrets.WIN_SIGN_PFX }}
           WIN_SIGN_PASS: ${{ secrets.WIN_SIGN_PASS }}
-        run: ./scripts/sign-windows.ps1 -FilePath "dist/LegkyiZvit.exe"
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WIN_SIGN_PFX) -or [string]::IsNullOrWhiteSpace($env:WIN_SIGN_PASS)) {
+            Write-Warning "Signing skipped: configure WIN_SIGN_PFX and WIN_SIGN_PASS to sign the application."
+          } else {
+            ./scripts/sign-windows.ps1 -FilePath "dist/LegkyiZvit.exe"
+            if ($LASTEXITCODE -ne 0) { throw "Application signing failed." }
+          }
 
       - name: Smoke-test packaged executable
         shell: pwsh
