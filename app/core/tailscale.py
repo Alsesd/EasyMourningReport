@@ -2,13 +2,18 @@
 
 Auth keys are passed to the helper over stdin only; they are never written to
 disk, included in command-line arguments, or placed in the child environment.
-A public Funnel is attempted at startup only after an administrator has opted in.
+On Windows, the bundled helper is installed at a deterministic per-user path
+so firewall identity and Defender reputation are not tied to PyInstaller's
+temporary one-file extraction directory.
 """
 
+import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -17,6 +22,8 @@ from app.core.paths import user_data_dir
 
 _process: subprocess.Popen | None = None
 _log_handle = None
+_HELPER_NAME = "tailscale-helper.exe"
+_HELPER_HASH_NAME = "tailscale-helper.sha256"
 
 
 def _state_root() -> Path:
@@ -31,13 +38,70 @@ def _enabled_file() -> Path:
     return user_data_dir() / ".tailscale-funnel-enabled"
 
 
+def _install_windows_helper(source: Path) -> Path | None:
+    """Copy the bundled helper to a stable per-user path when its hash changes.
+
+    The digest detects version changes; it is not a substitute for Authenticode
+    signature verification. Release builds should sign the helper before
+    bundling it. If an old helper is locked by a running process, keep that
+    executable and retry the upgrade after the application restarts.
+    """
+    directory = user_data_dir() / "bin"
+    destination = directory / _HELPER_NAME
+    hash_file = directory / _HELPER_HASH_NAME
+
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+
+        if destination.is_file():
+            try:
+                recorded_hash = hash_file.read_text(encoding="ascii").strip()
+                installed_hash = hashlib.sha256(destination.read_bytes()).hexdigest()
+                if recorded_hash == source_hash == installed_hash:
+                    return destination
+            except OSError:
+                pass
+
+        temporary_path: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="wb",
+                prefix=".tailscale-helper-",
+                suffix=".tmp",
+                dir=directory,
+                delete=False,
+            ) as temporary:
+                temporary_path = Path(temporary.name)
+                with source.open("rb") as source_file:
+                    shutil.copyfileobj(source_file, temporary)
+                temporary.flush()
+                os.fsync(temporary.fileno())
+
+            # os.replace is atomic on the same volume. Windows may reject it
+            # while the old helper is running; in that case keep the old copy.
+            os.replace(temporary_path, destination)
+            temporary_path = None
+
+            hash_tmp = hash_file.with_suffix(".tmp")
+            hash_tmp.write_text(source_hash + "\n", encoding="ascii")
+            os.replace(hash_tmp, hash_file)
+            return destination
+        finally:
+            if temporary_path is not None:
+                temporary_path.unlink(missing_ok=True)
+    except OSError:
+        # A locked destination can still be used for this run if it exists.
+        return destination if destination.is_file() else None
+
+
 def _helper_path() -> Path | None:
     override = os.getenv("LEGKYI_TAILSCALE_HELPER")
     if override:
         candidate = Path(override).expanduser()
-        return candidate if candidate.is_file() else None
+        return candidate.resolve() if candidate.is_file() else None
 
-    executable_name = "tailscale-helper.exe" if os.name == "nt" else "tailscale-helper"
+    executable_name = _HELPER_NAME if os.name == "nt" else "tailscale-helper"
     roots = [
         Path(sys.executable).resolve().parent,
         Path(sys.argv[0]).resolve().parent,
@@ -49,6 +113,9 @@ def _helper_path() -> Path | None:
     for root in roots:
         candidate = root / executable_name
         if candidate.is_file():
+            if os.name == "nt":
+                # Avoid executing the copy extracted into a random _MEIPASS.
+                return _install_windows_helper(candidate)
             return candidate
     return None
 
@@ -76,12 +143,10 @@ def get_status() -> dict[str, Any]:
         pass
 
     if process_running:
-        # A live process with an empty/old snapshot has just been started.
         if result["state"] in ("disabled", "stopped", "enabled-but-not-running"):
             result.update(state="starting", public_url="", login_url="", error="")
         result["enabled"] = True
     elif _process is not None:
-        # The child exited. Do not keep advertising a stale Funnel URL.
         if result["error"]:
             result.update(state="error", public_url="", login_url="")
         elif autostart:
@@ -89,12 +154,10 @@ def get_status() -> dict[str, Any]:
         else:
             result.update(state="disabled", enabled=False, public_url="", login_url="", error="")
     elif autostart:
-        # Autostart enabled is not the same as an active connection.
         if result["state"] != "error":
             result.update(state="enabled-but-not-running", public_url="", login_url="")
         result["enabled"] = True
     else:
-        # No process and no startup preference: any saved status is stale.
         result.update(state="disabled", enabled=False, public_url="", login_url="", error="")
     return result
 
@@ -145,11 +208,9 @@ def start_funnel(
         current = get_status()
         if current.get("state") == "running" or not supplied_key:
             return current
-        # A supplied key retries a failed or unauthenticated attempt.
         _stop_child()
 
     root = _state_root()
-    # The first poll must not reuse a previous helper's status or public URL.
     try:
         (root / "status.json").unlink(missing_ok=True)
     except OSError:
@@ -158,6 +219,14 @@ def start_funnel(
     env = os.environ.copy()
     env.pop("TS_AUTHKEY", None)
     env.pop("TS_AUTH_KEY", None)
+
+    startupinfo = None
+    creationflags = 0
+    if sys.platform == "win32":
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        creationflags = subprocess.CREATE_NO_WINDOW
 
     log_path = root / "helper.log"
     try:
@@ -178,6 +247,8 @@ def start_funnel(
             stderr=subprocess.STDOUT,
             env=env,
             close_fds=True,
+            startupinfo=startupinfo,
+            creationflags=creationflags,
         )
         if _process.stdin is not None:
             _process.stdin.write((supplied_key + "\n").encode("utf-8"))
