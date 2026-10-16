@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: windows-release-build
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-windows:
@@ -80,6 +80,7 @@ jobs:
           }
 
       - name: Run regression tests
+        timeout-minutes: 15
         run: poetry run python -m pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
 
       - name: Build single-file Windows executable
