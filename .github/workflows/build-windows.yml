@@ -55,6 +55,7 @@ jobs:
         working-directory: tailscale-helper
         run: |
           go mod download
+          go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.7.0 -64 -o resource_windows_amd64.syso versioninfo.json
           go build -trimpath -ldflags="-s -w -H=windowsgui" -o tailscale-helper.exe .
           if (!(Test-Path "tailscale-helper.exe")) { throw "Tailscale helper build failed" }
           if ((Get-Item "tailscale-helper.exe").Length -le 1MB) { throw "Tailscale helper is unexpectedly small" }
