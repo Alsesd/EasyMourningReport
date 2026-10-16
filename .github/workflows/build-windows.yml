@@ -8,6 +8,7 @@ on:
     tags:
       - 'v*'
       - 'Soup.v*'
+      - 'soupv*'
   pull_request:
 
 permissions:
@@ -39,7 +40,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install "poetry==2.4.3"
-          poetry lock --no-interaction
           poetry install --no-interaction
           poetry run python -m pip install "pyinstaller==6.16.0"
 
@@ -60,9 +60,9 @@ jobs:
           if (!(Test-Path "tailscale-helper.exe")) { throw "Tailscale helper build failed" }
           if ((Get-Item "tailscale-helper.exe").Length -le 1MB) { throw "Tailscale helper is unexpectedly small" }
 
-      # Sign the helper before PyInstaller embeds it. Pull-request and manual
-      # development builds stay unsigned; tagged release builds require secrets.
-      - name: Sign Tailscale helper (release tags only)
+      # Release tags must sign and verify the helper before it is bundled.
+      # The signing script fails closed if either certificate secret is missing.
+      - name: Sign Tailscale helper (required for releases)
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         env:
@@ -89,7 +89,8 @@ jobs:
           if (!(Test-Path "dist/LegkyiZvit.exe")) { throw "PyInstaller did not produce dist/LegkyiZvit.exe" }
           if ((Get-Item "dist/LegkyiZvit.exe").Length -le 1MB) { throw "Executable is unexpectedly small; refusing to publish incomplete output" }
 
-      - name: Sign Python application (release tags only)
+      # The release cannot proceed unless the main executable is signed and verified too.
+      - name: Sign Python application (required for releases)
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         env:
