@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: windows-release-build
+  group: windows-release-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
