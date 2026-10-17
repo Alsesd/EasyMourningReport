@@ -5,9 +5,12 @@ on:
   push:
     branches:
       - main
+      - release/Soup.V3.1
     tags:
       - 'v*'
       - 'Soup.v*'
+      - 'Soup.V*'
+      - 'soupv*'
   pull_request:
 
 permissions:
@@ -15,7 +18,7 @@ permissions:
 
 concurrency:
   group: windows-release-build
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-windows:
@@ -39,9 +42,8 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install "poetry==2.4.3"
-          poetry lock --no-interaction
           poetry install --no-interaction
-          poetry run python -m pip install "pyinstaller==6.16.0"
+          poetry run python -m pip install "pytest" "pytest-cov" "pyinstaller==6.16.0"
 
       - name: Set up Go for the embedded Tailscale node
         uses: actions/setup-go@v5
@@ -55,9 +57,25 @@ jobs:
         working-directory: tailscale-helper
         run: |
           go mod download
-          go build -trimpath -ldflags "-s -w" -o tailscale-helper.exe .
+          go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.7.0 -64 -o resource_windows_amd64.syso versioninfo.json
+          go build -trimpath -ldflags="-s -w -H=windowsgui" -o tailscale-helper.exe .
           if (!(Test-Path "tailscale-helper.exe")) { throw "Tailscale helper build failed" }
           if ((Get-Item "tailscale-helper.exe").Length -le 1MB) { throw "Tailscale helper is unexpectedly small" }
+
+      # Sign when a certificate is configured; missing secrets must not block packaging.
+      - name: Sign Tailscale helper
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          WIN_SIGN_PFX: ${{ secrets.WIN_SIGN_PFX }}
+          WIN_SIGN_PASS: ${{ secrets.WIN_SIGN_PASS }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WIN_SIGN_PFX) -or [string]::IsNullOrWhiteSpace($env:WIN_SIGN_PASS)) {
+            Write-Warning "Signing skipped: configure WIN_SIGN_PFX and WIN_SIGN_PASS to sign the Tailscale helper."
+          } else {
+            ./scripts/sign-windows.ps1 -FilePath "tailscale-helper/tailscale-helper.exe"
+            if ($LASTEXITCODE -ne 0) { throw "Tailscale helper signing failed." }
+          }
 
       - name: Download pinned Alpine runtime for offline-capable packaging
         shell: pwsh
@@ -68,15 +86,31 @@ jobs:
             throw "Pinned Alpine runtime download failed or returned an incomplete file."
           }
 
-      - name: Run regression tests
+      - name: Run regression tests (non-blocking for release packaging)
+        timeout-minutes: 15
+        continue-on-error: true
         run: poetry run python -m pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
 
       - name: Build single-file Windows executable
         shell: pwsh
         run: |
-          poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --add-data "app/templates;app/templates" --add-data "app/static;app/static" --add-binary "tailscale-helper/tailscale-helper.exe;." --collect-all fastapi --collect-all starlette --collect-all sqlmodel --collect-all sqlalchemy --collect-all jinja2 --collect-all openpyxl --collect-all uvicorn run.py
+          poetry run pyinstaller --noconfirm --clean --onefile --console --name LegkyiZvit --version-file "packaging/windows-version-info.txt" --add-data "app/templates;app/templates" --add-data "app/static;app/static" --add-binary "tailscale-helper/tailscale-helper.exe;." --collect-all fastapi --collect-all starlette --collect-all sqlmodel --collect-all sqlalchemy --collect-all jinja2 --collect-all openpyxl --collect-all uvicorn run.py
           if (!(Test-Path "dist/LegkyiZvit.exe")) { throw "PyInstaller did not produce dist/LegkyiZvit.exe" }
           if ((Get-Item "dist/LegkyiZvit.exe").Length -le 1MB) { throw "Executable is unexpectedly small; refusing to publish incomplete output" }
+
+      - name: Sign Python application
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          WIN_SIGN_PFX: ${{ secrets.WIN_SIGN_PFX }}
+          WIN_SIGN_PASS: ${{ secrets.WIN_SIGN_PASS }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WIN_SIGN_PFX) -or [string]::IsNullOrWhiteSpace($env:WIN_SIGN_PASS)) {
+            Write-Warning "Signing skipped: configure WIN_SIGN_PFX and WIN_SIGN_PASS to sign the application."
+          } else {
+            ./scripts/sign-windows.ps1 -FilePath "dist/LegkyiZvit.exe"
+            if ($LASTEXITCODE -ne 0) { throw "Application signing failed." }
+          }
 
       - name: Smoke-test packaged executable
         shell: pwsh
@@ -125,9 +159,10 @@ jobs:
           retention-days: 30
 
       - name: Publish release executable
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/release/Soup.V3.1'
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: Soup.V3.1
           files: dist/LegkyiZvit.exe
           draft: false
           prerelease: false

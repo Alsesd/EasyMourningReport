@@ -134,6 +134,42 @@ class TailscaleManagerTests(unittest.TestCase):
         self.assertNotIn("tskey-test-secret", (self.root / ".tailscale-funnel-enabled").read_text())
         self.assertNotIn("tskey-test-secret", json.dumps(tailscale.get_status()))
 
+    def test_windows_helper_installs_to_stable_user_data_path(self):
+        source = self.root / "bundled-helper.exe"
+        source.write_bytes(b"first helper build")
+
+        installed = tailscale._install_windows_helper(source)
+        expected = self.root / "bin" / "tailscale-helper.exe"
+
+        self.assertEqual(installed, expected)
+        self.assertEqual(installed.read_bytes(), b"first helper build")
+        self.assertEqual(
+            (self.root / "bin" / "tailscale-helper.sha256").read_text(encoding="ascii").strip(),
+            __import__("hashlib").sha256(b"first helper build").hexdigest(),
+        )
+
+    def test_windows_helper_replaces_changed_hash(self):
+        source = self.root / "bundled-helper.exe"
+        source.write_bytes(b"first helper build")
+        first = tailscale._install_windows_helper(source)
+
+        source.write_bytes(b"second helper build")
+        second = tailscale._install_windows_helper(source)
+
+        self.assertEqual(first, second)
+        self.assertEqual(second.read_bytes(), b"second helper build")
+
+    def test_windows_helper_reuses_unchanged_hash(self):
+        source = self.root / "bundled-helper.exe"
+        source.write_bytes(b"same helper build")
+        first = tailscale._install_windows_helper(source)
+        first_mtime = first.stat().st_mtime_ns
+
+        second = tailscale._install_windows_helper(source)
+
+        self.assertEqual(first, second)
+        self.assertEqual(second.stat().st_mtime_ns, first_mtime)
+
 
 if __name__ == "__main__":
     unittest.main()
