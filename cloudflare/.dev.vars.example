@@ -1,0 +1,4 @@
+# Local-only values for pywrangler dev; use a disposable staging database.
+DATABASE_URL=postgresql+pg8000://worker_user:URL_ENCODED_PASSWORD@127.0.0.1:5432/easymourningreport_dev
+SECRET_KEY=replace-with-a-long-random-secret
+ADMIN_PASSWORD=replace-with-a-strong-test-admin-password
