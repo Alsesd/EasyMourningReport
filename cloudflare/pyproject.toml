@@ -24,3 +24,6 @@ dev = [
 server = [
     "uvicorn>=0.30",
 ]
+
+[tool.uv]
+default-groups = []
