@@ -12,14 +12,18 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.paths import asset_dir
 from app.core.security import load_secret, same_origin_post_guard
-from app.core.tailscale import shutdown as shutdown_tailscale, start_if_enabled as start_tailscale_if_enabled
 from app.core.ui import FormError, done, render, safe_referer
 from app.db.backup import backup_db, backup_loop
 from app.db.bootstrap import migrate, seed
-from app.db.session import engine
 from app.routes import api_router
 
 IS_WORKERS = os.getenv("CLOUDFLARE_WORKERS") == "1"
+
+if not IS_WORKERS:
+    from app.core.tailscale import (
+        shutdown as shutdown_tailscale,
+        start_if_enabled as start_tailscale_if_enabled,
+    )
 
 
 @asynccontextmanager
