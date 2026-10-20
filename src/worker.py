@@ -1,6 +1,7 @@
 """Cloudflare Python Worker entry point for EasyMourningReport."""
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 from pathlib import Path
@@ -96,6 +97,19 @@ app.add_api_route(
     methods=["GET", "HEAD"],
     include_in_schema=False,
 )
+
+# Cloudflare's TCP socket bridge supports synchronous SQLAlchemy, but concurrent
+# sync DB calls in one isolate must be serialized. Static asset reads stay concurrent.
+_worker_db_lock = asyncio.Lock()
+
+
+@app.middleware("http")
+async def _serialize_worker_database_requests(request: Request, call_next):
+    if request.url.path.startswith("/static/"):
+        return await call_next(request)
+    async with _worker_db_lock:
+        return await call_next(request)
+
 
 from workers import asgi
 
