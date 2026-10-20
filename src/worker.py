@@ -101,13 +101,23 @@ app.add_api_route(
 # Cloudflare's TCP socket bridge supports synchronous SQLAlchemy, but concurrent
 # sync DB calls in one isolate must be serialized. Static asset reads stay concurrent.
 _worker_db_lock = asyncio.Lock()
+_worker_initialized = False
 
 
 @app.middleware("http")
-async def _serialize_worker_database_requests(request: Request, call_next):
+async def _initialize_and_serialize_worker_requests(request: Request, call_next):
+    global _worker_initialized
     if request.url.path.startswith("/static/"):
         return await call_next(request)
     async with _worker_db_lock:
+        # Also initialize lazily on the first request in case the ASGI adapter
+        # does not emit lifespan startup events in a given runtime version.
+        if not _worker_initialized:
+            from app.db.bootstrap import migrate, seed
+
+            migrate()
+            seed()
+            _worker_initialized = True
         return await call_next(request)
 
 
