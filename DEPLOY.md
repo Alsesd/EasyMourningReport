@@ -52,6 +52,19 @@ and keep it stable across deployments. Set `ADMIN_PASSWORD` before the first
 start so the initial admin password is never generated or printed in Worker
 logs. Secrets are not stored in `wrangler.jsonc`.
 
+For Hyperdrive, create a configuration for the PostgreSQL database, then add
+this binding to `cloudflare/wrangler.jsonc` (use the ID returned by Wrangler):
+
+```json
+"hyperdrive": [
+  { "binding": "HYPERDRIVE", "id": "YOUR_HYPERDRIVE_CONFIG_ID" }
+]
+```
+
+When the `HYPERDRIVE` binding is present, the Worker builds its SQLAlchemy URL
+from that binding and does not require the `DATABASE_URL` secret. Keep
+`SECRET_KEY` and `ADMIN_PASSWORD` configured either way.
+
 ### 3. Build and run locally
 
 From the repository root:
