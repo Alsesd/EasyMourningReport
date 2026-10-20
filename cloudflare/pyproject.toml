@@ -19,3 +19,8 @@ dev = [
     "workers-py",
     "workers-runtime-sdk",
 ]
+
+# Optional group for a traditional VPS using the same PostgreSQL database.
+server = [
+    "uvicorn>=0.30",
+]
