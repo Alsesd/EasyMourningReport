@@ -52,6 +52,10 @@ and keep it stable across deployments. Set `ADMIN_PASSWORD` before the first
 start so the initial admin password is never generated or printed in Worker
 logs. Secrets are not stored in `wrangler.jsonc`.
 
+For local development, copy `cloudflare/.dev.vars.example` to
+`cloudflare/.dev.vars` and fill in test-only credentials. Keep that file
+private; it is ignored by Git.
+
 For Hyperdrive, create a configuration for the PostgreSQL database, then add
 this binding to `cloudflare/wrangler.jsonc` (use the ID returned by Wrangler):
 
@@ -88,7 +92,7 @@ admin user.
 
 ```sh
 cd cloudflare
-./deploy.sh
+sh deploy.sh
 ```
 
 The Wrangler config uses the custom domain `mourningreport.pp.ua`. The domain
