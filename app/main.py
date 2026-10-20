@@ -29,13 +29,13 @@ if not IS_WORKERS:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Initialize storage; only run persistent background jobs on a normal server."""
-    migrate()
-    seed()
     if IS_WORKERS:
-        # Worker instances are ephemeral; no local backup loop or Tailscale subprocess.
+        # The Worker adapter initializes storage lazily on the first non-static request.
         yield
         return
 
+    migrate()
+    seed()
     await asyncio.to_thread(backup_db)
     backup_task = asyncio.create_task(backup_loop(), name="database-backup-loop")
     try:
