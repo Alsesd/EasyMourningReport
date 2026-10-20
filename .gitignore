@@ -9,6 +9,10 @@ htmlcov/
 build/
 dist/
 
+# Local Cloudflare secrets (never commit real credentials)
+/cloudflare/.dev.vars
+/cloudflare/.env
+
 # Generated Cloudflare Worker staging bundle and vendored packages
 /cloudflare/_build/
 /cloudflare/.venv/
