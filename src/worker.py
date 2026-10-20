@@ -1,16 +1,18 @@
-"""Cloudflare Python Worker entry point for EasyMourningReport.
-
-Configure DATABASE_URL and SECRET_KEY as Worker secrets. This module adapts
-only the platform boundary; FastAPI routes and business logic stay in app/.
-"""
+"""Cloudflare Python Worker entry point for EasyMourningReport."""
 from __future__ import annotations
 
 import os
+import sys
+from pathlib import Path
 
-# Cloudflare secrets/bindings are exposed by the Workers runtime, not reliably
-# through the process environment. Copy required values before importing app.
+# In the generated Cloudflare bundle, app/ and src/ are sibling directories.
+_BUNDLE_ROOT = str(Path(__file__).resolve().parents[1])
+if _BUNDLE_ROOT not in sys.path:
+    sys.path.insert(0, _BUNDLE_ROOT)
+
 from workers import env
 
+# Copy bindings before importing modules that initialize SQLAlchemy/session state.
 for _name in ("DATABASE_URL", "SECRET_KEY", "ADMIN_PASSWORD"):
     try:
         _value = getattr(env, _name)
@@ -30,7 +32,7 @@ try:
     from _templates_data import TEMPLATES as _EMBEDDED_TEMPLATES
 except ImportError as exc:
     raise RuntimeError(
-        "The template bundle is missing. Run scripts/bundle_templates.py before deploy."
+        "Template bundle missing. Run cloudflare/build.py before deploying."
     ) from exc
 
 _original_init = Jinja2Templates.__init__
@@ -56,11 +58,19 @@ async def _serve_static(path: str, request: Request) -> Response:
         raise HTTPException(status_code=404, detail="Static asset binding is not configured")
     asset_response = await assets.fetch(f"https://assets.local/{path}")
     body = await asset_response.bytes()
-    headers = dict(asset_response.headers)
-    return Response(content=body, status_code=asset_response.status, headers=headers)
+    return Response(
+        content=body,
+        status_code=asset_response.status,
+        headers=dict(asset_response.headers),
+    )
 
 
-app.add_api_route("/static/{path:path}", _serve_static, methods=["GET", "HEAD"], include_in_schema=False)
+app.add_api_route(
+    "/static/{path:path}",
+    _serve_static,
+    methods=["GET", "HEAD"],
+    include_in_schema=False,
+)
 
 from workers import asgi
 
