@@ -102,24 +102,29 @@ must already be active in the same Cloudflare account. To test on a
 
 ### 5. Traditional VPS deployment
 
-The existing deployment remains:
+The existing Windows/SQLite deployment remains:
 
 ```sh
 poetry install
 python run.py
 ```
 
-To share data with the Worker, set `DATABASE_URL` and `SECRET_KEY` in the
-VPS service environment before starting the app. Example:
+For a VPS that should share PostgreSQL data with Cloudflare, use the isolated
+uv project so the pure-Python PostgreSQL driver is installed without changing
+the root Poetry lock or Windows build:
 
 ```sh
+cd cloudflare
+uv sync --group server
 export DATABASE_URL='postgresql+pg8000://app_user:URL_ENCODED_PASSWORD@db-host:5432/app_db'
 export SECRET_KEY='use-the-same-long-random-secret'
-python run.py
+uv run --group server python ../run.py
 ```
 
-For production, configure these in the service manager rather than a shell
-profile. Use HTTPS and set `COOKIE_SECURE=1`.
+Configure these variables in the VPS service manager rather than a shell
+profile. Use HTTPS and set `COOKIE_SECURE=1`. The root Poetry workflow remains
+SQLite-first; do not set `DATABASE_URL` in that environment unless you also
+add a PostgreSQL driver and update the Poetry lock.
 
 ## Compatibility boundaries
 
