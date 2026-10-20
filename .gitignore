@@ -9,5 +9,9 @@ htmlcov/
 build/
 dist/
 
+# Generated Cloudflare Worker assets/dependencies
+/src/_templates_data.py
+/python_modules/
+
 # Locally built Tailscale helper binaries
 /tailscale-helper/bin/
