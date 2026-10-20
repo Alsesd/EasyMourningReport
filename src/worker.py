@@ -1,0 +1,67 @@
+"""Cloudflare Python Worker entry point for EasyMourningReport.
+
+Configure DATABASE_URL and SECRET_KEY as Worker secrets. This module adapts
+only the platform boundary; FastAPI routes and business logic stay in app/.
+"""
+from __future__ import annotations
+
+import os
+
+# Cloudflare secrets/bindings are exposed by the Workers runtime, not reliably
+# through the process environment. Copy required values before importing app.
+from workers import env
+
+for _name in ("DATABASE_URL", "SECRET_KEY", "ADMIN_PASSWORD"):
+    try:
+        _value = getattr(env, _name)
+    except (AttributeError, TypeError):
+        _value = None
+    if _value:
+        os.environ[_name] = str(_value)
+
+os.environ["CLOUDFLARE_WORKERS"] = "1"
+os.environ.setdefault("COOKIE_SECURE", "1")
+
+# Patch Jinja2Templates before app.core.ui constructs its templates object.
+from jinja2 import ChoiceLoader, DictLoader
+from fastapi.templating import Jinja2Templates
+
+try:
+    from _templates_data import TEMPLATES as _EMBEDDED_TEMPLATES
+except ImportError as exc:
+    raise RuntimeError(
+        "The template bundle is missing. Run scripts/bundle_templates.py before deploy."
+    ) from exc
+
+_original_init = Jinja2Templates.__init__
+
+
+def _workers_templates_init(self, *args, **kwargs):
+    _original_init(self, *args, **kwargs)
+    self.env.loader = ChoiceLoader([DictLoader(_EMBEDDED_TEMPLATES), self.env.loader])
+
+
+Jinja2Templates.__init__ = _workers_templates_init
+
+from fastapi import HTTPException, Request
+from fastapi.responses import Response
+from app.main import app
+
+
+async def _serve_static(path: str, request: Request) -> Response:
+    """Forward /static/* to Cloudflare's static asset binding."""
+    runtime_env = request.scope.get("env")
+    assets = getattr(runtime_env, "ASSETS", None) if runtime_env is not None else None
+    if assets is None:
+        raise HTTPException(status_code=404, detail="Static asset binding is not configured")
+    asset_response = await assets.fetch(f"https://assets.local/{path}")
+    body = await asset_response.bytes()
+    headers = dict(asset_response.headers)
+    return Response(content=body, status_code=asset_response.status, headers=headers)
+
+
+app.add_api_route("/static/{path:path}", _serve_static, methods=["GET", "HEAD"], include_in_schema=False)
+
+from workers import asgi
+
+Default = asgi.entrypoint(app)
