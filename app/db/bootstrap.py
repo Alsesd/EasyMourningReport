@@ -3,6 +3,7 @@ import os
 import secrets
 
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
 from app.core.security import hash_pw
@@ -19,41 +20,53 @@ def seed():
     with SessionLocal() as db:
         if db.scalar(select(User.id).limit(1)):
             return
-        admin_pw = os.getenv("ADMIN_PASSWORD") or secrets.token_urlsafe(9)
-        db.add(User(login="admin", password_hash=hash_pw(admin_pw), role="admin"))
-        # On serverless deployments, configure ADMIN_PASSWORD before first deploy.
-        print(
-            f"\n*** ПЕРШИЙ ЗАПУСК: логін 'admin', пароль '{admin_pw}'. "
-            "Змініть його на сторінці «Налаштування». ***\n",
-            flush=True,
-        )
-        if not os.getenv("DEMO"):
-            db.commit()
-            return
-        demo = [
-            Product(name="Яблука, кг", price_cents=250),
-            Product(name="Хліб", price_cents=120),
-            Product(name="Молоко, 1 л", price_cents=95),
-        ]
-        db.add_all(demo)
-        db.flush()
-        db.add_all(
-            ProductPrice(product_id=p.id, period=BASE_PERIOD, price_cents=p.price_cents)
-            for p in demo
-        )
-        for n in (1, 2):
-            store = Store(name=f"Магазин {n}")
-            db.add(store)
-            db.flush()
-            db.add(
-                User(
-                    login=f"store{n}",
-                    password_hash=hash_pw(f"store{n}"),
-                    role="store",
-                    store_id=store.id,
-                )
+        admin_pw = os.getenv("ADMIN_PASSWORD")
+        if os.getenv("CLOUDFLARE_WORKERS") == "1" and not admin_pw:
+            raise RuntimeError(
+                "Set the ADMIN_PASSWORD Worker secret before first deployment."
             )
-        db.commit()
+        admin_pw = admin_pw or secrets.token_urlsafe(9)
+        db.add(User(login="admin", password_hash=hash_pw(admin_pw), role="admin"))
+        if os.getenv("CLOUDFLARE_WORKERS") != "1":
+            print(
+                f"\n*** ПЕРШИЙ ЗАПУСК: логін 'admin', пароль '{admin_pw}'. "
+                "Змініть його на сторінці «Налаштування». ***\n",
+                flush=True,
+            )
+        try:
+            if not os.getenv("DEMO"):
+                db.commit()
+                return
+            demo = [
+                Product(name="Яблука, кг", price_cents=250),
+                Product(name="Хліб", price_cents=120),
+                Product(name="Молоко, 1 л", price_cents=95),
+            ]
+            db.add_all(demo)
+            db.flush()
+            db.add_all(
+                ProductPrice(product_id=p.id, period=BASE_PERIOD, price_cents=p.price_cents)
+                for p in demo
+            )
+            for n in (1, 2):
+                store = Store(name=f"Магазин {n}")
+                db.add(store)
+                db.flush()
+                db.add(
+                    User(
+                        login=f"store{n}",
+                        password_hash=hash_pw(f"store{n}"),
+                        role="store",
+                        store_id=store.id,
+                    )
+                )
+            db.commit()
+        except IntegrityError:
+            # Concurrent serverless cold starts may both observe an empty DB.
+            db.rollback()
+            if db.scalar(select(User.id).limit(1)):
+                return
+            raise
 
 
 def _migrate_sqlite() -> None:
@@ -144,10 +157,11 @@ def _migrate_remote() -> None:
         if "users" in tables:
             rows = connection.execute(text("SELECT id, login FROM users ORDER BY id")).all()
             current = [(row[0], row[1]) for row in rows]
+            current_by_id = dict(current)
             renames = {
                 uid: new
                 for uid, new in dedupe_logins(current).items()
-                if dict(current)[uid] != new
+                if current_by_id[uid] != new
             }
             # Avoid transient unique-key collisions during case/whitespace normalization.
             for uid in renames:
