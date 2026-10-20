@@ -1,8 +1,4 @@
-"""Resolve persistent data outside the one-file freezer extraction directory.
-
-When the executable folder is not writable, use the per-user application data directory.
-"""
-
+"""Resolve app assets and persistent local data directories."""
 import os
 import sys
 from pathlib import Path
@@ -12,7 +8,7 @@ APP_NAME = "LegkyiZvit"
 
 def _app_dir() -> Path:
     """Folder of the exe (compiled build) or of the project (running from source)."""
-    if getattr(sys, "frozen", False):  # PyInstaller and compatible freezers
+    if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent.parent
 
@@ -36,11 +32,10 @@ def _user_data_dir() -> Path:
 
 
 def user_data_dir() -> Path:
-    """Return per-user storage suitable for private identity and credential state.
-
-    Honor LEGKYI_DATA_DIR as an explicit all-data override so tests and portable
-    deployments can isolate every persistent artifact in one known location.
-    """
+    """Return a private local data folder for secrets and helper state."""
+    if os.getenv("CLOUDFLARE_WORKERS") == "1":
+        # Worker deployments must use secrets/bindings, never local persistence.
+        return Path("/tmp") / APP_NAME
     override = os.getenv("LEGKYI_DATA_DIR")
     folder = Path(override).expanduser().resolve() if override else _user_data_dir()
     folder.mkdir(parents=True, exist_ok=True)
@@ -61,16 +56,13 @@ def _writable(folder: Path) -> bool:
 
 
 def data_dir() -> Path:
-    """Return the (created) folder for the database, secret key and backups.
-
-    1. LEGKYI_DATA_DIR, if set, wins.
-    2. Otherwise the folder next to the exe (or the project folder when run from source).
-    3. If that folder is read-only (e.g. Program Files), %LOCALAPPDATA%\\LegkyiZvit is used.
-    """
+    """Resolve the local database folder; Workers use only this path as a placeholder."""
+    if os.getenv("CLOUDFLARE_WORKERS") == "1":
+        return Path("/tmp") / APP_NAME
     override = os.getenv("LEGKYI_DATA_DIR")
     if override:
         folder = Path(override).expanduser().resolve()
-        folder.mkdir(parents=True, exist_ok=True)  # an explicit setting should fail loudly
+        folder.mkdir(parents=True, exist_ok=True)
         return folder
     folder = _app_dir()
     if _writable(folder):
