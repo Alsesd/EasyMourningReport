@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "easymourningreport",
+  "main": "src/worker.py",
+  "compatibility_date": "2026-10-20",
+  "compatibility_flags": ["python_workers"],
+  "assets": {
+    "directory": "./app/static/",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "routes": [
+    {
+      "pattern": "mourningreport.pp.ua",
+      "custom_domain": true
+    }
+  ]
+}
