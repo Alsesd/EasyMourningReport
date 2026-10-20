@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from urllib.parse import quote_plus
 
 # In the generated Cloudflare bundle, app/ and src/ are sibling directories.
 _BUNDLE_ROOT = str(Path(__file__).resolve().parents[1])
@@ -20,6 +21,30 @@ for _name in ("DATABASE_URL", "SECRET_KEY", "ADMIN_PASSWORD"):
         _value = None
     if _value:
         os.environ[_name] = str(_value)
+
+# Hyperdrive is optional. When configured, it provides pooled PostgreSQL
+# connectivity; otherwise the deployment must supply DATABASE_URL as a secret.
+if not os.environ.get("DATABASE_URL"):
+    try:
+        _hyperdrive = getattr(env, "HYPERDRIVE")
+    except (AttributeError, TypeError):
+        _hyperdrive = None
+    if _hyperdrive is not None:
+        _user = quote_plus(str(_hyperdrive.user))
+        _password = quote_plus(str(_hyperdrive.password))
+        _host = str(_hyperdrive.host)
+        _port = int(_hyperdrive.port)
+        _database = quote_plus(str(_hyperdrive.database))
+        os.environ["DATABASE_URL"] = (
+            f"postgresql+pg8000://{_user}:{_password}@{_host}:{_port}/{_database}"
+        )
+
+if not os.environ.get("DATABASE_URL"):
+    raise RuntimeError("Set the DATABASE_URL secret or configure a HYPERDRIVE binding.")
+if not os.environ.get("SECRET_KEY"):
+    raise RuntimeError("Set the SECRET_KEY Worker secret.")
+if not os.environ.get("ADMIN_PASSWORD"):
+    raise RuntimeError("Set the ADMIN_PASSWORD Worker secret before first deployment.")
 
 os.environ["CLOUDFLARE_WORKERS"] = "1"
 os.environ.setdefault("COOKIE_SECURE", "1")
