@@ -73,7 +73,7 @@ jobs:
               echo "## Cloudflare deployment is waiting for secrets"
               echo ""
               echo "Add these repository Actions secrets under Settings → Secrets and variables → Actions:"
-              for key in $missing; do echo "- `$key`"; done
+              for key in $missing; do printf -- '- `%s`\n' "$key"; done
               echo ""
               echo "No deployment was attempted. The Windows/Soup.V3.1 build is unaffected."
             } >> "$GITHUB_STEP_SUMMARY"
@@ -85,8 +85,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          printf '%s' "$CLOUDFLARE_API_TOKEN" | uv run --group dev pywrangler whoami
+        run: uv run --group dev pywrangler whoami
 
       - name: Upload application secrets to Worker
         env:
