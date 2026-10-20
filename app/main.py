@@ -1,5 +1,4 @@
 """Compose the FastAPI application and its cross-cutting infrastructure."""
-
 import asyncio
 import os
 from contextlib import asynccontextmanager
@@ -17,18 +16,25 @@ from app.core.tailscale import shutdown as shutdown_tailscale, start_if_enabled 
 from app.core.ui import FormError, done, render, safe_referer
 from app.db.backup import backup_db, backup_loop
 from app.db.bootstrap import migrate, seed
+from app.db.session import engine
 from app.routes import api_router
+
+IS_WORKERS = os.getenv("CLOUDFLARE_WORKERS") == "1"
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Initialize persistent state and run periodic backups until shutdown."""
+    """Initialize storage; only run persistent background jobs on a normal server."""
     migrate()
     seed()
+    if IS_WORKERS:
+        # Worker instances are ephemeral; no local backup loop or Tailscale subprocess.
+        yield
+        return
+
     await asyncio.to_thread(backup_db)
     backup_task = asyncio.create_task(backup_loop(), name="database-backup-loop")
     try:
-        # Restore the explicitly enabled app-specific Funnel after a restart.
         await asyncio.to_thread(start_tailscale_if_enabled)
         yield
     finally:
@@ -50,7 +56,10 @@ app.add_middleware(
     max_age=7 * 24 * 3600,
 )
 
-app.mount("/static", StaticFiles(directory=asset_dir("static")), name="static")
+# Static assets are served by Cloudflare's ASSETS binding in Workers mode.
+if not IS_WORKERS:
+    app.mount("/static", StaticFiles(directory=asset_dir("static")), name="static")
+
 app.include_router(api_router)
 
 
@@ -60,7 +69,6 @@ def _is_api_request(request: Request) -> bool:
 
 @app.exception_handler(FormError)
 def form_error(request: Request, exc: FormError):
-    """JSON API clients receive machine-readable validation errors."""
     if _is_api_request(request):
         return JSONResponse({"detail": exc.message, "code": "validation_error"}, status_code=422)
     return done(request, exc.to or safe_referer(request) or "/", exc.message, "err")
@@ -68,7 +76,6 @@ def form_error(request: Request, exc: FormError):
 
 @app.exception_handler(RequestValidationError)
 def invalid_form(request: Request, exc: RequestValidationError):
-    """Use JSON for API validation and retain readable feedback for legacy forms."""
     if _is_api_request(request):
         errors = [
             {"loc": [str(part) for part in error.get("loc", ())], "msg": error.get("msg", "Invalid value"), "type": error.get("type", "value_error")}
@@ -90,7 +97,6 @@ def invalid_form(request: Request, exc: RequestValidationError):
 
 @app.exception_handler(StarletteHTTPException)
 def http_error(request: Request, exc: StarletteHTTPException):
-    """Preserve legacy redirects and use a consistent JSON error envelope for the API."""
     if _is_api_request(request):
         return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
     location = (exc.headers or {}).get("Location")
