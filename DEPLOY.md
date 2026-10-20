@@ -85,8 +85,8 @@ files in `_build/`; edit the root `app/` or `src/` files and rebuild.
 
 Before production, smoke-test login, product creation, price changes, monthly
 reports, Excel import/export, sessions, and static CSS/JS against a staging
-database. The first Worker startup creates the SQLModel schema and initial
-admin user.
+database. The first non-static application request initializes the SQLModel
+schema and initial admin user.
 
 ### 4. Deploy
 
