@@ -1,46 +1,44 @@
 # EasyMourningReport: two deployment targets
 
-The existing app remains usable as a normal FastAPI service (including the
-portable Windows/SQLite workflow) and has a separate Cloudflare Workers
-entrypoint. This branch does not replace the desktop deployment.
-
-## Deployment modes
+The normal application and its Windows/Poetry workflow remain the primary
+source of truth. Cloudflare has its own isolated `uv` project and a build
+step that stages the current `app/` and `src/` code. The root
+`pyproject.toml` and `poetry.lock` are not repurposed for Pywrangler.
 
 | Mode | Entry point | Database | Static files |
 |---|---|---|---|
 | Local / VPS / Windows | `python run.py` or `uvicorn app.main:app` | SQLite by default; PostgreSQL when `DATABASE_URL` is set | FastAPI serves `app/static/` |
-| Cloudflare Workers | `src/worker.py` via Pywrangler | PostgreSQL via `DATABASE_URL` secret | Cloudflare ASSETS binding backed by `app/static/` |
+| Cloudflare Workers | `cloudflare/_build/src/worker.py` via Pywrangler | PostgreSQL via `DATABASE_URL` secret | Cloudflare ASSETS binding backed by `app/static/` |
 
-For both hosted deployments to share live data, configure the VPS and Worker
-with the **same PostgreSQL database**. The existing SQLite file is not copied
-to PostgreSQL automatically. Keep SQLite as the default for standalone Windows
-installs unless you intentionally set `DATABASE_URL`.
+For VPS and Worker to share live data, configure both with the **same
+PostgreSQL database**. The existing SQLite file is not copied into PostgreSQL
+automatically. Keep SQLite as the default for standalone Windows installs
+unless you intentionally set `DATABASE_URL`.
 
 ## Cloudflare setup
 
 ### 1. Prerequisites
 
 - A Cloudflare account and a domain managed by Cloudflare.
-- Node.js, uv, and Python 3.13+ available on the deployment machine.
-- A PostgreSQL database reachable from the Worker. Use a dedicated database
-  and a restricted application user; provider-managed backups are recommended.
+- Node.js, uv, and Python 3.13+ on the deployment machine.
+- A PostgreSQL database reachable from Cloudflare Workers.
 
-Python Workers run in Pyodide and support only compatible Python packages.
-This adapter uses the pure-Python `pg8000` PostgreSQL driver. Treat the first
-`pywrangler dev` run as a compatibility check for your selected PostgreSQL
-provider and its network path; if direct database connections are unavailable,
-configure Cloudflare Hyperdrive and validate the connection before production.
+Cloudflare Python Workers run in Pyodide. The adapter uses SQLAlchemy with the
+pure-Python `pg8000` driver; Workers' TCP support is runtime-specific. For
+production database connections, Cloudflare Hyperdrive is recommended for
+connection pooling. Validate the actual database connection in local Worker
+development before using a production database.
 
-### 2. Configure secrets
+### 2. Configure Worker secrets
 
-Run from the repository root:
+Run these commands from the repository root:
 
 ```sh
-uv sync --group cloudflare
-uv run --group cloudflare python scripts/bundle_templates.py
-uv run --group cloudflare pywrangler secret put DATABASE_URL
-uv run --group cloudflare pywrangler secret put SECRET_KEY
-uv run --group cloudflare pywrangler secret put ADMIN_PASSWORD
+cd cloudflare
+uv sync --group dev
+uv run --group dev pywrangler secret put DATABASE_URL
+uv run --group dev pywrangler secret put SECRET_KEY
+uv run --group dev pywrangler secret put ADMIN_PASSWORD
 ```
 
 For `DATABASE_URL`, use a SQLAlchemy URL, for example:
@@ -49,35 +47,45 @@ For `DATABASE_URL`, use a SQLAlchemy URL, for example:
 postgresql+pg8000://app_user:URL_ENCODED_PASSWORD@db-host:5432/app_db
 ```
 
-URL-encode special characters in the username/password. Use a long random
-`SECRET_KEY` and keep it stable between deployments. Set `ADMIN_PASSWORD`
-before first start so the initial admin password is not generated in logs.
-Never commit real secrets or put them in `wrangler.jsonc`.
+URL-encode special characters in credentials. Use a long random `SECRET_KEY`
+and keep it stable across deployments. Set `ADMIN_PASSWORD` before the first
+start so the initial admin password is never generated or printed in Worker
+logs. Secrets are not stored in `wrangler.jsonc`.
 
-### 3. Verify locally, then deploy
+### 3. Build and run locally
 
-```sh
-uv run --group cloudflare python scripts/bundle_templates.py
-uv run --group cloudflare pywrangler dev
-```
-
-Test login, product creation, price changes, monthly reports, Excel import/export,
-and session cookies against the test database before deploying. The first app
-startup creates the SQLModel schema and initial admin user. Do not point this
-at production until the smoke test passes.
+From the repository root:
 
 ```sh
-uv run --group cloudflare pywrangler deploy
+python cloudflare/build.py
+cd cloudflare
+uv run --group dev pywrangler dev
 ```
 
-The Worker config uses the custom domain `mourningreport.pp.ua`. The domain
-must already be active in the same Cloudflare account. If you want to deploy
-to a `workers.dev` URL first, remove the custom-domain route from
-`wrangler.jsonc` and enable `workers_dev`.
+The build script copies the current app sources into the ignored
+`cloudflare/_build/` directory and bundles all Jinja templates. Do not edit
+files in `_build/`; edit the root `app/` or `src/` files and rebuild.
 
-### 4. Traditional VPS deployment
+Before production, smoke-test login, product creation, price changes, monthly
+reports, Excel import/export, sessions, and static CSS/JS against a staging
+database. The first Worker startup creates the SQLModel schema and initial
+admin user.
 
-The existing command remains available:
+### 4. Deploy
+
+```sh
+cd cloudflare
+./deploy.sh
+```
+
+The Wrangler config uses the custom domain `mourningreport.pp.ua`. The domain
+must already be active in the same Cloudflare account. To test on a
+`workers.dev` hostname first, remove the custom-domain route from
+`cloudflare/wrangler.jsonc` and enable `workers_dev`.
+
+### 5. Traditional VPS deployment
+
+The existing deployment remains:
 
 ```sh
 poetry install
@@ -93,18 +101,18 @@ export SECRET_KEY='use-the-same-long-random-secret'
 python run.py
 ```
 
-For production, set these variables in the service manager instead of a shell
+For production, configure these in the service manager rather than a shell
 profile. Use HTTPS and set `COOKIE_SECURE=1`.
 
 ## Compatibility boundaries
 
 - Tailscale Funnel and local SQLite backup jobs remain available only in normal
-  server/desktop mode. Cloudflare uses its routing and managed database backup
-  facilities instead.
+  server/desktop mode. Cloudflare uses its own routing and managed database
+  backup facilities.
 - The admin backup-download endpoint returns HTTP 501 for remote databases;
   use the PostgreSQL provider's backup/restore workflow.
-- The app's existing SQLite migration path is retained. PostgreSQL startup uses
-  SQLAlchemy metadata creation plus portable compatibility migrations; validate
-  against a staging database before pointing it at valuable data.
-- Cloudflare Python Workers are still a distinct runtime from CPython. A
-  successful local/VPS test does not replace the Worker smoke test.
+- The SQLite migration path remains intact. PostgreSQL startup uses SQLAlchemy
+  metadata creation plus portable compatibility migrations; validate against
+  a staging database before pointing it at valuable data.
+- Cloudflare Python Workers are a separate runtime from CPython. A successful
+  local/VPS test does not replace the Worker smoke test.
