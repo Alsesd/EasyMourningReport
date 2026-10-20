@@ -128,13 +128,15 @@ def _migrate_sqlite() -> None:
 
 
 def _migrate_remote() -> None:
-    """Create/upgrade a hosted SQL database without SQLite-only PRAGMA statements."""
-    Base.metadata.create_all(engine)
-    inspector = inspect(engine)
-    tables = set(inspector.get_table_names())
-    if not tables:
-        return
+    """Create/upgrade PostgreSQL schema under a lock shared by Worker isolates."""
     with engine.begin() as connection:
+        # Multiple cold isolates may initialize at once. Hold a transaction-scoped
+        # advisory lock while checking/creating tables and applying compatibility
+        # updates, so they cannot race on CREATE TABLE or ALTER TABLE.
+        connection.execute(text("SELECT pg_advisory_xact_lock(731904271)"))
+        Base.metadata.create_all(connection)
+        inspector = inspect(connection)
+        tables = set(inspector.get_table_names())
         for table, column, definition in (
             ("reports", "status", "VARCHAR NOT NULL DEFAULT 'draft'"),
             ("products", "archived", "BOOLEAN NOT NULL DEFAULT FALSE"),
@@ -143,14 +145,17 @@ def _migrate_remote() -> None:
             if table in tables and column not in {
                 item["name"] for item in inspect(connection).get_columns(table)
             }:
-                connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}"))
+                connection.execute(
+                    text(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+                )
         if {"products", "product_prices"}.issubset(tables):
             connection.execute(
                 text(
                     "INSERT INTO product_prices (product_id, period, price_cents) "
                     "SELECT p.id, :period, p.price_cents FROM products p "
                     "WHERE NOT EXISTS (SELECT 1 FROM product_prices pp "
-                    "WHERE pp.product_id = p.id)"
+                    "WHERE pp.product_id = p.id) "
+                    "ON CONFLICT (product_id, period) DO NOTHING"
                 ),
                 {"period": BASE_PERIOD},
             )
