@@ -1,5 +1,4 @@
 """Security helpers: password hashing, secret-key persistence, and request checks."""
-
 import hashlib
 import hmac
 import os
@@ -14,22 +13,22 @@ from app.core.paths import data_dir
 
 def hash_pw(pw: str, salt: bytes | None = None) -> str:
     salt = salt or os.urandom(16)
-    return (
-        salt.hex()
-        + "$"
-        + hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, 200_000).hex()
-    )
+    return salt.hex() + "$" + hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, 200_000).hex()
 
 
 def check_pw(pw: str, stored: str) -> bool:
-    return hmac.compare_digest(
-        hash_pw(pw, bytes.fromhex(stored.split("$")[0])), stored
-    )
+    return hmac.compare_digest(hash_pw(pw, bytes.fromhex(stored.split("$")[0])), stored)
 
 
 def load_secret() -> str:
-    if os.getenv("SECRET_KEY"):
-        return os.environ["SECRET_KEY"]
+    configured = os.getenv("SECRET_KEY")
+    if configured:
+        return configured
+    if os.getenv("CLOUDFLARE_WORKERS") == "1":
+        raise RuntimeError(
+            "SECRET_KEY must be configured as a Cloudflare Worker secret; "
+            "Workers cannot persist secret.key on a local filesystem."
+        )
     path = data_dir() / "secret.key"
     if not path.exists():
         path.write_text(secrets.token_hex(32))
@@ -37,11 +36,7 @@ def load_secret() -> str:
 
 
 async def same_origin_post_guard(request: Request, call_next):
-    """Reject cross-origin or unverifiable browser mutations to prevent CSRF.
-
-    Unsafe methods use the same-origin check because the REST API authenticates
-    through the same session cookie as the HTML pages.
-    """
+    """Reject cross-origin or unverifiable browser mutations to prevent CSRF."""
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
         source = request.headers.get("origin") or request.headers.get("referer")
         parsed = urlparse(source) if source else None

@@ -9,5 +9,15 @@ htmlcov/
 build/
 dist/
 
+# Local Cloudflare secrets (never commit real credentials)
+/cloudflare/.dev.vars
+/cloudflare/.env
+
+# Generated Cloudflare Worker staging bundle and vendored packages
+/cloudflare/_build/
+/cloudflare/.venv/
+/python_modules/
+/src/_templates_data.py
+
 # Locally built Tailscale helper binaries
 /tailscale-helper/bin/

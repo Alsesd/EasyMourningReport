@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "easymourningreport",
+  "main": "_build/src/worker.py",
+  "compatibility_date": "2026-10-20",
+  "compatibility_flags": ["python_workers"],
+  "assets": {
+    "directory": "_build/app/static/",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "secrets": {
+    "required": ["SECRET_KEY", "ADMIN_PASSWORD"]
+  },
+  "routes": [
+    {
+      "pattern": "mourningreport.pp.ua",
+      "custom_domain": true
+    }
+  ]
+}
