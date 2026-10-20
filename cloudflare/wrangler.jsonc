@@ -10,7 +10,7 @@
     "run_worker_first": true
   },
   "secrets": {
-    "required": ["DATABASE_URL", "SECRET_KEY", "ADMIN_PASSWORD"]
+    "required": ["SECRET_KEY", "ADMIN_PASSWORD"]
   },
   "routes": [
     {
