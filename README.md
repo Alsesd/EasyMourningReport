@@ -105,7 +105,7 @@ EasyMourningReport/
 ### Запуск в один крок
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 Усе налаштовується автоматично:
@@ -137,8 +137,10 @@ PUBLIC_URL=https://report.yourdomain.com
 
 І перезапустіть:
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
+
+Для іменованого тунелю в Cloudflare Dashboard у налаштуванні Public Hostname вкажіть origin service `http://localhost:8000`: контейнер `tunnel` використовує спільний мережевий простір із контейнером застосунку. Не додавайте токен до `compose.yaml` — зберігайте його лише у локальному `.env`.
 
 Якщо ви хочете тимчасово вимкнути тунель, встановіть `TUNNEL_ENABLED=false` у `.env`.
 
