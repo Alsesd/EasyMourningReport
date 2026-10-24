@@ -37,13 +37,13 @@ NIX_CC='/nix/store/j1938gsbvbhkyz4kbmvjk56r479mkw3s-gcc-wrapper-16.2.0'
 export NIX_CC
 NIX_CC_WRAPPER_TARGET_HOST_x86_64_unknown_linux_gnu='1'
 export NIX_CC_WRAPPER_TARGET_HOST_x86_64_unknown_linux_gnu
-NIX_CFLAGS_COMPILE=' -frandom-seed=jlx1aynih7 -isystem /nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/include -isystem /nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/include'
+NIX_CFLAGS_COMPILE=' -frandom-seed=7wx0dl8v6s -isystem /nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/include -isystem /nix/store/lb41b0anx1f98y9y5s9mdv97gjgsq740-python3-3.14.7/include -isystem /nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/include -isystem /nix/store/lb41b0anx1f98y9y5s9mdv97gjgsq740-python3-3.14.7/include'
 export NIX_CFLAGS_COMPILE
 NIX_ENFORCE_NO_NATIVE='1'
 export NIX_ENFORCE_NO_NATIVE
 NIX_HARDENING_ENABLE='bindnow format fortify fortify3 libcxxhardeningfast pic relro stackclashprotection stackprotector strictflexarrays1 strictoverflow zerocallusedregs'
 export NIX_HARDENING_ENABLE
-NIX_LDFLAGS='-rpath /home/alsesd/EasyMourningReport/outputs/out/lib  -L/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/lib -L/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/lib'
+NIX_LDFLAGS='-rpath /home/alsesd/EasyMourningReport/outputs/out/lib  -L/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/lib -L/nix/store/lb41b0anx1f98y9y5s9mdv97gjgsq740-python3-3.14.7/lib -L/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/lib -L/nix/store/lb41b0anx1f98y9y5s9mdv97gjgsq740-python3-3.14.7/lib'
 export NIX_LDFLAGS
 NIX_NO_SELF_RPATH='1'
 NIX_STORE='/nix/store'
@@ -58,14 +58,14 @@ OLDPWD=''
 export OLDPWD
 OPTERR='1'
 OSTYPE='linux-gnu'
-PATH='/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/bin:/nix/store/zqfnrgbgjq3jyaq0vig0hbqnkk19flss-python3.14-poetry-2.4.3/bin:/nix/store/iqq9yz2yrcrzsn52h3vkkz72i92h1zds-go-1.26.8/bin:/nix/store/lg46w7hrjx7kylsh6645c9l975i8h43b-git-2.55.0/bin:/nix/store/69f033mdrird2psix6jnb814gqjswarm-serve/bin:/nix/store/qcwnw71iksl68k7fipizi6wn0s1xms9v-patchelf-0.15.2/bin:/nix/store/j1938gsbvbhkyz4kbmvjk56r479mkw3s-gcc-wrapper-16.2.0/bin:/nix/store/5q6bdxkp7lc70gn9mnf4yiybrx8ry5xq-gcc-16.2.0/bin:/nix/store/srvyqaf88njyqsrs1ajz3hznvdqq8hlw-glibc-2.44-25-bin/bin:/nix/store/2gfxiwls9hbgwdwcy43mprchwsq36mg6-coreutils-9.11/bin:/nix/store/fy8mxgdjvjvmagv2igmj428a9j17hpcf-binutils-wrapper-2.46/bin:/nix/store/y5sgl0vvrpbcwgjwpjs60r1hg0gi7i0n-binutils-2.46/bin:/nix/store/2gfxiwls9hbgwdwcy43mprchwsq36mg6-coreutils-9.11/bin:/nix/store/ycrbcy9sg4knpnik6a01dk70l0m673x7-findutils-4.11.0/bin:/nix/store/jizwjwy80hby5cmqqwbxgaf2k4q7hjq2-diffutils-3.12/bin:/nix/store/1ggxndc1gd5061j5hqprhnhx9p30yilv-gnused-4.10/bin:/nix/store/3668q0d9zhc5n9l2pnyvpd44kz9bjsjm-gnugrep-3.12/bin:/nix/store/63g104xwbzfpcq0h7c99w19m6j9ly3p1-gawk-5.4.1/bin:/nix/store/d1x966y2brfy9pwlrzwjmbnq9rpir7xb-gnutar-1.35/bin:/nix/store/yr6ar7lsk3yfas4d464z1ysaxwcq2gc5-gzip-1.14/bin:/nix/store/gz6baw96bf48pxs93kc7rxmnr1ra7g4m-bzip2-1.0.8-bin/bin:/nix/store/p5frwjlmkgj2987iy9plr7nav9l72xz4-gnumake-4.4.1/bin:/nix/store/10dxp0qxqxxsyiljrh2kp0xqhz6arhcx-bash-5.3p15/bin:/nix/store/dsfqcffzgwhrnkq1v9g9s3p55czrxk8l-patch-2.8/bin:/nix/store/f10qh0sgpx38n3azj08dgbbnlxspv26n-xz-5.8.4-bin/bin:/nix/store/i22iaxmpraqg3czwcraqpb844fwbh9zy-file-5.48/bin'
+PATH='/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/bin:/nix/store/94jn0cw0kvzqb361ndvisbzmm1qhjkrr-pdm-2.27.0/bin:/nix/store/lb41b0anx1f98y9y5s9mdv97gjgsq740-python3-3.14.7/bin:/nix/store/0b3qmf6ibpzs08gm8czp849913ydnkz2-python3.14-findpython-0.8.0/bin:/nix/store/88002by5dlnrxwxb4kf99icxgnly5vs1-python3.14-httpx-0.28.1/bin:/nix/store/3wfkjzcjdnxjy4nic8k6g8nr35brmpy4-python3.14-idna-3.18/bin:/nix/store/x1mx4vklb5i5g08yry8lk1x9ixybgw5f-python3.14-pbs-installer-2026.01.27/bin:/nix/store/h7jklqb1j5cq51rc1yvabx7jpd6yp558-python3.14-python-dotenv-1.2.2/bin:/nix/store/nkcrxkpg8r4i5h2f3wyp41myln2czxyq-python3.14-markdown-it-py-4.2.0/bin:/nix/store/lyj2hffm8hc3pv009mrmjkfdv5jsspxg-python3.14-pygments-2.20.0/bin:/nix/store/9qz7dnr5pha2nz1x9hxp28fd0895pdbx-python3.14-cffi-2.1.0/bin:/nix/store/5sy15nk1s1ip12s7f71s7ymff77vk25s-python3.14-charset-normalizer-3.4.9/bin:/nix/store/wq3vyp9llvz11r6yrix3ir8w1c95hnpf-python3.14-unearth-0.18.2/bin:/nix/store/mgy95jf73vhfmvl4s2lqcn3q2xh6n9p4-python3.14-virtualenv-21.6.1/bin:/nix/store/8488hwvig4ycrpz1qk8mjgzdrvv928nr-cloudflared-2026.9.3/bin:/nix/store/lg46w7hrjx7kylsh6645c9l975i8h43b-git-2.55.0/bin:/nix/store/yvynp2klpa7d6pwyld5amcrnmh4qri2w-serve/bin:/nix/store/p4jkrzd28a33gwmdg3kp5657arpasc5c-tunnel/bin:/nix/store/qcwnw71iksl68k7fipizi6wn0s1xms9v-patchelf-0.15.2/bin:/nix/store/j1938gsbvbhkyz4kbmvjk56r479mkw3s-gcc-wrapper-16.2.0/bin:/nix/store/5q6bdxkp7lc70gn9mnf4yiybrx8ry5xq-gcc-16.2.0/bin:/nix/store/srvyqaf88njyqsrs1ajz3hznvdqq8hlw-glibc-2.44-25-bin/bin:/nix/store/2gfxiwls9hbgwdwcy43mprchwsq36mg6-coreutils-9.11/bin:/nix/store/fy8mxgdjvjvmagv2igmj428a9j17hpcf-binutils-wrapper-2.46/bin:/nix/store/y5sgl0vvrpbcwgjwpjs60r1hg0gi7i0n-binutils-2.46/bin:/nix/store/2gfxiwls9hbgwdwcy43mprchwsq36mg6-coreutils-9.11/bin:/nix/store/ycrbcy9sg4knpnik6a01dk70l0m673x7-findutils-4.11.0/bin:/nix/store/jizwjwy80hby5cmqqwbxgaf2k4q7hjq2-diffutils-3.12/bin:/nix/store/1ggxndc1gd5061j5hqprhnhx9p30yilv-gnused-4.10/bin:/nix/store/3668q0d9zhc5n9l2pnyvpd44kz9bjsjm-gnugrep-3.12/bin:/nix/store/63g104xwbzfpcq0h7c99w19m6j9ly3p1-gawk-5.4.1/bin:/nix/store/d1x966y2brfy9pwlrzwjmbnq9rpir7xb-gnutar-1.35/bin:/nix/store/yr6ar7lsk3yfas4d464z1ysaxwcq2gc5-gzip-1.14/bin:/nix/store/gz6baw96bf48pxs93kc7rxmnr1ra7g4m-bzip2-1.0.8-bin/bin:/nix/store/p5frwjlmkgj2987iy9plr7nav9l72xz4-gnumake-4.4.1/bin:/nix/store/10dxp0qxqxxsyiljrh2kp0xqhz6arhcx-bash-5.3p15/bin:/nix/store/dsfqcffzgwhrnkq1v9g9s3p55czrxk8l-patch-2.8/bin:/nix/store/f10qh0sgpx38n3azj08dgbbnlxspv26n-xz-5.8.4-bin/bin:/nix/store/i22iaxmpraqg3czwcraqpb844fwbh9zy-file-5.48/bin'
 export PATH
 PS4='+ '
 PYTHONHASHSEED='0'
 export PYTHONHASHSEED
 PYTHONNOUSERSITE='1'
 export PYTHONNOUSERSITE
-PYTHONPATH='/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/lib/python3.11/site-packages'
+PYTHONPATH='/nix/store/94jn0cw0kvzqb361ndvisbzmm1qhjkrr-pdm-2.27.0/lib/python3.14/site-packages:/nix/store/3ga4s2l75zqxhamff4swbl92mi5b23qm-python3.14-blinker-1.9.0/lib/python3.14/site-packages:/nix/store/lb41b0anx1f98y9y5s9mdv97gjgsq740-python3-3.14.7/lib/python3.14/site-packages:/nix/store/q3gwgjdq1yv4ilkh5qcr46yybqyy32h6-python3.14-dep-logic-0.7.2/lib/python3.14/site-packages:/nix/store/jpx1f0ilwsl2jjzkmqy40lfij433x1s4-python3.14-packaging-26.2/lib/python3.14/site-packages:/nix/store/jzwgsdn74jqhfrdg0fw53x0a61asfjzn-python3.14-filelock-3.29.7/lib/python3.14/site-packages:/nix/store/0b3qmf6ibpzs08gm8czp849913ydnkz2-python3.14-findpython-0.8.0/lib/python3.14/site-packages:/nix/store/qbb5fbbbbzik62r7a1fqzf830gmmiqvw-python3.14-platformdirs-4.10.0/lib/python3.14/site-packages:/nix/store/fw2za5sk5qz9dpq5kis6yj353pggdfxr-python3.14-hishel-1.3.1/lib/python3.14/site-packages:/nix/store/wpyhlx5rf4disg18myb8sncxdl9hg456-python3.14-msgpack-1.2.1/lib/python3.14/site-packages:/nix/store/8sjnc2as3x3xh5w4i3jjk9xy04j0idcz-python3.14-typing-extensions-4.16.0/lib/python3.14/site-packages:/nix/store/88002by5dlnrxwxb4kf99icxgnly5vs1-python3.14-httpx-0.28.1/lib/python3.14/site-packages:/nix/store/vqij1l67rs2sncfx45cq3ivc8f2p76bn-python3.14-anyio-4.14.2/lib/python3.14/site-packages:/nix/store/3wfkjzcjdnxjy4nic8k6g8nr35brmpy4-python3.14-idna-3.18/lib/python3.14/site-packages:/nix/store/p6vf82l56myrsdc6mpqb66akrlc6996y-python3.14-certifi-2026.06.17/lib/python3.14/site-packages:/nix/store/f7mr61jf2g742w1690rqjm2banh8x492-python3.14-httpcore-1.0.9/lib/python3.14/site-packages:/nix/store/9sacc83jq7gwcbcar0hyjapjas1rx58n-python3.14-h11-0.16.0/lib/python3.14/site-packages:/nix/store/7hmx221ygq3fzadrym0wqmrckk48g8k6-python3.14-installer-1.0.1/lib/python3.14/site-packages:/nix/store/x1mx4vklb5i5g08yry8lk1x9ixybgw5f-python3.14-pbs-installer-2026.01.27/lib/python3.14/site-packages:/nix/store/p3y2pmgxbk50jfc9pmqhn4gxysn76h1f-python3.14-pyproject-hooks-1.2.0/lib/python3.14/site-packages:/nix/store/h7jklqb1j5cq51rc1yvabx7jpd6yp558-python3.14-python-dotenv-1.2.2/lib/python3.14/site-packages:/nix/store/fp3a45iajir6yxc91q4hb0l02a2whsr7-python3.14-resolvelib-1.2.1/lib/python3.14/site-packages:/nix/store/dd8r9h042k2plqj9x3h75fiklciw8xaz-python3.14-rich-15.0.0/lib/python3.14/site-packages:/nix/store/nkcrxkpg8r4i5h2f3wyp41myln2czxyq-python3.14-markdown-it-py-4.2.0/lib/python3.14/site-packages:/nix/store/2g9ja5lqdkh27zvpl11d0dhi1bqr4gm0-python3.14-mdurl-0.1.2/lib/python3.14/site-packages:/nix/store/lyj2hffm8hc3pv009mrmjkfdv5jsspxg-python3.14-pygments-2.20.0/lib/python3.14/site-packages:/nix/store/19p83ijxdq7alzh7b3fmqj9i5lb3m60w-python3.14-shellingham-1.5.4/lib/python3.14/site-packages:/nix/store/5dxzmja2nc9gqvaafd2cb06dcl67wby3-python3.14-tomlkit-0.15.0/lib/python3.14/site-packages:/nix/store/7hd84sxn0yrrnhfp7wk89vymqg49mf06-python3.14-truststore-0.10.4/lib/python3.14/site-packages:/nix/store/gs0xy368drdzr0ggrrvhgxv0chq0mxz2-python3.14-aiohttp-3.14.3/lib/python3.14/site-packages:/nix/store/fkzlcb9m1gvmjllc1wigcy86i1h8zrxf-python3.14-aiohappyeyeballs-2.7.1/lib/python3.14/site-packages:/nix/store/xz1dcliibj0w67ns6is5349km0j923dj-python3.14-aiosignal-1.4.0/lib/python3.14/site-packages:/nix/store/as2wy9xkiizjy7g0cw7w414d3n6xwzdb-python3.14-frozenlist-1.8.0/lib/python3.14/site-packages:/nix/store/d6bbf6mw7wgm7a6c75xzhjyhd72807zs-python3.14-attrs-26.1.0/lib/python3.14/site-packages:/nix/store/lryr16gchdah1ccpghcw70wg6wy8p0sn-python3.14-multidict-6.7.1/lib/python3.14/site-packages:/nix/store/r0790g84dwsrdz2sd1wk1g37gkb9ca28-python3.14-propcache-0.5.2/lib/python3.14/site-packages:/nix/store/aqzp9hckq84cc7hhzqfvlcr38c6pfcp9-python3.14-yarl-1.24.5/lib/python3.14/site-packages:/nix/store/kcmwxd7jwln54q8cmyl3fsms0mwa4ipn-python3.14-aiodns-4.0.4/lib/python3.14/site-packages:/nix/store/23479zdfxq6kffq82kmm0mi8ngd87pac-python3.14-pycares-5.0.1/lib/python3.14/site-packages:/nix/store/9qz7dnr5pha2nz1x9hxp28fd0895pdbx-python3.14-cffi-2.1.0/lib/python3.14/site-packages:/nix/store/ynn53wlsgskk1zli1jw163apxmiyj7ny-python3.14-pycparser-3.00/lib/python3.14/site-packages:/nix/store/f7bpjfpqhaaya02029i444lvrp70353z-python3.14-brotli-1.2.0/lib/python3.14/site-packages:/nix/store/ib0l30h2sjwvspwdycg6p28kh0jydacs-python3.14-cryptography-50.0.0/lib/python3.14/site-packages:/nix/store/f2sarybcza6nb0ckr21rvw8nj7inyfs7-python3.14-pyopenssl-26.3.0/lib/python3.14/site-packages:/nix/store/k2bghw14yj34mjbqx3s837314fw75bp9-python3.14-requests-2.34.2/lib/python3.14/site-packages:/nix/store/5sy15nk1s1ip12s7f71s7ymff77vk25s-python3.14-charset-normalizer-3.4.9/lib/python3.14/site-packages:/nix/store/qbjksw36db3nh817yr6q5mkdiigj0zj5-python3.14-urllib3-2.7.0/lib/python3.14/site-packages:/nix/store/6qzyi82sfjgnx3gal8wc7jlfmwwv56a9-python3.14-trustme-1.2.1/lib/python3.14/site-packages:/nix/store/wq3vyp9llvz11r6yrix3ir8w1c95hnpf-python3.14-unearth-0.18.2/lib/python3.14/site-packages:/nix/store/h0xmprj8xmyw8nhpzlwjwbf3lkndw24r-python3.14-id-1.5.0/lib/python3.14/site-packages:/nix/store/mgy95jf73vhfmvl4s2lqcn3q2xh6n9p4-python3.14-virtualenv-21.6.1/lib/python3.14/site-packages:/nix/store/4jzy8cyn181ynsshzp112v3s6gpcirrl-python3.14-distlib-0.4.0/lib/python3.14/site-packages:/nix/store/g68q5vhczskqafywvdvm582g51bv5if3-python3.14-python-discovery-1.4.2/lib/python3.14/site-packages:/nix/store/3q0za9j73bzw54h0a6bn88vfblps2gv1-python3.14-socksio-1.0.0/lib/python3.14/site-packages'
 export PYTHONPATH
 RANLIB='ranlib'
 export RANLIB
@@ -81,7 +81,7 @@ STRINGS='strings'
 export STRINGS
 STRIP='strip'
 export STRIP
-XDG_DATA_DIRS='/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/share:/nix/store/zqfnrgbgjq3jyaq0vig0hbqnkk19flss-python3.14-poetry-2.4.3/share:/nix/store/iqq9yz2yrcrzsn52h3vkkz72i92h1zds-go-1.26.8/share:/nix/store/lg46w7hrjx7kylsh6645c9l975i8h43b-git-2.55.0/share:/nix/store/qcwnw71iksl68k7fipizi6wn0s1xms9v-patchelf-0.15.2/share'
+XDG_DATA_DIRS='/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17/share:/nix/store/94jn0cw0kvzqb361ndvisbzmm1qhjkrr-pdm-2.27.0/share:/nix/store/lb41b0anx1f98y9y5s9mdv97gjgsq740-python3-3.14.7/share:/nix/store/lg46w7hrjx7kylsh6645c9l975i8h43b-git-2.55.0/share:/nix/store/qcwnw71iksl68k7fipizi6wn0s1xms9v-patchelf-0.15.2/share'
 export XDG_DATA_DIRS
 _PYTHON_HOST_PLATFORM='linux-x86_64'
 export _PYTHON_HOST_PLATFORM
@@ -134,9 +134,9 @@ doInstallCheck=''
 export doInstallCheck
 dontAddDisableDepTrack='1'
 export dontAddDisableDepTrack
-declare -a envBuildBuildHooks=('addPythonPath' 'sysconfigdataHook' )
-declare -a envBuildHostHooks=('addPythonPath' 'sysconfigdataHook' )
-declare -a envBuildTargetHooks=('addPythonPath' 'sysconfigdataHook' )
+declare -a envBuildBuildHooks=('addPythonPath' 'sysconfigdataHook' 'addPythonPath' 'sysconfigdataHook' )
+declare -a envBuildHostHooks=('addPythonPath' 'sysconfigdataHook' 'addPythonPath' 'sysconfigdataHook' )
+declare -a envBuildTargetHooks=('addPythonPath' 'sysconfigdataHook' 'addPythonPath' 'sysconfigdataHook' )
 declare -a envHostHostHooks=('ccWrapper_addCVars' 'bintoolsWrapper_addLDVars' )
 declare -a envHostTargetHooks=('ccWrapper_addCVars' 'bintoolsWrapper_addLDVars' )
 declare -a envTargetTargetHooks=()
@@ -146,7 +146,7 @@ mesonFlags=''
 export mesonFlags
 name='nix-shell-env'
 export name
-nativeBuildInputs='/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17 /nix/store/zqfnrgbgjq3jyaq0vig0hbqnkk19flss-python3.14-poetry-2.4.3 /nix/store/iqq9yz2yrcrzsn52h3vkkz72i92h1zds-go-1.26.8 /nix/store/lg46w7hrjx7kylsh6645c9l975i8h43b-git-2.55.0 /nix/store/69f033mdrird2psix6jnb814gqjswarm-serve'
+nativeBuildInputs='/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17 /nix/store/94jn0cw0kvzqb361ndvisbzmm1qhjkrr-pdm-2.27.0 /nix/store/8488hwvig4ycrpz1qk8mjgzdrvv928nr-cloudflared-2026.9.3 /nix/store/lg46w7hrjx7kylsh6645c9l975i8h43b-git-2.55.0 /nix/store/yvynp2klpa7d6pwyld5amcrnmh4qri2w-serve /nix/store/p4jkrzd28a33gwmdg3kp5657arpasc5c-tunnel'
 export nativeBuildInputs
 out='/home/alsesd/EasyMourningReport/outputs/out'
 export out
@@ -167,12 +167,13 @@ phases='buildPhase'
 export phases
 pkg='/nix/store/j1938gsbvbhkyz4kbmvjk56r479mkw3s-gcc-wrapper-16.2.0'
 declare -a pkgsBuildBuild=()
-declare -a pkgsBuildHost=('/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17' '/nix/store/zqfnrgbgjq3jyaq0vig0hbqnkk19flss-python3.14-poetry-2.4.3' '/nix/store/iqq9yz2yrcrzsn52h3vkkz72i92h1zds-go-1.26.8' '/nix/store/lg46w7hrjx7kylsh6645c9l975i8h43b-git-2.55.0' '/nix/store/69f033mdrird2psix6jnb814gqjswarm-serve' '/nix/store/qcwnw71iksl68k7fipizi6wn0s1xms9v-patchelf-0.15.2' '/nix/store/6rlr2p16ravxnx5pplcdgqyxssbx5h5c-update-autotools-gnu-config-scripts-hook' '/nix/store/0y5xmdb7qfvimjwbq7ibg1xdgkgjwqng-no-broken-symlinks.sh' '/nix/store/cv1d7p48379km6a85h4zp6kr86brh32q-audit-tmpdir.sh' '/nix/store/85clx3b0xkdf58jn161iy80y5223ilbi-compress-man-pages.sh' '/nix/store/p3l1a5y7nllfyrjn2krlwgcc3z0cd3fq-make-symlinks-relative.sh' '/nix/store/5yzw0vhkyszf2d179m0qfkgxmp5wjjx4-move-docs.sh' '/nix/store/fyaryjvghbkpfnsyw97hb3lyb37s1pd6-move-lib64.sh' '/nix/store/kd4xwxjpjxi71jkm6ka0np72if9rm3y0-move-sbin.sh' '/nix/store/pag6l61paj1dc9sv15l7bm5c17xn5kyk-move-systemd-user-units.sh' '/nix/store/yzh0fbrlmkv6m2y6km6zn6mwnwdv51xf-multiple-outputs.sh' '/nix/store/x8c40nfigps493a07sdr2pm5s9j1cdc0-patch-shebangs.sh' '/nix/store/cickvswrvann041nqxb0rxilc46svw1n-prune-libtool-files.sh' '/nix/store/xyff06pkhki3qy1ls77w10s0v79c9il0-reproducible-builds.sh' '/nix/store/z7k98578dfzi6l3hsvbivzm7hfqlk0zc-set-source-date-epoch-to-latest.sh' '/nix/store/89igyzp72y4ky0qyj4x5r52z84w203ki-strip.sh' '/nix/store/j1938gsbvbhkyz4kbmvjk56r479mkw3s-gcc-wrapper-16.2.0' '/nix/store/fy8mxgdjvjvmagv2igmj428a9j17hpcf-binutils-wrapper-2.46' )
+declare -a pkgsBuildHost=('/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17' '/nix/store/94jn0cw0kvzqb361ndvisbzmm1qhjkrr-pdm-2.27.0' '/nix/store/3ga4s2l75zqxhamff4swbl92mi5b23qm-python3.14-blinker-1.9.0' '/nix/store/lb41b0anx1f98y9y5s9mdv97gjgsq740-python3-3.14.7' '/nix/store/q3gwgjdq1yv4ilkh5qcr46yybqyy32h6-python3.14-dep-logic-0.7.2' '/nix/store/jpx1f0ilwsl2jjzkmqy40lfij433x1s4-python3.14-packaging-26.2' '/nix/store/jzwgsdn74jqhfrdg0fw53x0a61asfjzn-python3.14-filelock-3.29.7' '/nix/store/0b3qmf6ibpzs08gm8czp849913ydnkz2-python3.14-findpython-0.8.0' '/nix/store/qbb5fbbbbzik62r7a1fqzf830gmmiqvw-python3.14-platformdirs-4.10.0' '/nix/store/fw2za5sk5qz9dpq5kis6yj353pggdfxr-python3.14-hishel-1.3.1' '/nix/store/wpyhlx5rf4disg18myb8sncxdl9hg456-python3.14-msgpack-1.2.1' '/nix/store/8sjnc2as3x3xh5w4i3jjk9xy04j0idcz-python3.14-typing-extensions-4.16.0' '/nix/store/88002by5dlnrxwxb4kf99icxgnly5vs1-python3.14-httpx-0.28.1' '/nix/store/vqij1l67rs2sncfx45cq3ivc8f2p76bn-python3.14-anyio-4.14.2' '/nix/store/3wfkjzcjdnxjy4nic8k6g8nr35brmpy4-python3.14-idna-3.18' '/nix/store/p6vf82l56myrsdc6mpqb66akrlc6996y-python3.14-certifi-2026.06.17' '/nix/store/f7mr61jf2g742w1690rqjm2banh8x492-python3.14-httpcore-1.0.9' '/nix/store/9sacc83jq7gwcbcar0hyjapjas1rx58n-python3.14-h11-0.16.0' '/nix/store/7hmx221ygq3fzadrym0wqmrckk48g8k6-python3.14-installer-1.0.1' '/nix/store/x1mx4vklb5i5g08yry8lk1x9ixybgw5f-python3.14-pbs-installer-2026.01.27' '/nix/store/p3y2pmgxbk50jfc9pmqhn4gxysn76h1f-python3.14-pyproject-hooks-1.2.0' '/nix/store/h7jklqb1j5cq51rc1yvabx7jpd6yp558-python3.14-python-dotenv-1.2.2' '/nix/store/fp3a45iajir6yxc91q4hb0l02a2whsr7-python3.14-resolvelib-1.2.1' '/nix/store/dd8r9h042k2plqj9x3h75fiklciw8xaz-python3.14-rich-15.0.0' '/nix/store/nkcrxkpg8r4i5h2f3wyp41myln2czxyq-python3.14-markdown-it-py-4.2.0' '/nix/store/2g9ja5lqdkh27zvpl11d0dhi1bqr4gm0-python3.14-mdurl-0.1.2' '/nix/store/lyj2hffm8hc3pv009mrmjkfdv5jsspxg-python3.14-pygments-2.20.0' '/nix/store/19p83ijxdq7alzh7b3fmqj9i5lb3m60w-python3.14-shellingham-1.5.4' '/nix/store/5dxzmja2nc9gqvaafd2cb06dcl67wby3-python3.14-tomlkit-0.15.0' '/nix/store/7hd84sxn0yrrnhfp7wk89vymqg49mf06-python3.14-truststore-0.10.4' '/nix/store/gs0xy368drdzr0ggrrvhgxv0chq0mxz2-python3.14-aiohttp-3.14.3' '/nix/store/fkzlcb9m1gvmjllc1wigcy86i1h8zrxf-python3.14-aiohappyeyeballs-2.7.1' '/nix/store/xz1dcliibj0w67ns6is5349km0j923dj-python3.14-aiosignal-1.4.0' '/nix/store/as2wy9xkiizjy7g0cw7w414d3n6xwzdb-python3.14-frozenlist-1.8.0' '/nix/store/d6bbf6mw7wgm7a6c75xzhjyhd72807zs-python3.14-attrs-26.1.0' '/nix/store/lryr16gchdah1ccpghcw70wg6wy8p0sn-python3.14-multidict-6.7.1' '/nix/store/r0790g84dwsrdz2sd1wk1g37gkb9ca28-python3.14-propcache-0.5.2' '/nix/store/aqzp9hckq84cc7hhzqfvlcr38c6pfcp9-python3.14-yarl-1.24.5' '/nix/store/kcmwxd7jwln54q8cmyl3fsms0mwa4ipn-python3.14-aiodns-4.0.4' '/nix/store/23479zdfxq6kffq82kmm0mi8ngd87pac-python3.14-pycares-5.0.1' '/nix/store/9qz7dnr5pha2nz1x9hxp28fd0895pdbx-python3.14-cffi-2.1.0' '/nix/store/ynn53wlsgskk1zli1jw163apxmiyj7ny-python3.14-pycparser-3.00' '/nix/store/f7bpjfpqhaaya02029i444lvrp70353z-python3.14-brotli-1.2.0' '/nix/store/hz01k44bvpwqziqw5sbkzrl55phy4r7g-python3.14-pyopenssl-26.3.0-dev' '/nix/store/ib0l30h2sjwvspwdycg6p28kh0jydacs-python3.14-cryptography-50.0.0' '/nix/store/f2sarybcza6nb0ckr21rvw8nj7inyfs7-python3.14-pyopenssl-26.3.0' '/nix/store/k2bghw14yj34mjbqx3s837314fw75bp9-python3.14-requests-2.34.2' '/nix/store/5sy15nk1s1ip12s7f71s7ymff77vk25s-python3.14-charset-normalizer-3.4.9' '/nix/store/qbjksw36db3nh817yr6q5mkdiigj0zj5-python3.14-urllib3-2.7.0' '/nix/store/6qzyi82sfjgnx3gal8wc7jlfmwwv56a9-python3.14-trustme-1.2.1' '/nix/store/wq3vyp9llvz11r6yrix3ir8w1c95hnpf-python3.14-unearth-0.18.2' '/nix/store/h0xmprj8xmyw8nhpzlwjwbf3lkndw24r-python3.14-id-1.5.0' '/nix/store/mgy95jf73vhfmvl4s2lqcn3q2xh6n9p4-python3.14-virtualenv-21.6.1' '/nix/store/4jzy8cyn181ynsshzp112v3s6gpcirrl-python3.14-distlib-0.4.0' '/nix/store/g68q5vhczskqafywvdvm582g51bv5if3-python3.14-python-discovery-1.4.2' '/nix/store/3q0za9j73bzw54h0a6bn88vfblps2gv1-python3.14-socksio-1.0.0' '/nix/store/8488hwvig4ycrpz1qk8mjgzdrvv928nr-cloudflared-2026.9.3' '/nix/store/lg46w7hrjx7kylsh6645c9l975i8h43b-git-2.55.0' '/nix/store/yvynp2klpa7d6pwyld5amcrnmh4qri2w-serve' '/nix/store/p4jkrzd28a33gwmdg3kp5657arpasc5c-tunnel' '/nix/store/qcwnw71iksl68k7fipizi6wn0s1xms9v-patchelf-0.15.2' '/nix/store/6rlr2p16ravxnx5pplcdgqyxssbx5h5c-update-autotools-gnu-config-scripts-hook' '/nix/store/0y5xmdb7qfvimjwbq7ibg1xdgkgjwqng-no-broken-symlinks.sh' '/nix/store/cv1d7p48379km6a85h4zp6kr86brh32q-audit-tmpdir.sh' '/nix/store/85clx3b0xkdf58jn161iy80y5223ilbi-compress-man-pages.sh' '/nix/store/p3l1a5y7nllfyrjn2krlwgcc3z0cd3fq-make-symlinks-relative.sh' '/nix/store/5yzw0vhkyszf2d179m0qfkgxmp5wjjx4-move-docs.sh' '/nix/store/fyaryjvghbkpfnsyw97hb3lyb37s1pd6-move-lib64.sh' '/nix/store/kd4xwxjpjxi71jkm6ka0np72if9rm3y0-move-sbin.sh' '/nix/store/pag6l61paj1dc9sv15l7bm5c17xn5kyk-move-systemd-user-units.sh' '/nix/store/yzh0fbrlmkv6m2y6km6zn6mwnwdv51xf-multiple-outputs.sh' '/nix/store/x8c40nfigps493a07sdr2pm5s9j1cdc0-patch-shebangs.sh' '/nix/store/cickvswrvann041nqxb0rxilc46svw1n-prune-libtool-files.sh' '/nix/store/xyff06pkhki3qy1ls77w10s0v79c9il0-reproducible-builds.sh' '/nix/store/z7k98578dfzi6l3hsvbivzm7hfqlk0zc-set-source-date-epoch-to-latest.sh' '/nix/store/89igyzp72y4ky0qyj4x5r52z84w203ki-strip.sh' '/nix/store/j1938gsbvbhkyz4kbmvjk56r479mkw3s-gcc-wrapper-16.2.0' '/nix/store/fy8mxgdjvjvmagv2igmj428a9j17hpcf-binutils-wrapper-2.46' )
 declare -a pkgsBuildTarget=()
 declare -a pkgsHostHost=()
 declare -a pkgsHostTarget=()
 declare -a pkgsTargetTarget=()
 declare -a postFixupHooks=('noBrokenSymlinksInAllOutputs' '_makeSymlinksRelative' '_multioutPropagateDev' )
+declare -a postHooks=('httpxSslCertFileUnset' )
 declare -a postUnpackHooks=('_updateSourceDateEpochFromSourceRoot' )
 declare -a preConfigureHooks=('_multioutConfig' )
 preConfigurePhases=' updateAutotoolsGnuConfigScriptsPhase'
@@ -189,25 +190,35 @@ export propagatedNativeBuildInputs
 declare -a propagatedTargetDepFiles=('propagated-target-target-deps' )
 shell='/nix/store/10dxp0qxqxxsyiljrh2kp0xqhz6arhcx-bash-5.3p15/bin/bash'
 export shell
-shellHook='export POETRY_VIRTUALENVS_IN_PROJECT=true
-echo "EasyMourningReport development shell (Poetry)"
+shellHook='export PDM_VENV_IN_PROJECT=true
+echo "EasyMourningReport development shell (PDM + Cloudflare Tunnel)"
+
+# Enforce in-project .venv creation
+pdm config venv.in_project true >/dev/null 2>&1 || true
+
 if [ ! -d .venv ]; then
-  echo "Run '\''poetry install'\'' once to create the project environment."
+  echo "Creating virtual environment..."
+  pdm venv create --with-pip python3.11 >/dev/null 2>&1 || true
 fi
-if ! poetry check --lock >/dev/null 2>&1; then
-  echo "Refreshing Poetry lock file for the current pyproject.toml..."
-  poetry lock --no-interaction
+
+if ! pdm lock --check >/dev/null 2>&1; then
+  echo "Refreshing PDM lock file for pyproject.toml..."
+  pdm lock
 fi
-poetry install --no-interaction
+
+pdm install
+
 test() {
   if [ "$#" -eq 0 ]; then
-    poetry run pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
+    pdm run pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
   else
-    poetry run pytest "$@"
+    pdm run pytest "$@"
   fi
 }
-echo "Start server: serve (or serve --reload)"
-echo "Run tests and enforce 95% coverage: test"
+
+echo "Start server:     serve (or serve --reload)"
+echo "Expose publicly:  tunnel"
+echo "Run test suite:   test"
 '
 export shellHook
 stdenv='/nix/store/rplwbx3hgs4wzc9hcs6r3cgp9r048fgl-stdenv-linux'
@@ -734,7 +745,7 @@ addEnvHooks ()
 addPythonPath ()
 {
  
-    addToSearchPathWithCustomDelimiter : PYTHONPATH $1/lib/python3.11/site-packages
+    addToSearchPathWithCustomDelimiter : PYTHONPATH $1/lib/python3.14/site-packages
 }
 addToSearchPath ()
 {
@@ -1311,6 +1322,13 @@ getTargetRoleWrapper ()
             return 1
         ;;
     esac
+}
+httpxSslCertFileUnset ()
+{
+ 
+    if [ ! -e "${SSL_CERT_FILE-}" ]; then
+        unset SSL_CERT_FILE;
+    fi
 }
 installCheckPhase ()
 {
@@ -2078,7 +2096,7 @@ substituteStream ()
 sysconfigdataHook ()
 {
  
-    if [ "$1" = '/nix/store/92nh78j17591c9gfcqlh1mh7byflpi62-python3-3.11.17' ]; then
+    if [ "$1" = '/nix/store/lb41b0anx1f98y9y5s9mdv97gjgsq740-python3-3.14.7' ]; then
         export _PYTHON_HOST_PLATFORM='linux-x86_64';
         export _PYTHON_SYSCONFIGDATA_NAME='_sysconfigdata__linux_x86_64-linux-gnu';
     fi
@@ -2090,7 +2108,7 @@ toPythonPath ()
     local result=;
     for i in $paths;
     do
-        p="$i/lib/python3.11/site-packages";
+        p="$i/lib/python3.14/site-packages";
         result="${result}${result:+:}$p";
     done;
     echo $result

@@ -30,6 +30,10 @@ app/static/alpine.min.js
 
 # Docker & local data
 data/
+Dockerfile
+Dockerfile.tunnel
+compose.yaml
+
 
 # IDE
 .idea/
