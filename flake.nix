@@ -13,37 +13,65 @@
     devShells = forAllSystems (system: let
       pkgs = import nixpkgs {
         inherit system;
-        allowUnfree = true;
+        config = {
+          allowUnfree = true;
+        };
       };
+
       serve = pkgs.writeShellScriptBin "serve" ''
         export HOST="''${HOST:-127.0.0.1}"
-        echo "Serving locally on http://localhost:''${PORT:-8000}"
-        echo "Manage the app-specific Tailscale Funnel from Settings → Tailscale Funnel."
-        exec poetry run python run.py "$@"
+        export PORT="''${PORT:-8000}"
+        echo "Serving locally on http://localhost:$PORT"
+        echo "To expose publicly via Cloudflare Tunnel, run 'tunnel' in another terminal."
+        exec pdm run python run.py "$@"
+      '';
+
+      tunnel = pkgs.writeShellScriptBin "tunnel" ''
+        PORT="''${PORT:-8000}"
+        echo "Launching quick Cloudflare Tunnel forwarding to http://localhost:$PORT..."
+        exec cloudflared tunnel --url "http://localhost:$PORT" "$@"
       '';
     in {
       default = pkgs.mkShell {
-        packages = [pkgs.python311 pkgs.poetry pkgs.go pkgs.git serve];
+        packages = [
+          pkgs.python311
+          pkgs.pdm
+          pkgs.cloudflared
+          pkgs.git
+          serve
+          tunnel
+        ];
+
         shellHook = ''
-          export POETRY_VIRTUALENVS_IN_PROJECT=true
-          echo "EasyMourningReport development shell (Poetry)"
+          export PDM_VENV_IN_PROJECT=true
+          echo "EasyMourningReport development shell (PDM + Cloudflare Tunnel)"
+
+          # Enforce in-project .venv creation
+          pdm config venv.in_project true >/dev/null 2>&1 || true
+
           if [ ! -d .venv ]; then
-            echo "Run 'poetry install' once to create the project environment."
+            echo "Creating virtual environment..."
+            pdm venv create --with-pip python3.11 >/dev/null 2>&1 || true
           fi
-          if ! poetry check --lock >/dev/null 2>&1; then
-            echo "Refreshing Poetry lock file for the current pyproject.toml..."
-            poetry lock --no-interaction
+
+          if ! pdm lock --check >/dev/null 2>&1; then
+            echo "Refreshing PDM lock file for pyproject.toml..."
+            pdm lock
           fi
-          poetry install --no-interaction
+
+          pdm install
+
           test() {
             if [ "$#" -eq 0 ]; then
-              poetry run pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
+              pdm run pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
             else
-              poetry run pytest "$@"
+              pdm run pytest "$@"
             fi
           }
-          echo "Start server: serve (or serve --reload)"
-          echo "Run tests and enforce 95% coverage: test"
+
+          echo "Start server:     serve (or serve --reload)"
+          echo "Expose publicly:  tunnel"
+          echo "Run test suite:   test"
         '';
       };
     });

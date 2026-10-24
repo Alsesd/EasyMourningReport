@@ -1,0 +1,59 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mourningreport-app
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LEGKYI_DATA_DIR=/app/data
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - SECRET_KEY=${SECRET_KEY:-}
+      - DEMO=${DEMO:-0}
+      - PUBLIC_URL=${PUBLIC_URL:-}
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - data:/app/data
+      - backups:/app/backups
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://0.0.0.0:8000/')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: mourningreport-tunnel
+    restart: always
+    network_mode: "service:app"
+    depends_on:
+      - app
+    entrypoint: ["cloudflared"]
+    command:
+      [
+        "tunnel",
+        "--protocol",
+        "http2",
+        "--no-autoupdate",
+        "run",
+        "--token",
+        "eyJhIjoiMDhmNDlhYWRkNzI1ZWY5NjQ1MTdlZDAwMzM2ZDFiNDAiLCJ0IjoiNWUxOGZhYWMtMWM0ZC00YzFlLWI1NzAtNmQwYjI5Yjk2YTc1IiwicyI6Ik5Ea3lOekEyWXpNdFptTmpOQzAwWWpkbExXRTBPVEV0WTJFd09UZzBZMkZpTVdWbCJ9",
+      ]
+volumes:
+  data:
+  backups:

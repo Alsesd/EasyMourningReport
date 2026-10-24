@@ -1,7 +1,13 @@
+# Runtime data
 reports.db
 backups/
 secret.key
+
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
 .pytest_cache/
 .coverage
 htmlcov/
@@ -9,7 +15,32 @@ htmlcov/
 build/
 dist/
 *.spec
+*.egg-info/
+
+# PDM / Poetry
+.pdm-python
+
+# Nix / direnv
+.direnv/
+.envrc
+result
+
+# Downloaded runtime (fetched during CI build)
 app/static/alpine.min.js
 
-# Generated Windows Tailscale helper binary
-/tailscale-helper/tailscale-helper.exe
+# Docker & local data
+data/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment secrets (never commit)
+.env
