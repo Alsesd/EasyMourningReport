@@ -102,7 +102,6 @@ def _extract_url_and_state_from_logs(root: Path | None = None) -> tuple[str, boo
     state_dir = _state_root(root)
     log_candidates = [
         state_dir / "cloudflared.log",
-        Path("/tmp/cloudflared.log"),
     ]
     if root:
         log_candidates.append(root / "tunnel" / "cloudflared.log")
@@ -229,7 +228,9 @@ def get_status(root: Path | None = None) -> dict[str, Any]:
         elif log_url and not result.get("public_url"):
             result["public_url"] = log_url
 
-        if is_ready or log_registered:
+        if _process is not None and _process.poll() is not None and not is_ready:
+            result.update(state="stopped" if autostart else "disabled", public_url="", login_url="")
+        elif is_ready or log_registered:
             result["state"] = "running"
         elif process_running or sidecar_active:
             if result.get("public_url"):
@@ -444,9 +445,14 @@ def stop_tunnel(root: Path | None = None) -> dict[str, Any]:
 
     _stop_child(root)
 
-    for p in [state_dir / "status.json", base / "tailscale" / "status.json"]:
+    for p in [state_dir / "status.json", state_dir / "cloudflared.log", base / "tailscale" / "status.json"]:
         try:
             p.unlink(missing_ok=True)
+        except OSError:
+            pass
+    if root:
+        try:
+            (root / "tunnel" / "cloudflared.log").unlink(missing_ok=True)
         except OSError:
             pass
 

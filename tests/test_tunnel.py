@@ -158,6 +158,19 @@ class TunnelTests(unittest.TestCase):
         self.assertTrue(token_path.exists())
         self.assertEqual(token_path.read_text(encoding="utf-8").strip(), token_value)
 
+    def test_start_and_stop_tunnel_clears_running_state(self):
+        tunnel.start_tunnel(autostart=True)
+        state_dir = self.root / "tunnel"
+        (state_dir / "cloudflared.log").write_text("INF Registered tunnel connection\n", encoding="utf-8")
+        s1 = tunnel.get_status()
+        self.assertEqual(s1["state"], "running")
+
+        s2 = tunnel.stop_tunnel()
+        self.assertNotEqual(s2["state"], "running")
+        self.assertIn(s2["state"], ("stopped", "enabled-but-not-running"))
+        self.assertFalse((state_dir / "cloudflared.log").exists())
+        self.assertFalse((state_dir / "status.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

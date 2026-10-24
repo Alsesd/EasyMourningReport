@@ -414,6 +414,24 @@ export default function AdminSettingsPage() {
             >
               <Icon className="h-4 w-4 mr-2 shrink-0" />
               {tab.label}
+              {tab.id === "tunnel" && (
+                <span
+                  className={`ml-2 h-2 w-2 rounded-full shrink-0 transition-colors ${
+                    tunnel.state === "running"
+                      ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]"
+                      : tunnel.state === "starting"
+                      ? "bg-amber-500 animate-pulse"
+                      : "bg-text-muted/30"
+                  }`}
+                  title={
+                    tunnel.state === "running"
+                      ? "Підключено"
+                      : tunnel.state === "starting"
+                      ? uk.settings.tunnel.statusStarting
+                      : uk.settings.tunnel.statusStopped
+                  }
+                />
+              )}
             </button>
           );
         })}
@@ -1249,7 +1267,7 @@ export default function AdminSettingsPage() {
                       ? "Підключено · Активний"
                       : tunnel.state === "starting"
                       ? uk.settings.tunnel.statusStarting
-                      : tunnel.state === "stopped"
+                      : tunnel.state === "stopped" || tunnel.state === "enabled-but-not-running"
                       ? uk.settings.tunnel.statusStopped
                       : tunnel.state === "disabled"
                       ? uk.settings.tunnel.statusDisabled
