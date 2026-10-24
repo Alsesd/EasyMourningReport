@@ -40,6 +40,7 @@ import {
 interface TunnelStatus {
   enabled: boolean;
   autostart: boolean;
+  has_token?: boolean;
   state: string;
   public_url: string;
   login_url: string;
@@ -258,7 +259,12 @@ export default function AdminSettingsPage() {
   const { data: tunnelData } = useQuery({
     queryKey: ["adminTunnel"],
     queryFn: () => api.get<TunnelStatus>("/api/v1/admin/tunnel"),
-    refetchInterval: currentTab === "tunnel" ? 3000 : false,
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      if (state === "starting") return 1500;
+      if (currentTab === "tunnel") return 3000;
+      return false;
+    },
   });
 
   const tunnel = tunnelData || {
@@ -278,7 +284,7 @@ export default function AdminSettingsPage() {
     mutationFn: () =>
       api.post<TunnelStatus>("/api/v1/admin/tunnel", {
         confirm_public: true,
-        autostart: Boolean(tunnel.autostart),
+        autostart: true,
         auth_key: tunnelAuthKey.trim() || null,
       }),
     onSuccess: (res) => {
@@ -447,7 +453,7 @@ export default function AdminSettingsPage() {
       {/* TAB 1: PRODUCTS                                                           */}
       {/* ========================================================================= */}
       {currentTab === "products" && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in">
           {/* Action bar */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="relative flex-1">
@@ -879,7 +885,7 @@ export default function AdminSettingsPage() {
       {/* TAB 2: STORES                                                             */}
       {/* ========================================================================= */}
       {currentTab === "stores" && (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-fade-in">
           <div className="flex justify-between items-center">
             <p className="text-sm text-text-muted">
               Зміна назви чи логіну не впливає на вже подані звіти. Пароль змінюється окремо.
@@ -1160,7 +1166,7 @@ export default function AdminSettingsPage() {
       {/* TAB 3: SECURITY                                                           */}
       {/* ========================================================================= */}
       {currentTab === "security" && (
-        <div className="space-y-6 max-w-2xl">
+        <div className="space-y-6 max-w-2xl animate-fade-in">
           <Card>
             <CardHeader className="p-4 sm:p-5 border-b border-border">
               <CardTitle className="text-base flex items-center space-x-2">
@@ -1220,7 +1226,7 @@ export default function AdminSettingsPage() {
       {/* TAB 4: TUNNEL (CLOUDFLARE TUNNEL)                                         */}
       {/* ========================================================================= */}
       {currentTab === "tunnel" && (
-        <div className="space-y-6 max-w-2xl">
+        <div className="space-y-6 max-w-2xl animate-fade-in">
           <Card>
             <CardHeader className="p-4 sm:p-5 border-b border-border">
               <div className="flex items-center justify-between">
@@ -1230,17 +1236,17 @@ export default function AdminSettingsPage() {
                 </CardTitle>
                 <div className="flex items-center space-x-2">
                   <span
-                    className={`h-2.5 w-2.5 rounded-full ${
+                    className={`h-3 w-3 rounded-full transition-all duration-300 ${
                       tunnel.state === "running"
-                        ? "bg-emerald-500 animate-pulse"
+                        ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]"
                         : tunnel.state === "starting"
-                        ? "bg-amber-500 animate-ping"
+                        ? "bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.5)]"
                         : "bg-text-muted/40"
                     }`}
                   />
-                  <span className="text-xs font-medium text-text-muted">
+                  <span className="text-xs font-semibold text-text-main">
                     {tunnel.state === "running"
-                      ? uk.settings.tunnel.statusRunning
+                      ? "Підключено · Активний"
                       : tunnel.state === "starting"
                       ? uk.settings.tunnel.statusStarting
                       : tunnel.state === "stopped"
@@ -1280,6 +1286,18 @@ export default function AdminSettingsPage() {
                 </div>
               )}
 
+              {/* Connected without explicit public URL */}
+              {tunnel.state === "running" && !tunnel.public_url && (
+                <div className="p-4 rounded-card bg-emerald-500/10 border border-emerald-500/20 space-y-1">
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 block">
+                    Тунель активний
+                  </span>
+                  <p className="text-sm text-text-main">
+                    З'єднання з Cloudflare встановлено. Публічний доступ працює через налаштований домен тунелю.
+                  </p>
+                </div>
+              )}
+
               {/* Controls */}
               {isTunnelActive ? (
                 <div>
@@ -1301,6 +1319,13 @@ export default function AdminSettingsPage() {
                   }}
                   className="space-y-4 pt-2"
                 >
+                  {tunnel.has_token && (
+                    <div className="p-3 rounded-control bg-primary/10 border border-primary/20 text-text-main text-xs flex items-center space-x-2">
+                      <CheckCircle className="h-4 w-4 text-primary shrink-0" />
+                      <span>Токен Cloudflare збережено. Ви можете запустити тунель без повторного введення токена.</span>
+                    </div>
+                  )}
+
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-text-muted">
                       {uk.settings.tunnel.authKeyLabel}
@@ -1309,7 +1334,11 @@ export default function AdminSettingsPage() {
                       type="password"
                       value={tunnelAuthKey}
                       onChange={(e) => setTunnelAuthKey(e.target.value)}
-                      placeholder="Порожньо — швидкий безкоштовний Quick Tunnel"
+                      placeholder={
+                        tunnel.has_token
+                          ? "Збережений токен активний (заповніть лише для зміни)"
+                          : "Порожньо — швидкий безкоштовний Quick Tunnel"
+                      }
                       autoComplete="off"
                       className="h-11"
                     />
@@ -1363,7 +1392,7 @@ export default function AdminSettingsPage() {
       {/* TAB 5: BACKUP                                                             */}
       {/* ========================================================================= */}
       {currentTab === "backup" && (
-        <div className="space-y-6 max-w-2xl">
+        <div className="space-y-6 max-w-2xl animate-fade-in">
           <Card>
             <CardHeader className="p-4 sm:p-5 border-b border-border">
               <CardTitle className="text-base flex items-center space-x-2">

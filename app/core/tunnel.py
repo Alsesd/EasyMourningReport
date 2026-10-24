@@ -68,19 +68,133 @@ def _cloudflared_path() -> Path | None:
     return None
 
 
+def _check_cloudflared_ready() -> tuple[bool, str]:
+    """Check if a local cloudflared instance is ready and retrieve its public URL if available."""
+    import urllib.request
+    import urllib.error
+    # Cloudflared default metrics port is 20241, check 20241..20245
+    for port in (20241, 20242, 20243, 20244, 20245):
+        try:
+            req = urllib.request.Request(f"http://127.0.0.1:{port}/ready", headers={"User-Agent": "EasyMourningReport"})
+            with urllib.request.urlopen(req, timeout=0.5) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8", errors="replace"))
+                    if data.get("status") == 200 or data.get("readyConnections", 0) > 0:
+                        quick_url = ""
+                        try:
+                            q_req = urllib.request.Request(f"http://127.0.0.1:{port}/quicktunnel", headers={"User-Agent": "EasyMourningReport"})
+                            with urllib.request.urlopen(q_req, timeout=0.5) as q_resp:
+                                if q_resp.status == 200:
+                                    q_data = json.loads(q_resp.read().decode("utf-8", errors="replace"))
+                                    hostname = q_data.get("hostname")
+                                    if hostname:
+                                        quick_url = f"https://{hostname}"
+                        except Exception:
+                            pass
+                        return True, quick_url
+        except Exception:
+            continue
+    return False, ""
+
+
+def _extract_url_and_state_from_logs(root: Path | None = None) -> tuple[str, bool]:
+    """Inspect cloudflared log files for TryCloudflare URLs, custom hostnames, and connection registration."""
+    state_dir = _state_root(root)
+    log_candidates = [
+        state_dir / "cloudflared.log",
+        Path("/tmp/cloudflared.log"),
+    ]
+    if root:
+        log_candidates.append(root / "tunnel" / "cloudflared.log")
+
+    detected_url = ""
+    is_registered = False
+
+    for log_path in log_candidates:
+        if not log_path.is_file():
+            continue
+        try:
+            content = log_path.read_text(encoding="utf-8", errors="replace")
+            # 1. Quick tunnel trycloudflare URL
+            match_quick = re.search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", content)
+            if match_quick:
+                detected_url = match_quick.group(0)
+                is_registered = True
+                break
+
+            # 2. Named tunnel configuration hostname (e.g. config="{\"ingress\":[{\"hostname\":\"domain.com\"...}")
+            match_host = re.search(r'hostname[^\w\s]+([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', content)
+            if match_host:
+                detected_url = f"https://{match_host.group(1)}"
+
+            # 3. Registration log events
+            if any(phrase in content for phrase in (
+                "Registered tunnel connection",
+                "Connection registered",
+                "Tunnel is now registered",
+                "Your quick Tunnel has been created",
+            )):
+                is_registered = True
+                if detected_url:
+                    break
+        except OSError:
+            pass
+
+    return detected_url, is_registered
+
+
+def _find_fallback_token(root: Path | None = None) -> str:
+    """Discover pre-configured Cloudflare tunnel token from environment or compose.yaml."""
+    env_token = os.getenv("TUNNEL_TOKEN") or os.getenv("CLOUDFLARE_TUNNEL_TOKEN") or ""
+    if env_token.strip():
+        return env_token.strip()
+    try:
+        candidates = [
+            Path.cwd() / "compose.yaml",
+            Path(__file__).resolve().parent.parent.parent / "compose.yaml",
+        ]
+        for c in candidates:
+            if c.is_file():
+                content = c.read_text(encoding="utf-8")
+                m = re.search(r'--token["\',\s]+([a-zA-Z0-9_\-]{30,})', content)
+                if m:
+                    return m.group(1).strip()
+    except Exception:
+        pass
+    return ""
+
+
 def get_status(root: Path | None = None) -> dict[str, Any]:
     """Report tunnel state based on running process, sidecar state, or saved status."""
     global _process
 
     base = root or user_data_dir()
+    state_dir = _state_root(root)
+    token_file = state_dir / "token"
+    if not token_file.is_file():
+        fallback = _find_fallback_token(root)
+        if fallback:
+            try:
+                token_file.write_text(fallback, encoding="utf-8")
+                if os.name != "nt":
+                    try:
+                        token_file.chmod(0o600)
+                    except OSError:
+                        pass
+            except OSError:
+                pass
+    has_token = token_file.is_file()
+
     autostart = (base / ".tunnel-enabled").is_file() or (base / ".tailscale-funnel-enabled").is_file()
     process_running = _process is not None and _process.poll() is None
-    enabled = autostart or process_running
+    sidecar_active = _is_sidecar_active(root)
+    enabled = autostart or process_running or sidecar_active
 
     result: dict[str, Any] = {
         "enabled": enabled,
         "autostart": autostart,
-        "state": "starting" if process_running else ("enabled-but-not-running" if autostart else "disabled"),
+        "has_token": has_token,
+        "state": "starting" if (process_running or sidecar_active) else ("enabled-but-not-running" if autostart else "disabled"),
         "public_url": "",
         "login_url": "",
         "error": "",
@@ -88,7 +202,7 @@ def get_status(root: Path | None = None) -> dict[str, Any]:
 
     # Inspect status files from tunnel state root first, then fallback to tailscale directory
     status_paths = [
-        _state_root(root) / "status.json",
+        state_dir / "status.json",
         base / "tailscale" / "status.json",
     ]
     stored = None
@@ -106,29 +220,28 @@ def get_status(root: Path | None = None) -> dict[str, Any]:
             if isinstance(stored.get(key), str):
                 result[key] = stored[key]
 
-    # If standalone process is running, inspect log file for TryCloudflare URL if not yet captured
-    if process_running and not result.get("public_url"):
-        log_file = _state_root(root) / "cloudflared.log"
-        if log_file.is_file():
-            try:
-                content = log_file.read_text(encoding="utf-8", errors="replace")
-                match = re.search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", content)
-                if match:
-                    result["public_url"] = match.group(0)
-                    result["state"] = "running"
-            except OSError:
-                pass
+    if enabled:
+        is_ready, quick_url = _check_cloudflared_ready()
+        log_url, log_registered = _extract_url_and_state_from_logs(root)
 
-    # A live process takes precedence
-    if process_running:
-        if result["state"] in ("disabled", "stopped", "enabled-but-not-running"):
-            result.update(state="starting" if not result.get("public_url") else "running")
+        if quick_url and not result.get("public_url"):
+            result["public_url"] = quick_url
+        elif log_url and not result.get("public_url"):
+            result["public_url"] = log_url
+
+        if is_ready or log_registered:
+            result["state"] = "running"
+        elif process_running or sidecar_active:
+            if result.get("public_url"):
+                result["state"] = "running"
+            elif result["state"] in ("disabled", "stopped", "enabled-but-not-running"):
+                result["state"] = "starting"
     elif _process is not None:
         if autostart and not result.get("error"):
             result.update(state="stopped", public_url="", login_url="")
         elif not autostart:
             result.update(state="disabled", public_url="", login_url="", error="")
-    elif not autostart and not _is_sidecar_active(root):
+    elif not autostart and not sidecar_active:
         env_pub = os.getenv("PUBLIC_URL") or os.getenv("TUNNEL_URL")
         if not env_pub:
             result.update(state="disabled", public_url="", login_url="", error="")
@@ -139,6 +252,21 @@ def get_status(root: Path | None = None) -> dict[str, Any]:
         result["public_url"] = env_public_url
         if result.get("state") in ("disabled", "enabled-but-not-running"):
             result["state"] = "running"
+
+    # Persist detected running state and URL to status.json so restarts stay in sync
+    if result.get("state") == "running" and enabled:
+        try:
+            now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            status_data = {
+                "state": "running",
+                "public_url": result.get("public_url", ""),
+                "login_url": result.get("login_url", ""),
+                "error": "",
+                "updated_at": result.get("updated_at") or now,
+            }
+            (state_dir / "status.json").write_text(json.dumps(status_data), encoding="utf-8")
+        except OSError:
+            pass
 
     return result
 
@@ -184,21 +312,28 @@ def start_tunnel(
     except OSError as exc:
         return {**get_status(root), "state": "error", "error": str(exc)}
 
+    state_dir = _state_root(root)
+    token_file = state_dir / "token"
+    if supplied_key:
+        try:
+            token_file.write_text(supplied_key, encoding="utf-8")
+            if os.name != "nt":
+                try:
+                    token_file.chmod(0o600)
+                except OSError:
+                    pass
+        except OSError:
+            pass
+
+    # If already ready and connected and no new token provided, don't spawn duplicate
+    is_ready, _ = _check_cloudflared_ready()
+    if is_ready and not supplied_key:
+        return get_status(root)
+
     # If sidecar container is active, communicate via control files
     if _is_sidecar_active(root):
-        state_dir = _state_root(root)
         try:
             (state_dir / ".stop").unlink(missing_ok=True)
-            if supplied_key:
-                token_file = state_dir / "token"
-                token_file.write_text(supplied_key, encoding="utf-8")
-                if os.name != "nt":
-                    try:
-                        token_file.chmod(0o600)
-                    except OSError:
-                        pass
-            else:
-                (state_dir / "token").unlink(missing_ok=True)
             (state_dir / ".start").touch()
             now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             status_data = {
@@ -222,6 +357,8 @@ def start_tunnel(
 
     cf = _cloudflared_path()
     if cf is None:
+        if is_ready:
+            return get_status(root)
         env_pub = os.getenv("PUBLIC_URL") or os.getenv("TUNNEL_URL")
         if env_pub:
             return {**get_status(root), "state": "running", "public_url": env_pub}
@@ -231,16 +368,22 @@ def start_tunnel(
             "error": "cloudflared is not installed. Install cloudflared, run via Docker Compose, or configure PUBLIC_URL.",
         }
 
-    state_dir = _state_root(root)
-    token = supplied_key or os.getenv("TUNNEL_TOKEN") or os.getenv("CLOUDFLARE_TUNNEL_TOKEN") or ""
+    token = supplied_key
+    if not token and token_file.is_file():
+        try:
+            token = token_file.read_text(encoding="utf-8").strip()
+        except OSError:
+            token = ""
+    if not token:
+        token = os.getenv("TUNNEL_TOKEN") or os.getenv("CLOUDFLARE_TUNNEL_TOKEN") or ""
     token = token.strip()
 
     if token:
-        cmd = [str(cf), "tunnel", "--no-autoupdate", "run", "--token", token]
+        cmd = [str(cf), "tunnel", "--no-autoupdate", "--metrics", "127.0.0.1:20241", "run", "--token", token]
     else:
         port = os.getenv("PORT", "8000")
         target = f"http://127.0.0.1:{port}"
-        cmd = [str(cf), "tunnel", "--no-autoupdate", "--url", target]
+        cmd = [str(cf), "tunnel", "--no-autoupdate", "--metrics", "127.0.0.1:20241", "--url", target]
 
     log_path = state_dir / "cloudflared.log"
     try:
@@ -286,7 +429,6 @@ def stop_tunnel(root: Path | None = None) -> dict[str, Any]:
         try:
             (state_dir / ".stop").touch()
             (state_dir / ".start").unlink(missing_ok=True)
-            (state_dir / "token").unlink(missing_ok=True)
             now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             status_data = {
                 "state": "stopped",
@@ -335,7 +477,7 @@ def start_if_enabled(root: Path | None = None) -> dict[str, Any] | None:
     """Start tunnel at app startup only if administrator previously opted in."""
     if not _enabled_file(root).is_file():
         return None
-    return start_tunnel(root=root)
+    return start_tunnel(autostart=True, root=root)
 
 
 def shutdown() -> None:

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { QuantityStepper } from "@/components/QuantityStepper";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { MakerMark } from "@/components/MakerMark";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,8 @@ import {
   Lock,
   ChevronDown,
   CloudOff,
+  Table as TableIcon,
+  LayoutGrid,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +39,19 @@ export default function StoreReportPage() {
 
   const currentMonth = session?.period || new Date().toISOString().slice(0, 7);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(currentMonth);
+
+  const isDesktop = typeof window !== "undefined" && window.innerWidth >= 640;
+  const storedViewMode = typeof window !== "undefined" ? (localStorage.getItem("store.viewMode") as "desktop" | "cards" | null) : null;
+  const [viewMode, setViewMode] = useState<"desktop" | "cards">(storedViewMode || (isDesktop ? "desktop" : "cards"));
+
+  const handleSetViewMode = (mode: "desktop" | "cards") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("store.viewMode", mode);
+    } catch {
+      // Ignore storage errors (e.g. private browsing mode)
+    }
+  };
 
   // Map of `${productId}_${priceCents}` -> quantity
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -252,17 +268,53 @@ export default function StoreReportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-page text-text-main pb-28 flex flex-col">
+    <div className="min-h-screen bg-page text-text-main pb-28 flex flex-col animate-fade-in">
       {/* Top Header */}
       <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-xs border-b border-border shadow-2xs">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="min-w-0 pr-2">
-            <h1 className="font-bold text-base text-primary truncate">
+            <h1 className="font-bold text-base sm:text-lg text-primary truncate">
               {session?.store_name || session?.login}
             </h1>
             <p className="text-xs text-text-muted">{uk.appTitle}</p>
           </div>
+
           <div className="flex items-center space-x-2 shrink-0">
+            {/* View Mode Toggle (Desktop vs Cards) */}
+            <div className="flex items-center bg-page p-1 rounded-control border border-border">
+              <button
+                type="button"
+                onClick={() => handleSetViewMode("desktop")}
+                className={cn(
+                  "flex items-center px-2 py-1 rounded-lg text-xs font-medium transition-all active:scale-95",
+                  viewMode === "desktop"
+                    ? "bg-surface text-primary shadow-2xs font-semibold"
+                    : "text-text-muted hover:text-text-main"
+                )}
+                title={uk.store.desktopMode}
+                aria-label={uk.store.desktopMode}
+              >
+                <TableIcon className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">{uk.store.desktopMode}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetViewMode("cards")}
+                className={cn(
+                  "flex items-center px-2 py-1 rounded-lg text-xs font-medium transition-all active:scale-95",
+                  viewMode === "cards"
+                    ? "bg-surface text-primary shadow-2xs font-semibold"
+                    : "text-text-muted hover:text-text-main"
+                )}
+                title={uk.store.cardsMode}
+                aria-label={uk.store.cardsMode}
+              >
+                <LayoutGrid className="h-3.5 w-3.5 sm:mr-1" />
+                <span className="hidden sm:inline">{uk.store.cardsMode}</span>
+              </button>
+            </div>
+
+            <MakerMark />
             <ThemeToggle />
             <Button
               variant="ghost"
@@ -270,18 +322,19 @@ export default function StoreReportPage() {
               onClick={() => logout()}
               aria-label={uk.auth.logoutButton}
               title={uk.auth.logoutButton}
+              className="h-9 w-9 text-text-muted hover:text-destructive"
             >
-              <LogOut className="h-4 w-4 text-text-muted hover:text-destructive" />
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Container (Centered max-w-md on larger screens) */}
-      <main className="max-w-md w-full mx-auto px-4 py-4 space-y-4 flex-1">
+      {/* Main Container */}
+      <main className="max-w-5xl w-full mx-auto px-4 sm:px-6 py-4 space-y-4 flex-1">
         {/* Offline & Status Notice */}
         {isOffline && (
-          <div className="flex items-center space-x-2 px-3 py-2 rounded-control bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-medium">
+          <div className="flex items-center space-x-2 px-3 py-2 rounded-control bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-medium animate-slide-down">
             <CloudOff className="h-4 w-4 shrink-0" />
             <span>{uk.store.offlineBadge} · {uk.store.pendingSyncBadge}</span>
           </div>
@@ -292,7 +345,7 @@ export default function StoreReportPage() {
           <div
             role="alert"
             className={cn(
-              "flex items-start space-x-2.5 p-3 rounded-control text-xs sm:text-sm font-medium border transition-all",
+              "flex items-start space-x-2.5 p-3 rounded-control text-xs sm:text-sm font-medium border transition-all animate-slide-down",
               feedback.type === "ok"
                 ? "bg-pill-sent-bg/50 border-pill-sent-text/20 text-pill-sent-text"
                 : "bg-destructive/10 border-destructive/20 text-destructive"
@@ -324,12 +377,13 @@ export default function StoreReportPage() {
                 onClick={handlePreviousMonth}
                 disabled={!canGoPrevious}
                 aria-label={uk.store.previousMonth}
+                className="transition-transform active:scale-95"
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
 
               <div className="text-center">
-                <span className="text-base font-bold text-text-main block">
+                <span className="text-base sm:text-lg font-bold text-text-main block">
                   {formatPeriodReadable(selectedPeriod)}
                 </span>
                 <div className="mt-1">
@@ -343,6 +397,7 @@ export default function StoreReportPage() {
                 onClick={handleNextMonth}
                 disabled={!canGoNext}
                 aria-label={uk.store.nextMonth}
+                className="transition-transform active:scale-95"
               >
                 <ChevronRight className="h-5 w-5" />
               </Button>
@@ -362,7 +417,7 @@ export default function StoreReportPage() {
         {isDirty && (
           <div
             role="status"
-            className="flex items-center justify-between px-3 py-2 rounded-control bg-pill-draft-bg/60 border border-pill-draft-text/20 text-pill-draft-text text-xs font-semibold"
+            className="flex items-center justify-between px-3 py-2 rounded-control bg-pill-draft-bg/60 border border-pill-draft-text/20 text-pill-draft-text text-xs font-semibold animate-pulse-subtle"
           >
             <span>{uk.store.unsavedChanges}</span>
             <span className="text-[11px] opacity-80">Чернетку не збережено</span>
@@ -379,7 +434,7 @@ export default function StoreReportPage() {
 
         {/* Error State */}
         {isError && (
-          <Card className="border-destructive/30">
+          <Card className="border-destructive/30 animate-slide-down">
             <CardContent className="p-6 text-center space-y-3">
               <AlertCircle className="h-8 w-8 text-destructive mx-auto" />
               <p className="text-sm font-medium text-destructive">
@@ -392,77 +447,149 @@ export default function StoreReportPage() {
           </Card>
         )}
 
-        {/* Product Cards List */}
+        {/* Product Items: Desktop Table View vs Cards View */}
         {report && (
-          <div className="space-y-3">
-            {(report.rows || []).map((row: ReportLineDTO) => {
-              const inputs = row.inputs || [];
-              const isRepriced = row.repriced || inputs.length > 1;
+          <div className="space-y-4">
+            {viewMode === "desktop" ? (
+              /* Desktop Mode: High-efficiency data-entry table */
+              <div className="rounded-card border border-border bg-surface overflow-x-auto shadow-xs animate-fade-in">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead className="sticky top-0 z-20 bg-surface border-b border-border shadow-2xs">
+                    <tr className="bg-page/70 text-text-muted text-xs uppercase tracking-wider font-semibold">
+                      <th className="py-3 px-4 min-w-[200px]">{uk.summary.tableProduct}</th>
+                      <th className="py-3 px-4 text-right min-w-[120px]">{uk.summary.tablePrice}</th>
+                      <th className="py-3 px-4 text-center min-w-[160px]">{uk.summary.tableTotalQuantity}</th>
+                      <th className="py-3 px-4 text-right min-w-[130px]">{uk.summary.tableTotalSum}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {(report.rows || []).map((row: ReportLineDTO) => {
+                      const inputs =
+                        row.inputs && row.inputs.length > 0
+                          ? row.inputs
+                          : [{ price_cents: 0, quantity: 0, label: "", sum_cents: 0 }];
+                      return inputs.map((input, iIdx) => {
+                        const inputKey = `${row.id}_${input.price_cents}`;
+                        const currentQty = quantities[inputKey] ?? input.quantity;
+                        const lineSumCents = Math.max(0, currentQty) * input.price_cents;
+                        const labelText = getPriceLabel(input.label);
 
-              // Product card total
-              const rowTotalCents = inputs.reduce((sum, input) => {
-                const qty = quantities[`${row.id}_${input.price_cents}`] ?? input.quantity;
-                return sum + Math.max(0, qty) * input.price_cents;
-              }, 0);
-
-              return (
-                <Card key={row.id} className="overflow-hidden shadow-2xs border-border">
-                  <CardHeader className="p-3.5 pb-2">
-                    <div className="flex justify-between items-start gap-2">
-                      <CardTitle className="text-base font-semibold text-text-main leading-snug">
-                        {row.name}
-                      </CardTitle>
-                      {rowTotalCents > 0 && (
-                        <span className="text-sm font-bold text-primary shrink-0">
-                          {formatCurrency(rowTotalCents)}
-                        </span>
-                      )}
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="p-3.5 pt-1 space-y-2.5">
-                    {inputs.map((input) => {
-                      const inputKey = `${row.id}_${input.price_cents}`;
-                      const currentQty = quantities[inputKey] ?? input.quantity;
-                      const lineSumCents = Math.max(0, currentQty) * input.price_cents;
-                      const labelText = getPriceLabel(input.label);
-
-                      return (
-                        <div
-                          key={inputKey}
-                          className={cn(
-                            "flex items-center justify-between gap-3 pt-1",
-                            isRepriced && "pb-2 border-b border-border/40 last:border-0 last:pb-0"
-                          )}
-                        >
-                          <div className="min-w-0">
-                            <span className="font-bold text-sm text-text-main">
-                              {formatCurrency(input.price_cents)}
-                            </span>
-                            {labelText && (
-                              <span className="block text-[11px] font-medium text-primary mt-0.5">
-                                {labelText}
-                              </span>
+                        return (
+                          <tr
+                            key={inputKey}
+                            className="even:bg-page/20 hover:bg-page/50 transition-colors"
+                          >
+                            {iIdx === 0 && (
+                              <td
+                                rowSpan={inputs.length}
+                                className="py-3 px-4 align-top border-r border-border/30"
+                              >
+                                <span className="font-semibold text-text-main block">{row.name}</span>
+                              </td>
                             )}
-                            {lineSumCents > 0 && (
-                              <span className="block text-xs text-text-muted mt-0.5">
-                                = {formatCurrency(lineSumCents)}
-                              </span>
-                            )}
-                          </div>
-
-                          <QuantityStepper
-                            value={currentQty}
-                            disabled={report.read_only || saveMutation.isPending}
-                            onChange={(val) => handleQuantityChange(row.id, input.price_cents, val)}
-                          />
-                        </div>
-                      );
+                            <td className="py-3 px-4 text-right tabular-nums font-mono font-bold text-text-main whitespace-nowrap">
+                              <span>{formatCurrency(input.price_cents)}</span>
+                              {labelText && (
+                                <span className="inline-block ml-2 text-[10px] font-medium text-primary px-1.5 py-0.5 rounded bg-accent-soft">
+                                  {labelText}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <div className="inline-flex justify-center">
+                                <QuantityStepper
+                                  value={currentQty}
+                                  disabled={report.read_only || saveMutation.isPending}
+                                  onChange={(val) => handleQuantityChange(row.id, input.price_cents, val)}
+                                />
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-right tabular-nums font-mono font-bold text-primary text-base whitespace-nowrap">
+                              {lineSumCents > 0 ? (
+                                formatCurrency(lineSumCents)
+                              ) : (
+                                <span className="text-text-muted/40 font-normal text-sm">0.00 ₴</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
                     })}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              /* Cards View: Compact card layout */
+              <div className="space-y-3 animate-fade-in">
+                {(report.rows || []).map((row: ReportLineDTO) => {
+                  const inputs = row.inputs || [];
+                  const isRepriced = row.repriced || inputs.length > 1;
+
+                  const rowTotalCents = inputs.reduce((sum, input) => {
+                    const qty = quantities[`${row.id}_${input.price_cents}`] ?? input.quantity;
+                    return sum + Math.max(0, qty) * input.price_cents;
+                  }, 0);
+
+                  return (
+                    <Card key={row.id} className="overflow-hidden shadow-2xs border-border hover:border-primary/40 transition-colors">
+                      <CardHeader className="p-3.5 pb-2">
+                        <div className="flex justify-between items-start gap-2">
+                          <CardTitle className="text-base font-semibold text-text-main leading-snug">
+                            {row.name}
+                          </CardTitle>
+                          {rowTotalCents > 0 && (
+                            <span className="text-sm font-bold text-primary shrink-0">
+                              {formatCurrency(rowTotalCents)}
+                            </span>
+                          )}
+                        </div>
+                      </CardHeader>
+
+                      <CardContent className="p-3.5 pt-1 space-y-2.5">
+                        {inputs.map((input) => {
+                          const inputKey = `${row.id}_${input.price_cents}`;
+                          const currentQty = quantities[inputKey] ?? input.quantity;
+                          const lineSumCents = Math.max(0, currentQty) * input.price_cents;
+                          const labelText = getPriceLabel(input.label);
+
+                          return (
+                            <div
+                              key={inputKey}
+                              className={cn(
+                                "flex items-center justify-between gap-3 pt-1",
+                                isRepriced && "pb-2 border-b border-border/40 last:border-0 last:pb-0"
+                              )}
+                            >
+                              <div className="min-w-0">
+                                <span className="font-bold text-sm text-text-main">
+                                  {formatCurrency(input.price_cents)}
+                                </span>
+                                {labelText && (
+                                  <span className="block text-[11px] font-medium text-primary mt-0.5">
+                                    {labelText}
+                                  </span>
+                                )}
+                                {lineSumCents > 0 && (
+                                  <span className="block text-xs text-text-muted mt-0.5">
+                                    = {formatCurrency(lineSumCents)}
+                                  </span>
+                                )}
+                              </div>
+
+                              <QuantityStepper
+                                value={currentQty}
+                                disabled={report.read_only || saveMutation.isPending}
+                                onChange={(val) => handleQuantityChange(row.id, input.price_cents, val)}
+                              />
+                            </div>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Collapsed Inactive Items Section */}
             {(report.inactive_rows || []).length > 0 && (
@@ -505,12 +632,12 @@ export default function StoreReportPage() {
 
       {/* Sticky Bottom Action Bar */}
       <footer className="fixed bottom-0 left-0 right-0 z-40 bg-surface/98 backdrop-blur-md border-t border-border shadow-lg">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between gap-3">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
           <div>
             <span className="text-[11px] font-medium text-text-muted block leading-none">
               {uk.store.monthTotal}
             </span>
-            <span className="text-lg sm:text-xl font-bold text-primary block leading-tight mt-0.5">
+            <span className="text-lg sm:text-xl font-bold text-primary block leading-tight mt-0.5 font-mono">
               {formatCurrency(overallTotalCents)}
             </span>
           </div>
@@ -524,6 +651,7 @@ export default function StoreReportPage() {
                   onClick={() => saveMutation.mutate("draft")}
                   disabled={saveMutation.isPending || !report}
                   isLoading={saveMutation.isPending && saveMutation.variables === "draft"}
+                  className="transition-transform active:scale-95"
                 >
                   {saveMutation.isPending && saveMutation.variables === "draft"
                     ? uk.store.savingDraft
@@ -535,6 +663,7 @@ export default function StoreReportPage() {
                   size="sm"
                   onClick={() => setIsSubmitConfirmOpen(true)}
                   disabled={saveMutation.isPending || !report}
+                  className="transition-transform active:scale-95 shadow-xs"
                 >
                   {uk.store.submitReport}
                 </Button>
@@ -565,7 +694,7 @@ export default function StoreReportPage() {
             </div>
             <div className="flex justify-between">
               <span>Загальна сума:</span>
-              <span className="font-semibold text-primary">{formatCurrency(overallTotalCents)}</span>
+              <span className="font-semibold text-primary font-mono">{formatCurrency(overallTotalCents)}</span>
             </div>
           </div>
           <DialogFooter>

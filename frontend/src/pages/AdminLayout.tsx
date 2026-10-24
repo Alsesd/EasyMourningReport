@@ -2,6 +2,7 @@ import { Outlet, NavLink, useLocation, useSearchParams } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { MakerMark } from "@/components/MakerMark";
 import { uk } from "@/i18n/uk";
 import { BarChart3, FileText, Settings, ShieldCheck, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,13 +48,16 @@ export default function AdminLayout() {
   return (
     <div className="min-h-screen bg-page text-text-main flex flex-col lg:flex-row">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-surface p-4 shrink-0">
+      <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-surface p-4 shrink-0 transition-colors">
         <div className="flex items-center justify-between pb-4 border-b border-border mb-4">
           <div>
             <h1 className="font-bold text-lg text-primary">{uk.appTitle}</h1>
             <p className="text-xs text-text-muted">{session?.login}</p>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center space-x-1.5">
+            <MakerMark />
+            <ThemeToggle />
+          </div>
         </div>
 
         <nav className="flex-1 space-y-1">
@@ -65,10 +69,10 @@ export default function AdminLayout() {
                 key={item.basePath}
                 to={item.to}
                 className={cn(
-                  "flex items-center px-3 py-2.5 rounded-control text-sm font-medium transition-colors min-h-[44px]",
+                  "flex items-center px-3 py-2.5 rounded-control text-sm font-medium transition-all duration-200 min-h-[44px]",
                   active
-                    ? "bg-primary text-primary-fg shadow-xs"
-                    : "text-text-main hover:bg-page"
+                    ? "bg-primary text-primary-fg shadow-xs font-semibold"
+                    : "text-text-main hover:bg-page/70 hover:translate-x-0.5"
                 )}
               >
                 <Icon className="h-4 w-4 mr-3 shrink-0" />
@@ -81,7 +85,7 @@ export default function AdminLayout() {
         <div className="pt-4 border-t border-border">
           <Button
             variant="ghost"
-            className="w-full justify-start text-destructive hover:bg-destructive/10"
+            className="w-full justify-start text-destructive hover:bg-destructive/10 transition-colors"
             onClick={() => logout()}
           >
             <LogOut className="h-4 w-4 mr-3" />
@@ -91,27 +95,34 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 pb-16 lg:pb-0">
-        <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-surface sticky top-0 z-30">
-          <div>
+      <div className="flex-1 flex flex-col min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+        <header className="lg:hidden flex items-center justify-between p-3.5 border-b border-border bg-surface/95 backdrop-blur-xs sticky top-0 z-30 transition-colors">
+          <div className="flex items-center space-x-2">
             <span className="font-bold text-primary">{uk.appTitle}</span>
-            <span className="text-xs text-text-muted ml-2">({session?.login})</span>
+            <span className="text-xs text-text-muted">({session?.login})</span>
           </div>
           <div className="flex items-center space-x-2">
+            <MakerMark />
             <ThemeToggle />
-            <Button variant="ghost" size="icon" onClick={() => logout()} aria-label={uk.auth.logoutButton}>
-              <LogOut className="h-4 w-4 text-destructive" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => logout()}
+              aria-label={uk.auth.logoutButton}
+              className="h-9 w-9 text-destructive hover:bg-destructive/10 active:scale-95 transition-transform"
+            >
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto animate-fade-in">
           <Outlet />
         </main>
       </div>
 
       {/* Mobile Bottom Tab Bar */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface flex justify-around py-1 px-2 shadow-lg">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface/98 backdrop-blur-md flex justify-around py-1 px-2 pb-[max(0.375rem,env(safe-area-inset-bottom))] shadow-lg">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isItemActive(item.basePath);
@@ -120,7 +131,7 @@ export default function AdminLayout() {
               key={item.basePath}
               to={item.to}
               className={cn(
-                "flex flex-col items-center justify-center py-1 px-2 rounded-control text-[11px] font-medium min-h-[44px] min-w-[44px] transition-colors",
+                "flex flex-col items-center justify-center py-1 px-2 rounded-control text-[11px] font-medium min-h-[44px] min-w-[44px] transition-all active:scale-95",
                 active ? "text-primary font-semibold" : "text-text-muted hover:text-text-main"
               )}
             >

@@ -175,4 +175,17 @@ describe("StoreReportPage", () => {
       expect(screen.getAllByText(/Звіт надіслано й заблоковано/i).length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  it("toggles viewMode between desktop table and cards", async () => {
+    renderPage();
+    await screen.findByText("Хліб пшеничний");
+
+    const cardsBtn = screen.getByRole("button", { name: /Картковий/i });
+    fireEvent.click(cardsBtn);
+    expect(screen.getByText("Хліб пшеничний")).toBeDefined();
+
+    const tableBtn = screen.getByRole("button", { name: /Табличний/i });
+    fireEvent.click(tableBtn);
+    expect(screen.getByText("Хліб пшеничний")).toBeDefined();
+  });
 });

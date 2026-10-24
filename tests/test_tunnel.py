@@ -132,6 +132,32 @@ class TunnelTests(unittest.TestCase):
     def test_shutdown_is_noop(self):
         tunnel.shutdown()
 
+    def test_status_extracts_custom_domain_from_cloudflared_log(self):
+        (self.root / ".tunnel-enabled").write_text("enabled\n", encoding="utf-8")
+        state_dir = self.root / "tunnel"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        log_content = (
+            '2026-10-24T22:10:41Z INF Updated to new configuration '
+            'config="{\\"ingress\\":[{\\"hostname\\":\\"mourningreport.pp.ua\\", \\"service\\":\\"http://0.0.0.0:8000\\"}]}"\n'
+            '2026-10-24T22:10:41Z INF Registered tunnel connection connIndex=0 location=kbp02 protocol=quic\n'
+        )
+        (state_dir / "cloudflared.log").write_text(log_content, encoding="utf-8")
+        status = tunnel.get_status()
+        self.assertEqual(status["state"], "running")
+        self.assertEqual(status["public_url"], "https://mourningreport.pp.ua")
+
+    def test_token_persistence_across_restarts(self):
+        token_value = "eyJhIjoidGVzdCIsInQiOiJ0dW5uZWwtaWQiLCJzIjoic2VjcmV0In0="
+        tunnel.start_tunnel(auth_key=token_value, autostart=True)
+        token_path = self.root / "tunnel" / "token"
+        self.assertTrue(token_path.exists())
+        self.assertEqual(token_path.read_text(encoding="utf-8").strip(), token_value)
+
+        # After stop_tunnel, token remains preserved for restart
+        tunnel.stop_tunnel()
+        self.assertTrue(token_path.exists())
+        self.assertEqual(token_path.read_text(encoding="utf-8").strip(), token_value)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -36,7 +36,7 @@ export default function AdminReportsPage() {
   const submittedCount = reportItems.filter((r) => r.status === "submitted").length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -137,7 +137,7 @@ export default function AdminReportsPage() {
                 const hasReport = Boolean(item.report_id);
 
                 const Content = (
-                  <div className="flex items-center justify-between p-4 sm:p-5 gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 gap-3 sm:gap-4 hover:bg-page/40 transition-colors">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center space-x-2">
                         <span className="font-semibold text-text-main truncate text-base">
@@ -160,15 +160,15 @@ export default function AdminReportsPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-4 shrink-0">
+                    <div className="flex items-center justify-between sm:justify-end space-x-3 sm:space-x-4 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-border/40">
                       <StatusPill status={item.status} />
 
-                      <span className="font-bold tabular-nums font-mono text-sm sm:text-base text-text-main min-w-[90px] text-right">
+                      <span className="font-bold tabular-nums font-mono text-base text-text-main text-right">
                         {formatCurrency(item.total_cents)}
                       </span>
 
                       {hasReport ? (
-                        <ArrowIcon className="h-5 w-5 text-text-muted transition-transform group-hover:translate-x-0.5" />
+                        <ArrowIcon className="h-5 w-5 text-text-muted transition-transform group-hover:translate-x-1" />
                       ) : (
                         <div className="w-5" />
                       )}

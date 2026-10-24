@@ -217,6 +217,7 @@ def run_tests():
             admin_page.click('a:has-text("Журнал")')
             admin_page.wait_for_url("**/admin/logs**", timeout=5000)
             admin_page.wait_for_selector('text=Журнал аудиту', timeout=5000)
+            admin_page.wait_for_selector('text=Тестовий Чай', timeout=5000)
             print("Navigated to Logs. Total logs rows:", admin_page.locator("tr, .rounded-card").count())
             assert admin_page.locator("text=Тестовий Чай").count() > 0, "Audit log should mention the created product"
             print("Audit log entry verified!")

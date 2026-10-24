@@ -7,9 +7,23 @@ import { uk, formatDateTime } from "@/i18n/uk";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { ShieldCheck, Filter, AlertCircle, RefreshCw } from "lucide-react";
+import { ShieldCheck, Filter, AlertCircle, RefreshCw, Table as TableIcon, LayoutGrid } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function AdminLogsPage() {
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
+  const storedMode = typeof window !== "undefined" ? (localStorage.getItem("admin.logs.viewMode") as "table" | "cards" | null) : null;
+  const [viewMode, setViewMode] = useState<"table" | "cards">(storedMode || (isMobile ? "cards" : "table"));
+
+  const handleSetViewMode = (mode: "table" | "cards") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("admin.logs.viewMode", mode);
+    } catch {
+      // Ignore storage errors (e.g. private browsing mode)
+    }
+  };
+
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlLogin = searchParams.get("login") || "";
@@ -57,7 +71,7 @@ export default function AdminLogsPage() {
   const logEntries = logs || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -140,77 +154,157 @@ export default function AdminLogsPage() {
       {/* Logs Table Card */}
       <Card>
         <CardHeader className="p-4 sm:p-5 border-b border-border">
-          <CardTitle className="text-base sm:text-lg flex items-center justify-between">
+          <CardTitle className="text-base sm:text-lg flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center space-x-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
               <span>Записи журналу</span>
+              <span className="text-xs font-normal text-text-muted tabular-nums ml-1">
+                ({logEntries.length})
+              </span>
             </div>
-            <span className="text-xs font-normal text-text-muted tabular-nums">
-              Знайдено: {logEntries.length}
-            </span>
+            <div className="flex items-center space-x-1 bg-page border border-border p-1 rounded-control shadow-2xs">
+              <button
+                type="button"
+                onClick={() => handleSetViewMode("table")}
+                aria-label="Таблиця"
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 min-h-[32px]",
+                  viewMode === "table"
+                    ? "bg-surface text-text-main shadow-2xs font-semibold"
+                    : "text-text-muted hover:text-text-main"
+                )}
+              >
+                <TableIcon className="h-3.5 w-3.5" />
+                <span>Таблиця</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetViewMode("cards")}
+                aria-label="Картки"
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 min-h-[32px]",
+                  viewMode === "cards"
+                    ? "bg-surface text-text-main shadow-2xs font-semibold"
+                    : "text-text-muted hover:text-text-main"
+                )}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span>Картки</span>
+              </button>
+            </div>
           </CardTitle>
         </CardHeader>
-        <div className="overflow-x-auto">
-          {isLoading ? (
-            <div className="p-8 text-center text-text-muted text-sm flex flex-col items-center justify-center space-y-2">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <span>Завантажую журнал…</span>
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-border bg-page/50 text-text-muted text-xs uppercase tracking-wider font-semibold">
-                  <th className="py-3 px-4 whitespace-nowrap min-w-[160px]">Час</th>
-                  <th className="py-3 px-3 whitespace-nowrap min-w-[120px]">Користувач</th>
-                  <th className="py-3 px-3 whitespace-nowrap min-w-[90px]">Роль</th>
-                  <th className="py-3 px-3 whitespace-nowrap min-w-[130px]">Дія</th>
-                  <th className="py-3 px-4 min-w-[240px]">Деталі</th>
-                  <th className="py-3 px-4 whitespace-nowrap min-w-[120px]">IP-адреса</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {logEntries.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-text-muted text-sm">
-                      {uk.logs.noLogs}
-                    </td>
+        {viewMode === "cards" ? (
+          /* Mobile / Cards View: Responsive Cards for Admin on phones */
+          <div className="divide-y divide-border">
+            {isLoading ? (
+              <div className="p-8 text-center text-text-muted text-sm flex flex-col items-center justify-center space-y-2">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <span>Завантажую журнал…</span>
+              </div>
+            ) : logEntries.length === 0 ? (
+              <div className="p-8 text-center text-text-muted text-sm">
+                {uk.logs.noLogs}
+              </div>
+            ) : (
+              logEntries.map((entry) => (
+                <div key={entry.id} className="p-4 space-y-2 hover:bg-page/30 transition-colors animate-fade-in">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-sm text-text-main font-mono">
+                      {entry.action}
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium shrink-0 ${
+                        entry.role === "admin"
+                          ? "bg-primary/10 text-primary"
+                          : "bg-surface border border-border text-text-muted"
+                      }`}
+                    >
+                      {entry.role}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-text-muted">
+                    <span className="font-medium text-text-main">{entry.login}</span>
+                    <span className="tabular-nums font-mono">{formatDateTime(entry.ts)}</span>
+                  </div>
+                  {entry.detail && (
+                    <p className="text-xs text-text-muted bg-page/50 p-2 rounded-control break-words">
+                      {entry.detail}
+                    </p>
+                  )}
+                  {entry.ip && (
+                    <div className="text-[11px] text-text-muted/70 font-mono text-right">
+                      IP: {entry.ip}
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          /* Desktop View: Table */
+          <div className="overflow-x-auto">
+            {isLoading ? (
+              <div className="p-8 text-center text-text-muted text-sm flex flex-col items-center justify-center space-y-2">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <span>Завантажую журнал…</span>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-page/50 text-text-muted text-xs uppercase tracking-wider font-semibold">
+                    <th className="py-3 px-4 whitespace-nowrap min-w-[160px]">Час</th>
+                    <th className="py-3 px-3 whitespace-nowrap min-w-[120px]">Користувач</th>
+                    <th className="py-3 px-3 whitespace-nowrap min-w-[90px]">Роль</th>
+                    <th className="py-3 px-3 whitespace-nowrap min-w-[130px]">Дія</th>
+                    <th className="py-3 px-4 min-w-[240px]">Деталі</th>
+                    <th className="py-3 px-4 whitespace-nowrap min-w-[120px]">IP-адреса</th>
                   </tr>
-                ) : (
-                  logEntries.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-page/40 transition-colors">
-                      <td className="py-3 px-4 whitespace-nowrap tabular-nums font-mono text-xs text-text-muted">
-                        {formatDateTime(entry.ts)}
-                      </td>
-                      <td className="py-3 px-3 font-medium text-text-main">
-                        {entry.login}
-                      </td>
-                      <td className="py-3 px-3 text-xs">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
-                            entry.role === "admin"
-                              ? "bg-primary/10 text-primary"
-                              : "bg-surface border border-border text-text-muted"
-                          }`}
-                        >
-                          {entry.role}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 font-mono text-xs text-text-main">
-                        {entry.action}
-                      </td>
-                      <td className="py-3 px-4 text-xs text-text-muted max-w-md break-words">
-                        {entry.detail}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap font-mono text-xs text-text-muted">
-                        {entry.ip}
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {logEntries.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-text-muted text-sm">
+                        {uk.logs.noLogs}
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
+                  ) : (
+                    logEntries.map((entry) => (
+                      <tr key={entry.id} className="hover:bg-page/40 transition-colors">
+                        <td className="py-3 px-4 whitespace-nowrap tabular-nums font-mono text-xs text-text-muted">
+                          {formatDateTime(entry.ts)}
+                        </td>
+                        <td className="py-3 px-3 font-medium text-text-main">
+                          {entry.login}
+                        </td>
+                        <td className="py-3 px-3 text-xs">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
+                              entry.role === "admin"
+                                ? "bg-primary/10 text-primary"
+                                : "bg-surface border border-border text-text-muted"
+                            }`}
+                          >
+                            {entry.role}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-xs text-text-main">
+                          {entry.action}
+                        </td>
+                        <td className="py-3 px-4 text-xs text-text-muted max-w-md break-words">
+                          {entry.detail}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap font-mono text-xs text-text-muted">
+                          {entry.ip}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
         {logEntries.length === 200 && (
           <div className="p-4 border-t border-border bg-page/30 text-xs text-text-muted text-center">
             Показано останні 200 записів. Використовуйте фільтри, щоб звузити вибірку.

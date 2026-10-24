@@ -88,4 +88,17 @@ describe("AdminLogsPage", () => {
     const submitBtn = screen.getByRole("button", { name: /Фільтрувати/i });
     fireEvent.click(submitBtn);
   });
+
+  it("toggles between table view and cards view", async () => {
+    renderPage();
+    await screen.findByText("Журнал аудиту");
+
+    const cardsBtn = screen.getByRole("button", { name: "Картки" });
+    fireEvent.click(cardsBtn);
+    expect(screen.getByText("Успішний вхід")).toBeDefined();
+
+    const tableBtn = screen.getByRole("button", { name: "Таблиця" });
+    fireEvent.click(tableBtn);
+    expect(screen.getByText("Успішний вхід")).toBeDefined();
+  });
 });

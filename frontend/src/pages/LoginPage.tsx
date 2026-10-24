@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { MakerMark } from "@/components/MakerMark";
 import { ApiError } from "@/api/client";
 
 export function LoginPage() {
@@ -53,12 +54,15 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-page text-text-main p-4 sm:p-6">
+    <div className="min-h-screen flex flex-col justify-between bg-page text-text-main p-4 sm:p-6 animate-fade-in">
       <header className="flex justify-between items-center max-w-md w-full mx-auto py-2">
         <div className="flex items-center space-x-2">
           <span className="font-semibold text-primary tracking-tight text-lg">Легкий звіт</span>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center space-x-2">
+          <MakerMark />
+          <ThemeToggle />
+        </div>
       </header>
 
       <main className="flex-1 flex items-center justify-center">

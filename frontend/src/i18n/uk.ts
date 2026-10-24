@@ -68,6 +68,8 @@ export const uk = {
     offlineBadge: "Офлайн-режим",
     pendingSyncBadge: "Очікує синхронізації",
     syncedBadge: "Синхронізовано",
+    desktopMode: "Табличний режим",
+    cardsMode: "Картковий режим",
   },
 
   // Admin Summary
@@ -86,6 +88,8 @@ export const uk = {
     tableTotalSum: "Сума",
     grandTotal: "Загальний підсумок",
     noData: "Немає даних за цей період",
+    viewModeTable: "Таблиця",
+    viewModeCards: "Картки по товарах",
   },
 
   // Admin Reports List & Detail

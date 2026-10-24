@@ -70,7 +70,7 @@ export function QuantityStepper({
         disabled={disabled || value <= min}
         onClick={handleDecrement}
         aria-label={uk.store.decreaseQuantity}
-        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-text-main hover:bg-page active:bg-border/30 disabled:opacity-30 disabled:pointer-events-none rounded-l-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary z-10"
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-text-main hover:bg-page active:scale-90 disabled:opacity-30 disabled:pointer-events-none rounded-l-control transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary z-10"
       >
         <Minus className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -97,7 +97,7 @@ export function QuantityStepper({
         disabled={disabled || value >= max}
         onClick={handleIncrement}
         aria-label={uk.store.increaseQuantity}
-        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-text-main hover:bg-page active:bg-border/30 disabled:opacity-30 disabled:pointer-events-none rounded-r-control transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary z-10"
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-text-main hover:bg-page active:scale-90 disabled:opacity-30 disabled:pointer-events-none rounded-r-control transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary z-10"
       >
         <Plus className="h-4 w-4" aria-hidden="true" />
       </button>
