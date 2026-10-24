@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
@@ -117,3 +117,19 @@ def http_error(request: Request, exc: StarletteHTTPException):
         {"code": exc.status_code, "message": exc.detail},
         status_code=exc.status_code,
     )
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def spa_fallback(request: Request, full_path: str):
+    if (
+        full_path.startswith("api/")
+        or full_path == "api"
+        or full_path.startswith("static/")
+        or full_path == "static"
+    ):
+        raise StarletteHTTPException(status_code=404, detail="Not Found")
+    index_file = asset_dir("static") / "app" / "index.html"
+    if index_file.is_file():
+        return FileResponse(index_file, media_type="text/html")
+    raise StarletteHTTPException(status_code=404, detail="Not Found")
+

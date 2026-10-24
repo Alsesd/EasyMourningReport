@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from app.core import tunnel
+import app.core.tunnel as tunnel
 from app.core.paths import user_data_dir
 
 

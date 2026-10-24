@@ -27,6 +27,7 @@ from app.db.repositories.products import history_of, load_history, save_history
 from app.db.repositories.reports import build_lines, build_summary, find_report, report_total
 from app.db.repositories.stores import check_unique_store, store_periods
 from app.db.session import get_db
+from app.routes.auth import authenticate_credentials, logout_user
 from app.services.excel import parse_products_excel
 from app.services.pricing import (
     BASE_PERIOD,
@@ -43,6 +44,7 @@ from app.dto import (
     AuditLogDTO,
     ImportResultDTO,
     InactiveReportLineDTO,
+    LoginDTO,
     MessageDTO,
     MutationDTO,
     PasswordDTO,
@@ -317,6 +319,42 @@ def get_session(user: User = Depends(api_user_required)) -> SessionDTO:
         store_name=user.store.name if user.store else None,
         period=current_period(),
     )
+
+
+@router.post("/auth/login", response_model=SessionDTO)
+def api_login(
+    request: Request,
+    payload: LoginDTO,
+    db: Session = Depends(get_db),
+) -> SessionDTO:
+    result = authenticate_credentials(request, payload.login, payload.password, db)
+    if not result.is_success:
+        headers = {}
+        if result.retry_after_seconds:
+            headers["Retry-After"] = str(result.retry_after_seconds)
+            headers["Cache-Control"] = "no-store"
+        raise HTTPException(
+            status_code=result.status_code,
+            detail=result.error,
+            headers=headers,
+        )
+    user = result.user
+    return SessionDTO(
+        login=user.login,
+        role=user.role,
+        store_id=user.store_id,
+        store_name=user.store.name if user.store else None,
+        period=current_period(),
+    )
+
+
+@router.post("/auth/logout", response_model=MessageDTO)
+def api_logout(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> MessageDTO:
+    logout_user(request, db)
+    return MessageDTO(message="Ви вийшли із системи.")
 
 
 # --- Administrator: products -------------------------------------------------

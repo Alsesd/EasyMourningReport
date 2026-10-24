@@ -25,14 +25,17 @@ dist/
 .envrc
 result
 
-# Downloaded runtime (fetched during CI build)
+# Downloaded runtime
 app/static/alpine.min.js
+app/static/app/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+.agents/
 
 # Docker & local data
 data/
-Dockerfile
-Dockerfile.tunnel
-	compose.yaml
 
 
 # IDE
