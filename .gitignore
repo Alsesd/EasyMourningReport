@@ -7,10 +7,9 @@ secret.key
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
 .pytest_cache/
 .coverage
-htmlcov/
+htmlcov
 .venv/
 build/
 dist/
@@ -28,12 +27,8 @@ result
 # Downloaded runtime (fetched during CI build)
 app/static/alpine.min.js
 
-# Docker & local data
+# Docker runtime data
 data/
-Dockerfile
-Dockerfile.tunnel
-	compose.yaml
-
 
 # IDE
 .idea/
