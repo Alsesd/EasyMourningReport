@@ -22,20 +22,27 @@ export function QuantityStepper({
   id,
   className,
 }: QuantityStepperProps) {
-  const handleDecrement = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (disabled || value <= min) return;
-    onChange(Math.max(min, value - 1));
-  };
+  const [localText, setLocalText] = React.useState<string | null>(null);
+
+  const displayValue = localText !== null ? localText : (value === 0 ? "0" : String(value));
 
   const handleIncrement = (e: React.MouseEvent) => {
     e.preventDefault();
     if (disabled || value >= max) return;
+    setLocalText(null);
     onChange(Math.min(max, value + 1));
   };
 
+  const handleDecrement = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (disabled || value <= min) return;
+    setLocalText(null);
+    onChange(Math.max(min, value - 1));
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
+    const raw = e.target.value.replace(/[^0-9]/g, "");
+    setLocalText(raw);
     if (raw === "") {
       onChange(0);
       return;
@@ -44,6 +51,10 @@ export function QuantityStepper({
     if (!isNaN(parsed)) {
       onChange(Math.max(min, Math.min(max, parsed)));
     }
+  };
+
+  const handleBlur = () => {
+    setLocalText(null);
   };
 
   return (
@@ -70,9 +81,13 @@ export function QuantityStepper({
         inputMode="numeric"
         pattern="[0-9]*"
         disabled={disabled}
-        value={value === 0 ? "0" : value}
+        value={displayValue}
         onChange={handleInputChange}
-        onFocus={(e) => e.target.select()}
+        onBlur={handleBlur}
+        onFocus={(e) => {
+          setLocalText(value === 0 ? "" : String(value));
+          e.target.select();
+        }}
         aria-label={uk.store.quantity}
         className="w-14 text-center font-semibold text-base py-2 bg-transparent text-text-main focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded-xs transition-colors"
       />

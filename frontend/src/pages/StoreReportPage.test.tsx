@@ -172,7 +172,7 @@ describe("StoreReportPage", () => {
     fireEvent.click(confirmSubmitBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/Звіт надіслано й заблоковано/i)).toBeDefined();
+      expect(screen.getAllByText(/Звіт надіслано й заблоковано/i).length).toBeGreaterThanOrEqual(1);
     });
   });
 });

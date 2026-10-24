@@ -596,7 +596,7 @@ export default function AdminSettingsPage() {
                     isPriceOpen && !isNaN(enteredCents) && enteredCents !== p.price_cents;
 
                   return (
-                    <div key={p.id} className="p-4 sm:p-5 hover:bg-page/20 transition-colors">
+                    <div key={p.id} data-product-id={p.id} className="p-4 sm:p-5 hover:bg-page/20 transition-colors">
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         {/* Name & Active toggle */}
                         <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -733,6 +733,10 @@ export default function AdminSettingsPage() {
                           {(() => {
                             const monthPrices = p.month_prices_cents || [];
                             if (monthPrices.length === 0) return null;
+                            const displayPrices =
+                              monthPrices.length > 2
+                                ? [monthPrices[0], monthPrices[monthPrices.length - 1]]
+                                : monthPrices;
                             return (
                               <div className="space-y-1.5 pt-1">
                                 <div className="text-[11px] font-semibold text-text-muted flex items-center space-x-1">
@@ -740,8 +744,8 @@ export default function AdminSettingsPage() {
                                   <span>Історія ціни у поточному місяці:</span>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
-                                  {monthPrices.map((price, idx) => {
-                                    const isLast = idx === monthPrices.length - 1;
+                                  {displayPrices.map((price, idx) => {
+                                    const isLast = idx === displayPrices.length - 1;
                                     return (
                                       <span
                                         key={idx}
@@ -753,13 +757,11 @@ export default function AdminSettingsPage() {
                                       >
                                         {formatCurrency(price)}
                                         <span className="ml-1 text-[10px] font-normal font-sans opacity-75">
-                                          {monthPrices.length === 1
+                                          {displayPrices.length === 1
                                             ? "увесь місяць"
                                             : idx === 0
                                             ? "до зміни"
-                                            : isLast
-                                            ? "зараз"
-                                            : `зміна ${idx}`}
+                                            : "зараз"}
                                         </span>
                                       </span>
                                     );

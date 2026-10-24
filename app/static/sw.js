@@ -5,6 +5,7 @@ const PRECACHE = [
   "/static/icon-192.png",
   "/static/icon-512.png",
   "/static/apple-touch-icon.png",
+  "/manifest.webmanifest",
   "/static/manifest.webmanifest"
 ];
 

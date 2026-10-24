@@ -91,8 +91,12 @@ export default function StoreReportPage() {
 
     setQuantities(initialMap);
     setInitialSnapshot(JSON.stringify(initialMap));
-    setFeedback(null);
   }, [report, selectedPeriod, session?.store_id]);
+
+  // Clear feedback when switching periods
+  useEffect(() => {
+    setFeedback(null);
+  }, [selectedPeriod]);
 
   // Compute dirty state
   const isDirty = useMemo(() => {
@@ -198,27 +202,45 @@ export default function StoreReportPage() {
   });
 
   // Period navigation
-  const canGoPrevious = useMemo(() => {
-    if (!report) return true;
-    const periods = report.available_periods || [];
-    const idx = periods.indexOf(selectedPeriod);
-    return idx > 0;
-  }, [report, selectedPeriod]);
+  const periods = useMemo(() => report?.available_periods || [], [report?.available_periods]);
+  const periodIdx = periods.indexOf(selectedPeriod);
 
-  const canGoNext = useMemo(() => {
-    // Next month is disabled after current period
-    return selectedPeriod < currentMonth;
-  }, [selectedPeriod, currentMonth]);
+  const previousPeriod = useMemo(() => {
+    if (periodIdx > 0) return periods[periodIdx - 1];
+    if (periodIdx === -1) {
+      const prev = periods.filter((p) => p < selectedPeriod);
+      if (prev.length > 0) return prev[prev.length - 1];
+      return shiftPeriod(selectedPeriod, -1);
+    }
+    return null;
+  }, [periods, periodIdx, selectedPeriod]);
+
+  const nextPeriod = useMemo(() => {
+    if (periodIdx >= 0 && periodIdx < periods.length - 1) {
+      const next = periods[periodIdx + 1];
+      return next <= currentMonth ? next : null;
+    }
+    if (periodIdx === -1) {
+      const nextList = periods.filter((p) => p > selectedPeriod && p <= currentMonth);
+      if (nextList.length > 0) return nextList[0];
+      const shifted = shiftPeriod(selectedPeriod, 1);
+      return shifted <= currentMonth ? shifted : null;
+    }
+    return null;
+  }, [periods, periodIdx, selectedPeriod, currentMonth]);
+
+  const canGoPrevious = Boolean(previousPeriod);
+  const canGoNext = Boolean(nextPeriod);
 
   const handlePreviousMonth = () => {
-    if (canGoPrevious) {
-      setSelectedPeriod((p) => shiftPeriod(p, -1));
+    if (previousPeriod) {
+      setSelectedPeriod(previousPeriod);
     }
   };
 
   const handleNextMonth = () => {
-    if (canGoNext) {
-      setSelectedPeriod((p) => shiftPeriod(p, 1));
+    if (nextPeriod) {
+      setSelectedPeriod(nextPeriod);
     }
   };
 
