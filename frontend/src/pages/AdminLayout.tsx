@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from "react-router-dom";
+import { Outlet, NavLink, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -8,13 +8,41 @@ import { cn } from "@/lib/utils";
 
 export default function AdminLayout() {
   const { session, logout } = useAuth();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const period = searchParams.get("period");
 
   const navItems = [
-    { to: "/admin/summary", label: uk.nav.summary, icon: BarChart3 },
-    { to: "/admin/reports", label: uk.nav.reports, icon: FileText },
-    { to: "/admin/settings", label: uk.nav.settings, icon: Settings },
-    { to: "/admin/logs", label: uk.nav.logs, icon: ShieldCheck },
+    {
+      basePath: "/admin/summary",
+      to: period ? `/admin/summary?period=${period}` : "/admin/summary",
+      label: uk.nav.summary,
+      icon: BarChart3,
+    },
+    {
+      basePath: "/admin/reports",
+      to: period ? `/admin/reports?period=${period}` : "/admin/reports",
+      label: uk.nav.reports,
+      icon: FileText,
+    },
+    {
+      basePath: "/admin/settings",
+      to: "/admin/settings",
+      label: uk.nav.settings,
+      icon: Settings,
+    },
+    {
+      basePath: "/admin/logs",
+      to: "/admin/logs",
+      label: uk.nav.logs,
+      icon: ShieldCheck,
+    },
   ];
+
+  const isItemActive = (basePath: string) => {
+    return location.pathname.startsWith(basePath);
+  };
 
   return (
     <div className="min-h-screen bg-page text-text-main flex flex-col lg:flex-row">
@@ -31,18 +59,17 @@ export default function AdminLayout() {
         <nav className="flex-1 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const active = isItemActive(item.basePath);
             return (
               <NavLink
-                key={item.to}
+                key={item.basePath}
                 to={item.to}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center px-3 py-2.5 rounded-control text-sm font-medium transition-colors min-h-[44px]",
-                    isActive
-                      ? "bg-primary text-primary-fg shadow-xs"
-                      : "text-text-main hover:bg-page"
-                  )
-                }
+                className={cn(
+                  "flex items-center px-3 py-2.5 rounded-control text-sm font-medium transition-colors min-h-[44px]",
+                  active
+                    ? "bg-primary text-primary-fg shadow-xs"
+                    : "text-text-main hover:bg-page"
+                )}
               >
                 <Icon className="h-4 w-4 mr-3 shrink-0" />
                 {item.label}
@@ -87,16 +114,15 @@ export default function AdminLayout() {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-surface flex justify-around py-1 px-2 shadow-lg">
         {navItems.map((item) => {
           const Icon = item.icon;
+          const active = isItemActive(item.basePath);
           return (
             <NavLink
-              key={item.to}
+              key={item.basePath}
               to={item.to}
-              className={({ isActive }) =>
-                cn(
-                  "flex flex-col items-center justify-center py-1 px-2 rounded-control text-[11px] font-medium min-h-[44px] min-w-[44px] transition-colors",
-                  isActive ? "text-primary font-semibold" : "text-text-muted hover:text-text-main"
-                )
-              }
+              className={cn(
+                "flex flex-col items-center justify-center py-1 px-2 rounded-control text-[11px] font-medium min-h-[44px] min-w-[44px] transition-colors",
+                active ? "text-primary font-semibold" : "text-text-muted hover:text-text-main"
+              )}
             >
               <Icon className="h-5 w-5 mb-0.5" />
               <span>{item.label}</span>

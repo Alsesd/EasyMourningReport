@@ -10,6 +10,11 @@ import { uk } from "@/i18n/uk";
 // Route-level code splitting: store route must not load admin code
 const StoreReportPage = lazy(() => import("@/pages/StoreReportPage"));
 const AdminLayout = lazy(() => import("@/pages/AdminLayout"));
+const AdminSummaryPage = lazy(() => import("@/pages/AdminSummaryPage"));
+const AdminReportsPage = lazy(() => import("@/pages/AdminReportsPage"));
+const AdminReportDetailPage = lazy(() => import("@/pages/AdminReportDetailPage"));
+const AdminLogsPage = lazy(() => import("@/pages/AdminLogsPage"));
+const AdminSettingsPage = lazy(() => import("@/pages/AdminSettingsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,7 +40,7 @@ function RootRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  return <Navigate to={session.role === "admin" ? "/admin" : "/report"} replace />;
+  return <Navigate to={session.role === "admin" ? "/admin/summary" : "/report"} replace />;
 }
 
 function PageFallback() {
@@ -69,13 +74,21 @@ export function App() {
                 />
 
                 <Route
-                  path="/admin/*"
+                  path="/admin"
                   element={
                     <ProtectedRoute allowedRole="admin">
                       <AdminLayout />
                     </ProtectedRoute>
                   }
-                />
+                >
+                  <Route index element={<Navigate to="summary" replace />} />
+                  <Route path="summary" element={<AdminSummaryPage />} />
+                  <Route path="reports" element={<AdminReportsPage />} />
+                  <Route path="reports/:reportId" element={<AdminReportDetailPage />} />
+                  <Route path="logs" element={<AdminLogsPage />} />
+                  <Route path="settings" element={<AdminSettingsPage />} />
+                  <Route path="*" element={<Navigate to="summary" replace />} />
+                </Route>
 
                 <Route path="/" element={<RootRedirect />} />
                 <Route path="*" element={<RootRedirect />} />
