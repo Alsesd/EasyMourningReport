@@ -1,0 +1,78 @@
+@import "@fontsource/onest/400.css";
+@import "@fontsource/onest/500.css";
+@import "@fontsource/onest/600.css";
+@import "@fontsource/onest/700.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --page: #F4F6F5;
+    --surface: #FFFFFF;
+    --surface-raised: #FFFFFF;
+    --text: #1C2A26;
+    --muted-text: #5E6E69;
+    --border: #DCE5E1;
+    --primary: #2E6D60;
+    --primary-fg: #FFFFFF;
+    --primary-hover: #265B50;
+    --destructive: #A34D4A;
+    --destructive-fg: #FFFFFF;
+    --destructive-hover: #8C3E3B;
+    
+    --pill-sent-bg: #DCEFE9;
+    --pill-sent-text: #1F4F44;
+    --pill-draft-bg: #FFF1D6;
+    --pill-draft-text: #6B4A00;
+    --pill-none-bg: #E9EEEC;
+    --pill-none-text: #44524E;
+  }
+
+  .dark, [data-theme="dark"] {
+    --page: #141B19;
+    --surface: #1D2724;
+    --surface-raised: #24312D;
+    --text: #E7EFEB;
+    --muted-text: #9BAEA6;
+    --border: #34433D;
+    --primary: #8ABFB0;
+    --primary-fg: #141B19;
+    --primary-hover: #9DCFC1;
+    --destructive: #E49A92;
+    --destructive-fg: #141B19;
+    --destructive-hover: #ECAEAA;
+
+    --pill-sent-bg: #1B3931;
+    --pill-sent-text: #96CEBE;
+    --pill-draft-bg: #3B2E0B;
+    --pill-draft-text: #FAD175;
+    --pill-none-bg: #273430;
+    --pill-none-text: #A6B9B1;
+  }
+
+  body {
+    background-color: var(--page);
+    color: var(--text);
+    font-family: "Onest", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Accessible high-contrast focus rings */
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
