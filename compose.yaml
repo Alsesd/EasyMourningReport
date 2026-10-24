@@ -15,7 +15,7 @@ services:
       - DEMO=${DEMO:-0}
       - PUBLIC_URL=${PUBLIC_URL:-}
     ports:
-      - "${PORT:-8000}:8000"
+      - "8000:8000"
     volumes:
       - ${DATA_PATH:-./data}:/app/data
       - ${BACKUPS_PATH:-./backups}:/app/backups

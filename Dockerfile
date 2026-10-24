@@ -56,9 +56,9 @@ ENV PATH="/app/.venv/bin:$PATH" \
 # Expose application port across Linux and Windows networks
 EXPOSE 8000
 
-# Enterprise healthcheck using native HTTP endpoint with dynamic PORT support
+# Enterprise healthcheck using native HTTP endpoint on port 8000
 HEALTHCHECK --interval=20s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -fsS "http://127.0.0.1:${PORT:-8000}/" || exit 1
+  CMD curl -fsS "http://127.0.0.1:8000/" || exit 1
 
 # Unified production entry point with enterprise startup diagnostics and banner
 CMD ["python", "run.py"]
