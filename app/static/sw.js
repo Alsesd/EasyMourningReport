@@ -1,28 +1,58 @@
-// Network-first service worker: private pages are never cached; only offline/static assets are.
-const CACHE = "legkyi-zvit-v10";
-self.addEventListener("install", event => event.waitUntil(
-  caches.open(CACHE)
-    .then(cache => cache.addAll(["/offline", "/static/app.css", "/static/icon-192.png", "/static/apple-touch-icon.png"]))
-    .then(() => self.skipWaiting())
-));
-self.addEventListener("activate", event => event.waitUntil(
-  caches.keys()
-    .then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
-    .then(() => self.clients.claim())
-));
+// Versioned app-shell service worker: caches app shell & static assets, falls back to /offline when disconnected.
+const CACHE = "legkyi-zvit-v20";
+const PRECACHE = [
+  "/offline",
+  "/static/icon-192.png",
+  "/static/icon-512.png",
+  "/static/apple-touch-icon.png",
+  "/static/manifest.webmanifest"
+];
+
+self.addEventListener("install", event => {
+  event.waitUntil(
+    caches.open(CACHE)
+      .then(cache => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener("activate", event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
 self.addEventListener("fetch", event => {
   const request = event.request;
   const url = new URL(request.url);
+
+  // Ignore cross-origin and non-GET requests
   if (request.method !== "GET" || url.origin !== location.origin) return;
+
+  // Navigation requests: network-first with /offline fallback
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("/offline")));
-  } else if (url.pathname.startsWith("/static/")) {
-    event.respondWith(fetch(request).then(response => {
-      if (response.ok) {
-        const copy = response.clone();
-        caches.open(CACHE).then(cache => cache.put(request, copy));
-      }
-      return response;
-    }).catch(() => caches.match(request)));
+    event.respondWith(
+      fetch(request).catch(() => caches.match("/offline"))
+    );
+    return;
+  }
+
+  // Static assets: cache-first or network-first with dynamic caching
+  if (url.pathname.startsWith("/static/")) {
+    event.respondWith(
+      caches.match(request).then(cached => {
+        const fetchPromise = fetch(request).then(networkResponse => {
+          if (networkResponse && networkResponse.ok) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE).then(cache => cache.put(request, clone));
+          }
+          return networkResponse;
+        }).catch(() => cached);
+
+        return cached || fetchPromise;
+      })
+    );
   }
 });
