@@ -1,4 +1,4 @@
-"""Checks that templates and the service worker reference existing static assets."""
+"""Checks that the service worker references existing static assets."""
 import re
 from pathlib import Path
 from urllib.parse import urlparse
@@ -17,11 +17,4 @@ def test_service_worker_precache_assets_exist():
     source = (STATIC / "sw.js").read_text(encoding="utf-8")
     _assert_assets_exist(
         source, r"""["'](/static/[^"']+)["']""", "Service worker"
-    )
-
-
-def test_base_template_static_assets_exist():
-    source = (ROOT / "app" / "templates" / "base.html").read_text(encoding="utf-8")
-    _assert_assets_exist(
-        source, r"""(?:href|src)=["'](/static/[^"']+)["']""", "Base template"
     )

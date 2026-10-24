@@ -47,13 +47,6 @@ class AuthenticationEdgeTests(unittest.TestCase):
     def tearDown(self):
         self.engine.dispose()
 
-    def test_login_form_delegates_to_template_renderer(self):
-        request = request_with_session()
-        sentinel = object()
-        with patch.object(auth, "render", return_value=sentinel) as render:
-            self.assertIs(auth.login_form(request), sentinel)
-        render.assert_called_once_with(request, "login.html", {"error": None})
-
     def test_missing_login_is_rejected_and_failure_is_audited(self):
         with self.Session() as db, patch.object(auth, "retry_after", return_value=0), patch.object(auth, "record_failure") as record:
             response = auth.login_post(request_with_session(), "unknown", "x", db)

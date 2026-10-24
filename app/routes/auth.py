@@ -1,23 +1,17 @@
-from fastapi import APIRouter, Depends, Form, Request
-from app.core.paths import asset_dir
+"""Authentication and session credential verification logic."""
+
+from fastapi import APIRouter, Depends, Form, Request, Response
+from fastapi.responses import RedirectResponse
+from sqlmodel import Session, select
+
 from app.core.ratelimit import clear_failures, record_failure, retry_after
 from app.core.security import check_pw, client_ip
-from app.core.ui import render
 from app.db.models.user import User
 from app.db.repositories.audit import audit
 from app.db.session import get_db
 from app.services.pricing import norm_login
-from fastapi.responses import FileResponse, RedirectResponse, Response
-from sqlmodel import select
-from sqlmodel import Session
-
 
 router = APIRouter()
-
-
-@router.get("/login")
-def login_form(request: Request):
-    return render(request, "login.html", {"error": None})
 
 
 class AuthResult:
@@ -102,10 +96,8 @@ def login_post(
                 status_code=429,
                 headers={"Retry-After": str(result.retry_after_seconds), "Cache-Control": "no-store"},
             )
-        return render(
-            request,
-            "login.html",
-            {"error": result.error},
+        return Response(
+            result.error,
             status_code=result.status_code,
         )
     return RedirectResponse("/", 303)

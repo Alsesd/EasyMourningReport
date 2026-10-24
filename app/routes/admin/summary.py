@@ -1,39 +1,16 @@
-"""Admin monthly summary page and Excel export."""
+"""Admin monthly summary Excel export."""
 
-from fastapi import APIRouter, Depends, Request
-from app.core.dependencies import admin_period, admin_required, parse_period
-from app.core.ui import render
-from app.db.models.user import User
-from app.db.repositories.reports import build_summary
-from app.db.session import get_db
-from app.services.excel import generate_summary_excel
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session
 
+from app.core.dependencies import admin_required, parse_period
+from app.db.models.user import User
+from app.db.session import get_db
+from app.services.excel import generate_summary_excel
+
 
 router = APIRouter()
-
-
-@router.get("")
-def summary_page(
-    request: Request,
-    period: str | None = None,
-    submitted_only: bool = False,
-    user: User = Depends(admin_required),
-    db: Session = Depends(get_db),
-):
-    period = admin_period(request, period)
-    stores, rows, store_sums, grand = build_summary(db, period, submitted_only)
-    ctx = {
-        "user": user,
-        "period": period,
-        "stores": stores,
-        "rows": rows,
-        "store_sums": store_sums,
-        "grand": grand,
-        "submitted_only": submitted_only,
-    }
-    return render(request, "summary.html", ctx)
 
 
 @router.get(".xlsx")

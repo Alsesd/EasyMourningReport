@@ -2,8 +2,11 @@
 
 <div align="center">
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind_CSS-3-38B2AC?logo=tailwindcss&logoColor=white)
 ![SQLite](https://img.shields.io/badge/Database-SQLite-5B5BD6?logo=sqlite&logoColor=white)
 ![PDM](https://img.shields.io/badge/Package-PDM-60A5FA?logo=pdm&logoColor=white)
 ![Docker](https://img.shields.io/badge/Deployment-Docker--Compose-2496ED?logo=docker&logoColor=white)
@@ -42,60 +45,72 @@
 
 ## Основні можливості
 
-- Управління товарами та їхніми цінами
-- Масове створення товарів з Excel (.xlsx): колонка A — назва, колонка B — ціна
-- Експорт зведеного звіту в Excel (.xlsx): назва, ціна, звітована кількість і сума
-- Керування магазинами та обліковими записами
-- Формування щомісячних звітів
-- Автоматичний розрахунок сум
-- Зведені звіти по місяцях
-- Журнал дій та аудиту
-- Історія змін цін з підтримкою місячної логіки
-- Редактор ціни без варіантів: одне широке поле та розгортувана історія змін за місяць
-- Клієнтське відображення каталогу, звітів, зведення та журналу через Alpine.js і REST API v1 без перезавантаження сторінки
-- Архівування товарів і магазинів замість безповоротного видалення
-- Автоматичні резервні копії бази даних
-- Безпечне зберігання паролів через PBKDF2-хешування
-- Автоматичний публічний тунель (Cloudflare Tunnel) із підтримкою Quick Tunnel та іменованих тунелів
+- **Сучасний клієнтський SPA-інтерфейс**: React 18, TypeScript, Tailwind CSS, Radix UI та TanStack Query без жодних сторонніх CDN-залежностей на етапі виконання.
+- **Окремі оптимізовані робочі простори**:
+  - *Для магазину*: зручний мобільний екран (`/report`) з великими кнопками крокового введення (stepper), підтримкою швидкого введення на телефоні, збереженням чернеток та підтвердженням відправки.
+  - *Для адміністратора*: адаптивна панель (`/admin/*`) — бічна панель на десктопі, нижня панель на мобільних пристроях.
+- **Повна підтримка офлайн-роботи (PWA)**: сервіс-воркер кешує ресурси застосунку, а чернетки звітів зберігаються локально в браузері та автоматично синхронізуються при відновленні з'єднання.
+- **Управління товарами та цінами**: швидкий пошук, зміна ціни в одне поле з компактною історією за поточний місяць, архівування та відновлення.
+- **Масовий імпорт з Excel (.xlsx)**: колонка A — назва, колонка B — ціна.
+- **Експорт зведеного звіту в Excel (.xlsx)**: пряме скачування файлу зведення за вибраний місяць.
+- **Керування магазинами та обліковими записами**: створення, редагування, скидання паролів, архівування.
+- **Щомісячні звіти та блокування**: перегляд поданих звітів, детальний перегляд із можливістю розблокування/блокування.
+- **Журнал аудиту**: детальний аудит дій у системі з фільтрацією за типами подій та пошуком.
+- **Керування публічним тунелем**: статус тунелю Cloudflare, перемикач автозапуску та запуск/зупинка безпосередньо з панелі налаштувань.
+- **Автоматичні резервні копії**: скачування знімка бази даних в один клік і регулярне резервне копіювання.
+- **Безпека**: збереження паролів через PBKDF2-хешування із сіллю, захист сесій та перевірка походження запитів.
 
 ## Технологічний стек
 
-- Python 3.10+
-- FastAPI
-- Uvicorn
-- SQLModel (SQLAlchemy Core/engine)
-- Jinja2
-- Alpine.js
-- SQLite
-- PDM (PEP 621)
-- Docker & Docker Compose
-- Cloudflare Tunnel (cloudflared)
+- **Бекенд**:
+  - Python 3.11+
+  - FastAPI & Starlette
+  - Uvicorn
+  - SQLModel (SQLAlchemy Core) & SQLite
+  - PDM (керування залежностями, PEP 621)
+  - openpyxl (генерація та парсинг Excel)
+- **Фронтенд**:
+  - React 18 & TypeScript (суворий режим)
+  - Vite 6
+  - Tailwind CSS 3
+  - Radix UI (доступні модальні вікна та примітиви)
+  - TanStack Query v5 (серверний стан, кешування та оптимістичні оновлення)
+  - React Router v6 (маршрутизація з code-splitting)
+  - Lucide React (іконки)
+  - Самостійний шрифт **Onest** (`@fontsource/onest`) без зовнішніх запитів до Google Fonts чи CDN
+- **Інфраструктура**:
+  - Docker & Docker Compose (багатоетапна збірка: Stage 1 Node.js build → Stage 2 Python builder → Stage 3 Minimal runtime)
+  - Cloudflare Tunnel (швидкий TryCloudflare Quick Tunnel або власний іменований тунель)
 
 ## Структура проєкту
 
 ```text
 EasyMourningReport/
-├── app/
-│   ├── core/             # Інфраструктура (paths, security, ratelimit, ui, dependencies, tunnel)
+├── frontend/             # Клієнтський SPA-застосунок (React, TypeScript, Tailwind)
+│   ├── src/
+│   │   ├── api/          # Типізований клієнт API та автогенеровані типи
+│   │   ├── components/   # UI-компоненти (Header, Stepper, Dialog, etc.)
+│   │   ├── pages/        # Сторінки (Login, StoreReport, AdminSummary, etc.)
+│   │   ├── i18n/         # Локалізація інтерфейсу (uk.ts)
+│   │   └── utils/        # Допоміжні утиліти (форматування валюти, дат, офлайн-чернетки)
+│   ├── package.json      # Залежності фронтенду
+│   └── vite.config.ts    # Конфігурація збірки Vite в app/static/app/
+├── app/                  # Бекенд на FastAPI
+│   ├── core/             # Інфраструктура (paths, security, ratelimit, tunnel)
 │   ├── db/               # SQLModel-моделі, сесії, репозиторії, міграції та backup
-│   ├── services/         # Чиста бізнес-логіка (pricing, excel)
-│   ├── routes/           # HTML-маршрути та версійований REST API v1
-│   ├── dto.py            # Типізовані запити й відповіді REST API
-│   ├── static/           # CSS, JS-клієнти, PWA та статичні ресурси
-│   ├── templates/        # Шаблони Jinja2
-│   └── main.py           # Композиція FastAPI, життєвий цикл і middleware
-├── tests/                # pytest, FastAPI TestClient та тести БД
-├── .github/workflows/    # CI: автотести та збірка Docker
-├── Dockerfile            # Багатоетапна збірка основного застосунку
-├── Dockerfile.tunnel     # Легкий контейнер тунелю на базі Alpine та cloudflared
-├── tunnel-entrypoint.sh  # Автоматичний запуск Quick Tunnel або іменованого тунелю
+│   ├── services/         # Бізнес-логіка (pricing, excel)
+│   ├── routes/           # REST API v1, PWA fallback та файлові завантаження
+│   ├── dto.py            # Типізовані DTO запитів і відповідей
+│   ├── static/           # PWA manifest, service worker, статичні іконки та зібраний SPA (app/)
+│   ├── templates/        # Автономні резервні сторінки помилок та офлайн-режиму
+│   └── main.py           # Ініціалізація FastAPI, middleware та SPA fallback
+├── tests/                # Набір тестів pytest для API, бізнес-логіки та безпеки
+├── .github/workflows/    # CI: перевірка фронтенду, бекенд-тести та збірка Docker
+├── Dockerfile            # Багатоетапна збірка (Frontend + Backend)
+├── Dockerfile.tunnel     # Контейнер тунелю на базі Alpine та cloudflared
 ├── compose.yaml          # Готова конфігурація Docker Compose
 ├── pyproject.toml        # PDM проєкт (PEP 621)
-├── pdm.lock              # Зафіксовані залежності
-├── run.py                # Точка входу uvicorn
-├── README.md
-├── API.md
-└── DESIGN.md
+└── run.py                # Точка входу uvicorn
 ```
 
 ## Розгортання через Docker Compose (Рекомендовано)
@@ -146,29 +161,57 @@ docker compose up -d
 
 ## Локальна розробка
 
-### 1. Встановлення залежностей через PDM
+### 1. Бекенд (Python & FastAPI)
 
+Встановлення залежностей:
 ```bash
 pdm install
 ```
 
-### 2. Запуск сервера розробки
-
-```bash
-pdm run python run.py
-```
-
-Або з автоперезавантаженням:
+Запуск сервера розробки:
 ```bash
 pdm run uvicorn app.main:app --reload
 ```
 
-Відкрийте `http://localhost:8000` у браузері.
-
-### 3. Запуск тестів
-
+Запуск бекенд-тестів:
 ```bash
 pdm run pytest
+```
+
+### 2. Фронтенд (React, TypeScript & Vite)
+
+Усі файли клієнтського застосунку знаходяться у директорії `frontend/`.
+
+Встановлення залежностей:
+```bash
+cd frontend
+npm install
+```
+
+Запуск сервера розробки Vite з проксіюванням API на бекенд (`http://localhost:8000`):
+```bash
+npm run dev
+```
+
+Перевірка лінтером та типами:
+```bash
+npm run lint
+npm run typecheck
+```
+
+Запуск юніт-тестів (Vitest):
+```bash
+npm test -- --run
+```
+
+Збірка у продакшн (результат записується в `app/static/app/`):
+```bash
+npm run build
+```
+
+Оновлення типів API з OpenAPI-схеми бекенда:
+```bash
+npm run gen:api
 ```
 
 ---

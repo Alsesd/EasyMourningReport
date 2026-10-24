@@ -11,19 +11,17 @@ class RouterCompositionTests(unittest.TestCase):
         self.assertGreater(len(public_router.routes), 0)
         self.assertGreater(len(admin_router.routes), 0)
 
-    def test_admin_routes_are_nested_under_admin_prefix(self):
+    def test_server_routes_are_nested_correctly(self):
         from app.api import app
 
-        # Recent FastAPI versions may keep included routers as internal
-        # _IncludedRouter objects in app.routes, which do not expose .path.
-        # OpenAPI resolves the complete router tree into the public paths and
-        # is the stable interface for verifying the mounted URL structure.
         paths = set(app.openapi()["paths"])
-        self.assertIn("/admin", paths)
-        self.assertIn("/admin/products/import", paths)
         self.assertIn("/admin/summary.xlsx", paths)
-        self.assertIn("/login", paths)
-        self.assertIn("/report", paths)
+        self.assertIn("/admin/backup/download", paths)
+        self.assertIn("/api/v1/auth/login", paths)
+        self.assertIn("/api/v1/auth/logout", paths)
+        self.assertIn("/manifest.webmanifest", paths)
+        self.assertIn("/sw.js", paths)
+        self.assertIn("/offline", paths)
 
 
 if __name__ == "__main__":
