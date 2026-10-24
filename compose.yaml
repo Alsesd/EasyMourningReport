@@ -6,13 +6,13 @@ services:
     container_name: mourningreport-app
     restart: unless-stopped
     environment:
-      - HOST=0.0.0.0
-      - PORT=8000
-      - LEGKYI_DATA_DIR=/app/data
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
-      - SECRET_KEY=${SECRET_KEY:-}
-      - DEMO=${DEMO:-0}
-      - PUBLIC_URL=${PUBLIC_URL:-}
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      LEGKYI_DATA_DIR: /app/data
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SECRET_KEY: ${SECRET_KEY:-}
+      DEMO: ${DEMO:-0}
+      PUBLIC_URL: ${PUBLIC_URL:-}
     ports:
       - "${PORT:-8000}:8000"
     volumes:
@@ -24,12 +24,12 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://0.0.0.0:8000/')",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/')",
         ]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 10s
+      retries: 5
+      start_period: 20s
     logging:
       driver: "json-file"
       options:
@@ -37,23 +37,25 @@ services:
         max-file: "3"
 
   tunnel:
-    image: cloudflare/cloudflared:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.tunnel
     container_name: mourningreport-tunnel
-    restart: always
+    restart: unless-stopped
+    # Share the app network namespace so the supervisor can reach 127.0.0.1:8000.
     network_mode: "service:app"
     depends_on:
-      - app
-    entrypoint: ["cloudflared"]
-    command:
-      [
-        "tunnel",
-        "--protocol",
-        "http2",
-        "--no-autoupdate",
-        "run",
-        "--token",
-        "eyJhIjoiMDhmNDlhYWRkNzI1ZWY5NjQ1MTdlZDAwMzM2ZDFiNDAiLCJ0IjoiNWUxOGZhYWMtMWM0ZC00YzFlLWI1NzAtNmQwYjI5Yjk2YTc1IiwicyI6Ik5Ea3lOekEyWXpNdFptTmpOQzAwWWpkbExXRTBPVEV0WTJFd09UZzBZMkZpTVdWbCJ9",
-      ]
+      app:
+        condition: service_healthy
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+      CLOUDFLARE_TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      TUNNEL_ENABLED: ${TUNNEL_ENABLED:-true}
+      TUNNEL_TARGET_URL: http://127.0.0.1:8000
+    volumes:
+      - data:/app/data
+
 volumes:
   data:
   backups:
