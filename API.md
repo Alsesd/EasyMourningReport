@@ -37,10 +37,6 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 | GET | `/admin/reports/{id}` | Admin | Report detail |
 | PATCH | `/admin/reports/{id}` | Admin | Lock/unlock by setting status |
 | GET | `/admin/summary?period=YYYY-MM&submitted_only=false` | Admin | Summary DTO and totals |
-| GET | `/admin/tunnel` | Admin | Public tunnel status and live URL |
-| POST | `/admin/tunnel` | Admin | Enable public tunnel |
-| PUT | `/admin/tunnel/autostart` | Admin | Toggle tunnel autostart |
-| DELETE | `/admin/tunnel` | Admin | Disconnect live tunnel |
 | GET | `/admin/log-actions` | Admin | Valid audit action filter values |
 | GET | `/admin/logs?login=&action=&limit=200` | Admin | Recent audit logs |
 
@@ -79,18 +75,20 @@ Content-Type: application/json
 
 ## Client rendering
 
-The admin catalogue/store view, store report editor, admin report list/detail, monthly summary and audit log are Alpine.js components. They fetch DTOs, update the DOM client-side, show loading/error states, and use JSON writes. Jinja renders the lightweight page shells and still handles login/logout and the binary Excel export. The page-specific component scripts and API client are loaded before Alpine initializes so x-data callbacks are registered before the DOM scan.
+The admin catalogue/store view, store report editor, admin report list/detail, monthly summary and audit log are Alpine.js components. They fetch DTOs, update the DOM client-side, show loading/error states, and use JSON writes. Jinja renders the lightweight page shells and still handles login/logout and the binary Excel export. The page-specific component scripts and API client are loaded before Alpine initializes so x-data callbacks are registered before the DOM scan. The Windows build fetches a pinned Alpine runtime into the packaged static assets, so the released EXE does not need the CDN at runtime; source checkouts use the pinned CDN as a fallback if the local build asset is absent.
 
 
 ## Local development and runtime secrets
 
-From the repository root, install the locked dependencies and run the app:
+From the repository root, install the locked dependencies and run the app without building an executable:
 
 ```bash
-pdm install
-pdm run python run.py
+poetry install
+poetry run python run.py
 ```
 
 Open `http://127.0.0.1:8000`. Stop the server with Ctrl+C. The first run initializes the SQLite database, backups, and `secret.key`; the initial administrator password is printed to the terminal.
 
-`secret.key` is a randomly generated application secret used by Starlette's session middleware to sign session cookies. Keep it private, exclude it from source control, and back it up alongside `reports.db`. Losing or changing it invalidates existing signed sessions, so users must sign in again; it does not reset their stored passwords. You may set a stable secret using the `SECRET_KEY` environment variable instead.
+`secret.key` is a randomly generated application secret used by Starlette's session middleware to sign session cookies. It is not a Tailscale key and does not grant Tailscale access. Keep it private, exclude it from source control, and back it up alongside `reports.db`. Losing or changing it invalidates existing signed sessions, so users must sign in again; it does not reset their stored passwords. You may set a stable secret using the `SECRET_KEY` environment variable instead.
+
+On Windows, `start.bat` uses interactive browser login when Tailscale is not connected and relies on Tailscale's persisted device state for subsequent starts. A reusable auth key is not required for this path and must not be stored in the repository or in `start.bat`. Funnel still requires permission in the tailnet.

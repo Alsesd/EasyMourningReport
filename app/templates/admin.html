@@ -5,26 +5,26 @@
     <p class="hint">Каталог і магазини завантажуються через REST API. Ціни зберігаються в копійках, а зміни ціни діють з поточного місяця; вже збережені рядки звітів не перераховуються.</p>
 
     <section class="card tailscale-card" id="tailscale" aria-labelledby="tailscale-title">
-        <h2 id="tailscale-title">Публічний тунель (Cloudflare Tunnel)</h2>
-        <p class="hint" x-show="!tailscaleActive">Публічний доступ через безпечний тунель. Дозволяє користувачам підключатися через захищене HTTPS-з'єднання без відкриття портів у роутері.</p>
+        <h2 id="tailscale-title">Tailscale Funnel</h2>
+        <p class="hint" x-show="!tailscaleActive">Окремий Tailscale-вузол для цього застосунку. Funnel відкриває застосунок для публічного HTTPS-доступу — вмикайте його лише якщо це потрібно.</p>
 
         <div class="tailscale-status" role="status" aria-live="polite">
             <span class="status-dot" :class="'state-' + (tailscale.state || 'disabled')"></span>
-            <strong class="tailscale-state-text" x-text="({disabled:'Вимкнено',starting:'Підключення…',running:'Працює · Тунель активний', 'authentication-required':'Потрібна авторизація', 'enabled-but-not-running':'Автозапуск увімкнений · не запущено',stopped:'Зупинено',stopping:'Вимкнення…',error:'Помилка'})[tailscale.state] || tailscale.state"></strong>
+            <strong class="tailscale-state-text" x-text="({disabled:'Вимкнено',starting:'Підключення…',running:'Працює · Funnel активний', 'authentication-required':'Потрібна авторизація', 'enabled-but-not-running':'Автозапуск увімкнений · не запущено',stopped:'Зупинено',stopping:'Вимкнення…',error:'Помилка'})[tailscale.state] || tailscale.state"></strong>
         </div>
 
         <p class="flash err" x-show="tailscale.error" x-text="tailscale.error"></p>
-        <p class="tailscale-link-row" x-show="tailscale.login_url"><a class="tailscale-link" :href="tailscale.login_url" target="_blank" rel="noopener noreferrer">Завершити вхід ↗</a></p>
+        <p class="tailscale-link-row" x-show="tailscale.login_url"><a class="tailscale-link" :href="tailscale.login_url" target="_blank" rel="noopener noreferrer">Завершити вхід у Tailscale ↗</a></p>
         <p class="tailscale-link-row" x-show="tailscale.public_url"><a class="tailscale-link" :href="tailscale.public_url" target="_blank" rel="noopener noreferrer" x-text="tailscale.public_url"></a></p>
 
         <div class="tailscale-active-controls" x-show="tailscaleActive">
-            <button type="button" class="danger tailscale-disconnect" @click="stopTailscale()" :disabled="tailscaleBusy" x-text="tailscaleBusy ? 'Відключення…' : 'Відключити тунель'">Відключити тунель</button>
+            <button type="button" class="danger tailscale-disconnect" @click="stopTailscale()" :disabled="tailscaleBusy" x-text="tailscaleBusy ? 'Відключення…' : 'Відключити Tailscale'">Відключити Tailscale</button>
         </div>
 
         <form class="entry-form tailscale-form" x-show="!tailscaleActive" @submit.prevent="startTailscale()">
-            <label class="field grow"><span>Токен тунелю (необов’язково)</span><input type="password" x-model="tailscaleAuthKey" autocomplete="off" placeholder="Порожньо — швидкий TryCloudflare Quick Tunnel"></label>
-            <label class="chk"><input type="checkbox" x-model="confirmPublic"> Підтверджую публічний доступ через тунель</label>
-            <button class="primary" type="submit" :disabled="tailscaleBusy || !confirmPublic" x-text="tailscaleBusy ? 'Підключення…' : 'Підключити тунель'">Підключити тунель</button>
+            <label class="field grow"><span>Auth key (необов’язково)</span><input type="password" x-model="tailscaleAuthKey" autocomplete="off" placeholder="Порожньо — браузерна авторизація"></label>
+            <label class="chk"><input type="checkbox" x-model="confirmPublic"> Підтверджую публічний доступ через Funnel</label>
+            <button class="primary" type="submit" :disabled="tailscaleBusy || !confirmPublic" x-text="tailscaleBusy ? 'Підключення…' : 'Підключити Tailscale'">Підключити Tailscale</button>
         </form>
 
         <div class="tailscale-preferences">
@@ -34,7 +34,7 @@
             </label>
             <span class="hint tailscale-refresh-note">Статус оновлюється автоматично</span>
         </div>
-        <p class="hint tailscale-help-links" x-show="!tailscaleActive"><a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/" target="_blank" rel="noopener noreferrer">Документація Cloudflare Tunnel ↗</a></p>
+        <p class="hint tailscale-help-links" x-show="!tailscaleActive"><a href="https://login.tailscale.com/admin/machines" target="_blank" rel="noopener noreferrer">Пристрої Tailscale ↗</a> · <a href="https://tailscale.com/kb/1223/funnel" target="_blank" rel="noopener noreferrer">Документація Funnel ↗</a></p>
     </section>
 
     <div class="flash" x-show="message" :class="'flash ' + messageKind" role="status" aria-live="polite">
