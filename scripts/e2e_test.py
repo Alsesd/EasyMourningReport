@@ -38,10 +38,11 @@ def run_tests():
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(
-                executable_path="/home/alsesd/EasyMourningReport/scripts/run_chrome.sh",
-                headless=True,
-            )
+            custom_chrome = "/home/alsesd/EasyMourningReport/scripts/run_chrome.sh"
+            launch_args = {"headless": True}
+            if os.path.isfile(custom_chrome):
+                launch_args["executable_path"] = custom_chrome
+            browser = p.chromium.launch(**launch_args)
 
             # -------------------------------------------------------------
             # 1. Store Clerk Flow (Mobile viewport 390x844)

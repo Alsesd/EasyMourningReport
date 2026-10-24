@@ -9,6 +9,7 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - LEGKYI_DATA_DIR=/app/data
+      - LEGKYI_BACKUPS_DIR=/app/backups
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
       - SECRET_KEY=${SECRET_KEY:-}
       - DEMO=${DEMO:-0}
@@ -16,17 +17,17 @@ services:
     ports:
       - "${PORT:-8000}:8000"
     volumes:
-      - data:/app/data
-      - backups:/app/backups
+      - ${DATA_PATH:-./data}:/app/data
+      - ${BACKUPS_PATH:-./backups}:/app/backups
     healthcheck:
       test:
         [
           "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://0.0.0.0:8000/')",
+          "curl",
+          "-fsS",
+          "http://127.0.0.1:8000/",
         ]
-      interval: 10s
+      interval: 15s
       timeout: 5s
       retries: 3
       start_period: 10s
@@ -37,23 +38,17 @@ services:
         max-file: "3"
 
   tunnel:
-    image: cloudflare/cloudflared:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.tunnel
     container_name: mourningreport-tunnel
-    restart: always
+    restart: unless-stopped
     network_mode: "service:app"
     depends_on:
       - app
-    entrypoint: ["cloudflared"]
-    command:
-      [
-        "tunnel",
-        "--protocol",
-        "http2",
-        "--no-autoupdate",
-        "run",
-        "--token",
-        "eyJhIjoiMDhmNDlhYWRkNzI1ZWY5NjQ1MTdlZDAwMzM2ZDFiNDAiLCJ0IjoiNWUxOGZhYWMtMWM0ZC00YzFlLWI1NzAtNmQwYjI5Yjk2YTc1IiwicyI6Ik5Ea3lOekEyWXpNdFptTmpOQzAwWWpkbExXRTBPVEV0WTJFd09UZzBZMkZpTVdWbCJ9",
-      ]
-volumes:
-  data:
-  backups:
+    volumes:
+      - ${DATA_PATH:-./data}:/app/data
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
+      - PUBLIC_URL=${PUBLIC_URL:-}
+      - TUNNEL_ENABLED=${TUNNEL_ENABLED:-true}

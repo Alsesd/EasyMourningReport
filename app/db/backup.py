@@ -8,7 +8,14 @@ from pathlib import Path
 
 from app.db.session import DB_PATH
 
-BACKUP_DIR = DB_PATH.parent / "backups"
+def _get_backup_dir() -> Path:
+    env_dir = os.getenv("LEGKYI_BACKUPS_DIR") or os.getenv("BACKUPS_DIR")
+    if env_dir:
+        return Path(env_dir).expanduser().resolve()
+    return DB_PATH.parent / "backups"
+
+
+BACKUP_DIR = _get_backup_dir()
 KEEP = max(1, int(os.getenv("BACKUP_KEEP", "100")))  # keep at least one backup
 EVERY_MIN = int(os.getenv("BACKUP_EVERY_MIN", "60"))  # how often the background check runs
 

@@ -21,19 +21,19 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles =
-      "inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none select-none rounded-control";
+      "inline-flex items-center justify-center font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none select-none rounded-control active:scale-[0.98]";
 
     const variantStyles = {
       primary:
-        "bg-primary text-primary-fg hover:bg-primary-hover active:opacity-90 shadow-sm",
+        "bg-primary text-primary-fg hover:bg-primary-hover shadow-xs hover:shadow-sm active:opacity-95",
       secondary:
-        "bg-surface text-text-main border border-border hover:bg-page active:bg-border/30 shadow-xs",
+        "bg-surface text-text-main border border-border/90 hover:bg-page hover:border-border active:bg-border/30 shadow-2xs",
       destructive:
-        "bg-destructive text-destructive-fg hover:bg-destructive-hover active:opacity-90 shadow-sm",
+        "bg-destructive text-destructive-fg hover:bg-destructive-hover shadow-xs hover:shadow-sm active:opacity-95",
       ghost:
-        "text-text-main hover:bg-page active:bg-border/30",
+        "text-text-main hover:bg-page/80 active:bg-border/30",
       outline:
-        "border border-border text-text-main bg-transparent hover:bg-surface active:bg-page",
+        "border border-border text-text-main bg-transparent hover:bg-surface/80 hover:border-border/80 active:bg-page",
     };
 
     const sizeStyles = {

@@ -7,6 +7,7 @@ import { uk, formatCurrency, formatPeriodReadable, shiftPeriod } from "@/i18n/uk
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { AnimatedCollapse } from "@/components/ui/AnimatedCollapse";
 import { QuantityStepper } from "@/components/QuantityStepper";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { MakerMark } from "@/components/MakerMark";
@@ -341,31 +342,33 @@ export default function StoreReportPage() {
         )}
 
         {/* Feedback Alert */}
-        {feedback && (
-          <div
-            role="alert"
-            className={cn(
-              "flex items-start space-x-2.5 p-3 rounded-control text-xs sm:text-sm font-medium border transition-all animate-slide-down",
-              feedback.type === "ok"
-                ? "bg-pill-sent-bg/50 border-pill-sent-text/20 text-pill-sent-text"
-                : "bg-destructive/10 border-destructive/20 text-destructive"
-            )}
-          >
-            {feedback.type === "ok" ? (
-              <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
-            ) : (
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-            )}
-            <div className="flex-1">{feedback.message}</div>
-            <button
-              type="button"
-              onClick={() => setFeedback(null)}
-              className="text-current opacity-70 hover:opacity-100 p-0.5"
+        <AnimatedCollapse open={Boolean(feedback)}>
+          {feedback && (
+            <div
+              role="alert"
+              className={cn(
+                "flex items-start space-x-2.5 p-3 rounded-control text-xs sm:text-sm font-medium border shadow-xs transition-all",
+                feedback.type === "ok"
+                  ? "bg-pill-sent-bg/50 border-pill-sent-text/25 text-pill-sent-text"
+                  : "bg-destructive/10 border-destructive/25 text-destructive"
+              )}
             >
-              ✕
-            </button>
-          </div>
-        )}
+              {feedback.type === "ok" ? (
+                <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+              ) : (
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              )}
+              <div className="flex-1">{feedback.message}</div>
+              <button
+                type="button"
+                onClick={() => setFeedback(null)}
+                className="text-current opacity-70 hover:opacity-100 p-0.5"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </AnimatedCollapse>
 
         {/* Period Switcher Card */}
         <Card className="shadow-2xs">

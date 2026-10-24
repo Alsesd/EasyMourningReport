@@ -7,6 +7,7 @@ import { uk, formatCurrency, formatPeriodReadable } from "@/i18n/uk";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
+import { AnimatedCollapse } from "@/components/ui/AnimatedCollapse";
 import {
   Dialog,
   DialogContent,
@@ -137,34 +138,36 @@ export default function AdminReportDetailPage() {
       </div>
 
       {/* Feedback banner */}
-      {feedbackMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={`p-4 rounded-card border flex items-center justify-between text-sm ${
-            feedbackMessage.kind === "ok"
-              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-              : "bg-destructive/10 border-destructive/20 text-destructive"
-          }`}
-        >
-          <div className="flex items-center space-x-2">
-            {feedbackMessage.kind === "ok" ? (
-              <CheckCircle className="h-5 w-5 shrink-0" />
-            ) : (
-              <AlertCircle className="h-5 w-5 shrink-0" />
-            )}
-            <span>{feedbackMessage.text}</span>
-          </div>
-          <button
-            type="button"
-            className="text-text-muted hover:text-text-main p-1 rounded min-h-[44px] min-w-[44px] flex items-center justify-center"
-            onClick={() => setFeedbackMessage(null)}
-            aria-label="Закрити"
+      <AnimatedCollapse open={Boolean(feedbackMessage)}>
+        {feedbackMessage && (
+          <div
+            role="status"
+            aria-live="polite"
+            className={`p-4 rounded-card border flex items-center justify-between text-sm shadow-sm transition-all ${
+              feedbackMessage.kind === "ok"
+                ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-700 dark:text-emerald-300"
+                : "bg-destructive/10 border-destructive/25 text-destructive"
+            }`}
           >
-            ×
-          </button>
-        </div>
-      )}
+            <div className="flex items-center space-x-2">
+              {feedbackMessage.kind === "ok" ? (
+                <CheckCircle className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
+              )}
+              <span>{feedbackMessage.text}</span>
+            </div>
+            <button
+              type="button"
+              className="text-text-muted hover:text-text-main p-1 rounded min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
+              onClick={() => setFeedbackMessage(null)}
+              aria-label="Закрити"
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </AnimatedCollapse>
 
       {/* Report Header Card */}
       <Card>

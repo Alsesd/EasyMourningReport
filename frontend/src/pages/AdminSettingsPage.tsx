@@ -7,6 +7,7 @@ import { uk, formatCurrency, formatMoney, parseCents } from "@/i18n/uk";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { AnimatedCollapse } from "@/components/ui/AnimatedCollapse";
 import {
   Dialog,
   DialogContent,
@@ -438,34 +439,36 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Global Alert / Feedback */}
-      {feedback && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={`p-4 rounded-card border flex items-center justify-between text-sm ${
-            feedback.kind === "ok"
-              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-              : "bg-destructive/10 border-destructive/20 text-destructive"
-          }`}
-        >
-          <div className="flex items-center space-x-2">
-            {feedback.kind === "ok" ? (
-              <CheckCircle className="h-5 w-5 shrink-0" />
-            ) : (
-              <AlertCircle className="h-5 w-5 shrink-0" />
-            )}
-            <span>{feedback.text}</span>
-          </div>
-          <button
-            type="button"
-            className="text-text-muted hover:text-text-main p-1 rounded min-h-[44px] min-w-[44px] flex items-center justify-center"
-            onClick={() => setFeedback(null)}
-            aria-label="Закрити"
+      <AnimatedCollapse open={Boolean(feedback)}>
+        {feedback && (
+          <div
+            role="status"
+            aria-live="polite"
+            className={`p-4 rounded-card border flex items-center justify-between text-sm shadow-sm transition-all ${
+              feedback.kind === "ok"
+                ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-700 dark:text-emerald-300"
+                : "bg-destructive/10 border-destructive/25 text-destructive"
+            }`}
           >
-            ×
-          </button>
-        </div>
-      )}
+            <div className="flex items-center space-x-2">
+              {feedback.kind === "ok" ? (
+                <CheckCircle className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
+              )}
+              <span>{feedback.text}</span>
+            </div>
+            <button
+              type="button"
+              className="text-text-muted hover:text-text-main p-1 rounded min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
+              onClick={() => setFeedback(null)}
+              aria-label="Закрити"
+            >
+              ×
+            </button>
+          </div>
+        )}
+      </AnimatedCollapse>
 
       {/* ========================================================================= */}
       {/* TAB 1: PRODUCTS                                                           */}
@@ -497,58 +500,60 @@ export default function AdminSettingsPage() {
           </div>
 
           {/* Create Product Form Foldout */}
-          {createProductOpen && (
-            <Card className="border-primary/40 bg-page/30">
-              <CardHeader className="p-4 sm:p-5 border-b border-border">
-                <CardTitle className="text-base">Новий товар</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-5">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!newProductName.trim() || !newProductPrice.trim()) return;
-                    createProductMutation.mutate({
-                      name: newProductName.trim(),
-                      price: newProductPrice.trim(),
-                    });
-                  }}
-                  className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3"
-                >
-                  <div className="flex-1 space-y-1.5">
-                    <label className="text-xs font-medium text-text-muted">Назва товару</label>
-                    <Input
-                      value={newProductName}
-                      onChange={(e) => setNewProductName(e.target.value)}
-                      placeholder="Введіть назву товару"
-                      maxLength={100}
-                      required
-                      className="h-11"
-                    />
-                  </div>
-
-                  <div className="w-full sm:w-40 space-y-1.5">
-                    <label className="text-xs font-medium text-text-muted">Ціна (грн)</label>
-                    <Input
-                      value={newProductPrice}
-                      onChange={(e) => setNewProductPrice(e.target.value)}
-                      placeholder="0.00"
-                      inputMode="decimal"
-                      required
-                      className="h-11 font-mono"
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="min-h-[44px] shrink-0"
-                    disabled={createProductMutation.isPending}
+          <AnimatedCollapse open={createProductOpen}>
+            <div className="pt-1 pb-1">
+              <Card className="border-primary/50 bg-surface/90 shadow-sm backdrop-blur-xs">
+                <CardHeader className="p-4 sm:p-5 border-b border-border">
+                  <CardTitle className="text-base">Новий товар</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-5">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!newProductName.trim() || !newProductPrice.trim()) return;
+                      createProductMutation.mutate({
+                        name: newProductName.trim(),
+                        price: newProductPrice.trim(),
+                      });
+                    }}
+                    className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3"
                   >
-                    {createProductMutation.isPending ? "Додаю…" : "Додати товар"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          )}
+                    <div className="flex-1 space-y-1.5">
+                      <label className="text-xs font-medium text-text-muted">Назва товару</label>
+                      <Input
+                        value={newProductName}
+                        onChange={(e) => setNewProductName(e.target.value)}
+                        placeholder="Введіть назву товару"
+                        maxLength={100}
+                        required
+                        className="h-11"
+                      />
+                    </div>
+
+                    <div className="w-full sm:w-40 space-y-1.5">
+                      <label className="text-xs font-medium text-text-muted">Ціна (грн)</label>
+                      <Input
+                        value={newProductPrice}
+                        onChange={(e) => setNewProductPrice(e.target.value)}
+                        placeholder="0.00"
+                        inputMode="decimal"
+                        required
+                        className="h-11 font-mono"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="min-h-[44px] shrink-0"
+                      disabled={createProductMutation.isPending}
+                    >
+                      {createProductMutation.isPending ? "Додаю…" : "Додати товар"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          </AnimatedCollapse>
 
           {/* Excel Import Card */}
           <Card>
@@ -675,7 +680,7 @@ export default function AdminSettingsPage() {
                             <Button
                               size="sm"
                               variant="primary"
-                              className="min-h-[44px]"
+                              className="min-h-[44px] animate-scale-in"
                               disabled={updateProductMutation.isPending}
                               onClick={() =>
                                 updateProductMutation.mutate({
@@ -715,8 +720,8 @@ export default function AdminSettingsPage() {
                       </div>
 
                       {/* Price Editor Foldout */}
-                      {isPriceOpen && (
-                        <div className="mt-4 pt-4 border-t border-border/80 bg-page/40 p-4 rounded-control space-y-3">
+                      <AnimatedCollapse open={isPriceOpen}>
+                        <div className="mt-4 pt-4 border-t border-border/80 bg-page/50 p-4 rounded-control space-y-3 shadow-inner/5">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-center space-x-2">
                               <label className="text-xs font-medium text-text-muted whitespace-nowrap">
@@ -740,7 +745,7 @@ export default function AdminSettingsPage() {
                             <Button
                               size="sm"
                               variant="primary"
-                              className="min-h-[40px]"
+                              className="min-h-[40px] shadow-sm transition-all"
                               disabled={!hasPriceChanged || updatePriceMutation.isPending}
                               onClick={() =>
                                 updatePriceMutation.mutate({
@@ -800,7 +805,7 @@ export default function AdminSettingsPage() {
                             використані ціни; з наступного місяця залишиться остання.
                           </p>
                         </div>
-                      )}
+                      </AnimatedCollapse>
                     </div>
                   );
                 })
@@ -919,80 +924,82 @@ export default function AdminSettingsPage() {
           </div>
 
           {/* Create Store Foldout */}
-          {createStoreOpen && (
-            <Card className="border-primary/40 bg-page/30">
-              <CardHeader className="p-4 sm:p-5 border-b border-border">
-                <CardTitle className="text-base">Новий магазин</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-5">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!newStoreName.trim() || !newStoreLogin.trim() || !newStorePassword.trim()) {
-                      return;
-                    }
-                    createStoreMutation.mutate({
-                      name: newStoreName.trim(),
-                      login: newStoreLogin.trim(),
-                      password: newStorePassword.trim(),
-                    });
-                  }}
-                  className="space-y-4"
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-text-muted">Назва магазину</label>
-                      <Input
-                        value={newStoreName}
-                        onChange={(e) => setNewStoreName(e.target.value)}
-                        placeholder="Центральний"
-                        maxLength={100}
-                        required
-                        className="h-11"
-                      />
+          <AnimatedCollapse open={createStoreOpen}>
+            <div className="pt-1 pb-1">
+              <Card className="border-primary/50 bg-surface/90 shadow-sm backdrop-blur-xs">
+                <CardHeader className="p-4 sm:p-5 border-b border-border">
+                  <CardTitle className="text-base">Новий магазин</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-5">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!newStoreName.trim() || !newStoreLogin.trim() || !newStorePassword.trim()) {
+                        return;
+                      }
+                      createStoreMutation.mutate({
+                        name: newStoreName.trim(),
+                        login: newStoreLogin.trim(),
+                        password: newStorePassword.trim(),
+                      });
+                    }}
+                    className="space-y-4"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-text-muted">Назва магазину</label>
+                        <Input
+                          value={newStoreName}
+                          onChange={(e) => setNewStoreName(e.target.value)}
+                          placeholder="Центральний"
+                          maxLength={100}
+                          required
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-text-muted">Логін для входу</label>
+                        <Input
+                          value={newStoreLogin}
+                          onChange={(e) => setNewStoreLogin(e.target.value)}
+                          placeholder="store_center"
+                          maxLength={40}
+                          autoCapitalize="none"
+                          required
+                          className="h-11 font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-text-muted">
+                          Пароль (від 6 симв.)
+                        </label>
+                        <Input
+                          type="password"
+                          value={newStorePassword}
+                          onChange={(e) => setNewStorePassword(e.target.value)}
+                          placeholder="••••••••"
+                          minLength={6}
+                          required
+                          className="h-11"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-text-muted">Логін для входу</label>
-                      <Input
-                        value={newStoreLogin}
-                        onChange={(e) => setNewStoreLogin(e.target.value)}
-                        placeholder="store_center"
-                        maxLength={40}
-                        autoCapitalize="none"
-                        required
-                        className="h-11 font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-text-muted">
-                        Пароль (від 6 симв.)
-                      </label>
-                      <Input
-                        type="password"
-                        value={newStorePassword}
-                        onChange={(e) => setNewStorePassword(e.target.value)}
-                        placeholder="••••••••"
-                        minLength={6}
-                        required
-                        className="h-11"
-                      />
-                    </div>
-                  </div>
 
-                  <div className="flex justify-end">
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      className="min-h-[44px]"
-                      disabled={createStoreMutation.isPending}
-                    >
-                      {createStoreMutation.isPending ? "Створюю…" : "Додати магазин"}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          )}
+                    <div className="flex justify-end">
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        className="min-h-[44px]"
+                        disabled={createStoreMutation.isPending}
+                      >
+                        {createStoreMutation.isPending ? "Створюю…" : "Додати магазин"}
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+          </AnimatedCollapse>
 
           {/* Active Stores List */}
           <Card>
@@ -1061,7 +1068,7 @@ export default function AdminSettingsPage() {
                             <Button
                               size="sm"
                               variant="primary"
-                              className="min-h-[44px]"
+                              className="min-h-[44px] animate-scale-in"
                               disabled={updateStoreMutation.isPending}
                               onClick={() =>
                                 updateStoreMutation.mutate({
@@ -1119,7 +1126,7 @@ export default function AdminSettingsPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="min-h-[40px]"
+                            className="min-h-[40px] animate-scale-in"
                             disabled={
                               currentNewPassword.length < 6 ||
                               resetStorePasswordMutation.isPending

@@ -20,32 +20,45 @@ COPY pyproject.toml pdm.lock* ./
 RUN pdm config venv.in_project true && \
     pdm install --prod --no-editable
 
-# Stage 3: Minimal runtime
-FROM python:3.11-slim
+# Stage 3: Minimal production runtime
+FROM python:3.11-slim AS runtime
 
 WORKDIR /app
+
+# Install curl for robust healthcheck probes
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy production virtualenv built with prefix /app/.venv
 COPY --from=python-builder /app/.venv /app/.venv
 
-# Copy runtime code and built SPA assets
+# Copy runtime code, application entry point, and built SPA assets
 COPY app/ /app/app/
+COPY run.py /app/run.py
 COPY --from=frontend-builder /app/app/static/app/ /app/app/static/app/
 
-# Persistent data lives in a mounted volume
+# Create persistent storage directories
 RUN mkdir -p /app/data /app/backups
+
+# Declare persistent storage volumes for host device persistence
+VOLUME ["/app/data", "/app/backups"]
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONIOENCODING=utf-8 \
     LEGKYI_DATA_DIR=/app/data \
+    LEGKYI_BACKUPS_DIR=/app/backups \
     HOST=0.0.0.0 \
     PORT=8000
 
+# Expose application port across Linux and Windows networks
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/')" || exit 1
+# Enterprise healthcheck using native HTTP endpoint with dynamic PORT support
+HEALTHCHECK --interval=20s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -fsS "http://127.0.0.1:${PORT:-8000}/" || exit 1
 
-# Direct Uvicorn execution via module invocation with proxy support for tunnel
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]
+# Unified production entry point with enterprise startup diagnostics and banner
+CMD ["python", "run.py"]

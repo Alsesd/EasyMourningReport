@@ -9,56 +9,56 @@
 
 @layer base {
   :root {
-    --page: #f2f5f8;
+    --page: #f4f7fb;
     --surface: #ffffff;
-    --surface-raised: #e9f0f6;
-    --text: #202c38;
-    --muted-text: #637486;
-    --border: #d8e1e9;
-    --primary: #426f9d;
+    --surface-raised: #edf3f9;
+    --text: #1d2936;
+    --muted-text: #5e7186;
+    --border: #d4e0ec;
+    --primary: #34679a;
     --primary-fg: #ffffff;
-    --primary-hover: #355a80;
-    --destructive: #a63d50;
+    --primary-hover: #29527b;
+    --destructive: #ab3c51;
     --destructive-fg: #ffffff;
-    --destructive-hover: #8b2e3f;
-    --accent: #426f9d;
-    --accent-soft: #e3edf7;
+    --destructive-hover: #8f2d40;
+    --accent: #34679a;
+    --accent-soft: #eaf1f8;
     
-    --pill-sent-bg: #e1f3ec;
-    --pill-sent-text: #28785e;
-    --pill-draft-bg: #fdf4e7;
-    --pill-draft-text: #926326;
-    --pill-none-bg: #e9f0f6;
-    --pill-none-text: #637486;
+    --pill-sent-bg: #def3ea;
+    --pill-sent-text: #216d55;
+    --pill-draft-bg: #fdf2e2;
+    --pill-draft-text: #8c5b20;
+    --pill-none-bg: #eaf0f6;
+    --pill-none-text: #5e7186;
   }
 
   .dark, [data-theme="dark"] {
-    --page: #101722;
-    --surface: #1b2737;
-    --surface-raised: #25364b;
-    --text: #e7eef8;
-    --muted-text: #9baec4;
-    --border: #34475e;
-    --primary: #7ba9d8;
-    --primary-fg: #101722;
-    --primary-hover: #8ebced;
-    --destructive: #e69aab;
-    --destructive-fg: #101722;
-    --destructive-hover: #f2adb9;
-    --accent: #7ba9d8;
-    --accent-soft: rgba(104, 151, 199, 0.16);
+    --page: #0d141e;
+    --surface: #14202d;
+    --surface-raised: #1c2b3d;
+    --text: #ecf3fc;
+    --muted-text: #92a7bf;
+    --border: #283a4f;
+    --primary: #6daae8;
+    --primary-fg: #0d141e;
+    --primary-hover: #87bdf4;
+    --destructive: #ea98a9;
+    --destructive-fg: #0d141e;
+    --destructive-hover: #f5acbb;
+    --accent: #6daae8;
+    --accent-soft: rgba(109, 170, 232, 0.16);
 
-    --pill-sent-bg: #1b3a32;
-    --pill-sent-text: #8ccbb8;
-    --pill-draft-bg: #382e18;
-    --pill-draft-text: #e0c18a;
-    --pill-none-bg: #25364b;
-    --pill-none-text: #9baec4;
+    --pill-sent-bg: #16362e;
+    --pill-sent-text: #8bd3bf;
+    --pill-draft-bg: #3b2e16;
+    --pill-draft-text: #e6c588;
+    --pill-none-bg: #1c2b3d;
+    --pill-none-text: #92a7bf;
   }
 
   body {
-    background: radial-gradient(ellipse at 8% 0%, rgba(83, 123, 167, 0.10), transparent 42%),
-                radial-gradient(ellipse at 95% 28%, rgba(81, 107, 154, 0.07), transparent 36%),
+    background: radial-gradient(ellipse at 10% 0%, rgba(52, 103, 154, 0.08), transparent 45%),
+                radial-gradient(ellipse at 92% 25%, rgba(67, 126, 184, 0.05), transparent 38%),
                 var(--page);
     background-attachment: fixed;
     color: var(--text);
@@ -69,13 +69,13 @@
   }
 
   .dark body, [data-theme="dark"] body {
-    background: radial-gradient(ellipse at 8% 0%, rgba(83, 123, 167, 0.17), transparent 42%),
-                radial-gradient(ellipse at 95% 28%, rgba(81, 107, 154, 0.11), transparent 36%),
+    background: radial-gradient(ellipse at 10% 0%, rgba(109, 170, 232, 0.14), transparent 45%),
+                radial-gradient(ellipse at 92% 25%, rgba(85, 137, 194, 0.09), transparent 38%),
                 var(--page);
     background-attachment: fixed;
   }
 
-  /* Accessible high-contrast focus rings */
+  /* Accessible high-contrast focus rings with soft glow */
   :focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
