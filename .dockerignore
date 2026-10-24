@@ -1,0 +1,56 @@
+# Version control
+.git
+.gitignore
+
+# Python virtual environments and caches
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.coverage
+htmlcov
+
+# Nix / direnv
+.direnv
+.envrc
+flake.nix
+flake.lock
+result
+
+# Tests
+tests
+
+# Documentation
+*.md
+docs
+
+# Build artifacts
+build
+dist
+*.spec
+*.egg-info
+
+# IDE
+.idea
+.vscode
+
+# Local env & data
+.env
+.pdm-python
+backups
+data
+reports.db
+secret.key
+
+# Docker & Compose files
+compose*.yaml
+compose*.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# GitHub
+.github

@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from app.core.dependencies import clean_login, clean_name, new_password, parse_period, to_cents
 from app.core.security import hash_pw
 from app.core.tailscale import get_status as tailscale_status, set_autostart as set_tailscale_autostart, start_funnel, stop_funnel
+from app.core.tunnel import get_status as tunnel_status, set_autostart as set_tunnel_autostart, start_tunnel, stop_tunnel
 from app.core.ui import FormError, current_period, money
 from app.db.backup import backup_db
 from app.db.models.audit import AuditLog
@@ -147,6 +148,63 @@ def disable_tailscale_funnel(
     result = stop_funnel()
     if result.get("state") == "error":
         raise HTTPException(status_code=500, detail=result.get("error") or "Не вдалося вимкнути Funnel.")
+    return result
+
+
+@router.get("/admin/tunnel")
+def get_tunnel_status(
+    user: User = Depends(api_admin_required),
+) -> dict:
+    """Return the tunnel status without credentials."""
+    return tunnel_status()
+
+
+@router.post("/admin/tunnel")
+def enable_tunnel(
+    payload: dict,
+    user: User = Depends(api_admin_required),
+) -> dict:
+    """Start public tunnel after explicit confirmation; never persist auth keys."""
+    if payload.get("confirm_public") is not True:
+        raise HTTPException(
+            status_code=400,
+            detail="Підтвердьте, що тунель відкриває застосунок для публічного доступу.",
+        )
+    auth_key = payload.get("auth_key")
+    if auth_key is not None and not isinstance(auth_key, str):
+        raise HTTPException(status_code=422, detail="Некоректний формат auth key.")
+    autostart = payload.get("autostart", True)
+    if not isinstance(autostart, bool):
+        raise HTTPException(status_code=422, detail="Некоректне значення автозапуску.")
+    result = start_tunnel(auth_key or None, autostart=autostart)
+    if result.get("state") == "error":
+        raise HTTPException(status_code=503, detail=result.get("error") or "Тунель не запустився.")
+    return result
+
+
+@router.put("/admin/tunnel/autostart")
+def update_tunnel_autostart(
+    payload: dict,
+    user: User = Depends(api_admin_required),
+) -> dict:
+    """Toggle startup autostart without changing the current tunnel session."""
+    enabled = payload.get("enabled")
+    if not isinstance(enabled, bool):
+        raise HTTPException(status_code=422, detail="Некоректне значення автозапуску.")
+    try:
+        return set_tunnel_autostart(enabled)
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.delete("/admin/tunnel")
+def disable_tunnel(
+    user: User = Depends(api_admin_required),
+) -> dict:
+    """Disconnect the tunnel helper; the autostart preference remains independent."""
+    result = stop_tunnel()
+    if result.get("state") == "error":
+        raise HTTPException(status_code=500, detail=result.get("error") or "Не вдалося вимкнути тунель.")
     return result
 
 def _product_dto(

@@ -316,6 +316,57 @@ class RestApiTests(unittest.TestCase):
         )
         self.assertEqual(forbidden.status_code, 403)
 
+    def test_tunnel_controls_and_autostart_are_admin_only(self):
+        status = {
+            "enabled": False,
+            "state": "disabled",
+            "public_url": "",
+            "login_url": "",
+            "error": "",
+        }
+        with patch("app.routes.api_v1.tunnel_status", return_value=status):
+            response = self.admin_client.get("/api/v1/admin/tunnel")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["state"], "disabled")
+
+        refused = self.admin_client.post(
+            "/api/v1/admin/tunnel",
+            json={"confirm_public": False},
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(refused.status_code, 400)
+
+        running = {**status, "enabled": True, "state": "running", "public_url": "https://test.trycloudflare.com"}
+        with patch("app.routes.api_v1.start_tunnel", return_value=running) as start:
+            response = self.admin_client.post(
+                "/api/v1/admin/tunnel",
+                json={"confirm_public": True, "auth_key": "tok-123"},
+                headers={"origin": "http://testserver"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["public_url"], "https://test.trycloudflare.com")
+        start.assert_called_once_with("tok-123", autostart=True)
+
+        with patch("app.routes.api_v1.set_tunnel_autostart", return_value=running) as setter:
+            response = self.admin_client.put(
+                "/api/v1/admin/tunnel/autostart",
+                json={"enabled": True},
+                headers={"origin": "http://testserver"},
+            )
+        self.assertEqual(response.status_code, 200)
+        setter.assert_called_once_with(True)
+
+        with patch("app.routes.api_v1.stop_tunnel", return_value=status):
+            response = self.admin_client.delete(
+                "/api/v1/admin/tunnel",
+                headers={"origin": "http://testserver"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["enabled"])
+
+        forbidden = self.store_client.get("/api/v1/admin/tunnel")
+        self.assertEqual(forbidden.status_code, 403)
+
 
     def test_store_report_round_trip_and_locking(self):
         response = self.store_client.get(f"/api/v1/store/reports/{self.period}")

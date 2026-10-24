@@ -280,6 +280,18 @@
                 }
             },
 
+            async startTunnel() {
+                return this.startTailscale();
+            },
+
+            async stopTunnel() {
+                return this.stopTailscale();
+            },
+
+            async setTunnelAutostart(enabled) {
+                return this.setTailscaleAutostart(enabled);
+            },
+
             async createProduct() {
                 if (this.creatingProduct) return;
                 this.creatingProduct = true;

@@ -13,7 +13,12 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.paths import asset_dir
 from app.core.security import load_secret, same_origin_post_guard
-from app.core.tailscale import shutdown as shutdown_tailscale, start_if_enabled as start_tailscale_if_enabled
+from app.core.tunnel import (
+    shutdown as shutdown_tunnel,
+    start_if_enabled as start_tunnel_if_enabled,
+)
+start_tailscale_if_enabled = start_tunnel_if_enabled
+shutdown_tailscale = shutdown_tunnel
 from app.core.ui import FormError, done, render, safe_referer
 from app.db.backup import backup_db, backup_loop
 from app.db.bootstrap import migrate, seed
@@ -62,7 +67,9 @@ def _is_api_request(request: Request) -> bool:
 def form_error(request: Request, exc: FormError):
     """JSON API clients receive machine-readable validation errors."""
     if _is_api_request(request):
-        return JSONResponse({"detail": exc.message, "code": "validation_error"}, status_code=422)
+        return JSONResponse(
+            {"detail": exc.message, "code": "validation_error"}, status_code=422
+        )
     return done(request, exc.to or safe_referer(request) or "/", exc.message, "err")
 
 
@@ -71,7 +78,11 @@ def invalid_form(request: Request, exc: RequestValidationError):
     """Use JSON for API validation and retain readable feedback for legacy forms."""
     if _is_api_request(request):
         errors = [
-            {"loc": [str(part) for part in error.get("loc", ())], "msg": error.get("msg", "Invalid value"), "type": error.get("type", "value_error")}
+            {
+                "loc": [str(part) for part in error.get("loc", ())],
+                "msg": error.get("msg", "Invalid value"),
+                "type": error.get("type", "value_error"),
+            }
             for error in exc.errors()
         ]
         return JSONResponse(
@@ -79,7 +90,9 @@ def invalid_form(request: Request, exc: RequestValidationError):
             status_code=422,
         )
     if request.method == "POST":
-        return done(request, safe_referer(request) or "/", "Заповніть усі поля форми.", "err")
+        return done(
+            request, safe_referer(request) or "/", "Заповніть усі поля форми.", "err"
+        )
     return render(
         request,
         "error.html",
@@ -92,7 +105,9 @@ def invalid_form(request: Request, exc: RequestValidationError):
 def http_error(request: Request, exc: StarletteHTTPException):
     """Preserve legacy redirects and use a consistent JSON error envelope for the API."""
     if _is_api_request(request):
-        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers)
+        return JSONResponse(
+            {"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers
+        )
     location = (exc.headers or {}).get("Location")
     if location and 300 <= exc.status_code < 400:
         return RedirectResponse(location, exc.status_code)
