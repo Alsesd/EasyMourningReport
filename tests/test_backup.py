@@ -95,6 +95,33 @@ class BackupTests(unittest.TestCase):
                 self.assertTrue(nested_backup_dir.is_dir())
                 self.assertTrue(result.is_file())
 
+    def test_get_backup_dir_strips_quotes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            custom_path = Path(tmp) / "quoted_backups"
+            with patch.dict(backup.os.environ, {"BACKUPS_PATH": f'"{custom_path}"'}):
+                resolved = backup._get_backup_dir()
+                self.assertEqual(resolved, custom_path.resolve())
+
+    def test_backup_db_handles_unlink_oserror_during_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "reports.db"
+            backup_dir = root / "backups"
+            backup_dir.mkdir()
+            with closing(sqlite3.connect(db_path)) as db:
+                with db:
+                    db.execute("CREATE TABLE t (x INT)")
+                    db.execute("INSERT INTO t VALUES (1)")
+            for stamp in ("20000101-000001", "20000102-000001"):
+                (backup_dir / f"reports-{stamp}.db").write_bytes(b"old")
+
+            with patch.object(backup, "DB_PATH", db_path), \
+                 patch.object(backup, "BACKUP_DIR", backup_dir), \
+                 patch.object(backup, "KEEP", 1), \
+                 patch.object(Path, "unlink", side_effect=OSError("Locked on Windows")):
+                # Should not raise exception
+                res = backup.backup_db(tag="prune-test")
+                self.assertIsNotNone(res)
 
 
 if __name__ == "__main__":

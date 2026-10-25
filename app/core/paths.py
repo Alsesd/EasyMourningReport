@@ -35,14 +35,23 @@ def _user_data_dir() -> Path:
     return Path(root) / APP_NAME
 
 
+def _clean_path(raw: str) -> Path:
+    cleaned = raw.strip().strip("\"'")
+    return Path(cleaned).expanduser().resolve()
+
+
+def _data_override() -> str | None:
+    return os.getenv("LEGKYI_DATA_DIR") or os.getenv("DATA_DIR") or os.getenv("DATA_PATH")
+
+
 def user_data_dir() -> Path:
     """Return private per-user storage for Tailscale identity and helper state.
 
     LEGKYI_DATA_DIR intentionally overrides the location so portable installs and
     tests can keep identity state alongside the rest of the application's data.
     """
-    override = os.getenv("LEGKYI_DATA_DIR")
-    folder = Path(override).expanduser().resolve() if override else _user_data_dir()
+    override = _data_override()
+    folder = _clean_path(override) if override else _user_data_dir()
     folder.mkdir(parents=True, exist_ok=True)
     if os.name != "nt":
         try:
@@ -57,7 +66,10 @@ def _writable(folder: Path) -> bool:
         folder.mkdir(parents=True, exist_ok=True)
         probe = folder / f".write-test-{os.getpid()}"
         probe.write_text("ok")
-        probe.unlink()
+        try:
+            probe.unlink(missing_ok=True)
+        except OSError:
+            pass
         return True
     except OSError:
         return False
@@ -66,13 +78,13 @@ def _writable(folder: Path) -> bool:
 def data_dir() -> Path:
     """Return the (created) folder for the database, secret key and backups.
 
-    1. LEGKYI_DATA_DIR, if set, wins.
+    1. LEGKYI_DATA_DIR (or DATA_DIR / DATA_PATH), if set, wins.
     2. Otherwise the folder next to the exe (or the project folder when run from source).
     3. If that folder is read-only (e.g. Program Files), %LOCALAPPDATA%\\LegkyiZvit is used.
     """
-    override = os.getenv("LEGKYI_DATA_DIR")
+    override = _data_override()
     if override:
-        folder = Path(override).expanduser().resolve()
+        folder = _clean_path(override)
         folder.mkdir(parents=True, exist_ok=True)  # an explicit setting should fail loudly
         return folder
     folder = _app_dir()

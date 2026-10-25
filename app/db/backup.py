@@ -11,7 +11,7 @@ from app.db.session import DB_PATH
 def _get_backup_dir() -> Path:
     env_dir = os.getenv("LEGKYI_BACKUPS_DIR") or os.getenv("BACKUPS_DIR") or os.getenv("BACKUPS_PATH")
     if env_dir:
-        return Path(env_dir).expanduser().resolve()
+        return Path(env_dir.strip("\"'")).expanduser().resolve()
     return DB_PATH.parent / "backups"
 
 
@@ -37,7 +37,10 @@ def backup_db(tag: str = "") -> Path | None:
         dst.close()
         src.close()
     for old in sorted(BACKUP_DIR.glob("reports-*.db"))[:-KEEP]:
-        old.unlink()
+        try:
+            old.unlink(missing_ok=True)
+        except OSError:
+            pass
     return dest
 
 

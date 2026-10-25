@@ -7,6 +7,29 @@ and reverse-proxy / tunnel header forwarding.
 
 import os
 import sys
+from pathlib import Path
+
+
+def _load_env_file(env_path: Path | None = None) -> None:
+    """Load default .env configuration if present and variables are not already set."""
+    target = env_path if env_path is not None else Path(__file__).resolve().parent / ".env"
+    if not target.is_file():
+        return
+    try:
+        for line in target.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip("\"'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+    except OSError:
+        pass
+
+
+_load_env_file()
 
 # Configure UTF-8 encoding across Linux and Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
@@ -29,7 +52,10 @@ def print_startup_banner(host: str, port: int) -> None:
             folder.mkdir(parents=True, exist_ok=True)
             probe = folder / f".probe_{os.getpid()}"
             probe.write_text("ok", encoding="utf-8")
-            probe.unlink(missing_ok=True)
+            try:
+                probe.unlink(missing_ok=True)
+            except OSError:
+                pass
         except OSError as exc:
             storage_status = "WARNING (restricted permissions)"
             print(f"  [STORAGE WARNING] {name} directory '{folder}' may have restricted permissions: {exc}", flush=True)

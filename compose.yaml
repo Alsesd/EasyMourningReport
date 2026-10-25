@@ -5,6 +5,9 @@ services:
       dockerfile: docker/Dockerfile
     container_name: mourningreport-app
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
       - HOST=0.0.0.0
       - PORT=8000
@@ -17,10 +20,14 @@ services:
       - TUNNEL_ENABLED=${TUNNEL_ENABLED:-}
       - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
     ports:
-      - "0.0.0.0:8000:8000"
+      - "0.0.0.0:${PORT:-8000}:8000"
     volumes:
-      - ${DATA_PATH:-./data}:/app/data
-      - ${BACKUPS_PATH:-./backups}:/app/backups
+      - type: bind
+        source: ${DATA_PATH:-./data}
+        target: /app/data
+      - type: bind
+        source: ${BACKUPS_PATH:-./backups}
+        target: /app/backups
     healthcheck:
       test:
         [

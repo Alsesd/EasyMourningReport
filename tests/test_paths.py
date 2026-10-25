@@ -114,7 +114,34 @@ class DataDirTests(unittest.TestCase):
                 self.assertEqual(result, target.resolve())
                 self.assertTrue(result.is_dir())
 
+    def test_data_dir_honors_data_path_and_data_dir(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target1 = Path(tmp) / "target1"
+            with patch.dict(os.environ, {"DATA_PATH": str(target1)}):
+                os.environ.pop("LEGKYI_DATA_DIR", None)
+                os.environ.pop("DATA_DIR", None)
+                self.assertEqual(paths.data_dir(), target1.resolve())
+
+            target2 = Path(tmp) / "target2"
+            with patch.dict(os.environ, {"DATA_DIR": str(target2)}):
+                os.environ.pop("LEGKYI_DATA_DIR", None)
+                os.environ.pop("DATA_PATH", None)
+                self.assertEqual(paths.data_dir(), target2.resolve())
+
+    def test_data_dir_strips_surrounding_quotes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "quoted_folder"
+            with patch.dict(os.environ, {"DATA_PATH": f'"{target}"'}):
+                os.environ.pop("LEGKYI_DATA_DIR", None)
+                self.assertEqual(paths.data_dir(), target.resolve())
+
+    def test_writable_handles_unlink_oserror_gracefully(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            with patch.object(Path, "unlink", side_effect=OSError("File locked")):
+                self.assertTrue(paths._writable(folder))
 
 
 if __name__ == "__main__":
     unittest.main()
+
