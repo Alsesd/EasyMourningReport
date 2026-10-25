@@ -47,7 +47,4 @@ jobs:
           npm run build
 
       - name: Build App Docker Image
-        run: docker build -t legkyi-zvit:latest .
-
-      - name: Build Tunnel Docker Image
-        run: docker build -f Dockerfile.tunnel -t legkyi-zvit-tunnel:latest .
+        run: docker build -t legkyi-zvit:latest -f docker/Dockerfile .

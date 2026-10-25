@@ -33,6 +33,11 @@ def load_secret() -> str:
     path = data_dir() / "secret.key"
     if not path.exists():
         path.write_text(secrets.token_hex(32))
+        if os.name != "nt":
+            try:
+                path.chmod(0o600)
+            except OSError:
+                pass
     return path.read_text().strip()
 
 

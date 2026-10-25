@@ -74,6 +74,28 @@ class BackupTests(unittest.TestCase):
                 backup.backup_db(tag="retention")
             self.assertEqual(len(list(backup_dir.glob("reports-*.db"))), 2)
 
+    def test_get_backup_dir_supports_backups_path_and_nested_parents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            custom_path = Path(tmp) / "nested" / "custom_backups"
+            with patch.dict(backup.os.environ, {"BACKUPS_PATH": str(custom_path)}):
+                resolved = backup._get_backup_dir()
+                self.assertEqual(resolved, custom_path.resolve())
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "reports.db"
+            nested_backup_dir = root / "deeply" / "nested" / "backups"
+            with closing(sqlite3.connect(db_path)) as db:
+                with db:
+                    db.execute("CREATE TABLE t (x INT)")
+                    db.execute("INSERT INTO t VALUES (42)")
+            with patch.object(backup, "DB_PATH", db_path), patch.object(backup, "BACKUP_DIR", nested_backup_dir):
+                result = backup.backup_db(tag="nested")
+                self.assertIsNotNone(result)
+                self.assertTrue(nested_backup_dir.is_dir())
+                self.assertTrue(result.is_file())
+
+
 
 if __name__ == "__main__":
     unittest.main()

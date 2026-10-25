@@ -104,6 +104,17 @@ class DataDirTests(unittest.TestCase):
         with tempfile.NamedTemporaryFile() as f:
             self.assertFalse(paths._writable(Path(f.name)))
 
+    def test_user_data_dir_handles_chmod_oserror_gracefully(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "private" / "state"
+            with patch.dict(os.environ, {"LEGKYI_DATA_DIR": str(target)}), \
+                 patch.object(paths.os, "name", "posix"), \
+                 patch.object(Path, "chmod", side_effect=OSError("Operation not permitted")):
+                result = paths.user_data_dir()
+                self.assertEqual(result, target.resolve())
+                self.assertTrue(result.is_dir())
+
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -25,10 +25,14 @@ FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
-# Install curl for robust healthcheck probes
+# Install curl and ca-certificates for robust healthcheck probes and secure tunnel operations
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Copy official cloudflared binary directly for internal tunnel capability
+COPY --from=cloudflare/cloudflared:latest /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 
 # Copy production virtualenv built with prefix /app/.venv
 COPY --from=python-builder /app/.venv /app/.venv
@@ -38,8 +42,8 @@ COPY app/ /app/app/
 COPY run.py /app/run.py
 COPY --from=frontend-builder /app/app/static/app/ /app/app/static/app/
 
-# Create persistent storage directories
-RUN mkdir -p /app/data /app/backups
+# Create persistent storage directories with permissive defaults for Windows bind mounts
+RUN mkdir -p /app/data /app/backups && chmod 777 /app/data /app/backups
 
 # Declare persistent storage volumes for host device persistence
 VOLUME ["/app/data", "/app/backups"]

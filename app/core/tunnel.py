@@ -150,7 +150,9 @@ def _find_fallback_token(root: Path | None = None) -> str:
     try:
         candidates = [
             Path.cwd() / "compose.yaml",
+            Path.cwd() / "docker" / "compose.yaml",
             Path(__file__).resolve().parent.parent.parent / "compose.yaml",
+            Path(__file__).resolve().parent.parent.parent / "docker" / "compose.yaml",
         ]
         for c in candidates:
             if c.is_file():
@@ -480,10 +482,17 @@ def _stop_child(root: Path | None = None) -> None:
 
 
 def start_if_enabled(root: Path | None = None) -> dict[str, Any] | None:
-    """Start tunnel at app startup only if administrator previously opted in."""
-    if not _enabled_file(root).is_file():
+    """Start tunnel at app startup if enabled via environment or saved preference."""
+    env_enabled_str = os.getenv("TUNNEL_ENABLED", "").strip().lower()
+    if env_enabled_str in ("false", "0", "no", "off"):
         return None
-    return start_tunnel(autostart=True, root=root)
+
+    token = os.getenv("TUNNEL_TOKEN") or os.getenv("CLOUDFLARE_TUNNEL_TOKEN") or ""
+    env_opt_in = env_enabled_str in ("true", "1", "yes", "on") or bool(token.strip())
+
+    if env_opt_in or _enabled_file(root).is_file():
+        return start_tunnel(autostart=True, root=root)
+    return None
 
 
 def shutdown() -> None:

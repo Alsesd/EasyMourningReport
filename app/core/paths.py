@@ -45,7 +45,10 @@ def user_data_dir() -> Path:
     folder = Path(override).expanduser().resolve() if override else _user_data_dir()
     folder.mkdir(parents=True, exist_ok=True)
     if os.name != "nt":
-        folder.chmod(0o700)
+        try:
+            folder.chmod(0o700)
+        except OSError:
+            pass
     return folder
 
 

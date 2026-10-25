@@ -23,6 +23,17 @@ from app.main import app
 def print_startup_banner(host: str, port: int) -> None:
     """Print an enterprise startup banner with system configuration."""
     data_dir = DB_PATH.parent
+    storage_status = "OK (read/write)"
+    for name, folder in [("Data", data_dir), ("Backups", BACKUP_DIR)]:
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            probe = folder / f".probe_{os.getpid()}"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+        except OSError as exc:
+            storage_status = "WARNING (restricted permissions)"
+            print(f"  [STORAGE WARNING] {name} directory '{folder}' may have restricted permissions: {exc}", flush=True)
+
     banner = f"""
 ======================================================================
   EasyMourningReport / Легкий звіт (v1.0.0)
@@ -31,6 +42,7 @@ def print_startup_banner(host: str, port: int) -> None:
   • Data Directory : {data_dir}
   • Backups Dir    : {BACKUP_DIR}
   • Database File  : {DB_PATH}
+  • Storage Access : {storage_status}
   • Server Address : http://{host}:{port}
   • REST API       : http://{host}:{port}/api/v1
   • Web Interface  : http://{host}:{port}/

@@ -9,7 +9,7 @@ from pathlib import Path
 from app.db.session import DB_PATH
 
 def _get_backup_dir() -> Path:
-    env_dir = os.getenv("LEGKYI_BACKUPS_DIR") or os.getenv("BACKUPS_DIR")
+    env_dir = os.getenv("LEGKYI_BACKUPS_DIR") or os.getenv("BACKUPS_DIR") or os.getenv("BACKUPS_PATH")
     if env_dir:
         return Path(env_dir).expanduser().resolve()
     return DB_PATH.parent / "backups"
@@ -25,7 +25,7 @@ def backup_db(tag: str = "") -> Path | None:
     Without a tag the copy is skipped when nothing changed since the last backup."""
     if not DB_PATH.exists():
         return None
-    BACKUP_DIR.mkdir(exist_ok=True)
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     existing = sorted(BACKUP_DIR.glob("reports-*.db"))
     if not tag and existing and DB_PATH.stat().st_mtime <= existing[-1].stat().st_mtime:
         return None

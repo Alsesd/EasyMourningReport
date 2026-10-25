@@ -171,6 +171,25 @@ class TunnelTests(unittest.TestCase):
         self.assertFalse((state_dir / "cloudflared.log").exists())
         self.assertFalse((state_dir / "status.json").exists())
 
+    def test_start_if_enabled_with_tunnel_enabled_env(self):
+        with patch.dict(tunnel.os.environ, {"TUNNEL_ENABLED": "true"}):
+            result = tunnel.start_if_enabled()
+            self.assertIsNotNone(result)
+            self.assertTrue(result["enabled"])
+
+    def test_start_if_enabled_disabled_by_env_override(self):
+        (self.root / ".tunnel-enabled").write_text("enabled\n", encoding="utf-8")
+        with patch.dict(tunnel.os.environ, {"TUNNEL_ENABLED": "false"}):
+            result = tunnel.start_if_enabled()
+            self.assertIsNone(result)
+
+    def test_start_if_enabled_with_tunnel_token_env(self):
+        with patch.dict(tunnel.os.environ, {"TUNNEL_TOKEN": "some-token-string"}):
+            result = tunnel.start_if_enabled()
+            self.assertIsNotNone(result)
+            self.assertTrue(result["enabled"])
+
+
 
 if __name__ == "__main__":
     unittest.main()
