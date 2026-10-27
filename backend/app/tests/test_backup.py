@@ -1,0 +1,128 @@
+import asyncio
+import sqlite3
+import tempfile
+import unittest
+from contextlib import closing
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+
+from app.db import backup
+
+
+class BackupTests(unittest.TestCase):
+    def test_backup_can_be_opened_and_restored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "reports.db"
+            backup_dir = root / "backups"
+            with closing(sqlite3.connect(db_path)) as db:
+                with db:
+                    db.execute("CREATE TABLE example (value TEXT NOT NULL)")
+                    db.execute("INSERT INTO example(value) VALUES (?)", ("preserved",))
+
+            with patch.object(backup, "DB_PATH", db_path), patch.object(backup, "BACKUP_DIR", backup_dir):
+                snapshot = backup.backup_db(tag="test")
+                self.assertIsNotNone(snapshot)
+                self.assertTrue(snapshot.is_file())
+                with closing(sqlite3.connect(snapshot)) as restored:
+                    self.assertEqual(restored.execute("SELECT value FROM example").fetchone(), ("preserved",))
+                    self.assertEqual(restored.execute("PRAGMA integrity_check").fetchone(), ("ok",))
+
+    def test_backup_is_skipped_when_database_has_not_changed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "reports.db"
+            backup_dir = root / "backups"
+            with closing(sqlite3.connect(db_path)) as db:
+                with db:
+                    db.execute("CREATE TABLE example (value INTEGER)")
+                    db.execute("INSERT INTO example VALUES (1)")
+
+            with patch.object(backup, "DB_PATH", db_path), patch.object(backup, "BACKUP_DIR", backup_dir):
+                self.assertIsNotNone(backup.backup_db(tag="test"))
+                self.assertIsNone(backup.backup_db())
+
+    def test_background_loop_offloads_backup_and_can_be_cancelled(self):
+        async def run():
+            with patch.object(backup.asyncio, "sleep", new=AsyncMock(side_effect=[None, asyncio.CancelledError()])), patch.object(backup.asyncio, "to_thread", new=AsyncMock(return_value=None)) as to_thread:
+                with self.assertRaises(asyncio.CancelledError):
+                    await backup.backup_loop()
+                to_thread.assert_awaited_once_with(backup.backup_db)
+        asyncio.run(run())
+
+    def test_missing_database_returns_none(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch.object(backup, "DB_PATH", root / "missing.db"), patch.object(backup, "BACKUP_DIR", root / "backups"):
+                self.assertIsNone(backup.backup_db())
+            self.assertFalse((root / "backups").exists())
+
+    def test_retention_keeps_configured_number_of_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "reports.db"
+            backup_dir = root / "backups"
+            backup_dir.mkdir()
+            with closing(sqlite3.connect(db_path)) as db:
+                with db:
+                    db.execute("CREATE TABLE example (value INTEGER)")
+                    db.execute("INSERT INTO example VALUES (1)")
+            for stamp in ("20000101-000001", "20000102-000001", "20000103-000001"):
+                (backup_dir / f"reports-{stamp}.db").write_bytes(b"old snapshot")
+
+            with patch.object(backup, "DB_PATH", db_path), patch.object(backup, "BACKUP_DIR", backup_dir), patch.object(backup, "KEEP", 2):
+                backup.backup_db(tag="retention")
+            self.assertEqual(len(list(backup_dir.glob("reports-*.db"))), 2)
+
+    def test_get_backup_dir_supports_backups_path_and_nested_parents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            custom_path = Path(tmp) / "nested" / "custom_backups"
+            with patch.dict(backup.os.environ, {"BACKUPS_PATH": str(custom_path)}):
+                resolved = backup._get_backup_dir()
+                self.assertEqual(resolved, custom_path.resolve())
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "reports.db"
+            nested_backup_dir = root / "deeply" / "nested" / "backups"
+            with closing(sqlite3.connect(db_path)) as db:
+                with db:
+                    db.execute("CREATE TABLE t (x INT)")
+                    db.execute("INSERT INTO t VALUES (42)")
+            with patch.object(backup, "DB_PATH", db_path), patch.object(backup, "BACKUP_DIR", nested_backup_dir):
+                result = backup.backup_db(tag="nested")
+                self.assertIsNotNone(result)
+                self.assertTrue(nested_backup_dir.is_dir())
+                self.assertTrue(result.is_file())
+
+    def test_get_backup_dir_strips_quotes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            custom_path = Path(tmp) / "quoted_backups"
+            with patch.dict(backup.os.environ, {"BACKUPS_PATH": f'"{custom_path}"'}):
+                resolved = backup._get_backup_dir()
+                self.assertEqual(resolved, custom_path.resolve())
+
+    def test_backup_db_handles_unlink_oserror_during_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            db_path = root / "reports.db"
+            backup_dir = root / "backups"
+            backup_dir.mkdir()
+            with closing(sqlite3.connect(db_path)) as db:
+                with db:
+                    db.execute("CREATE TABLE t (x INT)")
+                    db.execute("INSERT INTO t VALUES (1)")
+            for stamp in ("20000101-000001", "20000102-000001"):
+                (backup_dir / f"reports-{stamp}.db").write_bytes(b"old")
+
+            with patch.object(backup, "DB_PATH", db_path), \
+                 patch.object(backup, "BACKUP_DIR", backup_dir), \
+                 patch.object(backup, "KEEP", 1), \
+                 patch.object(Path, "unlink", side_effect=OSError("Locked on Windows")):
+                # Should not raise exception
+                res = backup.backup_db(tag="prune-test")
+                self.assertIsNotNone(res)
+
+
+if __name__ == "__main__":
+    unittest.main()

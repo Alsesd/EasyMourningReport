@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Помилка {{ code }} · Легкий звіт</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #F4F6F5;
+            color: #17202A;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        .card {
+            background: #FFFFFF;
+            border: 1px solid #E1E6E4;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-sizing: border-box;
+        }
+        h1 { margin-top: 0; font-size: 1.5rem; color: #C0392B; }
+        p { color: #586863; font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.5rem; }
+        a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #2E5A44;
+            color: #FFFFFF;
+            text-decoration: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            min-height: 44px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        a:hover { opacity: 0.95; }
+        @media (prefers-color-scheme: dark) {
+            body { background: #121816; color: #E8ECEB; }
+            .card { background: #18221E; border-color: #273832; }
+            p { color: #8FA49D; }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Помилка {{ code }}</h1>
+        <p>{{ message }}</p>
+        <a href="/">На головну</a>
+    </div>
+</body>
+</html>

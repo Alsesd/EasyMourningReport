@@ -1,0 +1,80 @@
+
+name: easymourningreport
+
+services:
+  app:
+    image: easymourningreport:local
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    container_name: mourningreport-app
+    restart: unless-stopped
+    init: true
+
+    env_file:
+      - path: .env
+        required: false
+
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      LEGKYI_DATA_DIR: /app/data
+      LEGKYI_BACKUPS_DIR: /app/backups
+      BACKUP_SIDECAR_ENABLED: "1"
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SECRET_KEY: ${SECRET_KEY:-}
+      DEMO: ${DEMO:-0}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      TUNNEL_ENABLED: ${TUNNEL_ENABLED:-}
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+
+    ports:
+      - "0.0.0.0:${PORT:-8000}:8000"
+
+    volumes:
+      - ./app_storage/data:/app/data
+      - ./app_storage/backups:/app/backups
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  backup:
+    image: easymourningreport:local
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    container_name: mourningreport-backup
+    restart: unless-stopped
+    init: true
+
+    command: ["python", "-m", "app.backup_sidecar"]
+
+    environment:
+      LEGKYI_DATA_DIR: /app/data
+      LEGKYI_BACKUPS_DIR: /app/backups
+      BACKUP_EVERY_MIN: ${BACKUP_EVERY_MIN:-60}
+      BACKUP_KEEP: ${BACKUP_KEEP:-100}
+
+    volumes:
+      - ./app_storage/data:/app/data
+      - ./app_storage/backups:/app/backups
+
+    depends_on:
+      app:
+        condition: service_healthy
+
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

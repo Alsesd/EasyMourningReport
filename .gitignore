@@ -1,0 +1,54 @@
+# Runtime data
+reports.db
+backups/
+secret.key
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+build/
+dist/
+*.spec
+*.egg-info/
+
+# uv
+.uv/
+
+# Nix / direnv
+.direnv/
+.envrc
+result
+
+# Downloaded runtime
+backend/app/static/alpine.min.js
+backend/app/static/app/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+.agents/
+
+# Docker & local data
+data/
+
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment secrets (never commit)
+.env
+.agents/skills/
