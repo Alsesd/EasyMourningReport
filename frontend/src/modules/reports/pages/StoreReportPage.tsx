@@ -42,6 +42,10 @@ export default function StoreReportPage() {
   const currentMonth = session?.period || new Date().toISOString().slice(0, 7);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(currentMonth);
 
+  useEffect(() => {
+    document.title = `${session?.store_name || uk.nav.report} — ${uk.appTitle}`;
+  }, [session?.store_name]);
+
   const isDesktop = typeof window !== "undefined" && window.innerWidth >= 640;
   const storedViewMode = typeof window !== "undefined" ? (localStorage.getItem("store.viewMode") as "desktop" | "cards" | null) : null;
   const [viewMode, setViewMode] = useState<"desktop" | "cards">(storedViewMode || (isDesktop ? "desktop" : "cards"));
@@ -265,7 +269,7 @@ export default function StoreReportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-page text-text-main pb-28 flex flex-col animate-fade-in">
+    <div className="store-report-shell min-h-screen bg-page text-text-main pb-28 flex flex-col animate-fade-in">
       {/* Top Header */}
       <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-xs border-b border-border shadow-2xs">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">

@@ -14,6 +14,12 @@ export default {
         "text-main": "var(--text)",
         "text-muted": "var(--muted-text)",
         border: "var(--border)",
+        accent: {
+          DEFAULT: "var(--accent)",
+          soft: "var(--accent-soft)",
+          cool: "var(--accent-cool)",
+          "cool-soft": "var(--accent-cool-soft)",
+        },
         primary: {
           DEFAULT: "var(--primary)",
           fg: "var(--primary-fg)",
@@ -38,9 +44,9 @@ export default {
         control: "12px",
       },
       boxShadow: {
-        "card": "0 1px 3px 0 rgba(16, 24, 40, 0.05), 0 1px 2px -1px rgba(16, 24, 40, 0.04)",
-        "card-hover": "0 4px 14px 0 rgba(16, 24, 40, 0.08), 0 2px 4px -1px rgba(16, 24, 40, 0.04)",
-        "glow": "0 0 16px -2px rgba(66, 111, 157, 0.25)",
+        "card": "0 1px 2px rgba(29, 47, 39, 0.035), 0 7px 20px rgba(29, 47, 39, 0.035)",
+        "card-hover": "0 8px 24px rgba(29, 47, 39, 0.09), 0 2px 5px rgba(29, 47, 39, 0.04)",
+        "glow": "0 0 18px -2px rgba(170, 135, 80, 0.22)",
       },
       fontFamily: {
         sans: ["Onest", "sans-serif"],
