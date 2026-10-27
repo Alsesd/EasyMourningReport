@@ -1,0 +1,97 @@
+name: Windows single-exe build
+
+on:
+  push:
+    branches: [feature/windows-single-exe]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-single-exe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.2"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Run backend tests
+        run: uv run pytest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Check frontend types
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Build frontend assets
+        working-directory: frontend
+        run: npm run build
+
+      - name: Download Cloudflare Tunnel helper for Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile "$env:RUNNER_TEMP\cloudflared.exe"
+          if ((Get-Item "$env:RUNNER_TEMP\cloudflared.exe").Length -lt 1000000) {
+            throw "Downloaded cloudflared binary is unexpectedly small."
+          }
+
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pyinstaller
+
+      - name: Build standalone executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python -m PyInstaller --noconfirm --clean --onefile --name LegkyiZvit --paths backend --collect-all app --collect-all fastapi --collect-all starlette --collect-all uvicorn --collect-all sqlmodel --collect-all sqlalchemy --collect-all jinja2 --collect-all openpyxl --collect-all multipart --collect-all itsdangerous --add-data "backend/app/static;app/static" --add-data "backend/app/templates;app/templates" --add-binary "$env:RUNNER_TEMP\cloudflared.exe;." backend/app/__main__.py
+          if (!(Test-Path "dist/LegkyiZvit.exe")) {
+            throw "PyInstaller did not produce dist/LegkyiZvit.exe"
+          }
+
+      - name: Smoke-test the frozen executable and persistent storage
+        shell: pwsh
+        run: python scripts/smoke_test_windows_exe.py dist/LegkyiZvit.exe
+
+      - name: Upload standalone executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: LegkyiZvit-Windows-x64
+          path: dist/LegkyiZvit.exe
+          if-no-files-found: error
+          retention-days: 14

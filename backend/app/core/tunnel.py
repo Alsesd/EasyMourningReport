@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -56,14 +57,26 @@ def _is_sidecar_active(root: Path | None = None) -> bool:
 
 
 def _cloudflared_path() -> Path | None:
+    """Locate cloudflared from configuration, PATH, or the frozen one-file bundle."""
     override = os.getenv("CLOUDFLARED_PATH")
     if override:
         path = Path(override)
         if path.is_file():
             return path
-    which = shutil.which("cloudflared")
+
+    which = shutil.which("cloudflared") or shutil.which("cloudflared.exe")
     if which:
         return Path(which)
+
+    # PyInstaller extracts --add-binary payloads into _MEIPASS for the process
+    # lifetime. This keeps the public-tunnel helper inside the delivered EXE.
+    if getattr(sys, "frozen", False):
+        extraction_dir = getattr(sys, "_MEIPASS", None)
+        if extraction_dir:
+            for name in ("cloudflared.exe", "cloudflared"):
+                bundled = Path(extraction_dir) / name
+                if bundled.is_file():
+                    return bundled
     return None
 
 

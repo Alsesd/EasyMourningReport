@@ -72,6 +72,10 @@ npm run build
 
 The production frontend build is written to `backend/app/static/app/`. The Docker build does not require a previously built frontend because its Node build stage creates these assets.
 
+## Windows standalone executable
+
+See [Windows single-exe build and storage](docs/windows-single-exe.md) for the PyInstaller build, bundled Cloudflare Tunnel helper, persistent storage layout, update procedure, and GitHub Actions artifact.
+
 ## Docker deployment
 
 Copy the env template, review its values, and start Compose from the repository root. For reproducible releases, generate and commit `uv.lock` from an internet-connected checkout before building the image. The Dockerfile has a temporary first-build fallback if the lockfile is absent, but release builds should use the checked-in lockfile.
