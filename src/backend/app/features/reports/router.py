@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.core.validation import parse_period
 from app.features.auth.dependencies import (
     api_admin_required,
-    api_store_required,
+    api_permission_required,
 )
 from app.features.auth.models import User
 from app.features.reports.schemas import (
@@ -36,7 +36,7 @@ router = APIRouter(tags=["Reports"])
 @router.get("/store/reports/{period}", response_model=StoreReportDTO)
 def read_store_report(
     period: str,
-    user: User = Depends(api_store_required),
+    user: User = Depends(api_permission_required("sales_report")),
     db: Session = Depends(get_db),
 ) -> StoreReportDTO:
     return get_store_report(db, user, period)
@@ -47,7 +47,7 @@ def api_save_store_report(
     period: str,
     payload: ReportSaveDTO,
     request: Request,
-    user: User = Depends(api_store_required),
+    user: User = Depends(api_permission_required("sales_report")),
     db: Session = Depends(get_db),
 ) -> StoreReportDTO:
     return save_store_report(db, user, period, payload, request)

@@ -25,6 +25,7 @@ from app.features.reports.router import router as reports_router
 from app.features.reports.router import summary_xlsx_router
 from app.features.stores.router import router as stores_router
 from app.features.tunnel.router import router as tunnel_router
+from app.features.users.router import router as users_router
 from app.features.tunnel.service import (
     shutdown as shutdown_tunnel,
 )
@@ -81,6 +82,7 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(products_router, prefix="/api/v1")
 app.include_router(stores_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
+app.include_router(users_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
 app.include_router(tunnel_router, prefix="/api/v1")
 

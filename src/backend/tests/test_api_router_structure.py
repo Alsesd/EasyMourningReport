@@ -14,6 +14,7 @@ class RouterCompositionTests(unittest.TestCase):
         self.assertIn("/api/v1/auth/logout", paths)
         self.assertIn("/api/v1/admin/products", paths)
         self.assertIn("/api/v1/admin/stores", paths)
+        self.assertIn("/api/v1/admin/users", paths)
         self.assertIn("/api/v1/admin/reports", paths)
         self.assertIn("/api/v1/admin/logs", paths)
         self.assertIn("/api/v1/admin/tunnel", paths)

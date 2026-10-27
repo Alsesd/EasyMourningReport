@@ -9,7 +9,7 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 - Prices and calculated amounts are integer **cents** in DTOs. Send editable price values as strings (for example `"12.50"`) so decimal parsing remains server-side and supports comma decimals.
 - Product DTO `month_prices_cents` is the full in-month timeline: the price at the start of the month followed by every price change, including a return to an earlier amount. `price_history` contains every saved history event, in chronological/sequence order.
 - Every resource response is a DTO, not a serialized SQLModel/ORM instance. Password hashes and persistence-only fields are never exposed.
-- The browser uses the existing signed session cookie. Unauthenticated requests return `401`, role violations return `403`, missing resources return `404`, conflicting state returns `409`, and invalid payloads return `422`.
+- The browser uses the existing signed session cookie. Unauthenticated requests return `401`, role or permission violations return `403`, missing resources return `404`, conflicting state returns `409`, and invalid payloads return `422`. Store report routes additionally require the `sales_report` permission on the server.
 - Unsafe methods (POST, PUT, PATCH, DELETE) require a same-origin `Origin` or `Referer` header. Browser `fetch` supplies the origin automatically for these requests.
 - Authentication is performed exclusively through `POST /api/v1/auth/login`; the client uses the signed session cookie for subsequent JSON requests. CSRF failures return JSON.
 
@@ -17,22 +17,26 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| GET | `/session` | Signed-in user | Current identity and period |
+| GET | `/session` | Signed-in user | Current identity, department, permissions, and period |
 | GET | `/admin/products?period=YYYY-MM` | Admin | Product DTOs, usage counts, the current-month price timeline, and full price history |
 | POST | `/admin/products` | Admin | Create product |
 | POST | `/admin/products/import` | Admin | Bounded `.xlsx` import with a message DTO |
 | PUT | `/admin/products/{id}` | Admin | Update name, price, and active state |
 | DELETE | `/admin/products/{id}` | Admin | Archive products with report history; otherwise delete |
 | POST | `/admin/products/{id}/restore` | Admin | Restore an archived product |
-| GET | `/admin/stores` | Admin | Store DTOs and report counts |
-| POST | `/admin/stores` | Admin | Create store and login |
-| PUT | `/admin/stores/{id}` | Admin | Update store name/login |
-| DELETE | `/admin/stores/{id}` | Admin | Archive stores with reports; otherwise delete |
-| POST | `/admin/stores/{id}/restore` | Admin | Restore an archived store |
-| PUT | `/admin/stores/{id}/password` | Admin | Reset store password |
+| GET | `/admin/users` | Admin | User DTOs with roles, departments, and permissions |
+| POST | `/admin/users` | Admin | Create a department user; optionally create a department inline |
+| PUT | `/admin/users/{id}` | Admin | Update name, login, password, department, and permissions |
+| DELETE | `/admin/users/{id}` | Admin | Delete a department user (administrator is protected) |
+| GET | `/admin/stores` | Admin | Department DTOs with users and report counts |
+| POST | `/admin/stores` | Admin | Create a department; optional login/password creates its first user |
+| PUT | `/admin/stores/{id}` | Admin | Rename a department and optionally update its first user login |
+| DELETE | `/admin/stores/{id}` | Admin | Archive departments with reports; otherwise delete department and users |
+| POST | `/admin/stores/{id}/restore` | Admin | Restore an archived department |
+| PUT | `/admin/stores/{id}/password` | Admin | Reset the first department user password |
 | PUT | `/admin/password` | Admin | Change the current administrator password |
-| GET | `/store/reports/{period}` | Store | Current report state and editable lines |
-| PUT | `/store/reports/{period}` | Store | Save a report snapshot as a draft or submit it |
+| GET | `/store/reports/{period}` | Store (`sales_report`) | Current report state and editable lines |
+| PUT | `/store/reports/{period}` | Store (`sales_report`) | Save a report snapshot as a draft or submit it |
 | GET | `/admin/reports?period=YYYY-MM` | Admin | Reports for all visible stores for a month, including missing submissions |
 | GET | `/admin/reports/{id}` | Admin | Report detail |
 | PATCH | `/admin/reports/{id}` | Admin | Lock/unlock by setting status |
@@ -79,7 +83,7 @@ Content-Type: application/json
 
 ## Client rendering
 
-The admin catalogue/store view, store report editor, admin report list/detail, monthly summary and audit log are React 18 + TypeScript features using TanStack Query. They fetch DTOs, render loading/error states, and use JSON writes. The FastAPI server handles session entry/exit through `/api/v1/auth/login` and `/api/v1/auth/logout` and streams binary Excel exports; the built SPA is served from `src/backend/app/static/app/`.
+The admin catalogue, users/departments, store workspace, store report editor, admin report list/detail, monthly summary and audit log are React 18 + TypeScript features using TanStack Query. They fetch DTOs, render loading/error states, and use JSON writes. The FastAPI server handles session entry/exit through `/api/v1/auth/login` and `/api/v1/auth/logout` and streams binary Excel exports; the built SPA is served from `src/backend/app/static/app/`.
 
 
 ## Local development and runtime secrets

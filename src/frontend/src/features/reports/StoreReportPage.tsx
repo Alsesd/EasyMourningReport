@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/shared/api/client";
 import { useAuth } from "@/features/auth/AuthContext";
@@ -31,6 +32,7 @@ import {
   CloudOff,
   Table as TableIcon,
   LayoutGrid,
+  LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
@@ -281,6 +283,15 @@ export default function StoreReportPage() {
           </div>
 
           <div className="flex items-center space-x-2 shrink-0">
+            <Link
+              to="/workspace"
+              aria-label="Робочий простір"
+              title="Робочий простір"
+              className="flex h-9 w-9 items-center justify-center rounded-control text-text-muted transition-colors hover:bg-page hover:text-primary"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+            </Link>
+
             {/* View Mode Toggle (Desktop vs Cards) */}
             <div className="flex items-center bg-page p-1 rounded-control border border-border">
               <button

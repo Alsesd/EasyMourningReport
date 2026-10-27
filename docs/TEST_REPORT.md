@@ -39,7 +39,7 @@ PYTHONDONTWRITEBYTECODE=1 uv run pytest src/backend/tests/e2e/test_tier4_workloa
 platform linux -- Python 3.11, pytest 9.x
 rootdir: /home/alsesd/EasyMourningReport
 configfile: pyproject.toml
-collected 285 items
+collected 289 items
 
 src/backend/tests/e2e/test_tier1_features.py ....................... [ 53%]
 src/backend/tests/e2e/test_tier2_boundaries.py .................... [ 91%]
@@ -48,8 +48,8 @@ src/backend/tests/e2e/test_tier4_workloads.py ..                   [100%]
 
 ======================= 82 passed, 1 warning in ~30s =======================
 
-Full backend suite: 285 passed (203 non-E2E + 82 E2E), 1 warning
-Frontend suite: 37 passed
+Full backend suite: 289 passed (207 non-E2E + 82 E2E), 1 warning
+Frontend suite: 43 passed
 Lint: ESLint 0 warnings; Ruff F/E9/I clean
 Typecheck: tsc --noEmit clean
 Build: Vite production build clean
@@ -66,7 +66,7 @@ Build: Vite production build clean
 | **Tier 3** | `src/backend/tests/e2e/test_tier3_combinations.py` | Cross-Feature Combinations (Price Revision, Multi-Store Aggregation, Archival in Draft, Store Renaming, Report Unlock) | Comprehensive | **5** | **5 / 5 PASSED** (100%) |
 | **Tier 4** | `src/backend/tests/e2e/test_tier4_workloads.py` | Real-World Workloads (Multi-Store Monthly Close, High-Volume Catalog Stress) | Enterprise | **2** | **2 / 2 PASSED** (100%) |
 | **E2E Total** | `src/backend/tests/e2e/` | **Full Opaque-Box E2E Suite** | **≥60** | **82** | **82 / 82 PASSED** (100%) |
-| **Backend Total** | `src/backend/tests/` | **Unit + integration + E2E** | — | **285** | **285 / 285 PASSED** (100%) |
+| **Backend Total** | `src/backend/tests/` | **Unit + integration + E2E** | — | **289** | **289 / 289 PASSED** (100%) |
 
 ---
 
@@ -79,7 +79,9 @@ Build: Vite production build clean
 5. `src/backend/tests/e2e/test_tier4_workloads.py`: 2 realistic production workload scenarios validating complete monthly close and high-volume catalog processing.
 6. `src/backend/tests/test_backup.py`: Backup checksum, mirroring, retention, and failure-isolation tests.
 7. `docs/TESTING.md`: Full testing architecture, philosophy, feature mapping, and quality criteria.
-8. `docs/TEST_REPORT.md`: This execution verification report and test summary.
+8. `src/backend/tests/test_users_api.py`: 4 integration tests for user CRUD, department creation, permission enforcement, and session payloads.
+9. `src/frontend/src/features/workspace/WorkspacePages.test.tsx`: 5 component tests for the workspace dashboard, permission filtering, and section access.
+10. `docs/TEST_REPORT.md`: This execution verification report and test summary.
 
 ---
 

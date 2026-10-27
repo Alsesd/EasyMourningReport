@@ -33,6 +33,12 @@ Theme switching supports `light`, `dark`, and `system` modes, persisted in `loca
 
 ## 4. Component Rules & Layout
 
+### Department User Workspace (`/workspace`)
+- **Report-first overview**: Users with `sales_report` see the current month, report status (`new`, `draft`, `submitted`), total amount, filled-position count, and a direct call to action on the main dashboard.
+- **Navigation**: Permission-filtered sidebar on desktop and bottom navigation on mobile. The report item is labelled «Мій звіт» and opens `/report` directly instead of an intermediate placeholder.
+- **Other sections**: `/workspace/transport-order`, `/workspace/vehicle-dispatch`, `/workspace/driver`; unavailable sections show an access message. `/workspace/sales-report` redirects to `/report`.
+- **Report screen**: `/report` is available only to department users with the `sales_report` permission and includes a return link to the workspace.
+
 ### Store Screen (`/report`)
 - **Mobile-first Layout**: Centered `max-w-md` container on desktop screens; full-width responsive view on phones.
 - **Header**: Sticky opaque header with store name, theme picker, and logout action.
@@ -61,12 +67,13 @@ Theme switching supports `light`, `dark`, and `system` modes, persisted in `loca
   - Store title header with lock/unlock status switch protected by a confirmation dialog.
   - Detailed product table with price, quantity, and row sum. Collapsible inactive section.
 - **Налаштування (Settings - `/admin/settings`)**:
-  - 5 accessible Radix UI tabs:
+  - 6 accessible tabs:
     1. *Товари (Products)*: Live search filter, single-input price editing with historical price chips, Excel (.xlsx) bulk import, archive and restore actions.
-    2. *Магазини (Stores)*: Store list with active report indicators, store creation form, inline edit for store name and login, password reset modal, archive and restore.
-    3. *Безпека (Security)*: Administrator password change form with validation.
-    4. *Тунель (Tunnel)*: Cloudflare Tunnel status card with Quick Tunnel URL, autostart toggle, and manual start/stop actions.
-    5. *Резервна копія (Backup)*: Direct download attachment link to the server database snapshot (`/admin/backup/download`).
+    2. *Користувачі (Users)*: Create, edit, and delete department users; assign a department and one or more permissions.
+    3. *Відділи (Departments)*: Department creation and renaming, user lists, report counts, archive and restore actions.
+    4. *Безпека (Security)*: Administrator password change form with validation.
+    5. *Тунель (Tunnel)*: Cloudflare Tunnel status card with Quick Tunnel URL, autostart toggle, and manual start/stop actions.
+    6. *Резервна копія (Backup)*: Direct download attachment link to the server database snapshot (`/admin/backup/download`).
 - **Журнал (Audit Logs - `/admin/logs`)**:
   - Filterable by audit action dropdown (dynamically populated from `/api/v1/admin/log-actions`).
   - Username search filter.

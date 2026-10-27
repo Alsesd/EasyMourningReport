@@ -29,5 +29,9 @@ export type LoginDTO = Schemas["LoginDTO"];
 export type ReportStatusDTO = Schemas["ReportStatusDTO"];
 export type PasswordDTO = Schemas["PasswordDTO"];
 export type StorePasswordDTO = Schemas["StorePasswordDTO"];
+export type UserDTO = Schemas["UserDTO"];
+export type UserCreateDTO = Schemas["UserCreateDTO"];
+export type UserUpdateDTO = Schemas["UserUpdateDTO"];
+export type DepartmentUserDTO = Schemas["DepartmentUserDTO"];
 
 export type { paths };

@@ -117,7 +117,8 @@ export const uk = {
     title: "Налаштування та довідники",
     tabs: {
       products: "Товари",
-      stores: "Магазини",
+      users: "Користувачі",
+      departments: "Відділи",
       security: "Безпека",
       tunnel: "Публічний доступ",
       backup: "Резервні копії",

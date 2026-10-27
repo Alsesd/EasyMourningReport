@@ -5,6 +5,7 @@ from sqlmodel import Session
 
 from app.core.database import get_db
 from app.features.auth.models import User
+from app.features.auth.permissions import decode_permissions
 
 
 def api_user_required(
@@ -34,8 +35,23 @@ def api_store_required(user: User = Depends(api_user_required)) -> User:
     return user
 
 
+def api_permission_required(permission: str):
+    """Build a dependency that requires one permission code for a store user."""
+
+    def dependency(user: User = Depends(api_store_required)) -> User:
+        if permission not in decode_permissions(user.permissions, user.role):
+            raise HTTPException(
+                status_code=403,
+                detail="Ваш обліковий запис не має доступу до цього розділу.",
+            )
+        return user
+
+    return dependency
+
+
 __all__ = [
     "api_admin_required",
+    "api_permission_required",
     "api_store_required",
     "api_user_required",
 ]

@@ -373,6 +373,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Api List Users */
+        get: operations["api_list_users_api_v1_admin_users_get"];
+        put?: never;
+        /** Api Create User */
+        post: operations["api_create_user_api_v1_admin_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Api Update User */
+        put: operations["api_update_user_api_v1_admin_users__uid__put"];
+        post?: never;
+        /** Api Delete User */
+        delete: operations["api_delete_user_api_v1_admin_users__uid__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/log-actions": {
         parameters: {
             query?: never;
@@ -565,6 +601,17 @@ export interface components {
             /** File */
             file: string;
         };
+        /** DepartmentUserDTO */
+        DepartmentUserDTO: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Login */
+            login: string;
+            /** Permissions */
+            permissions?: string[];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -727,6 +774,8 @@ export interface components {
         SessionDTO: {
             /** Login */
             login: string;
+            /** Name */
+            name: string;
             /**
              * Role
              * @enum {string}
@@ -736,6 +785,12 @@ export interface components {
             store_id?: number | null;
             /** Store Name */
             store_name?: string | null;
+            /** Department Id */
+            department_id?: number | null;
+            /** Department Name */
+            department_name?: string | null;
+            /** Permissions */
+            permissions?: string[];
             /** Period */
             period: string;
         };
@@ -744,9 +799,9 @@ export interface components {
             /** Name */
             name: string;
             /** Login */
-            login: string;
+            login?: string | null;
             /** Password */
-            password: string;
+            password?: string | null;
         };
         /** StoreDTO */
         StoreDTO: {
@@ -763,6 +818,8 @@ export interface components {
              * @default 0
              */
             reports_count: number;
+            /** Users */
+            users?: components["schemas"]["DepartmentUserDTO"][];
         };
         /** StorePasswordDTO */
         StorePasswordDTO: {
@@ -806,7 +863,7 @@ export interface components {
             /** Name */
             name: string;
             /** Login */
-            login: string;
+            login?: string | null;
         };
         /** SummaryDTO */
         SummaryDTO: {
@@ -848,6 +905,56 @@ export interface components {
             name: string;
             /** Archived */
             archived: boolean;
+        };
+        /** UserCreateDTO */
+        UserCreateDTO: {
+            /** Name */
+            name: string;
+            /** Login */
+            login: string;
+            /** Password */
+            password: string;
+            /** Department Id */
+            department_id?: number | null;
+            /** Department Name */
+            department_name?: string | null;
+            /** Permissions */
+            permissions: string[];
+        };
+        /** UserDTO */
+        UserDTO: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Login */
+            login: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "store";
+            /** Department Id */
+            department_id?: number | null;
+            /** Department Name */
+            department_name?: string | null;
+            /** Permissions */
+            permissions?: string[];
+        };
+        /** UserUpdateDTO */
+        UserUpdateDTO: {
+            /** Name */
+            name: string;
+            /** Login */
+            login: string;
+            /** Password */
+            password?: string | null;
+            /** Department Id */
+            department_id?: number | null;
+            /** Department Name */
+            department_name?: string | null;
+            /** Permissions */
+            permissions: string[];
         };
         /** ValidationError */
         ValidationError: {
@@ -1667,6 +1774,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SummaryDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_list_users_api_v1_admin_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDTO"][];
+                };
+            };
+        };
+    };
+    api_create_user_api_v1_admin_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreateDTO"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_update_user_api_v1_admin_users__uid__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdateDTO"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_delete_user_api_v1_admin_users__uid__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MutationDTO"];
                 };
             };
             /** @description Validation Error */

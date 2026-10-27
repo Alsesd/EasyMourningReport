@@ -56,6 +56,12 @@ class MigrationTests(unittest.TestCase):
                 )
                 conn.execute(
                     text(
+                        "INSERT INTO users(id, login, password_hash, role, store_id) "
+                        "VALUES (2, ' ShopUser ', 'placeholder-hash', 'store', 1);"
+                    )
+                )
+                conn.execute(
+                    text(
                         "INSERT INTO products(id, name, price_cents, active) "
                         "VALUES (1, 'Apples', 125, 1);"
                     )
@@ -74,6 +80,8 @@ class MigrationTests(unittest.TestCase):
                     ("products", "archived"),
                     ("stores", "archived"),
                     ("reports", "status"),
+                    ("users", "name"),
+                    ("users", "permissions"),
                 ):
                     cols = {col["name"] for col in inspector.get_columns(table)}
                     self.assertIn(expected, cols)
@@ -86,6 +94,11 @@ class MigrationTests(unittest.TestCase):
 
                     login = conn.execute(text("SELECT login FROM users WHERE id = 1")).fetchone()
                     self.assertEqual(login, ("admin",))
+                    legacy_name, legacy_perms = conn.execute(
+                        text("SELECT name, permissions FROM users WHERE id = 2")
+                    ).fetchone()
+                    self.assertEqual(legacy_name, "ShopUser")
+                    self.assertEqual(legacy_perms, '["sales_report"]')
 
                     status = conn.execute(text("SELECT status FROM reports WHERE id = 1")).fetchone()
                     self.assertEqual(status, ("draft",))

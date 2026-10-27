@@ -45,7 +45,7 @@
 |---|------|-------|-------------|--------|
 | M1 | Package Management Migration | PDM removal, PEP 621 + Hatchling in `pyproject.toml`, `uv.lock`, Dockerfile, CI, flake.nix, frontend package.json | none | DONE |
 | M2 | PostgreSQL Database Layer | Engine & Session (`psycopg`), `bootstrap.py` inspection, `backup.py` SQL dumps, `compose.yaml` PostgreSQL service, test DB fixtures | M1 | DONE |
-| M3 | Vertical Slice Architecture | Modular vertical slices under `src/backend/app/features/` (auth, products, stores, reports, audit, tunnel), `src/backend/app/core/`, composition root `src/backend/app/main.py` | M2 | DONE |
+| M3 | Vertical Slice Architecture | Modular vertical slices under `src/backend/app/features/` (auth, users, products, stores, reports, audit, tunnel), `src/backend/app/core/`, composition root `src/backend/app/main.py` | M2 | DONE |
 | M4 | Eliminate Redundant Code | Remove `tailscale.py`, `/admin/tailscale` endpoints, obsolete SQLite hooks, legacy tests | M3 | DONE |
 | M5 | Cache Prevention & Repo Structuring | Disable caches (`-p no:cacheprovider`, `PYTHONDONTWRITEBYTECODE=1`), purge `__pycache__`, restructure `docs/` and scripts, replace `run.py` with `python -m app`, update `.gitignore`/`.dockerignore` | M4 | DONE |
 | M6 | E2E Test Pass & Coverage Hardening | Pass 100% of E2E test suite (Tiers 1-4) and execute Tier 5 adversarial coverage hardening | M5 | DONE |
@@ -88,7 +88,7 @@ EasyMourningReport/
 │   │   │   ├── __main__.py          # python -m app entry point
 │   │   │   ├── main.py              # FastAPI composition root
 │   │   │   ├── core/                # database, bootstrap, backup, security, errors, paths, PWA
-│   │   │   └── features/            # auth, products, stores, reports, audit, tunnel
+│   │   │   └── features/            # auth, users, products, stores, reports, audit, tunnel
 │   │   ├── scripts/dump_openapi.py  # OpenAPI generation
 │   │   └── tests/                   # unit, integration, E2E
 │   └── frontend/

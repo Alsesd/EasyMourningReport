@@ -4,24 +4,27 @@ import { AnimatedCollapse } from "@/shared/components/ui/AnimatedCollapse";
 import { uk } from "@/shared/i18n/uk";
 import {
   AlertCircle,
+  Building2,
   CheckCircle,
   Database,
   Globe,
   Package,
   Shield,
-  Store,
+  Users,
 } from "lucide-react";
 import BackupSettings from "./BackupSettings";
+import DepartmentsSettings from "./DepartmentsSettings";
 import ProductsSettings from "./ProductsSettings";
 import SecuritySettings from "./SecuritySettings";
-import StoresSettings from "./StoresSettings";
 import TunnelSettings from "./TunnelSettings";
+import UsersSettings from "./UsersSettings";
 import { useTunnelStatus } from "./useTunnelStatus";
 import type { Notify } from "./types";
 
 const tabs = [
   { id: "products", label: uk.settings.tabs.products, icon: Package },
-  { id: "stores", label: uk.settings.tabs.stores, icon: Store },
+  { id: "users", label: uk.settings.tabs.users, icon: Users },
+  { id: "departments", label: uk.settings.tabs.departments, icon: Building2 },
   { id: "security", label: uk.settings.tabs.security, icon: Shield },
   { id: "tunnel", label: uk.settings.tabs.tunnel, icon: Globe },
   { id: "backup", label: uk.settings.tabs.backup, icon: Database },
@@ -49,7 +52,7 @@ export default function AdminSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-text-main">{uk.settings.title}</h1>
         <p className="text-sm text-text-muted mt-1">
-          Керування каталогом товарів, магазинами, доступом та безпекою
+          Керування товарами, користувачами, відділами, доступом та безпекою
         </p>
       </div>
 
@@ -125,7 +128,8 @@ export default function AdminSettingsPage() {
       </AnimatedCollapse>
 
       {currentTab === "products" && <ProductsSettings notify={notify} />}
-      {currentTab === "stores" && <StoresSettings notify={notify} />}
+      {currentTab === "users" && <UsersSettings notify={notify} />}
+      {currentTab === "departments" && <DepartmentsSettings notify={notify} />}
       {currentTab === "security" && <SecuritySettings notify={notify} />}
       {currentTab === "tunnel" && <TunnelSettings notify={notify} />}
       {currentTab === "backup" && <BackupSettings />}

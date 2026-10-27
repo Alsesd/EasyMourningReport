@@ -104,6 +104,7 @@ def test_main_is_composition_only():
     assert "app.features.auth.router" in imported
     assert "app.features.products.router" in imported
     assert "app.features.stores.router" in imported
+    assert "app.features.users.router" in imported
     assert "app.features.reports.router" in imported
     assert "app.features.audit.router" in imported
     assert "app.features.tunnel.router" in imported

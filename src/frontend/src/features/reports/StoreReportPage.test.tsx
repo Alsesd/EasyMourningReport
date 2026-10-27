@@ -9,9 +9,13 @@ import type { StoreReportDTO, SessionDTO } from "@/shared/api/types";
 
 const mockSession: SessionDTO = {
   login: "teststore",
+  name: "Тестовий магазин",
   role: "store",
   store_id: 1,
   store_name: "Тестовий магазин",
+  department_id: 1,
+  department_name: "Тестовий магазин",
+  permissions: ["sales_report"],
   period: "2026-10",
 };
 

@@ -26,7 +26,7 @@ The test suite systematically covers all application domains across four progres
 | **Tunnel** | Cloudflare Tunnel Status, Autostart Toggle, Start/Stop Controls | 6 tests (`TC-TUNNEL-01..06`) | Invalid confirmation payloads, URL format checks | Admin-only permission enforcement | Sidecar and preference state |
 | **Summary & Exports** | Matrix Aggregation, Excel Download, Excel Import, DB Backups | 6 tests (`TC-SUM-01..06`) | Filter bounds (`submitted_only`), extreme quantities | Cross-store aggregation with mixed drafts | Real-world multi-store close & backup |
 
-E2E Test Cases Implemented: **82 tests** across Tiers 1–4. Full backend suite (unit, integration, and E2E): **285 tests**.
+E2E Test Cases Implemented: **82 tests** across Tiers 1–4. Full backend suite (unit, integration, and E2E): **289 tests**.
 
 ---
 
@@ -99,8 +99,8 @@ The suite includes dedicated multi-stage workload tests simulating actual enterp
 | **Tier 3 Combinations** | Multi-feature pairwise flows | **5 test cases** (100% pass) |
 | **Tier 4 Realistic Workloads** | Complete monthly close simulation | **2 test cases** (100% pass) |
 | **E2E Suite** | Comprehensive opaque-box coverage | **82 test cases** (100% pass) |
-| **Non-E2E Backend Suite** | Unit and integration coverage | **203 test cases** (100% pass) |
-| **Full Backend Suite** | All pytest tests | **285 test cases** (100% pass) |
-| **Frontend Suite** | Vitest component/store/utility coverage | **37 test cases** (100% pass) |
+| **Non-E2E Backend Suite** | Unit and integration coverage | **207 test cases** (100% pass) |
+| **Full Backend Suite** | All pytest tests | **289 test cases** (100% pass) |
+| **Frontend Suite** | Vitest component/store/utility coverage | **43 test cases** (100% pass) |
 | **Cache Suppression** | 0 cache/bytecode files generated | **Verified** (`NO BYTECODE OR CACHE`) |
 | **Execution Performance** | Full E2E suite under 60 seconds | **~30s** execution time |

@@ -10,6 +10,9 @@ import { uk } from "@/shared/i18n/uk";
 
 // Route-level code splitting: store route must not load admin code
 const StoreReportPage = lazy(() => import("@/features/reports/StoreReportPage"));
+const WorkspaceLayout = lazy(() => import("@/features/workspace/WorkspaceLayout"));
+const WorkspaceDashboardPage = lazy(() => import("@/features/workspace/WorkspaceDashboardPage"));
+const WorkspacePermissionPage = lazy(() => import("@/features/workspace/WorkspacePermissionPage"));
 const AdminLayout = lazy(() => import("@/app/AdminLayout"));
 const AdminSummaryPage = lazy(() => import("@/features/reports/AdminSummaryPage"));
 const AdminReportsPage = lazy(() => import("@/features/reports/AdminReportsPage"));
@@ -41,7 +44,7 @@ function RootRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  return <Navigate to={session.role === "admin" ? "/admin/summary" : "/report"} replace />;
+  return <Navigate to={session.role === "admin" ? "/admin/summary" : "/workspace"} replace />;
 }
 
 function PageFallback() {
@@ -69,11 +72,25 @@ export function App() {
                 <Route
                   path="/report"
                   element={
-                    <ProtectedRoute allowedRole="store">
+                    <ProtectedRoute allowedRole="store" requiredPermission="sales_report">
                       <StoreReportPage />
                     </ProtectedRoute>
                   }
                 />
+
+                <Route
+                  path="/workspace"
+                  element={
+                    <ProtectedRoute allowedRole="store">
+                      <WorkspaceLayout />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<WorkspaceDashboardPage />} />
+                  <Route path="sales-report" element={<Navigate to="/report" replace />} />
+                  <Route path=":permissionPath" element={<WorkspacePermissionPage />} />
+                  <Route path="*" element={<Navigate to="/workspace" replace />} />
+                </Route>
 
                 <Route
                   path="/admin"

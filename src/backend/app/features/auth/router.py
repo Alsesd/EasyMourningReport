@@ -10,6 +10,7 @@ from app.features.auth.dependencies import (
     api_user_required,
 )
 from app.features.auth.models import User
+from app.features.auth.permissions import decode_permissions
 from app.features.auth.schemas import (
     LoginDTO,
     MessageDTO,
@@ -25,15 +26,24 @@ from app.features.auth.service import (
 router = APIRouter(tags=["Auth"])
 
 
-@router.get("/session", response_model=SessionDTO)
-def get_session(user: User = Depends(api_user_required)) -> SessionDTO:
+def session_dto(user: User) -> SessionDTO:
+    department_name = user.store.name if user.store else None
     return SessionDTO(
         login=user.login,
+        name=user.display_name,
         role=user.role,
         store_id=user.store_id,
-        store_name=user.store.name if user.store else None,
+        store_name=department_name,
+        department_id=user.store_id,
+        department_name=department_name,
+        permissions=decode_permissions(user.permissions, user.role),
         period=current_period(),
     )
+
+
+@router.get("/session", response_model=SessionDTO)
+def get_session(user: User = Depends(api_user_required)) -> SessionDTO:
+    return session_dto(user)
 
 
 @router.post("/auth/login", response_model=SessionDTO)
@@ -55,14 +65,7 @@ def api_login(
             detail=result.error,
             headers=headers,
         )
-    user = result.user
-    return SessionDTO(
-        login=user.login,
-        role=user.role,
-        store_id=user.store_id,
-        store_name=user.store.name if user.store else None,
-        period=current_period(),
-    )
+    return session_dto(result.user)
 
 
 @router.post("/auth/logout", response_model=MessageDTO)
@@ -89,4 +92,4 @@ def update_admin_password(
     return MessageDTO(message="Ваш пароль змінено.")
 
 
-__all__ = ["router"]
+__all__ = ["router", "session_dto"]

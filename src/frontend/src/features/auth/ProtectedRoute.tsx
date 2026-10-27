@@ -6,9 +6,14 @@ import { uk } from "@/shared/i18n/uk";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRole?: "admin" | "store";
+  requiredPermission?: string;
 }
 
-export function ProtectedRoute({ children, allowedRole }: ProtectedRouteProps) {
+export function ProtectedRoute({
+  children,
+  allowedRole,
+  requiredPermission,
+}: ProtectedRouteProps) {
   const { session, isLoading } = useAuth();
   const location = useLocation();
 
@@ -28,7 +33,11 @@ export function ProtectedRoute({ children, allowedRole }: ProtectedRouteProps) {
   }
 
   if (allowedRole && session.role !== allowedRole) {
-    return <Navigate to={session.role === "admin" ? "/admin" : "/report"} replace />;
+    return <Navigate to={session.role === "admin" ? "/admin/summary" : "/workspace"} replace />;
+  }
+
+  if (requiredPermission && !(session.permissions ?? []).includes(requiredPermission)) {
+    return <Navigate to={session.role === "admin" ? "/admin/summary" : "/workspace"} replace />;
   }
 
   return <>{children}</>;

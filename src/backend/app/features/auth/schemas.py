@@ -26,9 +26,13 @@ class MessageDTO(DTO):
 
 class SessionDTO(DTO):
     login: str
+    name: str
     role: Literal["admin", "store"]
     store_id: int | None = None
     store_name: str | None = None
+    department_id: int | None = None
+    department_name: str | None = None
+    permissions: list[str] = Field(default_factory=list)
     period: str
 
 

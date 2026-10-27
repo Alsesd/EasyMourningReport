@@ -27,6 +27,7 @@ from app.features.stores.schemas import (
     StoreDTO,
     StoreUpdateDTO,
 )
+from app.features.users.service import department_user_to_dto
 
 
 def same_name(a: str, b: str) -> bool:
@@ -36,26 +37,27 @@ def same_name(a: str, b: str) -> bool:
 def check_unique_store(
     db: Session,
     name: str,
-    login: str,
+    login: str = "",
     store_id: int | None = None,
     user_id: int | None = None,
 ) -> None:
-    """Store names and logins must be unique; case and spaces are normalized."""
+    """Department names and optional logins must be unique; case and spaces are normalized."""
     for s in db.scalars(select(Store)):
         if s.id != store_id and same_name(s.name, name):
             raise DomainError(
-                f"Магазин із назвою «{s.name}» уже існує"
+                f"Відділ із назвою «{s.name}» уже існує"
                 + (" (в архіві)" if s.archived else "")
             )
+    if not login:
+        return
     other = db.scalar(
         select(User).where(User.login == login, User.id != (user_id or 0))
     )
     if other:
         raise DomainError(
-            f"Логін «{login}» уже зайнятий. Логіни не залежать від регістру: Store1 і store1 — той самий."
+            f"Логін «{login}» уже зайнятий. "
+            "Логіни не залежать від регістру: Store1 і store1 — той самий."
         )
-
-
 
 
 def _get_store_report_counts(db: Session) -> dict[int, int]:
@@ -69,11 +71,14 @@ def store_to_dto(
     store: Store,
     store_user: User | None = None,
     report_counts: dict[int, int] | None = None,
+    store_users: list[User] | None = None,
 ) -> StoreDTO:
-    if store_user is None:
-        store_user = db.scalar(
-            select(User).where(
-                User.store_id == store.id, User.role == "store"
+    if store_users is None:
+        store_users = list(
+            db.scalars(
+                select(User)
+                .where(User.store_id == store.id, User.role == "store")
+                .order_by(User.name, User.login)
             )
         )
     counts = (
@@ -81,26 +86,41 @@ def store_to_dto(
         if report_counts is not None
         else _get_store_report_counts(db)
     )
+    if store_user is None and store_users:
+        store_user = store_users[0]
     return StoreDTO(
         id=store.id,
         name=store.name,
         login=store_user.login if store_user else "",
         archived=store.archived,
         reports_count=counts.get(store.id, 0),
+        users=[department_user_to_dto(account) for account in store_users],
     )
 
 
 def list_stores(db: Session) -> list[StoreDTO]:
     stores = db.scalars(select(Store).order_by(Store.name)).all()
-    accounts = {
-        user.store_id: user
-        for user in db.scalars(select(User).where(User.role == "store"))
-    }
+    grouped: dict[int, list[User]] = {}
+    for account in db.scalars(
+        select(User)
+        .where(User.role == "store")
+        .order_by(User.name, User.login)
+    ):
+        grouped.setdefault(account.store_id, []).append(account)
     counts = _get_store_report_counts(db)
-    return [
-        store_to_dto(db, store, accounts.get(store.id), counts)
-        for store in stores
-    ]
+    result = []
+    for store in stores:
+        accounts = grouped.get(store.id, [])
+        result.append(
+            store_to_dto(
+                db,
+                store,
+                accounts[0] if accounts else None,
+                counts,
+                accounts,
+            )
+        )
+    return result
 
 
 def create_store(
@@ -109,33 +129,38 @@ def create_store(
     user: User,
     request: Request,
 ) -> StoreDTO:
-    name = clean_name(payload.name, "Назва магазину")
-    login = clean_login(payload.login)
-    password = new_password(payload.password)
+    name = clean_name(payload.name, "Назва відділу")
+    login = clean_login(payload.login) if payload.login else ""
+    if bool(login) != bool(payload.password):
+        raise DomainError("Для облікового запису вкажіть і логін, і пароль.")
+    password = new_password(payload.password) if payload.password else ""
     check_unique_store(db, name, login)
     store = Store(name=name)
     db.add(store)
+    account = None
     try:
         db.flush()
-        account = create_store_user(db, login, password, store.id)
+        if login:
+            account = create_store_user(db, login, password, store.id)
         record_audit(
             db,
             request,
             user.login,
             user.role,
-            "додано магазин",
-            f"{name} · логін {login}",
+            "додано відділ",
+            f"{name}" + (f" · логін {login}" if login else ""),
         )
         db.commit()
         db.refresh(store)
-        db.refresh(account)
+        if account:
+            db.refresh(account)
     except IntegrityError:
         db.rollback()
         raise HTTPException(
             status_code=409,
-            detail="Магазин із такою назвою або логін уже існує.",
+            detail="Відділ із такою назвою або логін уже існує.",
         )
-    return store_to_dto(db, store, account, {})
+    return store_to_dto(db, store, account, {}, [account] if account else [])
 
 
 def update_store(
@@ -147,18 +172,26 @@ def update_store(
 ) -> StoreDTO:
     store = db.get(Store, sid)
     account = db.scalar(
-        select(User).where(User.store_id == sid, User.role == "store")
+        select(User)
+        .where(User.store_id == sid, User.role == "store")
+        .order_by(User.id)
     )
-    if not store or not account:
-        raise HTTPException(status_code=404, detail="Магазин не знайдено.")
-    name = clean_name(payload.name, "Назва магазину")
-    login = clean_login(payload.login)
-    check_unique_store(db, name, login, store_id=sid, user_id=account.id)
+    if not store:
+        raise HTTPException(status_code=404, detail="Відділ не знайдено.")
+    name = clean_name(payload.name, "Назва відділу")
+    login = clean_login(payload.login) if payload.login else ""
+    check_unique_store(
+        db,
+        name,
+        login,
+        store_id=sid,
+        user_id=account.id if account else None,
+    )
     notes = []
     if store.name != name:
         notes.append(f"назва «{store.name}» → «{name}»")
         store.name = name
-    if account.login != login:
+    if account and login and account.login != login:
         notes.append(f"логін {account.login} → {login}")
         update_store_user_login(db, sid, login)
     if notes:
@@ -167,18 +200,19 @@ def update_store(
             request,
             user.login,
             user.role,
-            "змінено магазин",
+            "змінено відділ",
             "; ".join(notes),
         )
     try:
         db.commit()
         db.refresh(store)
-        db.refresh(account)
+        if account:
+            db.refresh(account)
     except IntegrityError:
         db.rollback()
         raise HTTPException(
             status_code=409,
-            detail="Магазин із такою назвою або логін уже існує.",
+            detail="Відділ із такою назвою або логін уже існує.",
         )
     return store_to_dto(db, store, account)
 
@@ -214,7 +248,7 @@ def archive_or_delete_store(
 
     store = db.get(Store, sid)
     if not store:
-        raise HTTPException(status_code=404, detail="Магазин не знайдено.")
+        raise HTTPException(status_code=404, detail="Відділ не знайдено.")
     count = count_store_reports(db, sid)
     if count:
         store.archived = True
@@ -223,7 +257,7 @@ def archive_or_delete_store(
             request,
             user.login,
             user.role,
-            "архівовано магазин",
+            "архівовано відділ",
             f"{store.name} · звітів: {count}",
         )
         db.commit()
@@ -236,10 +270,10 @@ def archive_or_delete_store(
     name = store.name
     delete_store_user(db, sid)
     db.execute(delete(Store).where(Store.id == sid))
-    record_audit(db, request, user.login, user.role, "видалено магазин", name)
+    record_audit(db, request, user.login, user.role, "видалено відділ", name)
     db.commit()
     return MutationDTO(
-        id=sid, deleted=True, message=f"Магазин «{name}» остаточно видалено."
+        id=sid, deleted=True, message=f"Відділ «{name}» остаточно видалено."
     )
 
 
@@ -251,10 +285,10 @@ def restore_store(
 ) -> StoreDTO:
     store = db.get(Store, sid)
     if not store:
-        raise HTTPException(status_code=404, detail="Магазин не знайдено.")
+        raise HTTPException(status_code=404, detail="Відділ не знайдено.")
     store.archived = False
     record_audit(
-        db, request, user.login, user.role, "відновлено магазин", store.name
+        db, request, user.login, user.role, "відновлено відділ", store.name
     )
     db.commit()
     db.refresh(store)

@@ -221,7 +221,7 @@ def test_workload_end_to_end_monthly_close(
     # -------------------------------------------------------------------------
     logs = admin_client.get("/api/v1/admin/logs?limit=50").json()
     log_actions = [log.get("action", "") for log in logs]
-    assert any("додано магазин" in a for a in log_actions)
+    assert any("додано відділ" in a for a in log_actions)
     assert any("зміна ціни" in a or "цін" in a or "змінено" in a for a in log_actions)
     assert any("подання" in a or "звіт" in a for a in log_actions)
     assert any("завантажено бекап" in a for a in log_actions)

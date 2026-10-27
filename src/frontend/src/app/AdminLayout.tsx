@@ -52,7 +52,7 @@ export default function AdminLayout() {
         <div className="flex items-center justify-between pb-4 border-b border-border mb-4">
           <div>
             <h1 className="font-bold text-lg text-primary">{uk.appTitle}</h1>
-            <p className="text-xs text-text-muted">{session?.login}</p>
+            <p className="text-xs text-text-muted">{session?.name || session?.login}</p>
           </div>
           <div className="flex items-center space-x-1.5">
             <MakerMark />
@@ -99,7 +99,7 @@ export default function AdminLayout() {
         <header className="lg:hidden flex items-center justify-between p-3.5 border-b border-border bg-surface/95 backdrop-blur-xs sticky top-0 z-30 transition-colors">
           <div className="flex items-center space-x-2">
             <span className="font-bold text-primary">{uk.appTitle}</span>
-            <span className="text-xs text-text-muted">({session?.login})</span>
+            <span className="text-xs text-text-muted">({session?.name || session?.login})</span>
           </div>
           <div className="flex items-center space-x-2">
             <MakerMark />

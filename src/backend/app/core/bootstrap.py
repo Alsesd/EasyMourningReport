@@ -10,6 +10,7 @@ from app.core.backup import backup_db
 from app.core.database import Base, SessionLocal, engine
 from app.core.security import hash_pw
 from app.features.auth.models import User
+from app.features.auth.permissions import ALL_PERMISSIONS, encode_permissions
 from app.features.auth.service import dedupe_logins
 from app.features.products.models import Product, ProductPrice
 from app.features.products.service import BASE_PERIOD
@@ -21,7 +22,15 @@ def seed():
         if db.scalar(select(User.id).limit(1)):
             return
         admin_pw = os.getenv("ADMIN_PASSWORD") or secrets.token_urlsafe(9)
-        db.add(User(login="admin", password_hash=hash_pw(admin_pw), role="admin"))
+        db.add(
+            User(
+                login="admin",
+                name="Адміністратор",
+                password_hash=hash_pw(admin_pw),
+                role="admin",
+                permissions=encode_permissions(ALL_PERMISSIONS),
+            )
+        )
         print(
             f"\n*** ПЕРШИЙ ЗАПУСК: логін 'admin', пароль '{admin_pw}'. "
             "Змініть його на сторінці «Налаштування». ***\n",
@@ -48,8 +57,10 @@ def seed():
             db.add(
                 User(
                     login=f"store{n}",
+                    name=f"Магазин {n}",
                     password_hash=hash_pw(f"store{n}"),
                     role="store",
+                    permissions=encode_permissions(["sales_report"]),
                     store_id=s.id,
                 )
             )
@@ -72,6 +83,13 @@ def migrate() -> None:
         or "archived" not in get_columns("products")
         or "archived" not in get_columns("stores")
         or "status" not in get_columns("reports")
+        or (
+            "users" in tables
+            and (
+                "name" not in get_columns("users")
+                or "permissions" not in get_columns("users")
+            )
+        )
     )
 
     if needs:
@@ -105,6 +123,26 @@ def migrate() -> None:
             )
 
         if "users" in tables:
+            users_cols = {col["name"] for col in inspector.get_columns("users")}
+            if "name" not in users_cols:
+                c.execute(
+                    text("ALTER TABLE users ADD COLUMN name VARCHAR NOT NULL DEFAULT ''")
+                )
+            if "permissions" not in users_cols:
+                c.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN permissions VARCHAR NOT NULL DEFAULT '[]'"
+                    )
+                )
+            c.execute(
+                text("UPDATE users SET name = TRIM(login) WHERE name IS NULL OR name = ''")
+            )
+            c.execute(
+                text(
+                    'UPDATE users SET permissions = \'["sales_report"]\' '
+                    "WHERE role = 'store' AND (permissions IS NULL OR permissions IN ('', '[]'))"
+                )
+            )
             logins = [(r[0], r[1]) for r in c.execute(text("SELECT id, login FROM users"))]
             current = dict(logins)
             renames = {
