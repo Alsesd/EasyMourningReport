@@ -256,6 +256,7 @@ def _store_dto(db: Session, store: Store, store_user: User, report_counts: dict[
         login=store_user.login,
         archived=store.archived,
         reports_count=counts.get(store.id, 0),
+        calculation_enabled=store.calculation_enabled,
     )
 
 
@@ -270,6 +271,7 @@ def _report_line_dtos(rows: list[dict]) -> list[ReportLineDTO]:
                 ReportInputDTO(
                     price_cents=line["price"],
                     quantity=line["qty"],
+                    quantity_calc=line.get("qty_calc", 0),
                     label=line["label"],
                     sum_cents=line["qty"] * line["price"],
                 )
@@ -295,7 +297,12 @@ def _inactive_line_dtos(rows: list[dict]) -> list[InactiveReportLineDTO]:
 def _store_report_dto(
     db: Session, user: User, period: str, report: Report | None
 ) -> StoreReportDTO:
-    rows, inactive, inactive_total = build_lines(db, period, report.items if report else [])
+    rows, inactive, inactive_total = build_lines(
+        db,
+        period,
+        report.items if report else [],
+        calculation_enabled=bool(user.store and user.store.calculation_enabled),
+    )
     known = store_periods(db, user.store_id)
     return StoreReportDTO(
         report_id=report.id if report else None,
@@ -303,6 +310,7 @@ def _store_report_dto(
         period=period,
         status=report.status if report else "new",
         read_only=bool(report and report.status == "submitted"),
+        calculation_enabled=bool(user.store and user.store.calculation_enabled),
         rows=_report_line_dtos(rows),
         inactive_rows=_inactive_line_dtos(inactive),
         inactive_total_cents=inactive_total,
@@ -597,6 +605,13 @@ def update_store(
     if account.login != login:
         notes.append(f"логін {account.login} → {login}")
         account.login = login
+    if (
+        payload.calculation_enabled is not None
+        and store.calculation_enabled != payload.calculation_enabled
+    ):
+        store.calculation_enabled = payload.calculation_enabled
+        state = "увімкнено" if payload.calculation_enabled else "вимкнено"
+        notes.append(f"режим «По розрахунку» {state}")
     if notes:
         audit(db, request, user.login, user.role, "змінено магазин", "; ".join(notes))
     try:
@@ -722,33 +737,48 @@ def save_store_report(
     allowed: dict[int, set[int]] = {}
     for product in db.scalars(select(Product).where(Product.active, Product.archived.is_(False))):
         allowed[product.id] = set(offered_prices(history_of(history, product), selected))
+    existing_calc: dict[tuple[int, int], int] = defaultdict(int)
     for item in report.items:
-        if item.product_id in allowed and item.quantity > 0:
+        if item.product_id in allowed and (item.quantity > 0 or item.quantity_calc > 0):
             allowed[item.product_id].add(item.unit_price_cents)
+        existing_calc[item.product_id, item.unit_price_cents] += item.quantity_calc
 
     seen: set[tuple[int, int]] = set()
-    quantities: dict[int, dict[int, int]] = defaultdict(dict)
+    quantities: dict[int, dict[int, tuple[int, int]]] = defaultdict(dict)
     for line in payload.quantities:
         key = (line.product_id, line.price_cents)
         if key in seen:
             raise HTTPException(status_code=422, detail="Повторюється рядок товару/ціни.")
         seen.add(key)
-        if line.quantity == 0:
+        calculation_quantity = (
+            line.quantity_calc
+            if line.quantity_calc is not None
+            else existing_calc.get(key, 0)
+        )
+        if line.quantity == 0 and calculation_quantity == 0:
             continue
         if line.price_cents not in allowed.get(line.product_id, set()):
             raise HTTPException(
                 status_code=409,
                 detail="Список товарів або ціни змінилися. Оновіть звіт і повторіть збереження.",
             )
-        quantities[line.product_id][line.price_cents] = line.quantity
+        quantities[line.product_id][line.price_cents] = (
+            line.quantity,
+            calculation_quantity,
+        )
 
     # Preserve saved rows for inactive/archived products; those rows are read-only in the UI.
     preserved = [item for item in report.items if item.product_id not in allowed]
     new_items = list(preserved)
     for product_id in allowed:
-        for price, quantity in quantities.get(product_id, {}).items():
+        for price, (quantity, calculation_quantity) in quantities.get(product_id, {}).items():
             new_items.append(
-                ReportItem(product_id=product_id, quantity=quantity, unit_price_cents=price)
+                ReportItem(
+                    product_id=product_id,
+                    quantity=quantity,
+                    quantity_calc=calculation_quantity,
+                    unit_price_cents=price,
+                )
             )
     report.items = new_items
     submitting = payload.action == "submit"
@@ -807,12 +837,18 @@ def read_admin_report(
     if not report:
         raise HTTPException(status_code=404, detail="Звіт не знайдено.")
     request.session["period"] = report.period
-    rows, inactive, inactive_total = build_lines(db, report.period, report.items)
+    rows, inactive, inactive_total = build_lines(
+        db,
+        report.period,
+        report.items,
+        calculation_enabled=bool(report.store and report.store.calculation_enabled),
+    )
     return AdminReportDetailDTO(
         report_id=report.id,
         store_id=report.store_id,
         store_name=report.store.name if report.store else "?",
         store_archived=bool(report.store and report.store.archived),
+        calculation_enabled=bool(report.store and report.store.calculation_enabled),
         period=report.period,
         status=report.status,
         total_cents=report_total(report),
@@ -849,6 +885,7 @@ def update_admin_report_status(
         store_id=report.store_id,
         store_name=store.name if store else "?",
         store_archived=bool(store and store.archived),
+        calculation_enabled=bool(store and store.calculation_enabled),
         period=report.period,
         status=report.status,
         total_cents=report_total(report),
@@ -869,7 +906,12 @@ def read_admin_summary(
         period=selected,
         submitted_only=submitted_only,
         stores=[
-            SummaryStoreDTO(id=store.id, name=store.name, archived=store.archived)
+            SummaryStoreDTO(
+                id=store.id,
+                name=store.name,
+                archived=store.archived,
+                calculation_enabled=store.calculation_enabled,
+            )
             for store in stores
         ],
         rows=[
@@ -879,7 +921,9 @@ def read_admin_summary(
                 price_cents=row["price"],
                 label=row["label"],
                 cells=row["cells"],
+                calculation_cells=row["calculation_cells"],
                 quantity=row["qty"],
+                calculation_quantity=row["calc_qty"],
                 sum_cents=row["sum"],
             )
             for row in rows

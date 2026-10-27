@@ -20,27 +20,41 @@ def find_report(db: Session, store_id: int, period: str) -> Report | None:
 
 
 def report_total(r: Report) -> int:
+    """Financial totals use the ordinary reported quantity, never the calculation quantity."""
     return sum(i.quantity * i.unit_price_cents for i in r.items)
 
 
-def build_lines(db: Session, period: str, items: list[ReportItem]):
-    """Lines of one store's report for `period`.
-
-    Returns (rows, inactive, inactive_total). `rows` are the active products with their price lines (two lines in
-    the month a price changed), `inactive` are saved quantities of products that are switched off or archived.
-    """
+def build_lines(
+    db: Session,
+    period: str,
+    items: list[ReportItem],
+    calculation_enabled: bool = True,
+):
+    """Build report lines for a period, keeping the two quantities independent."""
     history = load_history(db)
     saved: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))
+    saved_calc: dict[int, dict[int, int]] = defaultdict(lambda: defaultdict(int))
     for it in items:
         saved[it.product_id][it.unit_price_cents] += it.quantity
+        saved_calc[it.product_id][it.unit_price_cents] += it.quantity_calc
+
     rows, inactive = [], []
     for p in db.scalars(select(Product).order_by(Product.name)):
         sp = saved.get(p.id, {})
+        cp = saved_calc.get(p.id, {})
         if in_form(p):
             derived = offered_prices(history_of(history, p), period)
-            extra = sorted(pr for pr, q in sp.items() if q > 0 and pr not in derived)
+            extra = sorted(
+                pr for pr in set(sp) | set(cp)
+                if pr not in derived and (sp.get(pr, 0) > 0 or cp.get(pr, 0) > 0)
+            )
             inputs = [
-                {"price": pr, "qty": sp.get(pr, 0), "label": label}
+                {
+                    "price": pr,
+                    "qty": sp.get(pr, 0),
+                    "qty_calc": cp.get(pr, 0),
+                    "label": label,
+                }
                 for pr, label in line_labels(derived, extra)
             ]
             rows.append(
@@ -53,16 +67,28 @@ def build_lines(db: Session, period: str, items: list[ReportItem]):
                 }
             )
         else:
-            lines = sorted((pr, q) for pr, q in sp.items() if q > 0)
-            if lines:
-                inactive.append(
-                    {
-                        "name": p.name,
-                        "archived": p.archived,
-                        "lines": "; ".join(f"{q} × {money(pr)}" for pr, q in lines),
-                        "sum": sum(pr * q for pr, q in lines),
-                    }
-                )
+            prices = sorted(
+                pr for pr in set(sp) | set(cp)
+                if sp.get(pr, 0) > 0 or cp.get(pr, 0) > 0
+            )
+            if prices:
+                line_parts = []
+                for pr in prices:
+                    quantity = sp.get(pr, 0)
+                    calc_quantity = cp.get(pr, 0)
+                    if quantity:
+                        line_parts.append(f"{quantity} × {money(pr)}")
+                    if calculation_enabled and calc_quantity:
+                        line_parts.append(f"по розрахунку: {calc_quantity} × {money(pr)}")
+                if line_parts:
+                    inactive.append(
+                        {
+                            "name": p.name,
+                            "archived": p.archived,
+                            "lines": "; ".join(line_parts),
+                            "sum": sum(pr * q for pr, q in sp.items()),
+                        }
+                    )
     return rows, inactive, sum(r["sum"] for r in inactive)
 
 
@@ -72,6 +98,7 @@ def build_summary(db: Session, period: str, submitted_only: bool = False):
             Report.store_id,
             ReportItem.product_id,
             ReportItem.quantity,
+            ReportItem.quantity_calc,
             ReportItem.unit_price_cents,
         )
         .select_from(ReportItem)
@@ -80,15 +107,21 @@ def build_summary(db: Session, period: str, submitted_only: bool = False):
     )
     if submitted_only:
         q = q.where(Report.status == "submitted")
-    qty, amt = defaultdict(int), defaultdict(int)
+
+    qty, calc_qty, amt = defaultdict(int), defaultdict(int), defaultdict(int)
+    enabled_store_ids = set(
+        db.scalars(select(Store.id).where(Store.calculation_enabled))
+    )
     data_pids, data_sids, data_prices = set(), set(), defaultdict(set)
-    for sid, pid, n, price in db.execute(q):
+    for sid, pid, n, calc_n, price in db.execute(q):
         qty[pid, price, sid] += n
+        calc_qty[pid, price, sid] += calc_n
         amt[pid, price, sid] += n * price
-        if n:
+        if n or (calc_n and sid in enabled_store_ids):
             data_pids.add(pid)
             data_sids.add(sid)
             data_prices[pid].add(price)
+
     # Archived stores / switched-off products stay in the table only for months where they have data.
     stores = [
         s
@@ -104,7 +137,6 @@ def build_summary(db: Session, period: str, submitted_only: bool = False):
     rows = []
     for p in products:
         offered = offered_prices(history_of(history, p), period)
-        # Keep unusual previously-saved prices too, just as an individual store report does.
         prices = list(offered) + sorted(
             pr for pr in data_prices[p.id] if pr not in offered
         )
@@ -112,10 +144,13 @@ def build_summary(db: Session, period: str, submitted_only: bool = False):
             offered, sorted(pr for pr in data_prices[p.id] if pr not in offered)
         )
         label_by_price = {price: label for price, label in labels}
-        # A changed product gets one merged-report row per price (old and new), with quantities
-        # split by the actual unit price saved by each store instead of combined into one row.
+        # Keep quantities assigned to each actual saved unit price.
         for price in prices:
             cells = [qty[p.id, price, s.id] for s in stores]
+            calculation_cells = [
+                calc_qty[p.id, price, s.id] if s.calculation_enabled else 0
+                for s in stores
+            ]
             rows.append(
                 {
                     "name": p.name,
@@ -132,7 +167,9 @@ def build_summary(db: Session, period: str, submitted_only: bool = False):
                     "price": price,
                     "label": label_by_price.get(price, ""),
                     "cells": cells,
+                    "calculation_cells": calculation_cells,
                     "qty": sum(cells),
+                    "calc_qty": sum(calculation_cells),
                     "sum": sum(amt[p.id, price, s.id] for s in stores),
                 }
             )

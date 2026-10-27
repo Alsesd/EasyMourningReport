@@ -195,6 +195,25 @@ export default function AdminSettingsPage() {
     onError: (err: Error) => notify(err.message || "Не вдалося оновити магазин.", "err"),
   });
 
+  const toggleStoreCalculationMutation = useMutation({
+    mutationFn: (data: { id: number; name: string; login: string; enabled: boolean }) =>
+      reportsApi.updateStore(data.id, {
+        name: data.name,
+        login: data.login,
+        calculation_enabled: data.enabled,
+      }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["adminStores"] });
+      notify(
+        variables.enabled
+          ? "Для магазину увімкнено режим «По розрахунку»."
+          : "Для магазину вимкнено режим «По розрахунку»."
+      );
+    },
+    onError: (err: Error) =>
+      notify(err.message || "Не вдалося змінити режим «По розрахунку».", "err"),
+  });
+
   const resetStorePasswordMutation = useMutation({
     mutationFn: (data: { id: number; password: string }) =>
       reportsApi.setStorePassword(data.id, data.password),
@@ -1039,6 +1058,23 @@ export default function AdminSettingsPage() {
                               autoCapitalize="none"
                             />
                           </div>
+                          <label className="flex items-center gap-2 min-h-[44px] rounded-control border border-border bg-page/50 px-3 text-sm cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={s.calculation_enabled}
+                              disabled={toggleStoreCalculationMutation.isPending}
+                              onChange={(e) =>
+                                toggleStoreCalculationMutation.mutate({
+                                  id: s.id,
+                                  name: s.name,
+                                  login: s.login,
+                                  enabled: e.target.checked,
+                                })
+                              }
+                              className="h-4 w-4 rounded border-border text-primary"
+                            />
+                            <span className="font-medium text-text-main">По розрахунку</span>
+                          </label>
                         </div>
 
                         {/* Actions */}

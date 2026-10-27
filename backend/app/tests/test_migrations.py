@@ -34,12 +34,18 @@ class MigrationTests(unittest.TestCase):
                         CREATE TABLE reports (
                             id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL, period VARCHAR NOT NULL
                         );
+                        CREATE TABLE report_items (
+                            id INTEGER PRIMARY KEY, report_id INTEGER NOT NULL, product_id INTEGER NOT NULL,
+                            quantity INTEGER NOT NULL, unit_price_cents INTEGER NOT NULL
+                        );
                         INSERT INTO stores(id, name) VALUES (1, 'Shop');
                         INSERT INTO users(id, login, password_hash, role, store_id)
                             VALUES (1, ' Admin ', 'placeholder-hash', 'admin', NULL);
                         INSERT INTO products(id, name, price_cents, active)
                             VALUES (1, 'Apples', 125, 1);
                         INSERT INTO reports(id, store_id, period) VALUES (1, 1, '2026-09');
+                        INSERT INTO report_items(id, report_id, product_id, quantity, unit_price_cents)
+                            VALUES (1, 1, 1, 4, 125);
                         """
                     )
 
@@ -55,7 +61,9 @@ class MigrationTests(unittest.TestCase):
                     for table, expected in (
                         ("products", "archived"),
                         ("stores", "archived"),
+                        ("stores", "calculation_enabled"),
                         ("reports", "status"),
+                        ("report_items", "quantity_calc"),
                     ):
                         columns = {row[1] for row in db.execute(f"PRAGMA table_info({table})")}
                         self.assertIn(expected, columns)
@@ -65,6 +73,10 @@ class MigrationTests(unittest.TestCase):
                     )
                     self.assertEqual(db.execute("SELECT login FROM users WHERE id = 1").fetchone(), ("admin",))
                     self.assertEqual(db.execute("SELECT status FROM reports WHERE id = 1").fetchone(), ("draft",))
+                    self.assertEqual(
+                        db.execute("SELECT quantity_calc FROM report_items WHERE id = 1").fetchone(),
+                        (0,),
+                    )
             finally:
                 engine.dispose()
 

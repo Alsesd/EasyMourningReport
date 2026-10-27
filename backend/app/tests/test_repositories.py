@@ -169,6 +169,51 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual([row["name"] for row in inactive_rows], ["Archived", "Inactive"])
             self.assertEqual(inactive_total, 800)
 
+    def test_calculation_quantities_are_separate_from_summary_totals(self):
+        from app.db.repositories.reports import build_lines, build_summary
+        with self.Session() as db:
+            store = Store(name="Calculation shop", calculation_enabled=True)
+            product = Product(name="Calculation item", price_cents=250, active=True, archived=False)
+            db.add_all([store, product])
+            db.flush()
+            save_history(db, product.id, [(BASE_PERIOD, 250)])
+            report = Report(store_id=store.id, period="2026-10", status="draft")
+            db.add(report)
+            db.flush()
+            report.items.append(
+                ReportItem(
+                    product_id=product.id,
+                    quantity=2,
+                    quantity_calc=7,
+                    unit_price_cents=250,
+                )
+            )
+            db.commit()
+
+            rows, _, total = build_lines(db, "2026-10", report.items)
+            self.assertEqual(rows[0]["inputs"][0]["qty"], 2)
+            self.assertEqual(rows[0]["inputs"][0]["qty_calc"], 7)
+            self.assertEqual(total, 0)
+            self.assertEqual(rows[0]["sum"], 500)
+
+            stores, summary_rows, store_sums, grand = build_summary(db, "2026-10")
+            self.assertTrue(stores[0].calculation_enabled)
+            self.assertEqual(summary_rows[0]["cells"], [2])
+            self.assertEqual(summary_rows[0]["calculation_cells"], [7])
+            self.assertEqual(summary_rows[0]["qty"], 2)
+            self.assertEqual(summary_rows[0]["calc_qty"], 7)
+            self.assertEqual(summary_rows[0]["sum"], 500)
+            self.assertEqual(store_sums, [500])
+            self.assertEqual(grand, 500)
+
+            stores[0].calculation_enabled = False
+            db.add(stores[0])
+            db.commit()
+            _, hidden_rows, _, _ = build_summary(db, "2026-10")
+            self.assertEqual(hidden_rows[0]["calculation_cells"], [0])
+            self.assertEqual(hidden_rows[0]["calc_qty"], 0)
+            self.assertEqual(hidden_rows[0]["sum"], 500)
+
     def test_summary_filter_includes_archived_data_only_when_submitted(self):
         from app.db.repositories.reports import build_summary
         with self.Session() as db:

@@ -20,13 +20,13 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 | GET | `/session` | Signed-in user | Current identity and period |
 | GET | `/admin/products?period=YYYY-MM` | Admin | Product DTOs, usage counts, the current-month price timeline, and full price history |
 | POST | `/admin/products` | Admin | Create product |
-| POST | `/admin/products/import` | Admin | Bounded `.xlsx` import with a message DTO |
+| POST | `/admin/products/import` | Admin | Bounded `.xlsx` import with a message DTO; the client sends the workbook as multipart form data |
 | PUT | `/admin/products/{id}` | Admin | Update name, price, and active state |
 | DELETE | `/admin/products/{id}` | Admin | Archive products with report history; otherwise delete |
 | POST | `/admin/products/{id}/restore` | Admin | Restore an archived product |
 | GET | `/admin/stores` | Admin | Store DTOs and report counts |
 | POST | `/admin/stores` | Admin | Create store and login |
-| PUT | `/admin/stores/{id}` | Admin | Update store name/login |
+| PUT | `/admin/stores/{id}` | Admin | Update store name/login and the per-store calculation-quantity option |
 | DELETE | `/admin/stores/{id}` | Admin | Archive stores with reports; otherwise delete |
 | POST | `/admin/stores/{id}/restore` | Admin | Restore an archived store |
 | PUT | `/admin/stores/{id}/password` | Admin | Reset store password |
@@ -68,7 +68,7 @@ Repeat the same update endpoint when the price changes again during the same mon
 
 The admin UI timeline shows each event, including repeated amounts. Report DTOs deliberately offer one input per **unique price amount**, because quantities are stored by product and unit price. For example, price changes `10.00 → 12.00 → 15.00 → 12.00` keep all four events in history but offer the report price choices `10.00, 12.00, 15.00`. Previously saved report quantities are not recalculated.
 
-Save the full set of editable report quantities. The server revalidates every product/price pair against its own history, preserves quantities for inactive or archived products, and blocks further edits after submission:
+Save the full set of editable report quantities. The server revalidates every product/price pair against its own history, preserves quantities for inactive or archived products, and blocks further edits after submission. Each line may also include an independent `quantity_calc` integer for a store where `calculation_enabled` is on. That quantity is visible separately in the store report, combined report, and combined XLSX export; it never contributes to monetary totals. Older clients may omit `quantity_calc`, in which case an existing calculation quantity is preserved:
 
 ```http
 PUT /api/v1/store/reports/2026-10

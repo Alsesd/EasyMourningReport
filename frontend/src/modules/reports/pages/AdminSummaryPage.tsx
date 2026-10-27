@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { reportsApi } from "@/modules/reports/api";
@@ -69,6 +69,16 @@ export default function AdminSummaryPage() {
   const grandTotal = summary?.grand_total_cents || 0;
 
   const totalQuantity = rows.reduce((acc, row) => acc + (row.quantity || 0), 0);
+  const showCalculationQuantities = stores.some((store) => store.calculation_enabled);
+  const totalCalculationQuantity = rows.reduce(
+    (acc, row) => acc + (row.calculation_quantity || 0),
+    0
+  );
+  const storeCalculationTotals = stores.map((store, storeIdx) =>
+    store.calculation_enabled
+      ? rows.reduce((acc, row) => acc + (row.calculation_cells?.[storeIdx] || 0), 0)
+      : 0
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -284,18 +294,26 @@ export default function AdminSummaryPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-border/60 text-xs">
                     {stores.map((store, sIdx) => {
                       const qty = row.cells?.[sIdx] || 0;
+                      const calcQty = row.calculation_cells?.[sIdx] || 0;
                       return (
                         <div
                           key={store.id}
                           className={cn(
-                            "flex items-center justify-between p-2 rounded-control border transition-colors",
-                            qty > 0
+                            "flex items-center justify-between gap-2 p-2 rounded-control border transition-colors",
+                            qty > 0 || calcQty > 0
                               ? "bg-page border-primary/20 text-text-main font-medium"
                               : "bg-page/40 border-border/40 text-text-muted/60"
                           )}
                         >
                           <span className="truncate pr-1">{store.name}</span>
-                          <span className="font-mono font-bold">{qty > 0 ? qty : "—"}</span>
+                          <span className="flex flex-col items-end gap-1 font-mono font-bold">
+                            <span>{qty > 0 ? qty : "—"}</span>
+                            {store.calculation_enabled && (
+                              <span className="text-[10px] font-medium text-text-muted whitespace-nowrap">
+                                Розрахунок: {calcQty > 0 ? calcQty : "—"}
+                              </span>
+                            )}
+                          </span>
                         </div>
                       );
                     })}
@@ -304,6 +322,12 @@ export default function AdminSummaryPage() {
                   <div className="flex items-center justify-between pt-2 border-t border-border/60 text-sm">
                     <span className="text-text-muted">
                       Всього: <b className="font-mono text-text-main font-bold">{row.quantity}</b> шт.
+                      {showCalculationQuantities && (
+                        <span className="ml-2">
+                          По розрахунку:{" "}
+                          <b className="font-mono text-text-main font-bold">{row.calculation_quantity}</b> шт.
+                        </span>
+                      )}
                     </span>
                     <span className="font-mono font-bold text-primary text-base">
                       = {formatCurrency(row.sum_cents)}
@@ -326,16 +350,28 @@ export default function AdminSummaryPage() {
                     {uk.summary.tablePrice}
                   </th>
                   {stores.map((store) => (
-                    <th key={store.id} className="py-3 px-3 text-right whitespace-nowrap min-w-[120px] border-r border-border/20 sticky top-0 bg-surface z-20">
-                      <span>{store.name}</span>
-                      {store.archived && (
-                        <span className="ml-1 text-[10px] text-destructive font-normal lowercase">(в архіві)</span>
+                    <Fragment key={store.id}>
+                      <th className="py-3 px-3 text-right whitespace-nowrap min-w-[120px] border-r border-border/20 sticky top-0 bg-surface z-20">
+                        <span>{store.name}</span>
+                        {store.archived && (
+                          <span className="ml-1 text-[10px] text-destructive font-normal lowercase">(в архіві)</span>
+                        )}
+                      </th>
+                      {store.calculation_enabled && (
+                        <th className="py-3 px-3 text-right whitespace-nowrap min-w-[190px] border-r border-border/20 sticky top-0 bg-surface z-20">
+                          {uk.summary.tableCalculationQuantity}
+                        </th>
                       )}
-                    </th>
+                    </Fragment>
                   ))}
                   <th className="py-3 px-3 text-right whitespace-nowrap min-w-[90px] border-r border-border/40 font-semibold sticky top-0 bg-surface z-20">
                     {uk.summary.tableTotalQuantity}
                   </th>
+                  {showCalculationQuantities && (
+                    <th className="py-3 px-3 text-right whitespace-nowrap min-w-[150px] font-semibold sticky top-0 bg-surface z-20">
+                      {uk.summary.tableCalculationQuantityTotal}
+                    </th>
+                  )}
                   <th className="py-3 px-4 text-right whitespace-nowrap min-w-[120px] font-semibold sticky top-0 bg-surface z-20">
                     {uk.summary.tableTotalSum}
                   </th>
@@ -345,7 +381,7 @@ export default function AdminSummaryPage() {
                 {rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={stores.length + 4}
+                      colSpan={stores.length + stores.filter((store) => store.calculation_enabled).length + 4 + (showCalculationQuantities ? 1 : 0)}
                       className="py-12 text-center text-text-muted text-sm"
                     >
                       {uk.summary.noData}
@@ -366,17 +402,30 @@ export default function AdminSummaryPage() {
                       <td className="py-3 px-3 text-right tabular-nums text-text-muted font-mono border-r border-border/40 whitespace-nowrap">
                         {formatCurrency(row.price_cents)}
                       </td>
-                      {(row.cells || []).map((cell, cellIdx) => (
-                        <td
-                          key={cellIdx}
-                          className="py-3 px-3 text-right tabular-nums text-text-main font-mono border-r border-border/20"
-                        >
-                          {cell > 0 ? cell : <span className="text-text-muted/40">—</span>}
-                        </td>
-                      ))}
+                      {stores.map((store, storeIdx) => {
+                        const qty = row.cells?.[storeIdx] || 0;
+                        const calcQty = row.calculation_cells?.[storeIdx] || 0;
+                        return (
+                          <Fragment key={store.id}>
+                            <td className="py-3 px-3 text-right tabular-nums text-text-main font-mono border-r border-border/20">
+                              {qty > 0 ? qty : <span className="text-text-muted/40">—</span>}
+                            </td>
+                            {store.calculation_enabled && (
+                              <td className="py-3 px-3 text-right tabular-nums text-text-main font-mono border-r border-border/20">
+                                {calcQty > 0 ? calcQty : <span className="text-text-muted/40">—</span>}
+                              </td>
+                            )}
+                          </Fragment>
+                        );
+                      })}
                       <td className="py-3 px-3 text-right tabular-nums font-semibold text-text-main font-mono border-r border-border/40">
                         {row.quantity}
                       </td>
+                      {showCalculationQuantities && (
+                        <td className="py-3 px-3 text-right tabular-nums font-semibold text-text-main font-mono border-r border-border/40">
+                          {row.calculation_quantity}
+                        </td>
+                      )}
                       <td className="py-3 px-4 text-right tabular-nums font-semibold text-text-main font-mono">
                         {formatCurrency(row.sum_cents)}
                       </td>
@@ -393,14 +442,26 @@ export default function AdminSummaryPage() {
                     <td className="py-4 px-3 text-right tabular-nums font-mono text-text-muted border-r border-border/40">
                       —
                     </td>
-                    {storeTotals.map((amount, idx) => (
-                      <td key={idx} className="py-4 px-3 text-right tabular-nums font-mono border-r border-border/20">
-                        {formatCurrency(amount)}
-                      </td>
+                    {stores.map((store, storeIdx) => (
+                      <Fragment key={store.id}>
+                        <td className="py-4 px-3 text-right tabular-nums font-mono border-r border-border/20">
+                          {formatCurrency(storeTotals[storeIdx] || 0)}
+                        </td>
+                        {store.calculation_enabled && (
+                          <td className="py-4 px-3 text-right tabular-nums font-mono border-r border-border/20">
+                            {storeCalculationTotals[storeIdx]}
+                          </td>
+                        )}
+                      </Fragment>
                     ))}
                     <td className="py-4 px-3 text-right tabular-nums font-mono text-text-muted border-r border-border/40">
                       {totalQuantity}
                     </td>
+                    {showCalculationQuantities && (
+                      <td className="py-4 px-3 text-right tabular-nums font-mono text-text-main border-r border-border/40">
+                        {totalCalculationQuantity}
+                      </td>
+                    )}
                     <td className="py-4 px-4 text-right tabular-nums font-mono text-primary text-base">
                       {formatCurrency(grandTotal)}
                     </td>

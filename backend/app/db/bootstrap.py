@@ -72,7 +72,13 @@ def migrate() -> None:
             "product_prices" not in tables
             or "archived" not in columns(c, "products")
             or "archived" not in columns(c, "stores")
+            or "calculation_enabled" not in columns(c, "stores")
             or "status" not in columns(c, "reports")
+            or "report_items" not in tables
+            or (
+                "report_items" in tables
+                and "quantity_calc" not in columns(c, "report_items")
+            )
         )
         logins = (
             [(r[0], r[1]) for r in c.exec_driver_sql("SELECT id, login FROM users")]
@@ -92,6 +98,14 @@ def migrate() -> None:
                 c.exec_driver_sql(
                     f"ALTER TABLE {table} ADD COLUMN archived BOOLEAN NOT NULL DEFAULT 0"
                 )
+        if "calculation_enabled" not in columns(c, "stores"):
+            c.exec_driver_sql(
+                "ALTER TABLE stores ADD COLUMN calculation_enabled BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "quantity_calc" not in columns(c, "report_items"):
+            c.exec_driver_sql(
+                "ALTER TABLE report_items ADD COLUMN quantity_calc INTEGER NOT NULL DEFAULT 0"
+            )
         # every product needs a starting price record
         c.exec_driver_sql(
             "INSERT INTO product_prices (product_id, period, price_cents) "

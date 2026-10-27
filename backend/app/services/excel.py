@@ -114,22 +114,43 @@ def generate_summary_excel(
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Звіт"
-    sheet.append(["Назва", "Ціна", "Звітована кількість", "Сума"])
+    include_calculation = any(store.calculation_enabled for store in stores)
+    headers = ["Назва", "Ціна", "Звітована кількість"]
+    if include_calculation:
+        headers.append("Кількість по розрахунку")
+    headers.append("Сума")
+    sheet.append(headers)
     for row in rows:
-        sheet.append(
-            [row["name"], row["price"] / 100, row["qty"], row["sum"] / 100]
-        )
-    sheet.append(["Разом", None, sum(row["qty"] for row in rows), grand / 100])
+        values = [row["name"], row["price"] / 100, row["qty"]]
+        if include_calculation:
+            values.append(row["calc_qty"])
+        values.append(row["sum"] / 100)
+        sheet.append(values)
+    totals = ["Разом", None, sum(row["qty"] for row in rows)]
+    if include_calculation:
+        totals.append(sum(row["calc_qty"] for row in rows))
+    totals.append(grand / 100)
+    sheet.append(totals)
     sheet.freeze_panes = "A2"
+    last_column = "E" if include_calculation else "D"
     sheet.auto_filter.ref = (
-        f"A1:D{sheet.max_row - 1}" if sheet.max_row > 1 else "A1:D1"
+        f"A1:{last_column}{sheet.max_row - 1}"
+        if sheet.max_row > 1
+        else f"A1:{last_column}1"
     )
     sheet.column_dimensions["A"].width = 36
     sheet.column_dimensions["B"].width = 16
     sheet.column_dimensions["C"].width = 24
-    sheet.column_dimensions["D"].width = 18
-    for cell in sheet["B"][1:] + sheet["D"][1:]:
-        cell.number_format = "#,##0.00"
+    if include_calculation:
+        sheet.column_dimensions["D"].width = 30
+        sheet.column_dimensions["E"].width = 18
+        money_columns = ("B", "E")
+    else:
+        sheet.column_dimensions["D"].width = 18
+        money_columns = ("B", "D")
+    for col in money_columns:
+        for cell in sheet[col][1:]:
+            cell.number_format = "#,##0.00"
     for cell in sheet[1]:
         cell.font = cell.font.copy(bold=True)
     for cell in sheet[sheet.max_row]:

@@ -899,6 +899,8 @@ export interface components {
             store_name: string;
             /** Store Archived */
             store_archived: boolean;
+            /** Calculation Enabled */
+            calculation_enabled: boolean;
             /** Period */
             period: string;
             /**
@@ -921,6 +923,8 @@ export interface components {
             store_name: string;
             /** Store Archived */
             store_archived: boolean;
+            /** Calculation Enabled */
+            calculation_enabled: boolean;
             /** Period */
             period: string;
             /**
@@ -1151,6 +1155,8 @@ export interface components {
             price_cents: number;
             /** Quantity */
             quantity: number;
+            /** Quantity Calc */
+            quantity_calc: number;
             /**
              * Label
              * @default
@@ -1180,6 +1186,8 @@ export interface components {
             price_cents: number;
             /** Quantity */
             quantity: number;
+            /** Quantity Calc */
+            quantity_calc?: number | null;
         };
         /** ReportSaveDTO */
         ReportSaveDTO: {
@@ -1235,6 +1243,8 @@ export interface components {
             login: string;
             /** Archived */
             archived: boolean;
+            /** Calculation Enabled */
+            calculation_enabled: boolean;
             /**
              * Reports Count
              * @default 0
@@ -1261,6 +1271,8 @@ export interface components {
             status: "new" | "draft" | "submitted";
             /** Read Only */
             read_only: boolean;
+            /** Calculation Enabled */
+            calculation_enabled: boolean;
             /** Rows */
             rows?: components["schemas"]["ReportLineDTO"][];
             /** Inactive Rows */
@@ -1284,6 +1296,8 @@ export interface components {
             name: string;
             /** Login */
             login: string;
+            /** Calculation Enabled */
+            calculation_enabled?: boolean | null;
         };
         /** SummaryDTO */
         SummaryDTO: {
@@ -1312,8 +1326,12 @@ export interface components {
             label: string;
             /** Cells */
             cells: number[];
+            /** Calculation Cells */
+            calculation_cells?: number[];
             /** Quantity */
             quantity: number;
+            /** Calculation Quantity */
+            calculation_quantity: number;
             /** Sum Cents */
             sum_cents: number;
         };
@@ -1325,6 +1343,8 @@ export interface components {
             name: string;
             /** Archived */
             archived: boolean;
+            /** Calculation Enabled */
+            calculation_enabled: boolean;
         };
         /** ValidationError */
         ValidationError: {

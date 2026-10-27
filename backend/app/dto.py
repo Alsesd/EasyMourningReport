@@ -51,6 +51,7 @@ class StoreDTO(DTO):
     login: str
     archived: bool
     reports_count: int = 0
+    calculation_enabled: bool = False
 
 
 class StoreCreateDTO(BaseModel):
@@ -62,6 +63,7 @@ class StoreCreateDTO(BaseModel):
 class StoreUpdateDTO(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     login: str = Field(min_length=2, max_length=40)
+    calculation_enabled: bool | None = None
 
 
 class PasswordDTO(BaseModel):
@@ -96,6 +98,7 @@ class SessionDTO(DTO):
 class ReportInputDTO(DTO):
     price_cents: int
     quantity: int
+    quantity_calc: int = 0
     label: str = ""
     sum_cents: int
 
@@ -119,6 +122,8 @@ class ReportQuantityDTO(BaseModel):
     product_id: int = Field(gt=0)
     price_cents: int = Field(ge=0)
     quantity: int = Field(ge=0)
+    # Optional for backward compatibility with clients that predate this field.
+    quantity_calc: int | None = Field(default=None, ge=0)
 
 
 class ReportSaveDTO(BaseModel):
@@ -137,6 +142,7 @@ class StoreReportDTO(DTO):
     period: str
     status: Literal["new", "draft", "submitted"]
     read_only: bool
+    calculation_enabled: bool = False
     rows: list[ReportLineDTO] = Field(default_factory=list)
     inactive_rows: list[InactiveReportLineDTO] = Field(default_factory=list)
     inactive_total_cents: int = 0
@@ -160,6 +166,7 @@ class AdminReportDTO(DTO):
     store_id: int
     store_name: str
     store_archived: bool
+    calculation_enabled: bool = False
     period: str
     status: Literal["draft", "submitted"]
     total_cents: int
@@ -176,6 +183,7 @@ class SummaryStoreDTO(DTO):
     id: int
     name: str
     archived: bool
+    calculation_enabled: bool = False
 
 
 class SummaryRowDTO(DTO):
@@ -184,7 +192,9 @@ class SummaryRowDTO(DTO):
     price_cents: int
     label: str
     cells: list[int]
+    calculation_cells: list[int] = Field(default_factory=list)
     quantity: int
+    calculation_quantity: int = 0
     sum_cents: int
 
 

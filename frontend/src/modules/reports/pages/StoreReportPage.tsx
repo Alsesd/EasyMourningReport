@@ -99,7 +99,9 @@ export default function StoreReportPage() {
     const initialMap: Record<string, number> = {};
     for (const row of report.rows || []) {
       for (const input of row.inputs || []) {
-        initialMap[`${row.id}_${input.price_cents}`] = input.quantity;
+        const inputKey = `${row.id}_${input.price_cents}`;
+        initialMap[inputKey] = input.quantity;
+        initialMap[`${inputKey}_calc`] = input.quantity_calc ?? 0;
       }
     }
 
@@ -138,9 +140,10 @@ export default function StoreReportPage() {
 
   // Handle quantity changes
   const handleQuantityChange = useCallback(
-    (productId: number, priceCents: number, newQty: number) => {
+    (productId: number, priceCents: number, newQty: number, calculation = false) => {
       setQuantities((prev) => {
-        const next = { ...prev, [`${productId}_${priceCents}`]: newQty };
+        const quantityKey = `${productId}_${priceCents}${calculation ? "_calc" : ""}`;
+        const next = { ...prev, [quantityKey]: newQty };
         // Persist locally for offline draft protection
         saveLocalDraft(selectedPeriod, next, session?.store_id ?? undefined);
         return next;
@@ -180,6 +183,10 @@ export default function StoreReportPage() {
             product_id: row.id,
             price_cents: input.price_cents,
             quantity: Math.max(0, qty),
+            quantity_calc: Math.max(
+              0,
+              quantities[`${row.id}_${input.price_cents}_calc`] ?? input.quantity_calc ?? 0
+            ),
           });
         }
       }
@@ -462,6 +469,9 @@ export default function StoreReportPage() {
                       <th className="py-3 px-4 min-w-[200px]">{uk.summary.tableProduct}</th>
                       <th className="py-3 px-4 text-right min-w-[120px]">{uk.summary.tablePrice}</th>
                       <th className="py-3 px-4 text-center min-w-[160px]">{uk.summary.tableTotalQuantity}</th>
+                      {report.calculation_enabled && (
+                        <th className="py-3 px-4 text-center min-w-[210px]">{uk.store.calculationQuantity}</th>
+                      )}
                       <th className="py-3 px-4 text-right min-w-[130px]">{uk.summary.tableTotalSum}</th>
                     </tr>
                   </thead>
@@ -470,7 +480,7 @@ export default function StoreReportPage() {
                       const inputs =
                         row.inputs && row.inputs.length > 0
                           ? row.inputs
-                          : [{ price_cents: 0, quantity: 0, label: "", sum_cents: 0 }];
+                          : [{ price_cents: 0, quantity: 0, quantity_calc: 0, label: "", sum_cents: 0 }];
                       return inputs.map((input, iIdx) => {
                         const inputKey = `${row.id}_${input.price_cents}`;
                         const currentQty = quantities[inputKey] ?? input.quantity;
@@ -507,6 +517,17 @@ export default function StoreReportPage() {
                                 />
                               </div>
                             </td>
+                            {report.calculation_enabled && (
+                              <td className="py-3 px-4 text-center">
+                                <div className="inline-flex justify-center">
+                                  <QuantityStepper
+                                    value={quantities[`${row.id}_${input.price_cents}_calc`] ?? input.quantity_calc ?? 0}
+                                    disabled={report.read_only || saveMutation.isPending}
+                                    onChange={(val) => handleQuantityChange(row.id, input.price_cents, val, true)}
+                                  />
+                                </div>
+                              </td>
+                            )}
                             <td className="py-3 px-4 text-right tabular-nums font-mono font-bold text-primary text-base whitespace-nowrap">
                               {lineSumCents > 0 ? (
                                 formatCurrency(lineSumCents)
@@ -579,11 +600,25 @@ export default function StoreReportPage() {
                                 )}
                               </div>
 
-                              <QuantityStepper
-                                value={currentQty}
-                                disabled={report.read_only || saveMutation.isPending}
-                                onChange={(val) => handleQuantityChange(row.id, input.price_cents, val)}
-                              />
+                              <div className="flex flex-col items-end gap-2">
+                                <QuantityStepper
+                                  value={currentQty}
+                                  disabled={report.read_only || saveMutation.isPending}
+                                  onChange={(val) => handleQuantityChange(row.id, input.price_cents, val)}
+                                />
+                                {report.calculation_enabled && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-text-muted whitespace-nowrap">
+                                      {uk.store.calculationQuantity}
+                                    </span>
+                                    <QuantityStepper
+                                      value={quantities[`${row.id}_${input.price_cents}_calc`] ?? input.quantity_calc ?? 0}
+                                      disabled={report.read_only || saveMutation.isPending}
+                                      onChange={(val) => handleQuantityChange(row.id, input.price_cents, val, true)}
+                                    />
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           );
                         })}

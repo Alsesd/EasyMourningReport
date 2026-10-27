@@ -4,7 +4,7 @@ import unittest
 from io import BytesIO
 from unittest.mock import patch
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 os.environ.setdefault("SECRET_KEY", "api-test-session-secret")
 
@@ -368,6 +368,83 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(forbidden.status_code, 403)
 
 
+    def test_store_calculation_toggle_and_combined_summary(self):
+        enabled = self.admin_client.put(
+            f"/api/v1/admin/stores/{self.store_id}",
+            json={
+                "name": "API Test Store",
+                "login": "apistore",
+                "calculation_enabled": True,
+            },
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(enabled.status_code, 200)
+        self.assertTrue(enabled.json()["calculation_enabled"])
+
+        saved = self.store_client.put(
+            f"/api/v1/store/reports/{self.period}",
+            json={
+                "action": "draft",
+                "quantities": [{
+                    "product_id": self.product_id,
+                    "price_cents": 150,
+                    "quantity": 5,
+                    "quantity_calc": 7,
+                }],
+            },
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(saved.status_code, 200)
+        self.assertTrue(saved.json()["calculation_enabled"])
+        self.assertEqual(saved.json()["total_cents"], 750)
+
+        summary = self.admin_client.get(
+            f"/api/v1/admin/summary?period={self.period}"
+        )
+        self.assertEqual(summary.status_code, 200)
+        bread = next(row for row in summary.json()["rows"] if row["name"] == "API Bread")
+        self.assertEqual(bread["cells"], [5])
+        self.assertEqual(bread["calculation_cells"], [7])
+        self.assertEqual(bread["quantity"], 5)
+        self.assertEqual(bread["calculation_quantity"], 7)
+        self.assertEqual(bread["sum_cents"], 750)
+
+        exported = self.admin_client.get(
+            f"/api/v1/admin/summary.xlsx?period={self.period}"
+        )
+        self.assertEqual(exported.status_code, 200)
+        workbook = load_workbook(BytesIO(exported.content), read_only=True, data_only=True)
+        sheet = workbook.active
+        header = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True))
+        self.assertIn("Кількість по розрахунку", header)
+        export_row = next(
+            row for row in sheet.iter_rows(min_row=2, values_only=True)
+            if row[0] == "API Bread"
+        )
+        self.assertEqual(export_row[2], 5)
+        self.assertEqual(export_row[3], 7)
+        self.assertEqual(export_row[4], 7.5)
+        workbook.close()
+
+        disabled = self.admin_client.put(
+            f"/api/v1/admin/stores/{self.store_id}",
+            json={
+                "name": "API Test Store",
+                "login": "apistore",
+                "calculation_enabled": False,
+            },
+            headers={"origin": "http://testserver"},
+        )
+        self.assertEqual(disabled.status_code, 200)
+        self.assertFalse(disabled.json()["calculation_enabled"])
+        hidden_summary = self.admin_client.get(
+            f"/api/v1/admin/summary?period={self.period}"
+        ).json()
+        hidden_bread = next(row for row in hidden_summary["rows"] if row["name"] == "API Bread")
+        self.assertEqual(hidden_bread["calculation_cells"], [0])
+        self.assertEqual(hidden_bread["calculation_quantity"], 0)
+        self.assertEqual(hidden_bread["sum_cents"], 750)
+
     def test_store_report_round_trip_and_locking(self):
         response = self.store_client.get(f"/api/v1/store/reports/{self.period}")
         self.assertEqual(response.status_code, 200)
@@ -378,12 +455,13 @@ class RestApiTests(unittest.TestCase):
             f"/api/v1/store/reports/{self.period}",
             json={
                 "action": "draft",
-                "quantities": [{"product_id": self.product_id, "price_cents": 150, "quantity": 7}],
+                "quantities": [{"product_id": self.product_id, "price_cents": 150, "quantity": 7, "quantity_calc": 4}],
             },
             headers={"origin": "http://testserver"},
         )
         self.assertEqual(saved.status_code, 200)
         self.assertEqual(saved.json()["total_cents"], 1050)
+        self.assertEqual(saved.json()["rows"][0]["inputs"][0]["quantity_calc"], 4)
         self.assertFalse(saved.json()["read_only"])
 
         submitted = self.store_client.put(
@@ -506,6 +584,12 @@ class RestApiTests(unittest.TestCase):
         self.assertIn("Імпорт завершено", imported.json()["message"])
         names = [item["name"] for item in self.admin_client.get("/api/v1/admin/products").json()]
         self.assertIn("Imported Flour", names)
+        imported_product = next(
+            item
+            for item in self.admin_client.get("/api/v1/admin/products").json()
+            if item["name"] == "Imported Flour"
+        )
+        self.assertEqual(imported_product["price_cents"], 1425)
 
         changed = self.admin_client.put(
             "/api/v1/admin/password",

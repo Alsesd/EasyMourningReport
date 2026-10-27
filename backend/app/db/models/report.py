@@ -30,6 +30,8 @@ class ReportItem(SQLModel, table=True):
     report_id: int = Field(foreign_key="reports.id", index=True)
     product_id: int = Field(foreign_key="products.id", index=True)
     quantity: int
+    # Independent quantity for "По розрахунку"; it does not affect monetary totals.
+    quantity_calc: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
     # Price snapshot means future catalogue changes do not rewrite old reports.
     unit_price_cents: int
 

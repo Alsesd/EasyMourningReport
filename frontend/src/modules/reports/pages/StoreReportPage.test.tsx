@@ -21,6 +21,7 @@ const mockReport: StoreReportDTO = {
   period: "2026-10",
   status: "draft",
   read_only: false,
+  calculation_enabled: true,
   rows: [
     {
       id: 101,
@@ -31,6 +32,7 @@ const mockReport: StoreReportDTO = {
         {
           price_cents: 2500,
           quantity: 2,
+          quantity_calc: 0,
           label: "",
           sum_cents: 5000,
         },
@@ -45,12 +47,14 @@ const mockReport: StoreReportDTO = {
         {
           price_cents: 3000,
           quantity: 1,
+          quantity_calc: 0,
           label: "old",
           sum_cents: 3000,
         },
         {
           price_cents: 3500,
           quantity: 2,
+          quantity_calc: 0,
           label: "new",
           sum_cents: 7000,
         },
@@ -144,6 +148,35 @@ describe("StoreReportPage", () => {
 
     // Unsaved changes banner appears
     expect(await screen.findByText("Є незбережені зміни")).toBeDefined();
+  });
+
+  it("saves calculation quantities separately from reported quantities", async () => {
+    renderPage();
+    await screen.findByText("Хліб пшеничний");
+
+    fireEvent.click(screen.getByRole("button", { name: /Картковий/i }));
+    expect((await screen.findAllByText("Кількість по розрахунку")).length).toBeGreaterThan(0);
+
+    const plusButtons = screen.getAllByLabelText(/Збільшити кількість/i);
+    fireEvent.click(plusButtons[1]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Зберегти чернетку/i }));
+
+    await waitFor(() => {
+      const fetchMock = vi.mocked(globalThis.fetch);
+      const saveCall = fetchMock.mock.calls.find(
+        ([url, init]) =>
+          String(url).includes("/api/v1/store/reports/2026-10") && init?.method === "PUT"
+      );
+      expect(saveCall).toBeDefined();
+      const payload = JSON.parse(saveCall?.[1]?.body as string);
+      expect(payload.quantities[0]).toMatchObject({
+        product_id: 101,
+        price_cents: 2500,
+        quantity: 2,
+        quantity_calc: 1,
+      });
+    });
   });
 
   it("saves draft successfully", async () => {

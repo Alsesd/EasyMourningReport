@@ -91,7 +91,7 @@ export default function AdminReportDetailPage() {
 
   const displayLines = (report.rows || []).flatMap((row) =>
     (row.inputs || [])
-      .filter((input) => (input.quantity || 0) > 0 || row.repriced)
+      .filter((input) => (input.quantity || 0) > 0 || (input.quantity_calc || 0) > 0 || row.repriced)
       .map((input) => ({ name: row.name, repriced: row.repriced, ...input }))
   );
 
@@ -270,6 +270,12 @@ export default function AdminReportDetailPage() {
                       <div className="text-xs text-text-muted mt-1 font-mono">
                         {line.quantity} × {formatCurrency(line.price_cents)}
                       </div>
+                      {report.calculation_enabled && (
+                        <div className="text-xs text-text-muted mt-1">
+                          {uk.store.calculationQuantity}:{" "}
+                          <span className="font-semibold text-text-main">{line.quantity_calc || 0}</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="text-right shrink-0">
