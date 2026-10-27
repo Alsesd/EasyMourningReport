@@ -11,12 +11,13 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import app.routes.auth as auth
+import app.features.auth.router as auth_routes
+import app.features.auth.service as auth_service
+from app.core.database import Base
 from app.core.security import hash_pw
-from app.db.base import Base
-from app.db.models.audit import AuditLog
-from app.db.models.store import Store
-from app.db.models.user import User
+from app.features.audit.models import AuditLog
+from app.features.auth.models import User
+from app.features.stores.models import Store
 
 
 def request_with_session(session=None):
@@ -48,23 +49,23 @@ class AuthenticationEdgeTests(unittest.TestCase):
         self.engine.dispose()
 
     def test_missing_login_is_rejected_and_failure_is_audited(self):
-        with self.Session() as db, patch.object(auth, "retry_after", return_value=0), patch.object(auth, "record_failure") as record:
-            response = auth.login_post(request_with_session(), "unknown", "x", db)
+        with self.Session() as db, patch.object(auth_service, "retry_after", return_value=0), patch.object(auth_service, "record_failure") as record:
+            response = auth_routes.login_form(request_with_session(), "unknown", "x", db)
             self.assertEqual(response.status_code, 401)
             record.assert_called_once_with("192.0.2.100", "unknown")
             self.assertEqual(db.scalar(select(AuditLog.action)), "невдалий вхід")
 
     def test_rate_limit_returns_429_without_database_lookup(self):
-        with self.Session() as db, patch.object(auth, "retry_after", return_value=42), patch.object(auth, "record_failure") as record:
-            response = auth.login_post(request_with_session(), "ADMIN", "admin-pass", db)
+        with self.Session() as db, patch.object(auth_service, "retry_after", return_value=42), patch.object(auth_service, "record_failure") as record:
+            response = auth_routes.login_form(request_with_session(), "ADMIN", "admin-pass", db)
             self.assertEqual(response.status_code, 429)
             self.assertEqual(response.headers["Retry-After"], "42")
             self.assertEqual(response.headers["Cache-Control"], "no-store")
             record.assert_not_called()
 
     def test_archived_store_cannot_login(self):
-        with self.Session() as db, patch.object(auth, "retry_after", return_value=0), patch.object(auth, "record_failure") as record:
-            response = auth.login_post(request_with_session(), "shop2", "shop-pass", db)
+        with self.Session() as db, patch.object(auth_service, "retry_after", return_value=0), patch.object(auth_service, "record_failure") as record:
+            response = auth_routes.login_form(request_with_session(), "shop2", "shop-pass", db)
             self.assertEqual(response.status_code, 403)
             self.assertIn("обліковий запис вимкнено", response.body.decode())
             record.assert_called_once_with("192.0.2.100", "shop2")
@@ -72,8 +73,8 @@ class AuthenticationEdgeTests(unittest.TestCase):
 
     def test_active_store_can_login_and_session_is_replaced(self):
         request = request_with_session({"old": "state", "uid": 999})
-        with self.Session() as db, patch.object(auth, "retry_after", return_value=0), patch.object(auth, "clear_failures") as clear:
-            response = auth.login_post(request, " SHOP1 ", "shop-pass", db)
+        with self.Session() as db, patch.object(auth_service, "retry_after", return_value=0), patch.object(auth_service, "clear_failures") as clear:
+            response = auth_routes.login_form(request, " SHOP1 ", "shop-pass", db)
             self.assertEqual(response.status_code, 303)
             self.assertEqual(response.headers["location"], "/")
             self.assertEqual(request.session, {"uid": self.active_id})
@@ -83,7 +84,7 @@ class AuthenticationEdgeTests(unittest.TestCase):
     def test_logout_without_session_user_still_clears_session(self):
         request = request_with_session({"other": "data"})
         with self.Session() as db:
-            response = auth.logout(request, db)
+            response = auth_routes.logout_form(request, db)
             self.assertEqual(response.status_code, 303)
             self.assertEqual(response.headers["location"], "/login")
             self.assertEqual(request.session, {})

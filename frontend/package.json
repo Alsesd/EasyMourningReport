@@ -10,7 +10,7 @@
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "gen:api": "PYTHONPATH=.. pdm run python ../scripts/dump_openapi.py > openapi.json && npx openapi-typescript openapi.json -o src/api/schema.d.ts && rm openapi.json"
+    "gen:api": "PYTHONPATH=.. uv run python ../scripts/dump_openapi.py > openapi.json && npx openapi-typescript openapi.json -o src/api/schema.d.ts && rm openapi.json"
   },
   "dependencies": {
     "@fontsource/onest": "^5.1.1",

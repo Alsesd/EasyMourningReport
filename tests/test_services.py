@@ -5,19 +5,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.db.base import Base
-from app.db.models.product import Product, ProductPrice
-from app.db.models.report import Report, ReportItem
-from app.db.models.store import Store
-from app.services.excel import generate_summary_excel
-from app.services.pricing import (
-    BASE_PERIOD,
-    line_labels,
-    norm_login,
-    offered_prices,
-    same_name,
-    valid_login,
-)
+from app.core.database import Base
+from app.features.auth.service import norm_login, valid_login
+from app.features.products.models import Product, ProductPrice
+from app.features.products.service import BASE_PERIOD, line_labels, offered_prices
+from app.features.reports.models import Report, ReportItem
+from app.features.reports.service import generate_summary_excel
+from app.features.stores.models import Store
+from app.features.stores.service import same_name
 
 
 class PricingServiceTests(unittest.TestCase):

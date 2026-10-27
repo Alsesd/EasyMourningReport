@@ -7,7 +7,8 @@ os.environ["SECRET_KEY"] = "unit-test-only-secret-key"
 from fastapi import HTTPException
 from fastapi.requests import Request
 
-from app.core import dependencies, ui
+from app.core import ui, validation
+from app.features.auth import service as auth_service
 
 
 class CoreUiTests(unittest.TestCase):
@@ -81,56 +82,46 @@ class CoreUiTests(unittest.TestCase):
 
 class CoreDependenciesTests(unittest.TestCase):
     def test_parse_period(self):
-        self.assertEqual(dependencies.parse_period("2026-10"), "2026-10")
-        self.assertEqual(dependencies.parse_period(None), ui.current_period())
+        self.assertEqual(validation.parse_period("2026-10"), "2026-10")
+        self.assertEqual(validation.parse_period(None), ui.current_period())
         with self.assertRaises(HTTPException):
-            dependencies.parse_period("2026-13")
+            validation.parse_period("2026-13")
         with self.assertRaises(HTTPException):
-            dependencies.parse_period("invalid")
+            validation.parse_period("invalid")
 
     def test_to_cents(self):
-        self.assertEqual(dependencies.to_cents("25.50"), 2550)
-        self.assertEqual(dependencies.to_cents(" 25,50 "), 2550)
-        self.assertEqual(dependencies.to_cents("100"), 10000)
+        self.assertEqual(validation.to_cents("25.50"), 2550)
+        self.assertEqual(validation.to_cents(" 25,50 "), 2550)
+        self.assertEqual(validation.to_cents("100"), 10000)
         with self.assertRaises(ui.FormError):
-            dependencies.to_cents("abc")
+            validation.to_cents("abc")
         with self.assertRaises(ui.FormError):
-            dependencies.to_cents("-10")
+            validation.to_cents("-10")
         with self.assertRaises(ui.FormError):
-            dependencies.to_cents("NaN")
+            validation.to_cents("NaN")
         with self.assertRaises(ui.FormError):
-            dependencies.to_cents("Infinity")
+            validation.to_cents("Infinity")
         with self.assertRaises(ui.FormError):
-            dependencies.to_cents("10000000.01")
+            validation.to_cents("10000000.01")
 
     def test_clean_name(self):
-        self.assertEqual(dependencies.clean_name("  Хліб  білий  "), "Хліб білий")
+        self.assertEqual(validation.clean_name("  Хліб  білий  "), "Хліб білий")
         with self.assertRaises(ui.FormError):
-            dependencies.clean_name("   ")
+            validation.clean_name("   ")
         with self.assertRaises(ui.FormError):
-            dependencies.clean_name("a" * 105)
+            validation.clean_name("a" * 105)
 
     def test_clean_login(self):
-        self.assertEqual(dependencies.clean_login("  Store1  "), "store1")
+        self.assertEqual(auth_service.clean_login("  Store1  "), "store1")
         with self.assertRaises(ui.FormError):
-            dependencies.clean_login("a")  # too short
+            auth_service.clean_login("a")  # too short
         with self.assertRaises(ui.FormError):
-            dependencies.clean_login("store with spaces")
+            auth_service.clean_login("store with spaces")
 
     def test_new_password(self):
-        self.assertEqual(dependencies.new_password("secret123"), "secret123")
+        self.assertEqual(auth_service.new_password("secret123"), "secret123")
         with self.assertRaises(ui.FormError):
-            dependencies.new_password("12345")  # < 6 chars
-
-    def test_admin_period(self):
-        req = MagicMock(spec=Request)
-        req.session = {}
-        # Explicit period
-        p = dependencies.admin_period(req, "2026-05")
-        self.assertEqual(p, "2026-05")
-        self.assertEqual(req.session["period"], "2026-05")
-        # Read from session
-        self.assertEqual(dependencies.admin_period(req, None), "2026-05")
+            auth_service.new_password("12345")  # < 6 chars
 
 
 if __name__ == "__main__":

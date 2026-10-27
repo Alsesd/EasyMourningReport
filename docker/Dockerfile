@@ -9,26 +9,31 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Build Python environment & resolve production packages
+# Stage 2: Build Python environment & resolve production packages using uv
 FROM python:3.11-slim AS python-builder
+
+# Install uv binary from official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir pdm
+ENV UV_COMPILE_BYTECODE=0 \
+    UV_LINK_MODE=copy \
+    PYTHONDONTWRITEBYTECODE=1
 
-COPY pyproject.toml pdm.lock* ./
-RUN pdm config venv.in_project true && \
-    pdm install --prod --no-editable
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
 
 # Stage 3: Minimal production runtime
 FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
-# Install curl and ca-certificates for robust healthcheck probes and secure tunnel operations
+# Install curl, ca-certificates, and postgresql-client for robust backups and healthchecks
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy official cloudflared binary directly for internal tunnel capability

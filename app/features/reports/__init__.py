@@ -1,0 +1,1 @@
+"""Reports vertical feature slice."""

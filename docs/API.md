@@ -11,7 +11,7 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 - Every resource response is a DTO, not a serialized SQLModel/ORM instance. Password hashes and persistence-only fields are never exposed.
 - The browser uses the existing signed session cookie. Unauthenticated requests return `401`, role violations return `403`, missing resources return `404`, conflicting state returns `409`, and invalid payloads return `422`.
 - Unsafe methods (POST, PUT, PATCH, DELETE) require a same-origin `Origin` or `Referer` header. Browser `fetch` supplies the origin automatically for these requests.
-- Legacy HTML form routes remain registered for compatibility, but migrated admin/store actions use the JSON API. API CSRF failures also return JSON.
+- The server-rendered `/login` and `/logout` endpoints remain for the HTML entry flow; all admin/store actions use the JSON API. API CSRF failures also return JSON.
 
 ## Endpoints
 
@@ -79,7 +79,7 @@ Content-Type: application/json
 
 ## Client rendering
 
-The admin catalogue/store view, store report editor, admin report list/detail, monthly summary and audit log are Alpine.js components. They fetch DTOs, update the DOM client-side, show loading/error states, and use JSON writes. Jinja renders the lightweight page shells and still handles login/logout and the binary Excel export. The page-specific component scripts and API client are loaded before Alpine initializes so x-data callbacks are registered before the DOM scan.
+The admin catalogue/store view, store report editor, admin report list/detail, monthly summary and audit log are React 18 + TypeScript pages using TanStack Query. They fetch DTOs, render loading/error states, and use JSON writes. The FastAPI server handles session entry/exit via `/login` and `/logout` and streams binary Excel exports; the built SPA is served from `app/static/app/`.
 
 
 ## Local development and runtime secrets
@@ -87,10 +87,11 @@ The admin catalogue/store view, store report editor, admin report list/detail, m
 From the repository root, install the locked dependencies and run the app:
 
 ```bash
-pdm install
-pdm run python run.py
+uv sync
+docker compose up -d db
+uv run python run.py
 ```
 
-Open `http://127.0.0.1:8000`. Stop the server with Ctrl+C. The first run initializes the SQLite database, backups, and `secret.key`; the initial administrator password is printed to the terminal.
+Open `http://127.0.0.1:8000`. Stop the server with Ctrl+C. The first run creates the PostgreSQL schema, writes a `secret.key` in the data directory, and prints the generated administrator password to the terminal.
 
-`secret.key` is a randomly generated application secret used by Starlette's session middleware to sign session cookies. Keep it private, exclude it from source control, and back it up alongside `reports.db`. Losing or changing it invalidates existing signed sessions, so users must sign in again; it does not reset their stored passwords. You may set a stable secret using the `SECRET_KEY` environment variable instead.
+`secret.key` is a randomly generated application secret used by Starlette's session middleware to sign session cookies. Keep it private, exclude it from source control, and back it up together with the PostgreSQL volume. Losing or changing it invalidates existing signed sessions, so users must sign in again; it does not reset their stored passwords. You may set a stable secret using the `SECRET_KEY` environment variable instead.

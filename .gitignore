@@ -10,33 +10,41 @@ __pycache__/
 *.pyd
 .pytest_cache/
 .coverage
+.coverage.*
+coverage.xml
 htmlcov/
+.ruff_cache/
+.mypy_cache/
 .venv/
 build/
 dist/
 *.spec
 *.egg-info/
 
-# PDM / Poetry
-.pdm-python
+# uv package manager
+.uv/
+.uv_cache/
+!uv.lock
 
 # Nix / direnv
 .direnv/
-.envrc
 result
 
-# Downloaded runtime
-app/static/alpine.min.js
+# Generated SPA assets
 app/static/app/
 
 # Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/coverage/
 .agents/
 
 # Docker & local data
 data/
-
+pgdata/
+postgres_data/
+*.sqlite
+*.sqlite3
 
 # IDE
 .idea/
@@ -51,4 +59,7 @@ Thumbs.db
 
 # Environment secrets (never commit)
 .env
-.agents/skills/
+.env.*
+!.env.example
+*.key
+*.pem

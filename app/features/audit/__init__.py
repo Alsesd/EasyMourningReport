@@ -1,0 +1,1 @@
+"""Audit vertical feature slice."""

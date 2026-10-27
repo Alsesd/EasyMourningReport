@@ -5,12 +5,18 @@
 # Python virtual environments and caches
 .venv
 __pycache__
+**/*__pycache__*
 *.pyc
 *.pyo
 *.pyd
 .pytest_cache
+**/.pytest_cache
 .coverage
+.coverage.*
+coverage.xml
 htmlcov
+.ruff_cache
+.mypy_cache
 
 # Nix / direnv
 .direnv
@@ -26,13 +32,18 @@ tests
 *.md
 docs
 
-# Build artifacts
+# Build artifacts & package manager
 build
 dist
 *.spec
 *.egg-info
+.uv
+.uv_cache
+!uv.lock
+app/static/app
 frontend/node_modules
 frontend/dist
+frontend/coverage
 .agents
 
 # IDE
@@ -41,11 +52,17 @@ frontend/dist
 
 # Local env & data
 .env
-.pdm-python
+.env.*
 backups
 data
+pgdata
+postgres_data
 reports.db
+*.sqlite
+*.sqlite3
 secret.key
+*.key
+*.pem
 
 # Docker & Compose files
 compose*.yaml

@@ -12,23 +12,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          version: "latest"
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install PDM
-        run: pip install pdm
+      - name: Check lockfile consistency
+        run: uv lock --check
 
       - name: Install dependencies
-        run: pdm install
+        run: uv sync --frozen
 
       - name: Run test suite
-        run: pdm run pytest
+        run: uv run pytest
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

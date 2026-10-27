@@ -13,16 +13,15 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from sqlmodel import create_engine, select
 
-from app.core.dependencies import get_db
-from app.core.ui import current_period
-from app.db.base import Base
-from app.db.models.product import Product, ProductPrice
-from app.db.models.report import Report, ReportItem
-from app.db.models.store import Store
-from app.db.models.user import User
-from app.main import app
+from app.core.database import Base, get_db
 from app.core.security import hash_pw
-from app.services.pricing import BASE_PERIOD
+from app.core.ui import current_period
+from app.features.auth.models import User
+from app.features.products.models import Product, ProductPrice
+from app.features.products.service import BASE_PERIOD
+from app.features.reports.models import Report, ReportItem
+from app.features.stores.models import Store
+from app.main import app
 
 
 class RestApiTests(unittest.TestCase):
@@ -234,88 +233,6 @@ class RestApiTests(unittest.TestCase):
         )
         self.assertEqual(saved_item.unit_price_cents, 150)
 
-    def test_tailscale_funnel_controls_are_admin_only_and_do_not_return_secrets(self):
-        status = {
-            "enabled": False,
-            "state": "disabled",
-            "public_url": "",
-            "login_url": "",
-            "error": "",
-        }
-        with patch("app.routes.api_v1.tailscale_status", return_value=status):
-            response = self.admin_client.get("/api/v1/admin/tailscale")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["state"], "disabled")
-
-        refused = self.admin_client.post(
-            "/api/v1/admin/tailscale",
-            json={"confirm_public": False},
-            headers={"origin": "http://testserver"},
-        )
-        self.assertEqual(refused.status_code, 400)
-
-        running = {**status, "enabled": True, "state": "authentication-required",
-                   "login_url": "https://login.tailscale.com/example"}
-        with patch("app.routes.api_v1.start_funnel", return_value=running) as start:
-            response = self.admin_client.post(
-                "/api/v1/admin/tailscale",
-                json={"confirm_public": True, "auth_key": "tskey-test-secret"},
-                headers={"origin": "http://testserver"},
-            )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["state"], "authentication-required")
-        start.assert_called_once_with("tskey-test-secret", autostart=True)
-        self.assertNotIn("auth_key", response.json())
-
-        with patch("app.routes.api_v1.stop_funnel", return_value=status):
-            response = self.admin_client.delete(
-                "/api/v1/admin/tailscale",
-                headers={"origin": "http://testserver"},
-            )
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.json()["enabled"])
-
-        forbidden = self.store_client.get("/api/v1/admin/tailscale")
-        self.assertEqual(forbidden.status_code, 403)
-
-    def test_tailscale_autostart_toggle_is_admin_only_and_does_not_disconnect(self):
-        enabled = {"enabled": True, "autostart": True, "state": "running",
-                   "public_url": "https://example.ts.net", "login_url": "", "error": ""}
-        with patch("app.routes.api_v1.set_tailscale_autostart", return_value=enabled) as setter:
-            response = self.admin_client.put(
-                "/api/v1/admin/tailscale/autostart",
-                json={"enabled": True},
-                headers={"origin": "http://testserver"},
-            )
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["autostart"])
-        setter.assert_called_once_with(True)
-
-        disabled = {**enabled, "autostart": False}
-        with patch("app.routes.api_v1.set_tailscale_autostart", return_value=disabled) as setter:
-            response = self.admin_client.put(
-                "/api/v1/admin/tailscale/autostart",
-                json={"enabled": False},
-                headers={"origin": "http://testserver"},
-            )
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.json()["autostart"])
-        self.assertEqual(response.json()["state"], "running")
-        setter.assert_called_once_with(False)
-
-        invalid = self.admin_client.put(
-            "/api/v1/admin/tailscale/autostart",
-            json={"enabled": "yes"},
-            headers={"origin": "http://testserver"},
-        )
-        self.assertEqual(invalid.status_code, 422)
-        forbidden = self.store_client.put(
-            "/api/v1/admin/tailscale/autostart",
-            json={"enabled": True},
-            headers={"origin": "http://testserver"},
-        )
-        self.assertEqual(forbidden.status_code, 403)
-
     def test_tunnel_controls_and_autostart_are_admin_only(self):
         status = {
             "enabled": False,
@@ -324,7 +241,7 @@ class RestApiTests(unittest.TestCase):
             "login_url": "",
             "error": "",
         }
-        with patch("app.routes.api_v1.tunnel_status", return_value=status):
+        with patch("app.features.tunnel.service.get_status", return_value=status):
             response = self.admin_client.get("/api/v1/admin/tunnel")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["state"], "disabled")
@@ -337,7 +254,7 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(refused.status_code, 400)
 
         running = {**status, "enabled": True, "state": "running", "public_url": "https://test.trycloudflare.com"}
-        with patch("app.routes.api_v1.start_tunnel", return_value=running) as start:
+        with patch("app.features.tunnel.service.start_tunnel", return_value=running) as start:
             response = self.admin_client.post(
                 "/api/v1/admin/tunnel",
                 json={"confirm_public": True, "auth_key": "tok-123"},
@@ -347,7 +264,7 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(response.json()["public_url"], "https://test.trycloudflare.com")
         start.assert_called_once_with("tok-123", autostart=True)
 
-        with patch("app.routes.api_v1.set_tunnel_autostart", return_value=running) as setter:
+        with patch("app.features.tunnel.service.set_autostart", return_value=running) as setter:
             response = self.admin_client.put(
                 "/api/v1/admin/tunnel/autostart",
                 json={"enabled": True},
@@ -356,7 +273,7 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         setter.assert_called_once_with(True)
 
-        with patch("app.routes.api_v1.stop_tunnel", return_value=status):
+        with patch("app.features.tunnel.service.stop_tunnel", return_value=status):
             response = self.admin_client.delete(
                 "/api/v1/admin/tunnel",
                 headers={"origin": "http://testserver"},
@@ -423,7 +340,6 @@ class RestApiTests(unittest.TestCase):
             archived_report = Report(store_id=archived_store_id, period=self.period, status="draft")
             db.add(archived_report)
             db.commit()
-            archived_report_id = archived_report.id
 
         reports_with_archived = self.admin_client.get(f"/api/v1/admin/reports?period={self.period}")
         self.assertEqual(reports_with_archived.status_code, 200)
@@ -580,7 +496,7 @@ class RestApiTests(unittest.TestCase):
         )
         self.assertEqual(no_op.status_code, 200)
 
-        with patch("app.routes.api_v1.check_unique_store"):
+        with patch("app.features.stores.service.check_unique_store"):
             conflict_update = self.admin_client.put(
                 f"/api/v1/admin/stores/{sid}",
                 json={"name": "API Test Store", "login": "branchnorth2"},
@@ -588,7 +504,7 @@ class RestApiTests(unittest.TestCase):
             )
         self.assertEqual(conflict_update.status_code, 409)
 
-        with patch("app.routes.api_v1.check_unique_store"):
+        with patch("app.features.stores.service.check_unique_store"):
             conflict_create = self.admin_client.post(
                 "/api/v1/admin/stores",
                 json={"name": "API Test Store", "login": "anotherbranch", "password": "branch-pass"},
@@ -604,7 +520,7 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(changed_password.status_code, 200)
         self.assertIn("змінено", changed_password.json()["message"])
 
-        with patch("app.routes.api_v1.backup_db") as backup:
+        with patch("app.core.backup.backup_db") as backup:
             deleted = self.admin_client.delete(f"/api/v1/admin/stores/{sid}", headers=headers)
         self.assertEqual(deleted.status_code, 200)
         self.assertTrue(deleted.json()["deleted"])
@@ -656,7 +572,7 @@ class RestApiTests(unittest.TestCase):
         self.assertEqual(created.status_code, 201)
         pid = created.json()["id"]
 
-        with patch("app.routes.api_v1.backup_db") as backup:
+        with patch("app.core.backup.backup_db") as backup:
             deleted = self.admin_client.delete(f"/api/v1/admin/products/{pid}", headers=headers)
         self.assertEqual(deleted.status_code, 200)
         self.assertTrue(deleted.json()["deleted"])

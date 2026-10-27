@@ -21,9 +21,10 @@
       serve = pkgs.writeShellScriptBin "serve" ''
         export HOST="''${HOST:-127.0.0.1}"
         export PORT="''${PORT:-8000}"
+        export PYTHONDONTWRITEBYTECODE=1
         echo "Serving locally on http://localhost:$PORT"
         echo "To expose publicly via Cloudflare Tunnel, run 'tunnel' in another terminal."
-        exec pdm run python run.py "$@"
+        exec uv run python run.py "$@"
       '';
 
       tunnel = pkgs.writeShellScriptBin "tunnel" ''
@@ -35,7 +36,7 @@
       default = pkgs.mkShell {
         packages = [
           pkgs.python311
-          pkgs.pdm
+          pkgs.uv
           pkgs.cloudflared
           pkgs.git
           serve
@@ -43,29 +44,26 @@
         ];
 
         shellHook = ''
-          export PDM_VENV_IN_PROJECT=true
-          echo "EasyMourningReport development shell (PDM + Cloudflare Tunnel)"
-
-          # Enforce in-project .venv creation
-          pdm config venv.in_project true >/dev/null 2>&1 || true
+          export PYTHONDONTWRITEBYTECODE=1
+          echo "EasyMourningReport development shell (uv + Cloudflare Tunnel)"
 
           if [ ! -d .venv ]; then
             echo "Creating virtual environment..."
-            pdm venv create --with-pip python3.11 >/dev/null 2>&1 || true
+            uv venv --python 3.11
           fi
 
-          if ! pdm lock --check >/dev/null 2>&1; then
-            echo "Refreshing PDM lock file for pyproject.toml..."
-            pdm lock
+          if ! uv lock --check >/dev/null 2>&1; then
+            echo "Refreshing uv lock file for pyproject.toml..."
+            uv lock
           fi
 
-          pdm install
+          uv sync
 
           test() {
             if [ "$#" -eq 0 ]; then
-              pdm run pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
+              uv run pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
             else
-              pdm run pytest "$@"
+              uv run pytest "$@"
             fi
           }
 

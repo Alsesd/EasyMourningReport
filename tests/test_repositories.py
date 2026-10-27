@@ -1,28 +1,32 @@
 import unittest
 from unittest.mock import MagicMock
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.ui import FormError
-from app.db.base import Base
-from app.db.models.audit import AuditLog
-from app.db.models.product import Product
-from app.db.models.store import Store
-from app.db.models.report import Report, ReportItem
-from app.db.repositories.audit import ACTIONS, audit
-from app.db.repositories.products import (
+from app.core.database import Base
+from app.core.ui import FormError, money
+from app.features.audit.models import AuditLog
+from app.features.audit.service import ACTIONS
+from app.features.audit.service import record_audit as audit
+from app.features.products.models import Product
+from app.features.products.service import (
+    BASE_PERIOD,
     in_form,
     load_history,
     save_history,
 )
-from app.db.repositories.stores import check_unique_store, store_periods
-from app.db.repositories.reports import (
+from app.features.reports.models import Report, ReportItem
+from app.features.reports.service import (
+    build_lines,
+    build_summary,
     find_report,
-    money,
     report_total,
+    store_periods,
 )
-from app.services.pricing import BASE_PERIOD
+from app.features.stores.models import Store
+from app.features.stores.service import check_unique_store
 
 
 class RepositoryTests(unittest.TestCase):
@@ -107,10 +111,10 @@ class RepositoryTests(unittest.TestCase):
             db.add(product)
             db.flush()
             db.add_all([
-                __import__("app.db.models.product", fromlist=["ProductPrice"]).ProductPrice(
+                __import__("app.features.products.models", fromlist=["ProductPrice"]).ProductPrice(
                     product_id=product.id, period=BASE_PERIOD, price_cents=100
                 ),
-                __import__("app.db.models.product", fromlist=["ProductPrice"]).ProductPrice(
+                __import__("app.features.products.models", fromlist=["ProductPrice"]).ProductPrice(
                     product_id=product.id, period="2026-10", price_cents=125
                 ),
             ])
@@ -123,7 +127,7 @@ class RepositoryTests(unittest.TestCase):
     def test_archived_store_name_and_duplicate_login_are_rejected(self):
         with self.Session() as db:
             store = Store(name="Old Store", archived=True)
-            user = __import__("app.db.models.user", fromlist=["User"]).User(
+            user = __import__("app.features.auth.models", fromlist=["User"]).User(
                 login="taken-login", password_hash="hash", role="store"
             )
             db.add_all([store, user])
@@ -138,7 +142,6 @@ class RepositoryTests(unittest.TestCase):
             )
 
     def test_empty_store_periods_and_archived_product_form_visibility(self):
-        from app.db.repositories.products import in_form
         with self.Session() as db:
             store = Store(name="No reports")
             archived = Product(name="Archived but active", price_cents=100, active=True, archived=True)
@@ -148,7 +151,6 @@ class RepositoryTests(unittest.TestCase):
             self.assertFalse(in_form(archived))
 
     def test_build_lines_keeps_saved_lines_for_inactive_and_archived_products(self):
-        from app.db.repositories.reports import build_lines
         with self.Session() as db:
             store = Store(name="Shop")
             inactive = Product(name="Inactive", price_cents=100, active=False, archived=False)
@@ -170,7 +172,6 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(inactive_total, 800)
 
     def test_summary_filter_includes_archived_data_only_when_submitted(self):
-        from app.db.repositories.reports import build_summary
         with self.Session() as db:
             current_store = Store(name="Current store")
             archived_store = Store(name="Archived store", archived=True)

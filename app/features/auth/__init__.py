@@ -1,0 +1,1 @@
+"""Auth vertical feature slice."""

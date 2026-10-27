@@ -9,6 +9,8 @@ import os
 import sys
 from pathlib import Path
 
+os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+
 
 def _load_env_file(env_path: Path | None = None) -> None:
     """Load default .env configuration if present and variables are not already set."""
@@ -38,14 +40,15 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import uvicorn
-from app.db.backup import BACKUP_DIR
-from app.db.session import DB_PATH
+from app.core.backup import BACKUP_DIR
+from app.core.database import DATABASE_URL
+from app.core.paths import data_dir as get_data_dir
 from app.main import app
 
 
 def print_startup_banner(host: str, port: int) -> None:
     """Print an enterprise startup banner with system configuration."""
-    data_dir = DB_PATH.parent
+    data_dir = get_data_dir()
     storage_status = "OK (read/write)"
     for name, folder in [("Data", data_dir), ("Backups", BACKUP_DIR)]:
         try:
@@ -67,7 +70,7 @@ def print_startup_banner(host: str, port: int) -> None:
 ======================================================================
   • Data Directory : {data_dir}
   • Backups Dir    : {BACKUP_DIR}
-  • Database File  : {DB_PATH}
+  • Database URL   : {DATABASE_URL}
   • Storage Access : {storage_status}
   • Server Address : http://{host}:{port}
   • REST API       : http://{host}:{port}/api/v1

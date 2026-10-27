@@ -10,12 +10,11 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.db.base import Base
-from app.db.models.audit import AuditLog
-from app.db.models.product import Product, ProductPrice
-from app.db.models.user import User
-from app.services.excel import parse_products_excel
-from app.services.pricing import BASE_PERIOD
+from app.core.database import Base
+from app.features.audit.models import AuditLog
+from app.features.auth.models import User
+from app.features.products.models import Product, ProductPrice
+from app.features.products.service import BASE_PERIOD, parse_products_excel
 
 
 def make_xlsx(rows):
@@ -40,7 +39,6 @@ class ExcelImportTests(unittest.TestCase):
         self.request = MagicMock()
         self.request.client.host = "127.0.0.1"
         self.request.headers = {"host": "testserver"}
-        self.request.session = {}
         with self.Session() as db:
             db.add(self.user)
             db.commit()
@@ -58,9 +56,8 @@ class ExcelImportTests(unittest.TestCase):
             [None, None],
         ])
         with self.Session() as db:
-            response = parse_products_excel(payload, db, self.user, self.request)
-            self.assertEqual(response.status_code, 303)
-            self.assertIn("додано 2 товарів", self.request.session["flash"]["text"])
+            message = parse_products_excel(payload, db, self.user, self.request)
+            self.assertIn("додано 2 товарів", message)
             self.assertEqual(
                 [(p.name, p.price_cents) for p in db.scalars(select(Product).order_by(Product.name))],
                 [("Bread", 125), ("Milk", 200)],
@@ -74,11 +71,10 @@ class ExcelImportTests(unittest.TestCase):
         with self.Session() as db:
             db.add(Product(name="Bread", price_cents=125))
             db.commit()
-            response = parse_products_excel(
+            message = parse_products_excel(
                 make_xlsx([["Bread", 2], ["Bread", 3]]), db, self.user, self.request
             )
-            self.assertEqual(response.status_code, 303)
-            self.assertIn("усі 2 рядків уже існують", self.request.session["flash"]["text"])
+            self.assertIn("усі 2 рядків уже існують", message)
             self.assertEqual(len(list(db.scalars(select(Product)))), 1)
             self.assertEqual(len(list(db.scalars(select(AuditLog)))), 0)
 
@@ -108,7 +104,7 @@ class ExcelImportTests(unittest.TestCase):
             self.assertEqual(len(list(db.scalars(select(Product)))), 0)
 
     def test_explicit_http_exception_from_workbook_loader_is_preserved(self):
-        with self.Session() as db, patch("app.services.excel.load_workbook", side_effect=HTTPException(418, "loader error")):
+        with self.Session() as db, patch("app.features.products.service.load_workbook", side_effect=HTTPException(418, "loader error")):
             with self.assertRaises(HTTPException) as caught:
                 parse_products_excel(b"payload", db, self.user, self.request)
             self.assertEqual(caught.exception.status_code, 418)

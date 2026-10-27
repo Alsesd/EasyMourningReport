@@ -7,8 +7,8 @@
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-3-38B2AC?logo=tailwindcss&logoColor=white)
-![SQLite](https://img.shields.io/badge/Database-SQLite-5B5BD6?logo=sqlite&logoColor=white)
-![PDM](https://img.shields.io/badge/Package-PDM-60A5FA?logo=pdm&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL_16-4169E1?logo=postgresql&logoColor=white)
+![uv](https://img.shields.io/badge/Package-uv-DE5FE9?logo=astral&logoColor=white)
 ![Docker](https://img.shields.io/badge/Deployment-Docker--Compose-2496ED?logo=docker&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-Active-success)
 
@@ -61,7 +61,7 @@
 - **Щомісячні звіти та блокування**: перегляд поданих звітів, детальний перегляд із можливістю розблокування/блокування.
 - **Журнал аудиту**: детальний аудит дій у системі з фільтрацією за типами подій та пошуком.
 - **Керування публічним тунелем**: статус тунелю Cloudflare, перемикач автозапуску та запуск/зупинка безпосередньо з панелі налаштувань.
-- **Автоматичне збереження на хості**: автоматичне створення та монтування `./data` (SQLite БД, сесії, токени) та `./backups` (резервні копії) на хост-пристрої.
+- **Надійне збереження даних**: PostgreSQL 16 у постійному томі `pgdata`, а `./data` (секрети, стан тунелю) та `./backups` (SQL-знімки) монтуються з хост-пристрою.
 - **Безпека**: збереження паролів через PBKDF2-хешування із сіллю, захист сесій та перевірка походження запитів.
 
 ## Технологічний стек
@@ -70,8 +70,8 @@
   - Python 3.11+
   - FastAPI & Starlette
   - Uvicorn (із проксі-заголовками та пересиланням IP)
-  - SQLModel (SQLAlchemy Core) & SQLite
-  - PDM (керування залежностями, PEP 621)
+  - SQLModel (SQLAlchemy 2) & PostgreSQL 16 через `psycopg`
+  - uv (керування залежностями, PEP 621, `uv.lock`)
   - openpyxl (генерація та парсинг Excel)
 - **Фронтенд**:
   - React 18 & TypeScript (суворий режим)
@@ -102,27 +102,31 @@ EasyMourningReport/
 │   ├── package.json      # Залежності фронтенду
 │   └── vite.config.ts    # Конфігурація збірки Vite в app/static/app/
 ├── app/                  # Бекенд на FastAPI
-│   ├── core/             # Інфраструктура (paths, security, ratelimit, tunnel)
-│   ├── db/               # SQLModel-моделі, сесії, репозиторії, міграції та backup
-│   ├── services/         # Бізнес-логіка (pricing, excel)
-│   ├── routes/           # REST API v1, PWA fallback та файлові завантаження
-│   ├── dto.py            # Типізовані DTO запитів і відповідей
-│   ├── static/           # PWA manifest, service worker, статичні іконки та зібраний SPA (app/)
-│   ├── templates/        # Автономні резервні сторінки помилок та офлайн-режиму
-│   └── main.py           # Ініціалізація FastAPI, middleware та SPA fallback
+│   ├── core/             # Наскрізна інфраструктура (БД, безпека, backup, PWA, валідація)
+│   ├── features/         # Вертикальні зрізи домену
+│   │   ├── auth/         # Користувачі, сесії, рольова авторизація
+│   │   ├── products/     # Каталог, історія цін, імпорт Excel
+│   │   ├── stores/       # Магазини та облікові записи
+│   │   ├── reports/      # Звіти, розрахунки, експорт зведення
+│   │   ├── audit/        # Журнал аудиту
+│   │   └── tunnel/       # Керування Cloudflare Tunnel
+│   ├── static/           # PWA manifest, service worker, іконки та зібраний SPA (app/)
+│   ├── templates/        # Резервні сторінки помилок та офлайн-режиму
+│   └── main.py           # Композиційний корінь FastAPI
 ├── docs/                 # Документація проєкту
 │   ├── API.md            # Специфікація REST API
 │   ├── DESIGN.md         # Дизайн-система та специфікація інтерфейсу
-│   ├── plan.md           # План архітектури SPA
-│   └── ui-parity.md      # Чеклист відповідності інтерфейсу
-├── tests/                # Набір тестів pytest для API, бізнес-логіки та безпеки
-├── scripts/              # Допоміжні скрипти (генерація OpenAPI, e2e тести)
-├── .github/workflows/    # CI: перевірка фронтенду, бекенд-тести та збірка Docker
-├── docker/               # Файли Docker та Compose конфігурацій
-│   ├── Dockerfile        # Багатоетапна збірка (Frontend + Backend + Cloudflare Tunnel)
-│   └── compose.yaml      # Альтернативний Compose файл для запуску з теки docker/
-├── compose.yaml          # Готова конфігурація Docker Compose з хост-сховищем
-├── pyproject.toml        # PDM проєкт (PEP 621)
+│   ├── PROJECT.md        # Архітектура, контракти та статус мілстоунів
+│   ├── TESTING.md        # Архітектура тестового комплексу
+│   ├── TEST_REPORT.md    # Результати виконання тестів
+│   └── archive/          # Історичні плани SPA-міграції
+├── tests/                # Юніт, інтеграційні та E2E тести pytest
+├── scripts/              # Допоміжні скрипти (генерація OpenAPI)
+├── .github/workflows/    # CI: uv, тести, фронтенд та Docker
+├── docker/               # Dockerfile і Compose-обгортка
+├── compose.yaml          # App + PostgreSQL 16 з healthcheck і persistent volume
+├── pyproject.toml        # PEP 621 + hatchling
+├── uv.lock               # Зафіксований граф залежностей uv
 └── run.py                # Єдина точка входу сервера з банером та UTF-8
 ```
 
@@ -140,7 +144,7 @@ docker compose up -d
 1. **Постійне сховище (Persistent Storage)**:
    - Застосунок монтує теки хоста `${DATA_PATH:-./data}` (`/app/data`) та `${BACKUPS_PATH:-./backups}` (`/app/backups`).
    - На Windows 11 права доступу до томів обробляються стійко: підтримуються файлові системи NTFS/virtiofs/DrvFs без помилок `chmod`.
-   - База даних `reports.db`, сесії, ключі шифрування та періодичні бекапи надійно зберігаються на хості.
+   - PostgreSQL зберігає дані у томі `pgdata`, а секрети, стан тунелю та SQL-бекапи — у `${DATA_PATH:-./data}` і `${BACKUPS_PATH:-./backups}`.
 2. **Мережевий доступ (Network Access)**:
    - Порт зв'язується через `0.0.0.0:8000:8000`, що забезпечує прямий доступ як з хоста Windows 11 (`http://localhost:8000`), так і з інших пристроїв локальної мережі магазину (`http://<ip-адреса-хоста>:8000`).
 3. **Вбудований Cloudflare Tunnel (Internal Tunnel)**:
@@ -158,6 +162,8 @@ cp .env.example .env
 - `PORT`: порт на хості (за замовчуванням `8000`, прив'язка до `0.0.0.0`).
 - `DATA_PATH`: шлях до постійного сховища на хості (за замовчуванням `./data`). На Windows 11 використовуйте відносний шлях (`./data`) або прямі слеші (`C:/EasyMourningReport/data`).
 - `BACKUPS_PATH`: шлях до бекапів на хості (за замовчуванням `./backups`).
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`: параметри вбудованого PostgreSQL.
+- `DATABASE_URL`: повний рядок підключення (наприклад, `postgresql+psycopg://user:pass@host:5432/db`); перекриває `POSTGRES_*`.
 - `ADMIN_PASSWORD`: фіксований пароль адміністратора на перший запуск.
 - `PUBLIC_URL`: публічний домен або адреса реверс-проксі (наприклад, `https://report.example.com`).
 - `TUNNEL_ENABLED`: автоматичний запуск тунелю при старті застосунку (`true`/`false`).
@@ -170,23 +176,24 @@ cp .env.example .env
 
 ### 1. Бекенд (Python & FastAPI)
 
-Встановлення залежностей:
+Встановлення залежностей та запуск PostgreSQL (для локальної розробки):
 ```bash
-pdm install
+uv sync
+docker compose up -d db
 ```
 
 Запуск сервера розробки:
 ```bash
-python run.py
+uv run python run.py
 ```
-або через PDM:
+або напряму через Uvicorn:
 ```bash
-pdm run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
 
-Запуск бекенд-тестів:
+Запуск бекенд-тестів (кеш і bytecode вимкнено):
 ```bash
-pdm run pytest
+PYTHONDONTWRITEBYTECODE=1 uv run pytest
 ```
 
 ### 2. Фронтенд (React, TypeScript & Vite)

@@ -191,8 +191,8 @@ export const uk = {
     },
     backup: {
       title: "Резервне копіювання бази даних",
-      description: "Завантажте актуальну резервну копію SQLite бази даних на свій комп’ютер",
-      downloadButton: "Завантажити резервну копію (.db)",
+      description: "Завантажте актуальну резервну копію PostgreSQL бази даних на свій комп’ютер",
+      downloadButton: "Завантажити резервну копію (.sql)",
     },
   },
 
@@ -230,7 +230,7 @@ export const uk = {
 
 /**
  * Format price in cents as decimal string (e.g. 2500 -> "25.00").
- * Matches `cents / 100:.2f` from backend and legacy UI.
+ * Matches `cents / 100:.2f` from the backend.
  */
 export function formatMoney(cents: number | null | undefined): string {
   const value = Number(cents || 0);

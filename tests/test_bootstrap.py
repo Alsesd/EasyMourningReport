@@ -6,22 +6,22 @@ from unittest.mock import patch
 
 os.environ.setdefault("SECRET_KEY", "unit-test-only-secret-key")
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core import bootstrap
+from app.core.database import Base
 from app.core.security import check_pw
-from app.db.base import Base
-from app.db import bootstrap
-from app.db.models.product import Product, ProductPrice
-from app.db.models.store import Store
-from app.db.models.user import User
-from app.services.pricing import BASE_PERIOD
+from app.features.auth.models import User
+from app.features.products.models import Product, ProductPrice
+from app.features.products.service import BASE_PERIOD
+from app.features.stores.models import Store
 
 
 class BootstrapTests(unittest.TestCase):
     def setUp(self):
-        self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+        self.engine = create_engine("sqlite://", poolclass=StaticPool)
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(self.engine, expire_on_commit=False)
         self.engine_patch = patch.object(bootstrap, "engine", self.engine)
@@ -62,7 +62,7 @@ class BootstrapTests(unittest.TestCase):
             prices = list(db.scalars(select(ProductPrice)))
             self.assertEqual(len(prices), 3)
             self.assertTrue(all(row.period == BASE_PERIOD for row in prices))
-            self.assertEqual(len(list(db.scalars(select(Store))),), 2)
+            self.assertEqual(len(list(db.scalars(select(Store)))), 2)
             self.assertEqual(len(list(db.scalars(select(User)))), 3)
 
     def test_migrate_creates_a_fresh_schema_without_backup(self):
@@ -70,8 +70,8 @@ class BootstrapTests(unittest.TestCase):
             bootstrap.migrate()
             backup.assert_not_called()
             bootstrap.migrate()
-        with self.engine.connect() as connection:
-            names = {row[0] for row in connection.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'")}
+        inspector = inspect(self.engine)
+        names = set(inspector.get_table_names())
         self.assertTrue({"users", "stores", "products", "product_prices", "reports", "report_items", "audit_log"}.issubset(names))
 
 

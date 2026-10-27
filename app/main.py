@@ -1,4 +1,4 @@
-"""Compose the FastAPI application and its cross-cutting infrastructure."""
+"""Compose the FastAPI application and its vertical feature slices."""
 
 import asyncio
 import os
@@ -11,33 +11,46 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.core.backup import backup_db, backup_loop, backup_router
+from app.core.bootstrap import migrate, seed
 from app.core.paths import asset_dir
+from app.core.pwa import pwa_router
 from app.core.security import load_secret, same_origin_post_guard
-from app.core.tunnel import (
+from app.core.ui import FormError, done, render, safe_referer
+from app.features.audit.router import router as audit_router
+from app.features.auth.router import public_router as public_auth_router
+from app.features.auth.router import router as auth_router
+from app.features.products.router import router as products_router
+from app.features.reports.router import (
+    router as reports_router,
+)
+from app.features.reports.router import (
+    summary_xlsx_router,
+)
+from app.features.stores.router import router as stores_router
+from app.features.tunnel.router import router as tunnel_router
+from app.features.tunnel.service import (
     shutdown as shutdown_tunnel,
+)
+from app.features.tunnel.service import (
     start_if_enabled as start_tunnel_if_enabled,
 )
-start_tailscale_if_enabled = start_tunnel_if_enabled
-shutdown_tailscale = shutdown_tunnel
-from app.core.ui import FormError, done, render, safe_referer
-from app.db.backup import backup_db, backup_loop
-from app.db.bootstrap import migrate, seed
-from app.routes import api_router
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Initialize persistent state and run periodic backups until shutdown."""
+    """Initialize persistent state, run periodic backups, and manage tunnel."""
     migrate()
     seed()
     await asyncio.to_thread(backup_db)
-    backup_task = asyncio.create_task(backup_loop(), name="database-backup-loop")
+    backup_task = asyncio.create_task(
+        backup_loop(), name="database-backup-loop"
+    )
     try:
-        # Restore the explicitly enabled app-specific Funnel after a restart.
-        await asyncio.to_thread(start_tailscale_if_enabled)
+        await asyncio.to_thread(start_tunnel_if_enabled)
         yield
     finally:
-        await asyncio.to_thread(shutdown_tailscale)
+        await asyncio.to_thread(shutdown_tunnel)
         backup_task.cancel()
         try:
             await backup_task
@@ -55,12 +68,28 @@ app.add_middleware(
     max_age=7 * 24 * 3600,
 )
 
+# Static assets
 app.mount("/static", StaticFiles(directory=asset_dir("static")), name="static")
-app.include_router(api_router)
+
+# Public, PWA, and server-rendered download routers
+app.include_router(pwa_router)
+app.include_router(public_auth_router)
+app.include_router(backup_router)
+app.include_router(summary_xlsx_router)
+
+# Vertical domain feature slices under /api/v1
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(products_router, prefix="/api/v1")
+app.include_router(stores_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
+app.include_router(audit_router, prefix="/api/v1")
+app.include_router(tunnel_router, prefix="/api/v1")
 
 
 def _is_api_request(request: Request) -> bool:
-    return request.url.path == "/api/v1" or request.url.path.startswith("/api/v1/")
+    return request.url.path == "/api/v1" or request.url.path.startswith(
+        "/api/v1/"
+    )
 
 
 @app.exception_handler(FormError)
@@ -70,12 +99,14 @@ def form_error(request: Request, exc: FormError):
         return JSONResponse(
             {"detail": exc.message, "code": "validation_error"}, status_code=422
         )
-    return done(request, exc.to or safe_referer(request) or "/", exc.message, "err")
+    return done(
+        request, exc.to or safe_referer(request) or "/", exc.message, "err"
+    )
 
 
 @app.exception_handler(RequestValidationError)
 def invalid_form(request: Request, exc: RequestValidationError):
-    """Use JSON for API validation and retain readable feedback for legacy forms."""
+    """Use JSON for API validation and retain readable feedback for server-rendered forms."""
     if _is_api_request(request):
         errors = [
             {
@@ -91,7 +122,10 @@ def invalid_form(request: Request, exc: RequestValidationError):
         )
     if request.method == "POST":
         return done(
-            request, safe_referer(request) or "/", "Заповніть усі поля форми.", "err"
+            request,
+            safe_referer(request) or "/",
+            "Заповніть усі поля форми.",
+            "err",
         )
     return render(
         request,
@@ -103,10 +137,12 @@ def invalid_form(request: Request, exc: RequestValidationError):
 
 @app.exception_handler(StarletteHTTPException)
 def http_error(request: Request, exc: StarletteHTTPException):
-    """Preserve legacy redirects and use a consistent JSON error envelope for the API."""
+    """Preserve redirects and use a consistent JSON error envelope for the API."""
     if _is_api_request(request):
         return JSONResponse(
-            {"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers
+            {"detail": exc.detail},
+            status_code=exc.status_code,
+            headers=exc.headers,
         )
     location = (exc.headers or {}).get("Location")
     if location and 300 <= exc.status_code < 400:
@@ -120,7 +156,7 @@ def http_error(request: Request, exc: StarletteHTTPException):
 
 
 @app.get("/{full_path:path}", include_in_schema=False)
-def spa_fallback(request: Request, full_path: str):
+def spa_fallback(full_path: str):
     if (
         full_path.startswith("api/")
         or full_path == "api"
@@ -133,3 +169,5 @@ def spa_fallback(request: Request, full_path: str):
         return FileResponse(index_file, media_type="text/html")
     raise StarletteHTTPException(status_code=404, detail="Not Found")
 
+
+__all__ = ["app", "migrate", "seed"]

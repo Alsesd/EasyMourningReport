@@ -1,27 +1,39 @@
-"""Regression tests for the application's SQLite configuration."""
+"""Regression tests for the application's PostgreSQL database configuration."""
 
+import os
 import unittest
+from unittest.mock import MagicMock, patch
 
-from sqlalchemy import text
-
-from app.db.models.product import Product
-from app.db.session import get_db
-from app.db.session import engine
+from app.core.database import engine, get_database_url, get_db
+from app.features.products.models import Product
 from app.main import app
 
 
 class DatabaseConfigurationTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
-        # The application engine is global in production; tests must release its pooled
-        # DBAPI connections at process end to avoid sqlite3 ResourceWarnings.
         engine.dispose()
         super().tearDownClass()
 
-    def test_sqlite_foreign_keys_are_enabled(self):
-        """Foreign-key declarations must be enforced on every pooled connection."""
-        with engine.connect() as connection:
-            self.assertEqual(connection.scalar(text("PRAGMA foreign_keys")), 1)
+    def test_database_engine_dialect_and_connectivity(self):
+        """Database engine uses postgresql dialect and connects cleanly."""
+        self.assertEqual(engine.dialect.name, "postgresql")
+        url = get_database_url()
+        self.assertTrue(
+            url.startswith("postgresql+psycopg://"),
+            f"Expected postgresql+psycopg dialect URL, got {url}",
+        )
+
+    def test_database_url_normalization(self):
+        """Standard postgres schemes normalize to postgresql+psycopg."""
+        with patch.dict(os.environ, {"DATABASE_URL": "postgres://user:pass@host:5432/db"}):
+            self.assertEqual(
+                get_database_url(), "postgresql+psycopg://user:pass@host:5432/db"
+            )
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@host:5432/db"}):
+            self.assertEqual(
+                get_database_url(), "postgresql+psycopg://user:pass@host:5432/db"
+            )
 
     def test_database_symbols_have_concrete_module_owners(self):
         """Database symbols are imported from the modules that define them."""
@@ -35,11 +47,8 @@ class DatabaseConfigurationTests(unittest.TestCase):
         self.assertIn("get", paths["/admin/backup/download"])
 
     def test_get_db_yields_session_and_closes_context_on_generator_close(self):
-        from unittest.mock import MagicMock, patch
-        from app.db.session import get_db
-
         fake_session = MagicMock()
-        with patch("app.db.session.SessionLocal") as factory:
+        with patch("app.core.database.SessionLocal") as factory:
             factory.return_value.__enter__.return_value = fake_session
             dependency = get_db()
             self.assertIs(next(dependency), fake_session)

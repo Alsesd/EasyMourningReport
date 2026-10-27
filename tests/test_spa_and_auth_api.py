@@ -8,11 +8,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from sqlmodel import create_engine
 
-from app.core.dependencies import get_db
+from app.core.database import Base, get_db
 from app.core.security import hash_pw
-from app.db.base import Base
-from app.db.models.store import Store
-from app.db.models.user import User
+from app.features.auth.models import User
+from app.features.stores.models import Store
 from app.main import app
 
 
@@ -114,7 +113,7 @@ class SpaAndAuthApiTests(unittest.TestCase):
         self.assertIn("обліковий запис вимкнено", resp.json()["detail"])
 
     def test_json_login_rate_limiting(self):
-        with patch("app.routes.auth.retry_after", return_value=60):
+        with patch("app.features.auth.service.retry_after", return_value=60):
             resp = self.client.post(
                 "/api/v1/auth/login",
                 json={"login": "superadmin", "password": "adminsecret"},

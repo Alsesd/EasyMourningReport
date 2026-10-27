@@ -1,0 +1,1 @@
+"""Products vertical feature slice."""

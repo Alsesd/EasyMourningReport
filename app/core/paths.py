@@ -45,7 +45,7 @@ def _data_override() -> str | None:
 
 
 def user_data_dir() -> Path:
-    """Return private per-user storage for Tailscale identity and helper state.
+    """Return private per-user storage for application and tunnel helper state.
 
     LEGKYI_DATA_DIR intentionally overrides the location so portable installs and
     tests can keep identity state alongside the rest of the application's data.
@@ -76,7 +76,7 @@ def _writable(folder: Path) -> bool:
 
 
 def data_dir() -> Path:
-    """Return the (created) folder for the database, secret key and backups.
+    """Return the (created) folder for application secrets and runtime state.
 
     1. LEGKYI_DATA_DIR (or DATA_DIR / DATA_PATH), if set, wins.
     2. Otherwise the folder next to the exe (or the project folder when run from source).
