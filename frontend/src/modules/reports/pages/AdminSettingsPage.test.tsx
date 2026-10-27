@@ -41,6 +41,7 @@ const mockStores: StoreDTO[] = [
     name: "Магазин Центр",
     login: "store_center",
     archived: false,
+    calculation_enabled: false,
     reports_count: 3,
   },
   {
@@ -48,6 +49,7 @@ const mockStores: StoreDTO[] = [
     name: "Магазин Захід (Архів)",
     login: "store_west",
     archived: true,
+    calculation_enabled: false,
     reports_count: 0,
   },
 ];

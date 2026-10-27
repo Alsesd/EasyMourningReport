@@ -9,8 +9,8 @@ const mockSummary: SummaryDTO = {
   period: "2026-10",
   submitted_only: false,
   stores: [
-    { id: 1, name: "Магазин Центр", archived: false },
-    { id: 2, name: "Магазин Вокзал", archived: false },
+    { id: 1, name: "Магазин Центр", archived: false, calculation_enabled: true },
+    { id: 2, name: "Магазин Вокзал", archived: false, calculation_enabled: false },
   ],
   rows: [
     {
@@ -19,7 +19,9 @@ const mockSummary: SummaryDTO = {
       price_cents: 2500,
       label: "",
       cells: [10, 5],
+      calculation_cells: [3, 0],
       quantity: 15,
+      calculation_quantity: 3,
       sum_cents: 37500,
     },
     {
@@ -28,7 +30,9 @@ const mockSummary: SummaryDTO = {
       price_cents: 5000,
       label: "",
       cells: [2, 0],
+      calculation_cells: [0, 0],
       quantity: 2,
+      calculation_quantity: 0,
       sum_cents: 10000,
     },
   ],
