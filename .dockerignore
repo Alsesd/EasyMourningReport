@@ -26,7 +26,7 @@ flake.lock
 result
 
 # Tests
-tests
+src/backend/tests
 
 # Documentation
 *.md
@@ -40,10 +40,10 @@ dist
 .uv
 .uv_cache
 !uv.lock
-app/static/app
-frontend/node_modules
-frontend/dist
-frontend/coverage
+src/backend/app/static/app
+src/frontend/node_modules
+src/frontend/dist
+src/frontend/coverage
 .agents
 
 # IDE
@@ -54,6 +54,7 @@ frontend/coverage
 .env
 .env.*
 backups
+backups-mirror
 data
 pgdata
 postgres_data

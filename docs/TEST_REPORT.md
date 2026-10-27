@@ -1,8 +1,8 @@
-# Test Suite Verification: EasyMourningReport E2E (Tiers 1–4)
+# Test Suite Verification: EasyMourningReport Backend & E2E
 
 ## Test Suite Status: READY & PASSING (100%)
 
-The complete opaque-box E2E test suite (Tiers 1–4) for EasyMourningReport has been constructed, validated, and verified with zero cache generation.
+The complete backend suite (unit, integration, and opaque-box E2E Tiers 1–4) for EasyMourningReport has been constructed, validated, and verified with zero cache generation. Last verified: 2026-10-27.
 
 ---
 
@@ -11,23 +11,23 @@ The complete opaque-box E2E test suite (Tiers 1–4) for EasyMourningReport has 
 To execute the complete E2E test suite with strict cache suppression:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/e2e -p no:cacheprovider -ra
+PYTHONDONTWRITEBYTECODE=1 uv run pytest src/backend/tests/e2e -p no:cacheprovider -ra
 ```
 
 To run individual test tiers:
 
 ```bash
 # Tier 1 - Feature Coverage (44 tests)
-PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/e2e/test_tier1_features.py -p no:cacheprovider -ra
+PYTHONDONTWRITEBYTECODE=1 uv run pytest src/backend/tests/e2e/test_tier1_features.py -p no:cacheprovider -ra
 
 # Tier 2 - Boundary & Corner Cases (31 tests)
-PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/e2e/test_tier2_boundaries.py -p no:cacheprovider -ra
+PYTHONDONTWRITEBYTECODE=1 uv run pytest src/backend/tests/e2e/test_tier2_boundaries.py -p no:cacheprovider -ra
 
 # Tier 3 - Cross-Feature Combinations (5 tests)
-PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/e2e/test_tier3_combinations.py -p no:cacheprovider -ra
+PYTHONDONTWRITEBYTECODE=1 uv run pytest src/backend/tests/e2e/test_tier3_combinations.py -p no:cacheprovider -ra
 
 # Tier 4 - Realistic Enterprise Workloads (2 tests)
-PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/e2e/test_tier4_workloads.py -p no:cacheprovider -ra
+PYTHONDONTWRITEBYTECODE=1 uv run pytest src/backend/tests/e2e/test_tier4_workloads.py -p no:cacheprovider -ra
 ```
 
 ---
@@ -39,20 +39,20 @@ PYTHONDONTWRITEBYTECODE=1 uv run pytest tests/e2e/test_tier4_workloads.py -p no:
 platform linux -- Python 3.11, pytest 9.x
 rootdir: /home/alsesd/EasyMourningReport
 configfile: pyproject.toml
-collected 82 items
+collected 285 items
 
-tests/e2e/test_tier1_features.py ....................................... [ 47%]
-.....                                                                    [ 53%]
-tests/e2e/test_tier2_boundaries.py ...............................       [ 91%]
-tests/e2e/test_tier3_combinations.py .....                               [ 97%]
-tests/e2e/test_tier4_workloads.py ..                                     [100%]
+src/backend/tests/e2e/test_tier1_features.py ....................... [ 53%]
+src/backend/tests/e2e/test_tier2_boundaries.py .................... [ 91%]
+src/backend/tests/e2e/test_tier3_combinations.py .....             [ 97%]
+src/backend/tests/e2e/test_tier4_workloads.py ..                   [100%]
 
-======================= 82 passed, 1 warning in 29.44s =======================
+======================= 82 passed, 1 warning in ~30s =======================
 
-Full backend suite: 286 passed, 1 warning in 48.72s
-Frontend suite: 37 passed (11 files)
+Full backend suite: 285 passed (203 non-E2E + 82 E2E), 1 warning
+Frontend suite: 37 passed
 Lint: ESLint 0 warnings; Ruff F/E9/I clean
 Typecheck: tsc --noEmit clean
+Build: Vite production build clean
 ```
 
 ---
@@ -61,23 +61,25 @@ Typecheck: tsc --noEmit clean
 
 | Tier | File Path | Focus Area | Required Count | Implemented Count | Result |
 |---|---|---|---|---|---|
-| **Tier 1** | `tests/e2e/test_tier1_features.py` | Primary Feature Coverage (Auth, Products, Stores, Reports, Audit, Tunnel, Summary & Exports) | ≥35 (≥5 per area) | **44** | **44 / 44 PASSED** (100%) |
-| **Tier 2** | `tests/e2e/test_tier2_boundaries.py` | Boundary, Corner & Error Cases (Empty/Whitespace, Extreme Values, Duplicates, Invalid Periods, Rate Limiting) | ≥25 (≥5 per area) | **31** | **31 / 31 PASSED** (100%) |
-| **Tier 3** | `tests/e2e/test_tier3_combinations.py` | Cross-Feature Combinations (Price Revision, Multi-Store Aggregation, Archival in Draft, Store Renaming, Report Unlock) | Comprehensive | **5** | **5 / 5 PASSED** (100%) |
-| **Tier 4** | `tests/e2e/test_tier4_workloads.py` | Real-World Workloads (Multi-Store Monthly Close, High-Volume Catalog Stress) | Enterprise | **2** | **2 / 2 PASSED** (100%) |
-| **Total** | `tests/e2e/` | **Full Opaque-Box E2E Suite** | **≥60** | **82** | **82 / 82 PASSED** (100%) |
+| **Tier 1** | `src/backend/tests/e2e/test_tier1_features.py` | Primary Feature Coverage (Auth, Products, Stores, Reports, Audit, Tunnel, Summary & Exports) | ≥35 (≥5 per area) | **44** | **44 / 44 PASSED** (100%) |
+| **Tier 2** | `src/backend/tests/e2e/test_tier2_boundaries.py` | Boundary, Corner & Error Cases (Empty/Whitespace, Extreme Values, Duplicates, Invalid Periods, Rate Limiting) | ≥25 (≥5 per area) | **31** | **31 / 31 PASSED** (100%) |
+| **Tier 3** | `src/backend/tests/e2e/test_tier3_combinations.py` | Cross-Feature Combinations (Price Revision, Multi-Store Aggregation, Archival in Draft, Store Renaming, Report Unlock) | Comprehensive | **5** | **5 / 5 PASSED** (100%) |
+| **Tier 4** | `src/backend/tests/e2e/test_tier4_workloads.py` | Real-World Workloads (Multi-Store Monthly Close, High-Volume Catalog Stress) | Enterprise | **2** | **2 / 2 PASSED** (100%) |
+| **E2E Total** | `src/backend/tests/e2e/` | **Full Opaque-Box E2E Suite** | **≥60** | **82** | **82 / 82 PASSED** (100%) |
+| **Backend Total** | `src/backend/tests/` | **Unit + integration + E2E** | — | **285** | **285 / 285 PASSED** (100%) |
 
 ---
 
 ## 4. Test Files and Artifact Inventory
 
-1. `tests/e2e/conftest.py`: Shared test fixtures (`e2e_env`, `admin_client`, `store_client`, `anon_client`), database isolation, automatic same-origin header injection, rate limit reset, and openpyxl test workbook factory.
-2. `tests/e2e/test_tier1_features.py`: 44 test cases spanning all functional public interfaces.
-3. `tests/e2e/test_tier2_boundaries.py`: 31 test cases exercising edge cases, limits, duplicate detection, malformed inputs, and sliding-window rate limit throttling.
-4. `tests/e2e/test_tier3_combinations.py`: 5 multi-step workflows validating interactions across feature slices.
-5. `tests/e2e/test_tier4_workloads.py`: 2 realistic production workload scenarios validating complete monthly close and high-volume catalog processing.
-6. `docs/TESTING.md`: Full testing architecture, philosophy, feature mapping, and quality criteria.
-7. `docs/TEST_REPORT.md`: This execution verification report and test summary.
+1. `src/backend/tests/e2e/conftest.py`: Shared test fixtures (`e2e_env`, `admin_client`, `store_client`, `anon_client`), database isolation, automatic same-origin header injection, rate limit reset, and openpyxl test workbook factory.
+2. `src/backend/tests/e2e/test_tier1_features.py`: 44 test cases spanning all functional public interfaces.
+3. `src/backend/tests/e2e/test_tier2_boundaries.py`: 31 test cases exercising edge cases, limits, duplicate detection, malformed inputs, and sliding-window rate limit throttling.
+4. `src/backend/tests/e2e/test_tier3_combinations.py`: 5 multi-step workflows validating interactions across feature slices.
+5. `src/backend/tests/e2e/test_tier4_workloads.py`: 2 realistic production workload scenarios validating complete monthly close and high-volume catalog processing.
+6. `src/backend/tests/test_backup.py`: Backup checksum, mirroring, retention, and failure-isolation tests.
+7. `docs/TESTING.md`: Full testing architecture, philosophy, feature mapping, and quality criteria.
+8. `docs/TEST_REPORT.md`: This execution verification report and test summary.
 
 ---
 

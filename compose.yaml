@@ -18,6 +18,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+    stop_grace_period: 60s
     networks:
       - app-network
 
@@ -50,6 +51,9 @@ services:
       - PUBLIC_URL=${PUBLIC_URL:-}
       - TUNNEL_ENABLED=${TUNNEL_ENABLED:-}
       - TUNNEL_TOKEN=${TUNNEL_TOKEN:-}
+      - BACKUPS_MIRROR_DIR=/app/backups-mirror
+      - BACKUP_KEEP=${BACKUP_KEEP:-100}
+      - BACKUP_EVERY_MIN=${BACKUP_EVERY_MIN:-60}
     ports:
       - "0.0.0.0:${PORT:-8000}:8000"
     volumes:
@@ -59,6 +63,9 @@ services:
       - type: bind
         source: ${BACKUPS_PATH:-./backups}
         target: /app/backups
+      - type: bind
+        source: ${BACKUPS_MIRROR_PATH:-./backups-mirror}
+        target: /app/backups-mirror
     healthcheck:
       test:
         [
@@ -71,6 +78,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    stop_grace_period: 60s
     logging:
       driver: "json-file"
       options:
@@ -81,6 +89,8 @@ services:
 
 volumes:
   pgdata:
+    name: ${PGDATA_VOLUME:-easymourningreport_pgdata}
+    external: true
 
 networks:
   app-network:

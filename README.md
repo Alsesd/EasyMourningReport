@@ -3,7 +3,7 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.162%2B-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-3-38B2AC?logo=tailwindcss&logoColor=white)
@@ -41,7 +41,7 @@
 - спрощує контроль за кількома магазинами;
 - зберігає повну історію зміни цін у розрізі кожного місяця;
 - плавні анімації відкриття та закриття полів редагування (зміна ціни, додавання товару/магазину, сповіщення);
-- автоматичне створення постійного сховища на хості (`./data` та `./backups`) як на Linux, так і на Windows;
+- автоматичне створення постійного сховища на хості (`./data`, `./backups`, `./backups-mirror`) як на Linux, так і на Windows;
 - розгортається однією командою через Docker Compose без ручного налаштування.
 
 ## Основні можливості
@@ -61,7 +61,7 @@
 - **Щомісячні звіти та блокування**: перегляд поданих звітів, детальний перегляд із можливістю розблокування/блокування.
 - **Журнал аудиту**: детальний аудит дій у системі з фільтрацією за типами подій та пошуком.
 - **Керування публічним тунелем**: статус тунелю Cloudflare, перемикач автозапуску та запуск/зупинка безпосередньо з панелі налаштувань.
-- **Надійне збереження даних**: PostgreSQL 16 у постійному томі `pgdata`, а `./data` (секрети, стан тунелю) та `./backups` (SQL-знімки) монтуються з хост-пристрою.
+- **Надійне збереження даних**: PostgreSQL 16 у зовнішньому томі `easymourningreport_pgdata`, `./data` (секрети, стан тунелю), `./backups` (SQL-знімки) та `./backups-mirror` (незалежне зеркало) монтуються з хост-пристрою.
 - **Безпека**: збереження паролів через PBKDF2-хешування із сіллю, захист сесій та перевірка походження запитів.
 
 ## Технологічний стек
@@ -84,50 +84,43 @@
   - Самостійний шрифт **Onest** (`@fontsource/onest`) без зовнішніх запитів до Google Fonts чи CDN
 - **Інфраструктура**:
   - Docker & Docker Compose (багатоетапна збірка: Stage 1 Node.js build → Stage 2 Python builder → Stage 3 Minimal runtime)
-  - Автоматичне постійне сховище на хост-пристрої (`./data` та `./backups`)
+  - Автоматичне постійне сховище на хост-пристрої (`./data`, `./backups`, `./backups-mirror`)
   - Cloudflare Tunnel (TryCloudflare Quick Tunnel або власний іменований тунель)
 
 ## Структура проєкту
 
 ```text
 EasyMourningReport/
-├── frontend/             # Клієнтський SPA-застосунок (React, TypeScript, Tailwind)
-│   ├── src/
-│   │   ├── api/          # Типізований клієнт API та автогенеровані типи
-│   │   ├── components/   # UI-компоненти (Header, Stepper, Dialog, AnimatedCollapse, etc.)
-│   │   ├── context/      # React-контексти (AuthContext, ThemeContext)
-│   │   ├── pages/        # Сторінки (Login, StoreReport, AdminSummary, Settings, etc.)
-│   │   ├── i18n/         # Локалізація інтерфейсу (uk.ts)
-│   │   └── lib/          # Утиліти (валюти, дати, офлайн-чернетки)
-│   ├── package.json      # Залежності фронтенду
-│   └── vite.config.ts    # Конфігурація збірки Vite в app/static/app/
-├── app/                  # Бекенд на FastAPI
-│   ├── core/             # Наскрізна інфраструктура (БД, безпека, backup, PWA, валідація)
-│   ├── features/         # Вертикальні зрізи домену
-│   │   ├── auth/         # Користувачі, сесії, рольова авторизація
-│   │   ├── products/     # Каталог, історія цін, імпорт Excel
-│   │   ├── stores/       # Магазини та облікові записи
-│   │   ├── reports/      # Звіти, розрахунки, експорт зведення
-│   │   ├── audit/        # Журнал аудиту
-│   │   └── tunnel/       # Керування Cloudflare Tunnel
-│   ├── static/           # PWA manifest, service worker, іконки та зібраний SPA (app/)
-│   ├── templates/        # Резервні сторінки помилок та офлайн-режиму
-│   └── main.py           # Композиційний корінь FastAPI
-├── docs/                 # Документація проєкту
-│   ├── API.md            # Специфікація REST API
-│   ├── DESIGN.md         # Дизайн-система та специфікація інтерфейсу
-│   ├── PROJECT.md        # Архітектура, контракти та статус мілстоунів
-│   ├── TESTING.md        # Архітектура тестового комплексу
-│   ├── TEST_REPORT.md    # Результати виконання тестів
-│   └── archive/          # Історичні плани SPA-міграції
-├── tests/                # Юніт, інтеграційні та E2E тести pytest
-├── scripts/              # Допоміжні скрипти (генерація OpenAPI)
-├── .github/workflows/    # CI: uv, тести, фронтенд та Docker
-├── docker/               # Dockerfile і Compose-обгортка
-├── compose.yaml          # App + PostgreSQL 16 з healthcheck і persistent volume
-├── pyproject.toml        # PEP 621 + hatchling
-├── uv.lock               # Зафіксований граф залежностей uv
-└── run.py                # Єдина точка входу сервера з банером та UTF-8
+├── src/
+│   ├── backend/                 # FastAPI-бекенд (модульний моноліт)
+│   │   ├── app/
+│   │   │   ├── core/            # БД, безпека, backup, PWA, валідація, entrypoint
+│   │   │   ├── features/        # Вертикальні зрізи: auth, products, stores, reports, audit, tunnel
+│   │   │   ├── main.py          # Композиційний корінь FastAPI
+│   │   │   └── __main__.py      # Єдина точка входу: python -m app
+│   │   ├── tests/               # Юніт, інтеграційні та E2E тести pytest
+│   │   └── scripts/             # Допоміжні скрипти (генерація OpenAPI)
+│   └── frontend/                # React SPA (React, TypeScript, Tailwind)
+│       ├── public/              # PWA manifest, service worker, іконки
+│       └── src/
+│           ├── app/             # App shell, providers, routing
+│           ├── features/        # auth, reports, audit, settings
+│           └── shared/          # api, components, context, i18n, lib, test
+├── docs/                        # Документація проєкту
+│   ├── API.md                   # Специфікація REST API
+│   ├── DESIGN.md                # Дизайн-система та специфікація інтерфейсу
+│   ├── PROJECT.md               # Архітектура та контракти
+│   ├── TESTING.md               # Архітектура тестового комплексу
+│   ├── TEST_REPORT.md           # Результати виконання тестів
+│   ├── OPERATIONS.ru.md         # Резервні копії, відновлення, аварії
+│   └── archive/                 # Історичні плани SPA-міграції
+├── .github/workflows/           # CI: uv, тести, фронтенд та Docker
+├── docker/
+│   ├── Dockerfile               # Багатоетапна збірка
+│   └── ops/                     # init.sh та backup.sh для хоста
+├── compose.yaml                 # App + PostgreSQL 16, external volume і backup mirror
+├── pyproject.toml               # PEP 621 + hatchling (src-layout)
+└── uv.lock                      # Зафіксований граф залежностей uv
 ```
 
 ## Розгортання через Docker Compose (Рекомендовано)
@@ -137,14 +130,25 @@ EasyMourningReport/
 ### Запуск в один крок
 
 ```bash
-docker compose up -d
+cp .env.example .env
+./docker/ops/init.sh
 ```
+
+`init.sh` створює зовнішній том PostgreSQL, каталоги резервних копій і запускає Compose. Звичайний `docker compose up -d --build` теж працює, якщо том `PGDATA_VOLUME` уже існує.
+
+`docker compose up` піднімає обидва сервіси: PostgreSQL (`db`) і застосунок (`app`). Якщо `db` уже запущений, Compose використовує наявний контейнер, а не створює дубль. `docker compose build` лише збирає образ, а `docker run` не підключає мережу Compose, `.env`, томи та PostgreSQL — для запуску використовуйте `docker compose up`.
+
+### Зупинка та graceful shutdown
+
+- `docker compose up` (у foreground): `Ctrl+C` надсилає SIGINT, Compose передає застосунку SIGTERM. Uvicorn перестає приймати нові запити, завершує поточні, зупиняє тунель і backup-цикл, створює фінальну SQL-копію та закриває пул підключень. Потім зупиняється PostgreSQL. На це виділено до 60 секунд (`stop_grace_period`).
+- `docker compose up -d` або `docker compose logs -f`: `Ctrl+C` зупиняє лише перегляд логів, контейнери продовжують працювати. Для штатної зупинки використовуйте `docker compose stop` (контейнери зберігаються) або `docker compose down` (контейнери й мережа видаляються, зовнішній том і дані зберігаються).
+- Ніколи не використовуйте `docker compose down -v`: це видалить том PostgreSQL.
 
 Усе налаштовується автоматично:
 1. **Постійне сховище (Persistent Storage)**:
-   - Застосунок монтує теки хоста `${DATA_PATH:-./data}` (`/app/data`) та `${BACKUPS_PATH:-./backups}` (`/app/backups`).
+   - Застосунок монтує теки хоста `${DATA_PATH:-./data}` (`/app/data`), `${BACKUPS_PATH:-./backups}` (`/app/backups`) та `${BACKUPS_MIRROR_PATH:-./backups-mirror}` (`/app/backups-mirror`).
    - На Windows 11 права доступу до томів обробляються стійко: підтримуються файлові системи NTFS/virtiofs/DrvFs без помилок `chmod`.
-   - PostgreSQL зберігає дані у томі `pgdata`, а секрети, стан тунелю та SQL-бекапи — у `${DATA_PATH:-./data}` і `${BACKUPS_PATH:-./backups}`.
+   - PostgreSQL зберігає дані у зовнішньому томі `${PGDATA_VOLUME:-easymourningreport_pgdata}`. Це захищає від `docker compose down -v`, але не від видалення тома або диска, тому SQL-бекапи обов’язкові.
 2. **Мережевий доступ (Network Access)**:
    - Порт зв'язується через `0.0.0.0:8000:8000`, що забезпечує прямий доступ як з хоста Windows 11 (`http://localhost:8000`), так і з інших пристроїв локальної мережі магазину (`http://<ip-адреса-хоста>:8000`).
 3. **Вбудований Cloudflare Tunnel (Internal Tunnel)**:
@@ -161,7 +165,10 @@ cp .env.example .env
 Доступні змінні:
 - `PORT`: порт на хості (за замовчуванням `8000`, прив'язка до `0.0.0.0`).
 - `DATA_PATH`: шлях до постійного сховища на хості (за замовчуванням `./data`). На Windows 11 використовуйте відносний шлях (`./data`) або прямі слеші (`C:/EasyMourningReport/data`).
-- `BACKUPS_PATH`: шлях до бекапів на хості (за замовчуванням `./backups`).
+- `BACKUPS_PATH`: шлях до основних SQL-бекапів на хості (за замовчуванням `./backups`).
+- `BACKUPS_MIRROR_PATH`: шлях до незалежного зеркала бекапів (за замовчуванням `./backups-mirror`).
+- `PGDATA_VOLUME`: ім’я зовнішнього Docker volume для PostgreSQL (за замовчуванням `easymourningreport_pgdata`).
+- `BACKUP_KEEP`, `BACKUP_EVERY_MIN`: кількість знімків і період автоматичного backup.
 - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`: параметри вбудованого PostgreSQL.
 - `DATABASE_URL`: повний рядок підключення (наприклад, `postgresql+psycopg://user:pass@host:5432/db`); перекриває `POSTGRES_*`.
 - `ADMIN_PASSWORD`: фіксований пароль адміністратора на перший запуск.
@@ -184,9 +191,9 @@ docker compose up -d db
 
 Запуск сервера розробки:
 ```bash
-uv run python run.py
+uv run python -m app
 ```
-або напряму через Uvicorn:
+або напряму через Uvicorn з кореня репозиторію:
 ```bash
 uv run uvicorn app.main:app --reload
 ```
@@ -198,11 +205,11 @@ PYTHONDONTWRITEBYTECODE=1 uv run pytest
 
 ### 2. Фронтенд (React, TypeScript & Vite)
 
-Усі файли клієнтського застосунку знаходяться у директорії `frontend/`.
+Усі файли клієнтського застосунку знаходяться у директорії `src/frontend/`.
 
 Встановлення залежностей:
 ```bash
-cd frontend
+cd src/frontend
 npm install
 ```
 
@@ -222,7 +229,7 @@ npm run typecheck
 npm test -- --run
 ```
 
-Збірка у продакшн (результат записується в `app/static/app/`):
+Збірка у продакшн (результат записується в `src/backend/app/static/app/`):
 ```bash
 npm run build
 ```
@@ -238,7 +245,8 @@ npm run gen:api
 
 - Паролі зберігаються у вигляді PBKDF2-хешів із випадковою сіллю.
 - Адміністративний пароль генерується автоматично при першому запуску, якщо не задано `ADMIN_PASSWORD`.
-- Резервні копії бази даних автоматично створюються під час запуску, зупинки та щогодини при активності (зберігаються у `./backups` на хості).
+- Резервні копії бази даних автоматично створюються під час запуску, зупинки та щогодини при активності (зберігаються у `./backups` і `./backups-mirror` на хості).
+- Повний протокол backup/restore та дій під час аварій: [`docs/OPERATIONS.ru.md`](docs/OPERATIONS.ru.md).
 - Секретний ключ сесії генерується автоматично у `./data/secret.key` або задається через `SECRET_KEY`.
 
 ## Ліцензія

@@ -1,6 +1,7 @@
 # Runtime data
 reports.db
 backups/
+backups-mirror/
 secret.key
 
 # Python
@@ -31,12 +32,12 @@ dist/
 result
 
 # Generated SPA assets
-app/static/app/
+src/backend/app/static/app/
 
 # Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/coverage/
+src/frontend/node_modules/
+src/frontend/dist/
+src/frontend/coverage/
 .agents/
 
 # Docker & local data

@@ -1,12 +1,12 @@
 # Stage 1: Build client SPA
-FROM node:20-alpine AS frontend-builder
+FROM node:22-alpine AS frontend-builder
 
-WORKDIR /app/frontend
+WORKDIR /app/src/frontend
 
-COPY frontend/package*.json ./
+COPY src/frontend/package*.json ./
 RUN npm ci
 
-COPY frontend/ ./
+COPY src/frontend/ ./
 RUN npm run build
 
 # Stage 2: Build Python environment & resolve production packages using uv
@@ -43,9 +43,8 @@ COPY --from=cloudflare/cloudflared:latest /usr/local/bin/cloudflared /usr/local/
 COPY --from=python-builder /app/.venv /app/.venv
 
 # Copy runtime code, application entry point, and built SPA assets
-COPY app/ /app/app/
-COPY run.py /app/run.py
-COPY --from=frontend-builder /app/app/static/app/ /app/app/static/app/
+COPY src/backend/app/ /app/app/
+COPY --from=frontend-builder /app/src/backend/app/static/app/ /app/app/static/app/
 
 # Create persistent storage directories with permissive defaults for Windows bind mounts
 RUN mkdir -p /app/data /app/backups && chmod 777 /app/data /app/backups
@@ -70,4 +69,5 @@ HEALTHCHECK --interval=20s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -fsS "http://127.0.0.1:8000/" || exit 1
 
 # Unified production entry point with enterprise startup diagnostics and banner
-CMD ["python", "run.py"]
+STOPSIGNAL SIGTERM
+CMD ["python", "-m", "app"]

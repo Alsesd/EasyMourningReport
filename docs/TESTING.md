@@ -6,7 +6,7 @@ EasyMourningReport utilizes a rigorous, multi-tiered end-to-end testing methodol
 
 1. **Opaque-Box Contract Verification**: Tests interact strictly with the application's external surface (HTTP API routes `/api/v1/*`, server-rendered export handlers `/admin/*`, authenticated cookie sessions, and file uploads/downloads). Tests do not couple to internal implementation details, private helper functions, or ephemeral ORM state.
 2. **Behavioral Expected Outputs**: Every assertion is derived from authoritative specifications in `docs/PROJECT.md` and user requirements in `.agents/teamwork/ORIGINAL_REQUEST.md`.
-3. **Deterministic Hermetic Isolation**: Every test scenario executes within its own isolated database instance and sandboxed storage root. Tests set up all prerequisite records, execute independently of run order, and perform complete resource teardown. The application database layer honours `TEST_DATABASE_URL`, while unit/E2E fixtures default to isolated in-memory SQLite engines.
+3. **Deterministic Hermetic Isolation**: Every test scenario executes within its own isolated database instance and sandboxed storage root. Tests set up all prerequisite records, execute independently of run order, and perform complete resource teardown. The application database layer honours `TEST_DATABASE_URL` for PostgreSQL runs, while unit/E2E fixtures default to isolated temporary SQLite files.
 4. **Strict Cache Suppression**: Tests run under `PYTHONDONTWRITEBYTECODE=1` and pytest's `-p no:cacheprovider -ra` flags. No `__pycache__`, `.pytest_cache`, or `*.pyc` artifacts are generated.
 5. **Progressive Testability**: Fixtures dynamically support both the baseline session management and forward-compatible vertical slice architectures without code drift.
 
@@ -26,19 +26,19 @@ The test suite systematically covers all application domains across four progres
 | **Tunnel** | Cloudflare Tunnel Status, Autostart Toggle, Start/Stop Controls | 6 tests (`TC-TUNNEL-01..06`) | Invalid confirmation payloads, URL format checks | Admin-only permission enforcement | Sidecar and preference state |
 | **Summary & Exports** | Matrix Aggregation, Excel Download, Excel Import, DB Backups | 6 tests (`TC-SUM-01..06`) | Filter bounds (`submitted_only`), extreme quantities | Cross-store aggregation with mixed drafts | Real-world multi-store close & backup |
 
-Total Test Cases Implemented: **82 tests** across Tiers 1–4.
+E2E Test Cases Implemented: **82 tests** across Tiers 1–4. Full backend suite (unit, integration, and E2E): **285 tests**.
 
 ---
 
 ## 3. Test Architecture & Fixture Hierarchy
 
-The test harness is implemented in `tests/e2e/conftest.py` with standard pytest fixtures:
+The test harness is implemented in `src/backend/tests/e2e/conftest.py` with standard pytest fixtures:
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                              e2e_env                                   │
 │  - Creates temporary LEGKYI_DATA_DIR & LEGKYI_BACKUPS_DIR              │
-│  - Isolated test engine (SQLite in-memory by default)                  │
+│  - Isolated temp SQLite engine by default; TEST_DATABASE_URL optional  │
 │  - Overrides get_db dependency in FastAPI app.dependency_overrides     │
 │  - Seeds baseline Admin user ("e2e_admin"), Store ("E2E Store 1"),     │
 │    Store user ("e2e_store1"), and baseline Product ("E2E Default Bread")│
@@ -98,6 +98,9 @@ The suite includes dedicated multi-stage workload tests simulating actual enterp
 | **Tier 2 Boundary Cases** | ≥5 test cases per feature (≥25 total) | **31 test cases** (100% pass) |
 | **Tier 3 Combinations** | Multi-feature pairwise flows | **5 test cases** (100% pass) |
 | **Tier 4 Realistic Workloads** | Complete monthly close simulation | **2 test cases** (100% pass) |
-| **Total Test Suite** | Comprehensive opaque-box coverage | **82 test cases** (100% pass) |
+| **E2E Suite** | Comprehensive opaque-box coverage | **82 test cases** (100% pass) |
+| **Non-E2E Backend Suite** | Unit and integration coverage | **203 test cases** (100% pass) |
+| **Full Backend Suite** | All pytest tests | **285 test cases** (100% pass) |
+| **Frontend Suite** | Vitest component/store/utility coverage | **37 test cases** (100% pass) |
 | **Cache Suppression** | 0 cache/bytecode files generated | **Verified** (`NO BYTECODE OR CACHE`) |
-| **Execution Performance** | Full E2E suite under 60 seconds | **31.13s** execution time |
+| **Execution Performance** | Full E2E suite under 60 seconds | **~30s** execution time |

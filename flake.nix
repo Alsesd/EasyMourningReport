@@ -24,7 +24,7 @@
         export PYTHONDONTWRITEBYTECODE=1
         echo "Serving locally on http://localhost:$PORT"
         echo "To expose publicly via Cloudflare Tunnel, run 'tunnel' in another terminal."
-        exec uv run python run.py "$@"
+        exec uv run python -m app "$@"
       '';
 
       tunnel = pkgs.writeShellScriptBin "tunnel" ''

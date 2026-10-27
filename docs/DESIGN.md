@@ -6,7 +6,7 @@ A quiet, practical, and highly legible reporting tool: paper-like surfaces, ever
 
 ## 2. Design Tokens & Theme Source
 
-The canonical theme source is implemented in `frontend/tailwind.config.js` and `frontend/src/index.css` via CSS variables and semantic Tailwind classes:
+The canonical theme source is implemented in `src/frontend/tailwind.config.js` and `src/frontend/src/app/index.css` via CSS variables and semantic Tailwind classes:
 
 | Role | Semantic Class | Light Value | Dark Value |
 |---|---|---|---|
@@ -82,6 +82,6 @@ Theme switching supports `light`, `dark`, and `system` modes, persisted in `loca
 
 ## 6. Formatting & Localization
 
-- All UI strings are kept exclusively in Ukrainian in `frontend/src/i18n/uk.ts`.
+- All UI strings are kept exclusively in Ukrainian in `src/frontend/src/shared/i18n/uk.ts`.
 - Money and numeric calculations formatted via `Intl.NumberFormat('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })` (converting server integer `price_cents` to formatted UAH).
 - Dates and timestamps formatted via `Intl.DateTimeFormat('uk-UA', ...)`.
