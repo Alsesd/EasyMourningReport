@@ -10,6 +10,7 @@ const mockDetail: AdminReportDetailDTO = {
   store_id: 1,
   store_name: "Магазин Центр",
   store_archived: false,
+  calculation_enabled: false,
   period: "2026-10",
   status: "submitted",
   total_cents: 35000,
@@ -24,6 +25,7 @@ const mockDetail: AdminReportDetailDTO = {
         {
           price_cents: 2500,
           quantity: 10,
+          quantity_calc: 0,
           label: "",
           sum_cents: 25000,
         },
@@ -38,6 +40,7 @@ const mockDetail: AdminReportDetailDTO = {
         {
           price_cents: 5000,
           quantity: 2,
+          quantity_calc: 0,
           label: "new",
           sum_cents: 10000,
         },
