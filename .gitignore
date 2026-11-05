@@ -52,3 +52,6 @@ Thumbs.db
 # Environment secrets (never commit)
 .env
 .agents/skills/
+
+# Claude Code (personal overrides)
+.claude/settings.local.json
