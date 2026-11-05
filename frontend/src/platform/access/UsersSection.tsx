@@ -290,7 +290,7 @@ export default function UsersSection({ notify }: AdminSectionProps) {
     filter !== "all" && filter !== PLATFORM ? Number(filter) : session?.organisation?.id ?? null;
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3 sm:items-end justify-between">
         {platformManager ? (
           <div className="space-y-1.5">
@@ -322,7 +322,7 @@ export default function UsersSection({ notify }: AdminSectionProps) {
 
       <AnimatedCollapse open={creating}>
         {creating && (
-          <Card className="border-primary/50">
+          <Card className="border-t-2 border-t-primary">
             <CardHeader className="p-4 sm:p-5 border-b border-border">
               <CardTitle className="text-base">{uk.access.newUser}</CardTitle>
             </CardHeader>
@@ -343,7 +343,7 @@ export default function UsersSection({ notify }: AdminSectionProps) {
         )}
       </AnimatedCollapse>
 
-      <Card>
+      <div className="ledger">
         <div className="divide-y divide-border">
           {isLoading ? (
             <p className="p-6 text-sm text-text-muted">{uk.common.loading}</p>
@@ -354,23 +354,23 @@ export default function UsersSection({ notify }: AdminSectionProps) {
               const editing = editingId === user.id;
               const isSelf = user.id === session?.user_id;
               return (
-                <div key={user.id} className="p-4 sm:p-5 space-y-4" data-user-id={user.id}>
+                <div key={user.id} className="space-y-4 px-1 py-4" data-user-id={user.id}>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold text-text-main font-mono">{user.login}</span>
+                        <span className="font-semibold text-text-main">{user.login}</span>
                         {!user.active && (
-                          <span className="rounded px-2 py-0.5 text-[11px] font-medium bg-destructive/10 text-destructive">
+                          <span className="text-xs font-medium text-destructive">
                             {uk.access.inactive}
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-text-muted mt-0.5">
-                        {[user.full_name, user.organisation?.name ?? uk.access.noOrganisation].filter(Boolean).join(" · ")}
+                        {[user.full_name, user.organisation?.name ?? uk.access.noOrganisation].filter(Boolean).join(", ")}
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {(user.role_names ?? []).map((name) => (
-                          <span key={name} className="rounded px-2 py-0.5 text-[11px] bg-primary/10 text-primary">{name}</span>
+                          <span key={name} className="rounded-control bg-primary-soft px-2 py-0.5 text-xs text-primary">{name}</span>
                         ))}
                       </div>
                     </div>
@@ -407,7 +407,7 @@ export default function UsersSection({ notify }: AdminSectionProps) {
                     </div>
                   </div>
                   {editing && (
-                    <div className="rounded-control bg-page/50 p-4 space-y-5">
+                    <div className="border-l-2 border-primary bg-surface-raised/60 p-4 space-y-5">
                       <UserForm
                         initial={{
                           login: user.login,
@@ -436,7 +436,7 @@ export default function UsersSection({ notify }: AdminSectionProps) {
             })
           )}
         </div>
-      </Card>
+      </div>
       {dialog}
     </div>
   );

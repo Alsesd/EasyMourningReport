@@ -31,8 +31,7 @@ This document records the current browser behavior and points to the code that o
 
 | Behavior | Current implementation |
 |---|---|
-| Summary cards, reporting period, submitted-only filter, and XLSX export | `frontend/src/modules/reports/pages/AdminSummaryPage.tsx` |
-| Report listing and period filter | `frontend/src/modules/reports/pages/AdminReportsPage.tsx` |
+| Month page: store register, products matrix, period, submitted-only filter, and XLSX export | `frontend/src/modules/reports/pages/ReportsMonthPage.tsx` (old `/admin/summary` links: `SummaryRedirect.tsx`) |
 | Report detail and draft/submitted status update | `frontend/src/modules/reports/pages/AdminReportDetailPage.tsx` |
 | «Адміністрування» hub: overview, grouped section menu, shared status message | `frontend/src/platform/admin/` |
 | Product catalogue search, price changes, archive/restore, import | `frontend/src/modules/reports/settings/ProductsSection.tsx` |

@@ -38,12 +38,12 @@
 
 ## Navigation and responsive behavior
 
-- Workspace destinations come from the module registry and the user's permissions (e.g. Summary, Reports, Transport, Адміністрування). Desktop uses a persistent sidebar with the account menu at its foot; mobile uses a fixed bottom navigation with safe-area padding and matching `aria-current` state, and the account menu in the header.
+- Workspace destinations come from the module registry and the user's permissions (e.g. Звіти, Транспорт, Адміністрування). Desktop uses a persistent sidebar with the account menu at its foot; mobile uses a fixed bottom navigation with safe-area padding and matching `aria-current` state, and the account menu in the header.
 - «Адміністрування» is one hub: an overview, then sections grouped as Доступ, Довідники модулів, Система, Активність. Modules add their own sections. One shared status message at the top of the section reports success or errors.
-- The maker mark («A.» → made by Alsesd) stays in the workspace header, on the store report and on the login page, on every screen size.
+- The maker mark («A.» reveals «made by Alsesd») stays in the workspace rail or top bar, on the store report and on the login page, on every screen size.
 - The report detail route remains nested under Reports and has a clear return path to its parent list.
 - Report-period state belongs in the URL where existing pages already use query parameters; switching periods must preserve related filters.
-- Tables preserve comparison relationships; use horizontal overflow or the existing card mode when appropriate. Never silently discard a column's data or actions on mobile.
+- Tables preserve comparison relationships; on narrow screens use horizontal overflow with a pinned first column, or ruled rows whose detail opens on demand. Never silently discard a column's data or actions on mobile.
 - Long forms use document scrolling. Fixed navigation must not obscure focused controls or the virtual keyboard.
 - Each route sets a localized document title (`Page — Product`); titles never contain passwords, secrets or other sensitive values.
 

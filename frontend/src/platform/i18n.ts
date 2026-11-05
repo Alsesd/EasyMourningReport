@@ -107,6 +107,8 @@ export const ukPlatform = {
   },
 
   system: {
+    on: "Увімкнено",
+    off: "Вимкнено",
     tunnelTab: "Публічний доступ",
     tunnelDescription: "Cloudflare Tunnel: доступ ззовні без білої IP-адреси.",
     backupTab: "Резервні копії",
@@ -130,11 +132,12 @@ export const ukPlatform = {
     backup: {
       title: "Резервне копіювання бази даних",
       description: "Завантажте актуальну резервну копію SQLite бази даних на свій комп’ютер",
-      downloadButton: "Завантажити свіжу копію (.db)",
+      downloadButton: "Завантажити свіжу копію",
       schedule: (min: number) => `Копія створюється автоматично кожні ${min} хв, якщо були зміни, а також під час запуску й зупинки.`,
       recent: "Останні копії",
-      journal: (mode: string) => (mode === "wal" ? "Режим журналу: WAL (локальний диск)" : "Режим журналу: класичний (спільна папка)"),
+      journal: (mode: string) => (mode === "wal" ? "Режим журналу: WAL (локальний диск)." : "Режим журналу: класичний (спільна папка)."),
       size: "Розмір бази",
+      integrity: "Цілісність",
     },
   },
 

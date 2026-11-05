@@ -6,7 +6,7 @@ import { systemApi } from "@/platform/system/api";
 import { ukPlatform as uk } from "@/platform/i18n";
 import type { AdminSectionProps } from "@/platform/modules";
 import type { TunnelStatusDTO } from "@/platform/api/types";
-import { Card, CardContent } from "@/ui/Card";
+import { Switch } from "@/ui/Switch";
 import { Button } from "@/ui/Button";
 import { Input } from "@/ui/Input";
 import { StateDot } from "@/ui/StateDot";
@@ -68,31 +68,30 @@ export default function TunnelSection({ notify }: AdminSectionProps) {
   const active = ACTIVE.has(tunnel.state);
 
   return (
-    <Card className="max-w-2xl animate-fade-in">
-      <CardContent className="p-4 sm:p-6 space-y-5">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-text-muted">{t.subtitle}</p>
-          <span className="flex items-center gap-2 text-xs font-semibold text-text-main shrink-0">
-            <StateDot tone={tunnelTone(tunnel.state)} />
-            {uk.system.states[tunnel.state] ?? tunnel.state}
-          </span>
-        </div>
+    <div className="max-w-2xl space-y-6">
+      <div className="ledger flex flex-wrap items-center justify-between gap-3 border-b border-border px-1 py-3">
+        <p className="text-sm text-text-muted">{t.subtitle}</p>
+        <span className="flex shrink-0 items-center gap-2 font-medium text-text-main">
+          <StateDot tone={tunnelTone(tunnel.state)} />
+          {uk.system.states[tunnel.state] ?? tunnel.state}
+        </span>
+      </div>
 
         {tunnel.error && (
-          <div role="alert" className="p-3 rounded-control bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2">
+          <div role="alert" className="flex items-start gap-2 border-l-2 border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             <span className="break-words">{tunnel.error}</span>
           </div>
         )}
 
         {tunnel.public_url && (
-          <div className="p-4 rounded-card bg-primary/10 border border-primary/20 space-y-1">
-            <span className="text-xs font-semibold text-primary block">{t.liveUrl}</span>
+          <div className="space-y-0.5 border-l-2 border-primary bg-primary-soft px-4 py-3">
+            <span className="block text-sm text-text-muted">{t.liveUrl}</span>
             <a
               href={tunnel.public_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-base font-bold text-text-main hover:underline inline-flex items-center break-all"
+              className="inline-flex items-center break-all font-serif text-lg font-semibold text-text-main hover:underline"
             >
               {tunnel.public_url}
               <ExternalLink className="h-4 w-4 ml-1.5 shrink-0 text-primary" aria-hidden="true" />
@@ -113,13 +112,13 @@ export default function TunnelSection({ notify }: AdminSectionProps) {
             className="space-y-4"
           >
             {tunnel.has_token && (
-              <p className="p-3 rounded-control bg-primary/10 border border-primary/20 text-text-main text-xs flex items-center gap-2">
+              <p className="flex items-center gap-2 text-sm text-text-muted">
                 <CheckCircle className="h-4 w-4 text-primary shrink-0" />
                 Токен Cloudflare збережено. Заповніть поле лише щоб замінити його.
               </p>
             )}
             <div className="space-y-1.5">
-              <label htmlFor="tunnel-token" className="text-xs font-medium text-text-muted">{t.tokenLabel}</label>
+              <label htmlFor="tunnel-token" className="text-sm font-medium text-text-main">{t.tokenLabel}</label>
               <Input
                 id="tunnel-token"
                 type="password"
@@ -134,9 +133,9 @@ export default function TunnelSection({ notify }: AdminSectionProps) {
                 type="checkbox"
                 checked={confirmPublic}
                 onChange={(e) => setConfirmPublic(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-primary"
+                className="h-5 w-5 rounded border-border"
               />
-              <span className="text-sm font-medium text-text-main">Підтверджую публічний доступ через тунель</span>
+              <span className="text-sm text-text-main">Підтверджую публічний доступ через тунель</span>
             </label>
             <Button type="submit" className="min-h-[44px] w-full sm:w-auto" disabled={!confirmPublic || start.isPending}>
               {start.isPending ? "Підключення…" : t.startTunnel}
@@ -144,17 +143,17 @@ export default function TunnelSection({ notify }: AdminSectionProps) {
           </form>
         )}
 
-        <label className="pt-4 border-t border-border flex items-center gap-2.5 cursor-pointer min-h-[44px] select-none">
-          <input
-            type="checkbox"
-            checked={tunnel.autostart}
-            onChange={(e) => autostart.mutate(e.target.checked)}
-            disabled={autostart.isPending}
-            className="h-4 w-4 rounded border-border text-primary"
-          />
+        <div className="flex items-center justify-between gap-4 border-t border-border px-1 pt-3">
           <span className="text-sm text-text-main">{t.autostartToggle}</span>
-        </label>
-      </CardContent>
-    </Card>
+          <Switch
+            label={t.autostartToggle}
+            onText={uk.system.on}
+            offText={uk.system.off}
+            checked={tunnel.autostart}
+            disabled={autostart.isPending}
+            onChange={(checked) => autostart.mutate(checked)}
+          />
+        </div>
+    </div>
   );
 }

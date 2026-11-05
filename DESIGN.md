@@ -1,121 +1,107 @@
 ---
-version: alpha
+version: beta
 name: EasyMourningReport
-description: "A calm internal reporting workspace for a burial-service business, designed around reliable records rather than funeral imagery."
+description: "«Книга обліку»: an internal record book for a burial-service business. Paper, graphite ink and ruled sections; calm precision instead of funeral imagery."
 colors:
-  primary: "#285448"
-  background: "#F3F2EB"
-  surface: "#FFFEFA"
-  text: "#20332D"
-  muted: "#5F6D64"
-  border: "#D7DED4"
-  accent: "#80643A"
-  accent-cool: "#3C8276"
-  accent-cool-soft: "#E0EFEA"
-  danger: "#9C4B43"
+  page: "#FCFCFA"
+  surface: "#FFFFFF"
+  surface-raised: "#F1F4F2"
+  text: "#1D2A2B"
+  muted: "#5B6867"
+  border: "#D7DDD9"
+  ink-rule: "#1D2A2B"
+  primary: "#22504A"
+  primary-soft: "#E4EEEB"
+  attention: "#9A5C12"
+  attention-soft: "#F6ECDD"
+  destructive: "#9C3B33"
 typography:
-  sans:
-    fontFamily: "Onest, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
-  mono:
-    fontFamily: "ui-monospace, SFMono-Regular, Consolas, monospace"
+  interface:
+    fontFamily: "IBM Plex Sans, system-ui, sans-serif"
+  book:
+    fontFamily: "Literata, Georgia, serif"
 rounded:
-  DEFAULT: "0.625rem"
-  sm: "0.5rem"
-  md: "0.625rem"
-  lg: "0.9375rem"
-spacing:
-  section-gap: "1.5rem"
-  page-max: "96.25rem"
+  card: "6px"
+  control: "4px"
 components:
   button:
     minHeight: "44px"
-    radius: "0.625rem"
-  card:
-    radius: "0.9375rem"
-    border: "1px solid var(--border)"
+    radius: "4px"
+  section:
+    topRule: "2px solid var(--ink-rule)"
+  total:
+    rule: "4px double var(--ink-rule)"
   navigation:
-    desktopSidebarWidth: "258px"
+    desktopRailWidth: "240px"
     mobileBottomBar: "enabled"
 ---
 
-# EasyMourningReport Design System
+# EasyMourningReport design: «Книга обліку»
 
-## Overview
+## Idea
 
-### Creative North Star
+The app is a record book. Each page is a sheet of paper with ruled sections: a serif heading, a heavy ink rule, then rows divided by hairlines. Totals sit under an accountant's double rule. Figures (money, quantities, months) are set in a book serif with aligned digits, because figures are what people come here to read. Interface text is a plain, sturdy sans.
 
-A well-kept records room: dark pine cabinetry, archival paper, a discreet brass index tab, precise ledgers and clear figures. The app should feel dependable and humane, with no literal funeral imagery, mourning clichés, heavy black surfaces or decorative gravestone motifs. Its distinctive move is the pairing of a deep evergreen navigation rail, warm paper-like working surfaces, mineral-glass translucency, an oxidized-jade counterpoint and one muted brass accent.
+The domain asks for calm precision and discretion: no funeral imagery, no black-and-white mourning tropes, no glass, gradients or floating cards.
 
-### Product context and register
+- **Audience and job:** store staff enter monthly quantities, mostly on phones; administrators review the month, export Excel, and manage the catalogue, accounts and system, mostly on desktops.
+- **Language:** Ukrainian (`uk-UA`) for all copy, dates and money. Strings live in `frontend/src/platform/i18n.ts` and each module's `i18n.ts`.
+- **Token ownership:** CSS custom properties in `frontend/src/app/index.css` are canonical (light and dark). `frontend/tailwind.config.js` maps them to Tailwind colours through `token()`, so opacity modifiers work. Change all three places, and this file, together.
 
-- **Audience and primary job:** Internal staff and administrators of a burial agency enter monthly store quantities, review submissions, manage the catalogue and accounts, and download reports.
-- **Target market(s) and evidence:** Ukrainian interface and Ukrainian numeric/date formatting are established in `frontend/src/platform/i18n.ts`; the app brief identifies the business as a burial agency.
-- **Locale(s) and language policy:** Ukrainian (`uk-UA`) for interface copy, dates and currency. New user-facing labels belong in the shared `uk` dictionary.
-- **Usage scene:** Repeated operational use on desktop at an office, with store/report entry also used on phones. Controls need touch-safe sizing and content must work without hover.
-- **Register:** Product/admin; consistency, task clarity, data density and recovery take priority over expressive presentation.
-- **Memorable signature:** A deep-pine navigation rail, mineral-glass panels over an atmospheric jade/smoke background, and a restrained brass line/marker. The glass should catch light at edges but remain readable and operational.
-- **Restraint:** Data tables, forms, destructive actions, status and error states remain plain and unambiguous.
-- **Anti-references:** Generic blue SaaS dashboards, black-and-white funeral tropes, oversized marketing hero metrics, overly transparent glass that compromises legibility, rainbow/neon gradients, and animation on every interaction.
-- **Token ownership/runtime mapping:** Existing runtime CSS custom properties remain canonical in `frontend/src/app/index.css`. Tailwind semantic colors in `frontend/tailwind.config.js` consume the variables; shared UI components use those semantic classes. This file mirrors those values and records intent. When tokens change, update this file, runtime CSS, Tailwind adapters if applicable, and `docs/DESIGN.md` in the same change.
+## Colour
 
-## Colors
+| Token | Light | Dark | Use |
+| --- | --- | --- | --- |
+| `page` | `#FCFCFA` | `#121918` | The paper. Every page background. |
+| `surface` | `#FFFFFF` | `#182120` | Inputs, menus, dialogs, raised sheets such as a "new item" form. |
+| `surface-raised` | `#F1F4F2` | `#1D2827` | The desktop rail, hover fills, inline edit panels. |
+| `text` / `muted` | `#1D2A2B` / `#5B6867` | `#E6EBE9` / `#9AA7A5` | Graphite ink and its quieter tone. |
+| `border` | `#D7DDD9` | `#2D3A39` | Hairline rules between rows. |
+| `ink-rule` | `#1D2A2B` | `#C9D3D0` | Heavy rules: section tops, totals. |
+| `primary` | `#22504A` | `#8CC4B3` | Spruce: the brand, primary actions, "sent", the current place. |
+| `attention` | `#9A5C12` | `#E0A85C` | Beeswax amber: only for what needs attention (no report yet, unsaved changes, offline, price tags). |
+| `destructive` | `#9C3B33` | `#E99A90` | Delete and errors, always with explicit words. |
 
-Light mode uses a warm mineral-paper background (`#F3F2EB`), an almost-white work surface (`#FFFEFA`), deep green primary (`#285448`), ink-green text (`#20332D`) and soft sage-grey borders (`#D7DED4`). Muted brass (`#80643A`) is an expressive accent for section eyebrows and small detail. Oxidized jade (`#3C8276`) provides a cooler counterpoint for atmospheric light, active navigation and subtle glass tints; it is not a new status color. Dusty mineral blue may appear only in low-opacity background glows, never as a primary action color. Destructive actions use brick red and must be paired with explicit wording. Submitted, draft and empty statuses retain distinct semantic tints.
+Colour is never the only signal: statuses carry a word and a mark, errors carry text.
 
-Dark mode uses ink-pine (`#111C18`) and lifted green surfaces (`#192720`, `#22352B`), with light text and softer evergreen actions. The jade token adapts to `#8CCBBC`; translucent surfaces retain 89–94% base-surface coverage to preserve text clarity while allowing gradients to show through. Contrast must remain sufficient for labels, badges and focus. The green primary and brass accent must never be the only indicators of status.
+## Type
 
-## Typography
-
-Onest is self-hosted from `@fontsource/onest`; no external font network dependency is introduced. Use semibold for route headings, labels and values, regular text for supporting content, and tabular numerals for money, totals and periods. Avoid long all-caps labels; uppercase tracking is reserved for short utility eyebrows. System monospace is acceptable for technical identifiers, never required for routine prose.
+- **IBM Plex Sans** 400/500/600 for the interface, 15px body. Labels are sentence case, never tracked capitals.
+- **Literata** 400/600 for headings (h1 to h3) and every figure. The `.figure` class (and `font-mono`, kept for existing markup) sets Literata with tabular lining numerals so columns of money line up.
+- Page titles are large serif names of the thing on the page: the month («Листопад 2026»), the store, the section. A small crumb above says where the page sits.
+- Both fonts are self-hosted through `@fontsource`; there is no external font request.
+- Money reads the Ukrainian way through `formatCurrency`: `3 726,50 ₴` (no-break spaces). Inputs keep `formatMoney` (`3726.50`), which a person can type back.
 
 ## Layout
 
-The desktop admin shell uses a 258px pine rail and a paper work area with a sticky top bar. Main content is fluid up to 1540px, with gutters that scale with viewport width. At tablet/mobile widths the rail disappears, the top bar becomes compact, and four primary admin destinations move to a fixed bottom bar with safe-area padding. Bottom navigation must not cover focused fields or primary actions; page content keeps bottom breathing room.
+- **Desktop shell:** a 240px rail on `surface-raised`: the «ЛЗ» monogram and name, the modules' pages (the current one has a spruce inset bar), and at its foot the account menu, theme and maker mark. Content sits on the paper with generous gutters.
+- **Phones:** a slim top bar (monogram, maker mark, theme, account) and a bottom bar with the modules' pages; the current one has a spruce top rule.
+- **Pages:** `ui/PageHeader` (crumb, serif title, one line of context, actions), then `ui/LedgerSection`s. Content stays left-aligned.
+- **Store report (`/report`):** a narrow single column on every screen size: month title with previous/next, then one ruled list of products (name, price, stepper, line sum). A product with several prices in the month lists each price under its name. The month total and the two actions stay in a footer above a heavy rule.
+- **«Звіти» month page (`/admin/reports`):** the store register (each store's state and sum, a double-ruled month total; a store without a report gets an amber row) and the products matrix that the Excel file mirrors. On phones the matrix becomes one ruled row per product whose store breakdown opens on demand. `/admin/summary` redirects here.
+- **«Адміністрування» (`/admin/manage`):** a dashboard of figures, system state and recent activity, with the grouped submenu beside it (a scrolling tab row on phones). Each module adds its own sections to the submenu.
 
-Store entry remains narrow and readable on mobile; desktop tables preserve their comparison relationships and expose overflow instead of silently losing columns. Cards may stack when each record is independently understandable. Inputs and controls should remain at least 44px tall where users tap them. Preserve natural vertical scrolling for long settings/forms.
+## Shape and depth
 
-## Elevation & Depth
-
-Hierarchy comes from background tone, layered mineral gradients, glassy edge highlights and measured shadows—not large floating cards. Sticky headers and primary cards use restrained translucency with an 18–24px blur; dense tables, inputs, dropdowns and dialogs remain more opaque for legibility. A slow aurora-like background drifts behind the admin workspace and stops under `prefers-reduced-motion`. The sign-in identity panel is the broadest atmospheric surface on desktop; it shows the app name without promotional copy. Below the desktop breakpoint it collapses to a compact brand strip so the login fields stay near the top and fit small phone screens. Dark mode reduces shadow contrast and relies more on borders and jade light.
-
-## Shapes
-
-Cards use approximately 15px radii, controls approximately 10px, and small icon containers around 10–12px. Pills are reserved for status or session indicators. The desktop active navigation item has a brass left rule and tinted fill; inactive items remain plain. Dividers are hairlines. Do not use excessive nested cards or pill-shaped everything.
+Paper does not float: panels have no shadow and sit flat. Structure comes from rules: a 2px ink rule tops each section, hairlines divide rows, a 4px double rule closes a total. Only overlays (menus, dialogs) cast a shadow. Radii are small: 6px for sheets, 4px for controls; round shapes are kept for status marks, the switch and avatars.
 
 ## Components
 
-### Foundational visual states
+- **Buttons:** primary is solid spruce; outline is paper with a hairline; ghost has no border; destructive is brick. No press-scaling. `buttonClass()` gives links (downloads) the same look.
+- **Status words:** `StatusPill` is a word with a small mark, not a pill: spruce dot «Надіслано», hollow mark «Чернетка», amber dot «Немає звіту».
+- **Notices:** a coloured left edge on a soft fill, with text, announced to screen readers.
+- **Inline editing:** the edit panel opens under its row with a spruce left edge.
+- **Archived items:** a collapsed `<details>` at the end of the list.
+- **Steppers** are named after what they count («Кількість: Свічка поминальна, 25,00 ₴»).
+- **Maker mark:** the italic serif «A.» that reveals «made by Alsesd». It stays on every screen (rail or top bar, store report, login).
 
-Hover is subtle; focus-visible uses a high-contrast primary ring; active controls provide clear pressed feedback; disabled controls remain visibly disabled; busy states preserve control geometry and show progress. Error and success messages are explicit and announced through the existing role/live-region markup. Loading states use the existing app-owned spinner rather than a decorative full-screen animation.
+## Motion
 
-### Buttons and actions
+Short fades only where something appears in answer to a person (menus, dialogs, collapsible panels). No ambient motion, no entrance animations, no hover lifts. Everything respects `prefers-reduced-motion`.
 
-Primary buttons use evergreen, secondary actions use a surface with a border, and destructive actions use brick red. Icon-only controls require a localized accessible name. Primary actions should be visually easy to locate without making every control high-emphasis.
+## Do and don't
 
-### Navigation and data display
-
-Desktop navigation is persistent; mobile navigation is fixed at the bottom and respects safe-area insets. Current destinations use `aria-current="page"`. Tables retain their labels and comparison semantics; data is formatted through the Ukrainian helpers in `i18n.ts`. Status pills always include readable text.
-
-### Forms and overlays
-
-Labels remain visible and inputs use the shared UI components. Authentication is task-first: show the app name, the login heading and the credential fields without an introductory pitch, security paragraph or redundant card heading. On phone-sized layouts, keep the brand strip compact and place the fields immediately below the small utility row; avoid requiring vertical scroll to reach the username and password. Authentication supports autocomplete and password managers. Product and store operations keep the existing confirmation dialogs and pending states. Do not replace recoverable errors or destructive confirmations with browser-native `alert` / `confirm` dialogs.
-
-### Iconography
-
-Use Lucide React, primarily 16–20px outline icons with consistent optical weight. Icons supplement, not replace, labels except for genuinely familiar controls with accessible names.
-
-### Motion
-
-Motion is brief and functional: around 140–220ms for simple interaction feedback, with route/page transitions kept understated. A single very slow ambient gradient drift (24 seconds) is permitted behind the admin workspace only, not on data elements, and is disabled for `prefers-reduced-motion`. Avoid parallax, shimmer sweeps, pulsing data and motion on every interaction.
-
-### Content and data visualization
-
-Use direct Ukrainian wording, sentence case and consistent action verbs. Format currency, numbers and dates with the shared `Intl` helpers. Avoid euphemistic or emotional copy in operational tasks; the domain calls for calm precision and discretion.
-
-## Do's and Don'ts
-
-- **Do:** Use warm surfaces, evergreen navigation, oxidized-jade atmosphere and muted brass in a stable hierarchy.
-- **Do:** Let glass catch background light at the panel edge, with enough opacity that the text layer remains calm.
-- **Do:** Keep reporting periods, sums, submission status and account actions easy to scan on both desktop and mobile.
-- **Don't:** Introduce literal funeral imagery, pitch-like marketing language, gradients inside every table cell, high-transparency panels behind dense text or blue/purple SaaS styling.
-- **Don't:** Hide necessary actions behind hover, reduce focus visibility, or let mobile navigation cover content.
+- **Do** let the figures carry the page: the month, the sums, the counts.
+- **Do** keep every action labelled in plain Ukrainian with the same verb through the flow («Надіслати звіт» → «Звіт надіслано»).
+- **Don't** add cards with shadows, gradients, glass, tracked capitals, middle-dot meta strings, or arrows appended to labels.
+- **Don't** use amber for decoration; it means "look at this".

@@ -74,12 +74,12 @@ def run_tests():
             print("Store report loaded with products!")
 
             # Verify store name
-            header_text = page.inner_text("h1")
+            header_text = page.inner_text("header")
             print("Header store name:", header_text)
             assert "Магазин 1" in header_text
 
             # Test quantity stepper (+ button)
-            plus_buttons = page.locator('button[aria-label="Збільшити кількість"]').all()
+            plus_buttons = page.locator('button[aria-label^="Збільшити кількість"]').all()
             print(f"Found {len(plus_buttons)} increment buttons")
             assert len(plus_buttons) >= 3
             plus_buttons[0].click()
@@ -138,15 +138,15 @@ def run_tests():
 
             admin_page.wait_for_url("**/admin/**", timeout=5000)
             print("Admin landed on:", admin_page.url)
-            admin_page.wait_for_selector('text=Зведена таблиця', timeout=5000)
-            print("Admin summary view loaded")
+            admin_page.wait_for_selector('text=Товари за місяць', timeout=5000)
+            print("Admin month view loaded")
 
             # Download XLSX test
             xlsx_link = admin_page.locator('a[href*="/admin/summary.xlsx"]')
             print("Found XLSX export link:", xlsx_link.get_attribute("href"))
 
             # Navigate to Reports
-            admin_page.click('a:has-text("Звіти")')
+            admin_page.click('a:visible:has-text("Звіти")')
             admin_page.wait_for_url("**/admin/reports**", timeout=5000)
             admin_page.wait_for_selector('text=Магазин 1', timeout=5000)
             print("Navigated to Reports list, store 1 card visible")
@@ -215,7 +215,7 @@ def run_tests():
             admin_page.locator('nav[aria-label="Розділи адміністрування"] a:visible:has-text("Журнал дій")').first.click()
             admin_page.wait_for_url("**/admin/manage/audit", timeout=5000)
             admin_page.wait_for_selector('text=Тестовий Чай', timeout=5000)
-            print("Navigated to Logs. Total logs rows:", admin_page.locator("tr, .rounded-card").count())
+            print("Navigated to Logs. Total logs rows:", admin_page.locator("#audit-entries li").count())
             assert admin_page.locator("text=Тестовий Чай").count() > 0, "Audit log should mention the created product"
             print("Audit log entry verified!")
 

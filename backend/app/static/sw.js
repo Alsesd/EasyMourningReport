@@ -1,5 +1,5 @@
 // Versioned app-shell service worker: caches app shell & static assets, falls back to /offline when disconnected.
-const CACHE = "legkyi-zvit-v21";
+const CACHE = "legkyi-zvit-v22";
 const PRECACHE = [
   "/offline",
   "/static/icon-192.png",

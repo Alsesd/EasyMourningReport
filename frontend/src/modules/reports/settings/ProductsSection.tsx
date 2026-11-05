@@ -6,6 +6,7 @@ import { reportsApi } from "@/modules/reports/api";
 import { uk, formatCurrency, formatMoney, parseCents } from "@/modules/reports/i18n";
 import type { AdminSectionProps } from "@/platform/modules";
 import { Card, CardHeader, CardTitle, CardContent } from "@/ui/Card";
+import { LedgerSection } from "@/ui/LedgerSection";
 import { Button } from "@/ui/Button";
 import { Input } from "@/ui/Input";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
@@ -167,7 +168,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
 
   return (
     <>
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6">
           {/* Action bar */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="relative flex-1">
@@ -195,7 +196,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
           {/* Create Product Form Foldout */}
           <AnimatedCollapse open={createProductOpen}>
             <div className="pt-1 pb-1">
-              <Card className="border-primary/50 bg-surface/90 shadow-sm backdrop-blur-xs">
+              <Card className="border-t-2 border-t-primary">
                 <CardHeader className="p-4 sm:p-5 border-b border-border">
                   <CardTitle className="text-base">Новий товар</CardTitle>
                 </CardHeader>
@@ -249,14 +250,12 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
           </AnimatedCollapse>
 
           {/* Excel Import Card */}
-          <Card>
-            <CardHeader className="p-4 sm:p-5 border-b border-border">
-              <CardTitle className="text-sm font-semibold flex items-center space-x-2">
-                <Upload className="h-4 w-4 text-primary" />
-                <span>Масовий імпорт товарів з Excel (.xlsx)</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-5">
+          <section aria-labelledby="products-import-title" className="border-l-2 border-border pl-4">
+            <h2 id="products-import-title" className="flex items-center gap-2 font-sans text-[15px] font-medium text-text-main">
+              <Upload className="h-4 w-4 text-primary" aria-hidden="true" />
+              Імпорт товарів з Excel
+            </h2>
+            <div className="mt-2">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -268,7 +267,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                 className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
               >
                 {/* The native file control renders in the browser's language; this label replaces its look. */}
-                <label className="flex flex-1 min-h-[44px] cursor-pointer items-center gap-3 rounded-control border border-border bg-page/40 p-1 pr-3 focus-within:ring-2 focus-within:ring-primary">
+                <label className="flex flex-1 min-h-[44px] cursor-pointer items-center gap-3 rounded-control border border-border bg-surface p-1 pr-3 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -278,7 +277,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                     className="sr-only"
                     onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")}
                   />
-                  <span className="rounded-control bg-surface px-4 py-2 text-sm font-medium text-text-main shadow-2xs">Обрати файл</span>
+                  <span className="rounded-control bg-surface-raised px-4 py-2 text-sm font-medium text-text-main">Обрати файл</span>
                   <span className={`truncate text-sm ${fileName ? "text-text-main" : "text-text-muted"}`}>
                     {fileName || "Файл не обрано"}
                   </span>
@@ -293,22 +292,20 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                 </Button>
               </form>
               <p className="text-xs text-text-muted mt-2">
-                Колонка A — назва, колонка B — ціна. Дублікати назв автоматично пропускаються.
+                Файл .xlsx: у колонці A назва, у колонці B ціна. Товари з назвою, що вже є, пропускаються.
               </p>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
           {/* Active Products List */}
-          <Card>
-            <CardHeader className="p-4 sm:p-5 border-b border-border">
-              <CardTitle className="text-base flex items-center justify-between">
-                <span>Активні товари ({activeProducts.length})</span>
-                {productsLoading && <span className="text-xs text-text-muted">Завантаження…</span>}
-              </CardTitle>
-            </CardHeader>
+          <LedgerSection
+            id="products-active"
+            title={`Активні товари (${activeProducts.length})`}
+            actions={productsLoading ? <span className="text-sm text-text-muted">Завантаження…</span> : undefined}
+          >
             <div className="divide-y divide-border">
               {activeProducts.length === 0 ? (
-                <div className="p-8 text-center text-text-muted text-sm">
+                <div className="px-1 py-8 text-sm text-text-muted">
                   {productSearch ? "Товарів за запитом не знайдено." : "Активних товарів немає."}
                 </div>
               ) : (
@@ -326,7 +323,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                     isPriceOpen && !isNaN(enteredCents) && enteredCents !== p.price_cents;
 
                   return (
-                    <div key={p.id} data-product-id={p.id} className="p-4 sm:p-5 hover:bg-page/20 transition-colors">
+                    <div key={p.id} data-product-id={p.id} className="px-1 py-4">
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         {/* Name & Active toggle */}
                         <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -354,17 +351,17 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
 
                         {/* Price toggle & metadata */}
                         <div className="flex items-center space-x-3 shrink-0">
-                          <span className="text-xs text-text-muted hidden sm:inline">
+                          <span className="hidden w-20 text-xs text-text-muted sm:inline">
                             У звітах: {p.used_count}
                           </span>
 
                           <button
                             type="button"
                             onClick={() => setExpandedPriceId(isPriceOpen ? null : p.id)}
-                            className="flex items-center space-x-2 px-3 py-2 rounded-control border border-border bg-page hover:bg-page/70 text-sm font-medium min-h-[44px] transition-colors"
+                            className="flex min-h-[44px] w-[12.5rem] items-center justify-between gap-2 rounded-control border border-border bg-surface px-3 py-2 text-sm font-medium transition-colors hover:border-text-muted/50"
                             aria-expanded={isPriceOpen}
                           >
-                            <span className="font-bold tabular-nums font-mono text-text-main">
+                            <span className="figure flex-1 text-left font-semibold text-text-main">
                               {formatCurrency(p.price_cents)}
                             </span>
                             <span className="text-xs text-text-muted">
@@ -422,7 +419,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
 
                       {/* Price Editor Foldout */}
                       <AnimatedCollapse open={isPriceOpen}>
-                        <div className="mt-4 pt-4 border-t border-border/80 bg-page/50 p-4 rounded-control space-y-3 shadow-inner/5">
+                        <div className="mt-4 space-y-3 border-l-2 border-primary bg-surface-raised/60 p-4">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-center space-x-2">
                               <label className="text-xs font-medium text-text-muted whitespace-nowrap">
@@ -446,7 +443,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                             <Button
                               size="sm"
                               variant="primary"
-                              className="min-h-[40px] shadow-sm transition-all"
+                              className="min-h-[40px] transition-all"
                               disabled={!hasPriceChanged || updatePriceMutation.isPending}
                               onClick={() =>
                                 updatePriceMutation.mutate({
@@ -512,23 +509,18 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                 })
               )}
             </div>
-          </Card>
+          </LedgerSection>
 
           {/* Inactive Products List */}
           {inactiveProducts.length > 0 && (
-            <Card className="opacity-80">
-              <CardHeader className="p-4 sm:p-5 border-b border-border">
-                <CardTitle className="text-base text-text-muted">
-                  Неактивні товари ({inactiveProducts.length})
-                </CardTitle>
-              </CardHeader>
+            <LedgerSection id="products-inactive" title={`Неактивні товари (${inactiveProducts.length})`}>
               <div className="divide-y divide-border">
                 {inactiveProducts.map((p) => (
-                  <div key={p.id} className="p-4 flex items-center justify-between gap-4">
+                  <div key={p.id} className="flex items-center justify-between gap-4 px-1 py-3">
                     <div>
-                      <div className="font-medium text-text-main">{p.name}</div>
+                      <div className="font-medium text-text-muted">{p.name}</div>
                       <div className="text-xs text-text-muted mt-0.5">
-                        Ціна: {formatCurrency(p.price_cents)} · У звітах: {p.used_count}
+                        Ціна <span className="figure">{formatCurrency(p.price_cents)}</span>, у звітах: {p.used_count}
                       </div>
                     </div>
 
@@ -572,22 +564,20 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                   </div>
                 ))}
               </div>
-            </Card>
+            </LedgerSection>
           )}
 
           {/* Archived Products Section */}
           {archivedProducts.length > 0 && (
-            <Card className="border-dashed border-border/80 bg-page/30">
-              <CardHeader className="p-4 sm:p-5 border-b border-border">
-                <CardTitle className="text-sm font-semibold text-text-muted flex items-center space-x-2">
-                  <Archive className="h-4 w-4" />
-                  <span>Архів товарів ({archivedProducts.length})</span>
-                </CardTitle>
-              </CardHeader>
-              <div className="divide-y divide-border/60">
+            <details className="group border-t border-border">
+              <summary className="flex min-h-[48px] cursor-pointer list-none items-center gap-2 px-1 text-sm font-medium text-text-muted [&::-webkit-details-marker]:hidden">
+                <Archive className="h-4 w-4" aria-hidden="true" />
+                <span>Архів товарів ({archivedProducts.length})</span>
+              </summary>
+              <div className="divide-y divide-border border-l-2 border-border pl-3">
                 {archivedProducts.map((p) => (
-                  <div key={p.id} className="p-4 flex items-center justify-between gap-4">
-                    <span className="text-sm text-text-muted line-through">{p.name}</span>
+                  <div key={p.id} className="flex items-center justify-between gap-4 py-3">
+                    <span className="text-sm text-text-muted">{p.name}</span>
                     <Button
                       size="sm"
                       variant="outline"
@@ -600,7 +590,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                   </div>
                 ))}
               </div>
-            </Card>
+            </details>
           )}
         </div>
 

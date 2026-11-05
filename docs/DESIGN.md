@@ -5,25 +5,24 @@ The canonical visual design contract is maintained in the repository-root [`DESI
 ## Responsive product rules
 
 ### Store screen (`/report`)
-- Phone-first report entry with a sticky translucent header, store identity, theme selector and sign-out action. Its paper workspace uses the shared low-opacity jade/brass/mineral-blue gradient atmosphere; the product rows and price table remain opaque enough for scanning.
-- Period navigation must preserve the existing reporting constraints; a future period is not selectable when the data contract disallows it.
-- Product rows expose clear quantity controls, price and line totals. Products repriced during a month show the available price tiers and effective dates.
-- Inactive items remain available in a collapsed, read-only section where saved quantities exist.
-- The sticky total/action area stays above the device safe area and does not cover keyboard-focused controls.
-- Submission has an accessible confirmation step. Submitted reports are read-only until an administrator changes the report state.
-- Offline work uses the existing per-store/per-period local draft persistence and unsaved-change guard.
+- One narrow column on every screen size: a slim header (monogram, store name, workspace link when the user has one, maker mark, theme, account), the month as the page title with previous/next, the report state and how many products are filled.
+- Period navigation preserves the reporting constraints; a future period is not selectable when the data contract disallows it.
+- Products form one ruled list: name, price (with an amber tag for old/new/saved prices), a stepper named after the product and price, and the line sum. A product repriced during the month lists each price under its name. With «По розрахунку» enabled each line gets a second stepper.
+- Inactive items with saved quantities remain in a collapsed, read-only section.
+- The month total, the unsaved-changes note and the two actions sit in a fixed footer above the safe area; on phones the actions take a full row.
+- Submission has an accessible confirmation step that repeats the month and total. Submitted reports are read-only until an administrator unlocks them.
+- Offline work uses the per-store/per-period local draft persistence and the unsaved-change guard; an amber note says changes are kept on the device.
 
 ### Admin workspace (`/admin/*`)
-- Desktop: persistent deep-pine navigation rail, translucent sticky route context bar and a fluid paper-colored workspace with slow, low-opacity jade/brass/mineral-blue ambient gradients.
-- Cards use restrained mineral-glass surfaces and a soft light-catching edge. Dense tables, inputs, dropdowns and dialogs stay more opaque to protect readability.
-- Phone/tablet: compact top bar, four-destination bottom navigation with safe-area padding, and stacked layouts where independent records read better than tables. The bottom bar uses translucent material and blur without covering focused content.
-- Summary keeps the period selector, submitted-only filter, Excel export, key metrics and matrix/card view options.
-- Report lists preserve period context and show submission status, quantities and total. Detail routes preserve the lock/unlock confirmation flow.
-- Settings retain the existing product, store, security, tunnel and backup workflows. Audit logs retain filter controls and formatted timestamps.
+- Desktop: a persistent rail with the modules' pages and the account menu; pages on the paper with a serif title and ruled sections.
+- Phone/tablet: a slim top bar and a bottom navigation with safe-area padding; wide tables either scroll (with the first column pinned) or become ruled rows that open on demand.
+- «Звіти» is one month page: the store register (state, positions, sum, month total) and the products matrix, with the period picker, the «Лише надіслані» switch and the Excel export. `/admin/summary` redirects to it.
+- Report detail keeps the lock/unlock confirmation and returns to its month.
+- «Адміністрування» is a dashboard plus a grouped submenu; every section is a page of ruled lists. Audit entries are one ruled list on every screen size; filters stay in the URL.
 
 ## Price editing rules
 
-- Keep product cards compact until the inline price editor is opened.
+- Keep product rows compact until the inline price editor is opened.
 - Show one editable current price and compact price-history context; do not create a second independent price-edit flow.
 - Save is enabled only when the numeric value has changed. A no-op price update must not be presented as a successful change.
 - Keep the existing TanStack Query mutation and invalidation behavior so search text, expanded editor and scroll position are not needlessly reset.

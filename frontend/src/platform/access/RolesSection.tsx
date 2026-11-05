@@ -46,7 +46,7 @@ function PermissionPicker({
       {locked && <p className="text-xs text-text-muted">{uk.access.allPermissions}</p>}
       {groups.map(([module, group]) => (
         <div key={module} className="space-y-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{group.title}</p>
+          <p className="text-sm font-medium text-text-muted">{group.title}</p>
           {group.items.map((p) => {
             const id = `${idPrefix}-${p.code}`;
             return (
@@ -208,7 +208,7 @@ export default function RolesSection({ notify }: AdminSectionProps) {
   });
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4">
       <div className="flex justify-end">
         <Button className="min-h-[44px]" onClick={() => setCreating(!creating)}>
           <Plus className="h-4 w-4 mr-1.5" />
@@ -218,7 +218,7 @@ export default function RolesSection({ notify }: AdminSectionProps) {
 
       <AnimatedCollapse open={creating}>
         {creating && (
-          <Card className="border-primary/50">
+          <Card className="border-t-2 border-t-primary">
             <CardHeader className="p-4 sm:p-5 border-b border-border">
               <CardTitle className="text-base">{uk.access.newRole}</CardTitle>
             </CardHeader>
@@ -237,7 +237,7 @@ export default function RolesSection({ notify }: AdminSectionProps) {
         )}
       </AnimatedCollapse>
 
-      <Card>
+      <div className="ledger">
         <div className="divide-y divide-border">
           {isLoading ? (
             <p className="p-6 text-sm text-text-muted">{uk.common.loading}</p>
@@ -245,24 +245,24 @@ export default function RolesSection({ notify }: AdminSectionProps) {
             roles.map((role) => {
               const editing = editingId === role.id;
               return (
-                <div key={role.id} className="p-4 sm:p-5 space-y-3" data-role-id={role.id}>
+                <div key={role.id} className="space-y-3 px-1 py-4" data-role-id={role.id}>
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold text-text-main">{role.name}</span>
                         {role.built_in && (
-                          <span className="rounded px-2 py-0.5 text-[11px] bg-surface border border-border text-text-muted">
+                          <span className="rounded-control border border-border px-2 py-0.5 text-xs text-text-muted">
                             {uk.access.builtIn}
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-text-muted mt-0.5">
                         {role.scope === "platform" ? uk.access.scopePlatform : uk.access.scopeOrganisation}
-                        {role.organisation_name ? ` · ${role.organisation_name}` : ""} · {uk.access.roleUsers(role.user_count ?? 0)}
+                        {role.organisation_name ? `, ${role.organisation_name}` : ""}, {uk.access.roleUsers(role.user_count ?? 0)}
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {(role.permissions ?? []).map((code) => (
-                          <span key={code} className="rounded px-2 py-0.5 text-[11px] bg-primary/10 text-primary">
+                          <span key={code} className="rounded-control bg-primary-soft px-2 py-0.5 text-xs text-primary">
                             {labels.get(code) ?? code}
                           </span>
                         ))}
@@ -301,7 +301,7 @@ export default function RolesSection({ notify }: AdminSectionProps) {
                     </div>
                   </div>
                   {editing && (
-                    <div className="rounded-control bg-page/50 p-4">
+                    <div className="border-l-2 border-primary bg-surface-raised/60 p-4">
                       <RoleForm
                         role={role}
                         initial={{
@@ -324,7 +324,7 @@ export default function RolesSection({ notify }: AdminSectionProps) {
             })
           )}
         </div>
-      </Card>
+      </div>
       {dialog}
     </div>
   );

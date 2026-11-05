@@ -15,11 +15,11 @@ import { useConfirm } from "@/ui/ConfirmDialog";
 import { Archive, Plus, RotateCcw, Trash2 } from "lucide-react";
 import type { AdminSectionProps } from "@/platform/modules";
 
-/** "Користувачів: 2 · Звіти: 5": record counts per module, named by the module's title. */
+/** "Користувачів: 2, звітів: 5": record counts per module, named by the module's title. */
 function usageText(org: OrganisationDTO, titles: Record<string, string>): string {
   const parts = [uk.access.usersCount(org.user_count ?? 0)];
   for (const [module, count] of Object.entries(org.usage ?? {})) parts.push(`${titles[module] ?? module}: ${count}`);
-  return parts.join(" · ");
+  return parts.join(", ");
 }
 
 function useModuleTitles(): Record<string, string> {
@@ -41,7 +41,7 @@ function OrganisationRow({ org, notify, onArchive }: { org: OrganisationDTO; not
   const changed = name.trim() !== org.name;
 
   return (
-    <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3" data-organisation-id={org.id}>
+    <div className="flex flex-col gap-3 px-1 py-3 sm:flex-row sm:items-center" data-organisation-id={org.id}>
       <div className="flex-1 min-w-0 space-y-1">
         <Input
           aria-label={uk.access.organisationName}
@@ -128,7 +128,7 @@ export default function OrganisationsSection({ notify }: AdminSectionProps) {
   const canCreateUsers = can(P.usersManage);
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4">
       <div className="flex justify-end">
         <Button className="min-h-[44px]" onClick={() => setCreating(!creating)}>
           <Plus className="h-4 w-4 mr-1.5" />
@@ -138,7 +138,7 @@ export default function OrganisationsSection({ notify }: AdminSectionProps) {
 
       <AnimatedCollapse open={creating}>
         {creating && (
-          <Card className="border-primary/50">
+          <Card className="border-t-2 border-t-primary">
             <CardHeader className="p-4 sm:p-5 border-b border-border">
               <CardTitle className="text-base">{uk.access.newOrganisation}</CardTitle>
             </CardHeader>
@@ -187,7 +187,7 @@ export default function OrganisationsSection({ notify }: AdminSectionProps) {
         )}
       </AnimatedCollapse>
 
-      <Card>
+      <div className="ledger">
         <div className="divide-y divide-border">
           {isLoading ? (
             <p className="p-6 text-sm text-text-muted">{uk.common.loading}</p>
@@ -209,31 +209,29 @@ export default function OrganisationsSection({ notify }: AdminSectionProps) {
             ))
           )}
         </div>
-      </Card>
+      </div>
 
       {archived.length > 0 && (
-        <Card className="border-dashed border-border/80 bg-page/30">
-          <CardHeader className="p-4 sm:p-5 border-b border-border">
-            <CardTitle className="text-sm font-semibold text-text-muted flex items-center space-x-2">
-              <Archive className="h-4 w-4" />
-              <span>{uk.access.archivedSection} ({archived.length})</span>
-            </CardTitle>
-          </CardHeader>
-          <div className="divide-y divide-border/60">
+        <details className="group border-t border-border">
+          <summary className="flex min-h-[48px] cursor-pointer list-none items-center gap-2 px-1 text-sm font-medium text-text-muted [&::-webkit-details-marker]:hidden">
+            <Archive className="h-4 w-4" aria-hidden="true" />
+            {uk.access.archivedSection} ({archived.length})
+          </summary>
+          <div className="divide-y divide-border border-l-2 border-border pl-3">
             {archived.map((org) => (
-              <div key={org.id} className="p-4 flex items-center justify-between gap-4">
+              <div key={org.id} className="flex items-center justify-between gap-4 py-3">
                 <div>
-                  <span className="text-sm text-text-muted line-through">{org.name}</span>
+                  <span className="text-sm text-text-muted">{org.name}</span>
                   <p className="text-xs text-text-muted">{usageText(org, titles)}</p>
                 </div>
-                <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => restore.mutate(org.id)}>
-                  <RotateCcw className="h-4 w-4 mr-1.5" />
+                <Button size="sm" variant="outline" onClick={() => restore.mutate(org.id)}>
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
                   {uk.access.restore}
                 </Button>
               </div>
             ))}
           </div>
-        </Card>
+        </details>
       )}
       {dialog}
     </div>

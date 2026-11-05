@@ -3,26 +3,13 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { accessApi } from "@/platform/access/api";
 import { ukPlatform as uk, formatDateTime } from "@/platform/i18n";
-import { Card, CardHeader, CardTitle, CardContent } from "@/ui/Card";
+import { LedgerSection } from "@/ui/LedgerSection";
 import { Button } from "@/ui/Button";
 import { Input } from "@/ui/Input";
-import { ShieldCheck, Filter, AlertCircle, RefreshCw, Table as TableIcon, LayoutGrid } from "lucide-react";
+import { Filter, RefreshCw } from "lucide-react";
 import { cn } from "@/ui/utils";
 
 export default function AuditLogSection() {
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
-  const storedMode = typeof window !== "undefined" ? (localStorage.getItem("admin.logs.viewMode") as "table" | "cards" | null) : null;
-  const [viewMode, setViewMode] = useState<"table" | "cards">(storedMode || (isMobile ? "cards" : "table"));
-
-  const handleSetViewMode = (mode: "table" | "cards") => {
-    setViewMode(mode);
-    try {
-      localStorage.setItem("admin.logs.viewMode", mode);
-    } catch {
-      // Ignore storage errors (e.g. private browsing mode)
-    }
-  };
-
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlLogin = searchParams.get("login") || "";
@@ -64,243 +51,93 @@ export default function AuditLogSection() {
   const logEntries = logs || [];
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          className="min-h-[44px]"
-          onClick={() => refetch()}
-          disabled={isFetching}
+    <div className="space-y-6">
+      <form onSubmit={handleFilterSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Input
+          value={loginInput}
+          onChange={(e) => setLoginInput(e.target.value)}
+          placeholder="Фільтр за логіном…"
+          autoCapitalize="none"
+          aria-label="Логін"
+          className="sm:max-w-[16rem]"
+        />
+        <select
+          value={actionInput}
+          onChange={(e) => setActionInput(e.target.value)}
+          aria-label="Тип дії"
+          className="min-h-[44px] w-full rounded-control border border-border bg-surface px-3 text-[15px] text-text-main hover:border-text-muted/50 sm:w-60"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
-          Оновити
-        </Button>
-      </div>
+          <option value="">{uk.logs.allActions}</option>
+          {(actionsList || []).map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+        <div className="flex gap-2">
+          <Button type="submit" variant="outline" disabled={isLoading} className="flex-1 sm:flex-none">
+            <Filter className="h-4 w-4" aria-hidden="true" />
+            Фільтрувати
+          </Button>
+          <Button type="button" variant="ghost" size="icon" onClick={() => refetch()} disabled={isFetching} aria-label="Оновити" title="Оновити">
+            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} aria-hidden="true" />
+          </Button>
+        </div>
+      </form>
 
-      {/* Filter Form Card */}
-      <Card>
-        <CardContent className="p-4 sm:p-5">
-          <form onSubmit={handleFilterSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="flex-1">
-              <Input
-                value={loginInput}
-                onChange={(e) => setLoginInput(e.target.value)}
-                placeholder="Фільтр за логіном…"
-                autoCapitalize="none"
-                aria-label="Логін"
-                className="h-11"
-              />
-            </div>
-
-            <div className="w-full sm:w-60">
-              <select
-                value={actionInput}
-                onChange={(e) => setActionInput(e.target.value)}
-                aria-label="Тип дії"
-                className="h-11 w-full rounded-control border border-border bg-page px-3 py-2 text-sm text-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px]"
-              >
-                <option value="">{uk.logs.allActions}</option>
-                {(actionsList || []).map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Button type="submit" className="min-h-[44px] shrink-0" disabled={isLoading}>
-              <Filter className="h-4 w-4 mr-2" />
-              Фільтрувати
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Error State */}
       {error && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="p-4 rounded-card bg-destructive/10 border border-destructive/20 text-destructive flex items-center justify-between"
-        >
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <span className="text-sm">
-              {error instanceof Error ? error.message : "Не вдалося завантажити журнал дій"}
-            </span>
-          </div>
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-l-2 border-destructive bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span>{error instanceof Error ? error.message : "Не вдалося завантажити журнал дій"}</span>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             Повторити
           </Button>
         </div>
       )}
 
-      {/* Logs Table Card */}
-      <Card>
-        <CardHeader className="p-4 sm:p-5 border-b border-border">
-          <CardTitle className="text-base sm:text-lg flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center space-x-2">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-              <span>Записи журналу</span>
-              <span className="text-xs font-normal text-text-muted tabular-nums ml-1">
-                ({logEntries.length})
-              </span>
-            </div>
-            <div className="flex items-center space-x-1 bg-page border border-border p-1 rounded-control shadow-2xs">
-              <button
-                type="button"
-                onClick={() => handleSetViewMode("table")}
-                aria-label="Таблиця"
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 min-h-[32px]",
-                  viewMode === "table"
-                    ? "bg-surface text-text-main shadow-2xs font-semibold"
-                    : "text-text-muted hover:text-text-main"
-                )}
-              >
-                <TableIcon className="h-3.5 w-3.5" />
-                <span>Таблиця</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetViewMode("cards")}
-                aria-label="Картки"
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 min-h-[32px]",
-                  viewMode === "cards"
-                    ? "bg-surface text-text-main shadow-2xs font-semibold"
-                    : "text-text-muted hover:text-text-main"
-                )}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                <span>Картки</span>
-              </button>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        {viewMode === "cards" ? (
-          /* Mobile / Cards View: Responsive Cards for Admin on phones */
-          <div className="divide-y divide-border">
-            {isLoading ? (
-              <div className="p-8 text-center text-text-muted text-sm flex flex-col items-center justify-center space-y-2">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                <span>Завантажую журнал…</span>
-              </div>
-            ) : logEntries.length === 0 ? (
-              <div className="p-8 text-center text-text-muted text-sm">
-                {uk.logs.noLogs}
-              </div>
-            ) : (
-              logEntries.map((entry) => (
-                <div key={entry.id} className="p-4 space-y-2 hover:bg-page/30 transition-colors animate-fade-in">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-sm text-text-main font-mono">
-                      {entry.action}
-                    </span>
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium shrink-0 ${
-                        (entry.role === "admin" || entry.role.includes("Адміністратор"))
-                          ? "bg-primary/10 text-primary"
-                          : "bg-surface border border-border text-text-muted"
-                      }`}
-                    >
-                      {entry.role}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs text-text-muted">
-                    <span className="font-medium text-text-main">{entry.login}</span>
-                    <span className="tabular-nums font-mono">{formatDateTime(entry.ts)}</span>
-                  </div>
-                  {entry.detail && (
-                    <p className="text-xs text-text-muted bg-page/50 p-2 rounded-control break-words">
-                      {entry.detail}
-                    </p>
-                  )}
-                  {entry.ip && (
-                    <div className="text-[11px] text-text-muted/70 font-mono text-right">
-                      IP: {entry.ip}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
+      <LedgerSection
+        id="audit-entries"
+        title="Записи журналу"
+        description={isLoading ? undefined : `Показано записів: ${logEntries.length}`}
+      >
+        {isLoading ? (
+          <p className="py-8 text-sm text-text-muted">Завантажую журнал…</p>
+        ) : logEntries.length === 0 ? (
+          <p className="py-8 text-sm text-text-muted">{uk.logs.noLogs}</p>
         ) : (
-          /* Desktop View: Table */
-          <div className="overflow-x-auto">
-            {isLoading ? (
-              <div className="p-8 text-center text-text-muted text-sm flex flex-col items-center justify-center space-y-2">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                <span>Завантажую журнал…</span>
-              </div>
-            ) : (
-              <table className="w-full table-fixed text-left border-collapse text-sm">
-                {/* Fixed widths keep the table inside its card; long details wrap. */}
-                <colgroup>
-                  <col className="w-[22%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[17%]" />
-                  <col className="w-[17%]" />
-                  <col className="w-[30%]" />
-                </colgroup>
-                <thead>
-                  <tr className="border-b border-border bg-page/50 text-text-muted text-xs uppercase tracking-wider font-semibold">
-                    <th className="py-3 px-4 whitespace-nowrap">Час і IP</th>
-                    <th className="py-3 px-3 whitespace-nowrap">Користувач</th>
-                    <th className="py-3 px-3 whitespace-nowrap">Роль</th>
-                    <th className="py-3 px-3 whitespace-nowrap">Дія</th>
-                    <th className="py-3 px-4">Деталі</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {logEntries.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-12 text-center text-text-muted text-sm">
-                        {uk.logs.noLogs}
-                      </td>
-                    </tr>
-                  ) : (
-                    logEntries.map((entry) => (
-                      <tr key={entry.id} className="hover:bg-page/40 transition-colors">
-                        <td className="py-3 px-4 whitespace-nowrap tabular-nums font-mono text-xs text-text-muted">
-                          <span className="block text-text-main">{formatDateTime(entry.ts)}</span>
-                          <span className="block">{entry.ip}</span>
-                        </td>
-                        <td className="py-3 px-3 font-medium text-text-main [overflow-wrap:anywhere]">
-                          {entry.login}
-                        </td>
-                        <td className="py-3 px-3 text-xs">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
-                              (entry.role === "admin" || entry.role.includes("Адміністратор"))
-                                ? "bg-primary/10 text-primary"
-                                : "bg-surface border border-border text-text-muted"
-                            }`}
-                          >
-                            {entry.role}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-xs font-medium text-text-main">
-                          {entry.action}
-                        </td>
-                        <td className="py-3 px-4 text-xs text-text-muted break-words [overflow-wrap:anywhere]">
-                          {entry.detail}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
-          </div>
+          <>
+            <div className="hidden grid-cols-[10.5rem_minmax(0,8rem)_minmax(0,12rem)_minmax(0,1fr)] gap-x-4 border-b border-border px-1 py-2 text-xs font-medium text-text-muted md:grid">
+              <span>Час і IP</span>
+              <span>Користувач</span>
+              <span>Дія</span>
+              <span>Деталі</span>
+            </div>
+            <ul className="divide-y divide-border text-sm">
+              {logEntries.map((entry) => (
+                <li
+                  key={entry.id}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 px-1 py-3 md:grid-cols-[10.5rem_minmax(0,8rem)_minmax(0,12rem)_minmax(0,1fr)]"
+                >
+                  <span className="figure col-start-2 row-start-1 text-right text-xs text-text-muted md:col-start-auto md:row-start-auto md:text-left">
+                    <span className="block text-text-main">{formatDateTime(entry.ts)}</span>
+                    {entry.ip && <span className="block">{entry.ip}</span>}
+                  </span>
+                  <span className="col-start-1 row-start-1 min-w-0 md:col-start-auto md:row-start-auto">
+                    <span className="block font-medium text-text-main [overflow-wrap:anywhere]">{entry.login}</span>
+                    <span className="block text-xs text-text-muted">{entry.role}</span>
+                  </span>
+                  <span className="col-span-2 font-medium text-text-main md:col-span-1">{entry.action}</span>
+                  <span className="col-span-2 break-words text-text-muted [overflow-wrap:anywhere] md:col-span-1">{entry.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
         {logEntries.length === 200 && (
-          <div className="p-4 border-t border-border bg-page/30 text-xs text-text-muted text-center">
+          <p className="border-t border-border px-1 py-3 text-xs text-text-muted">
             Показано останні 200 записів. Використовуйте фільтри, щоб звузити вибірку.
-          </div>
+          </p>
         )}
-      </Card>
+      </LedgerSection>
     </div>
   );
 }
