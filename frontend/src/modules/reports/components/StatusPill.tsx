@@ -9,41 +9,23 @@ interface StatusPillProps extends React.HTMLAttributes<HTMLSpanElement> {
   customLabel?: string;
 }
 
+const styles: Record<string, { label: string; text: string; mark: string }> = {
+  submitted: { label: uk.store.statusSent, text: "text-primary", mark: "bg-primary" },
+  draft: { label: uk.store.statusDraft, text: "text-text-muted", mark: "border border-text-muted" },
+  new: { label: uk.store.statusNew, text: "text-text-muted", mark: "border border-text-muted" },
+  none: { label: "Немає звіту", text: "text-attention", mark: "bg-attention" },
+};
+
+/**
+ * A report's state as a word in the ledger: spruce when sent, muted while a draft, amber when the
+ * store has not reported. The mark repeats the state for people who scan by shape.
+ */
 export function StatusPill({ status, customLabel, className, ...props }: StatusPillProps) {
-  let label = customLabel;
-  let colorClasses = "bg-pill-none-bg text-pill-none-text border border-border/50";
-
-  switch (status) {
-    case "submitted":
-      label = label || uk.store.statusSent;
-      colorClasses = "bg-pill-sent-bg text-pill-sent-text font-medium border border-emerald-500/25";
-      break;
-    case "draft":
-      label = label || uk.store.statusDraft;
-      colorClasses = "bg-pill-draft-bg text-pill-draft-text font-medium border border-amber-500/25";
-      break;
-    case "new":
-      label = label || uk.store.statusNew;
-      colorClasses = "bg-pill-none-bg text-pill-none-text border border-border/50";
-      break;
-    case "none":
-    default:
-      label = label || "Немає звіту";
-      colorClasses = "bg-pill-none-bg text-pill-none-text border border-border/50";
-      break;
-  }
-
+  const style = styles[status] ?? styles.none;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs transition-colors select-none shadow-2xs",
-        colorClasses,
-        className
-      )}
-      role="status"
-      {...props}
-    >
-      {label}
+    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-medium", style.text, className)} {...props}>
+      <span aria-hidden="true" className={cn("h-1.5 w-1.5 shrink-0 rounded-full", style.mark)} />
+      {customLabel || style.label}
     </span>
   );
 }

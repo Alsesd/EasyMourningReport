@@ -157,8 +157,7 @@ describe("StoreReportPage", () => {
     renderPage();
     await screen.findByText("Хліб пшеничний");
 
-    fireEvent.click(screen.getByRole("button", { name: /Картковий/i }));
-    expect((await screen.findAllByText("Кількість по розрахунку")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("по розрахунку").length).toBeGreaterThan(0);
 
     const plusButtons = screen.getAllByLabelText(/Збільшити кількість/i);
     fireEvent.click(plusButtons[1]);
@@ -212,16 +211,10 @@ describe("StoreReportPage", () => {
     });
   });
 
-  it("toggles viewMode between desktop table and cards", async () => {
+  it("names each quantity field after its product and price", async () => {
     renderPage();
     await screen.findByText("Хліб пшеничний");
-
-    const cardsBtn = screen.getByRole("button", { name: /Картковий/i });
-    fireEvent.click(cardsBtn);
-    expect(screen.getByText("Хліб пшеничний")).toBeDefined();
-
-    const tableBtn = screen.getByRole("button", { name: /Табличний/i });
-    fireEvent.click(tableBtn);
-    expect(screen.getByText("Хліб пшеничний")).toBeDefined();
+    expect(screen.getByRole("textbox", { name: "Кількість: Хліб пшеничний, 25,00\u00a0₴" })).toBeDefined();
+    expect(screen.getByText("заповнено 2 з 2")).toBeDefined();
   });
 });

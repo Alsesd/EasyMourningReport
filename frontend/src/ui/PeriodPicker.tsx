@@ -36,7 +36,7 @@ export function PeriodPicker({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label={labels.month}
-        className="h-11 min-w-[11rem] rounded-control border border-border bg-surface px-3 text-sm font-medium text-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="h-11 min-w-[11rem] rounded-control border border-border bg-surface px-3 text-[15px] font-medium text-text-main hover:border-text-muted/50"
       >
         {periodOptions(value).map((period) => (
           <option key={period} value={period}>

@@ -44,7 +44,7 @@ describe("AccountMenu", () => {
     const user = userEvent.setup();
     renderMenu();
     await user.click(screen.getByRole("button", { name: "Обліковий запис: store1" }));
-    expect(screen.getByText("store1 · Магазин 1")).toBeDefined();
+    expect(screen.getByText("store1, Магазин 1")).toBeDefined();
     await user.click(screen.getByRole("menuitem", { name: "Змінити пароль" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Зміна власного пароля" });

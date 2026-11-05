@@ -33,7 +33,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         type="button"
         id="theme-toggle"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-control border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text-main hover:bg-page transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-control border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text-main hover:bg-surface-raised transition-colors"
         aria-label={effectiveTheme === "light" ? "Вимкнути світлу тему" : "Увімкнути світлу тему"}
         aria-expanded={isOpen}
         aria-haspopup="true"
@@ -53,7 +53,7 @@ export function ThemeToggle({ className }: { className?: string }) {
           role="menu"
           aria-orientation="vertical"
           aria-labelledby="theme-toggle"
-          className="absolute right-0 mt-1.5 w-40 origin-top-right rounded-control border border-border bg-surface py-1 shadow-lg z-50 focus:outline-none"
+          className="absolute right-0 mt-1.5 w-40 origin-top-right rounded-control border border-border bg-surface py-1 shadow-overlay z-50 focus:outline-none"
         >
           {options.map((opt) => {
             const Icon = opt.icon;
@@ -68,7 +68,7 @@ export function ThemeToggle({ className }: { className?: string }) {
                   setIsOpen(false);
                 }}
                 className={cn(
-                  "w-full flex items-center px-3 py-2 text-xs text-left min-h-[44px] hover:bg-page transition-colors",
+                  "w-full flex items-center px-3 py-2 text-xs text-left min-h-[44px] hover:bg-surface-raised transition-colors",
                   isSelected ? "font-semibold text-primary" : "text-text-main"
                 )}
               >

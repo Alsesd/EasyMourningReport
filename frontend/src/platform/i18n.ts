@@ -11,10 +11,7 @@ export const ukPlatform = {
     loginTitle: "Вхід до системи",
     loginDescription: "Увійдіть службовим обліковим записом.",
     loginPlaceholder: "Ваш логін",
-    portalEyebrow: "Внутрішній портал",
-    portalHeadline: "Звіти, облік і доступ — спокійно та впорядковано.",
     portalDescription: "Робочий простір для магазинів і служб: щомісячні звіти, довідники, облікові записи та журнал дій.",
-    secureAccess: "Захищений доступ для співробітників",
     dataPrivacyNote: "Використовуйте службовий обліковий запис. Не передавайте пароль іншим особам.",
     credentialsRequired: "Введіть логін і пароль для входу.",
     workspaceLabel: "Робочий простір",
@@ -32,7 +29,6 @@ export const ukPlatform = {
     portalLabel: "Внутрішній портал",
     workspaceLabel: "Робочий простір",
     report: "Звіт",
-    summary: "Зведений",
     reports: "Звіти",
     settings: "Налаштування",
     logs: "Журнал",
@@ -211,11 +207,15 @@ export function formatMoney(cents: number | null | undefined): string {
   return (value / 100).toFixed(2);
 }
 
+const moneyFormat = new Intl.NumberFormat("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 /**
- * Format price with Ukrainian currency symbol (e.g. 2500 -> "25.00 ₴").
+ * Format an amount for reading, the Ukrainian way: grouped thousands, decimal comma and the hryvnia
+ * sign (372650 -> "3 726,50 ₴"). Inputs keep `formatMoney`, which a person can type back.
  */
 export function formatCurrency(cents: number | null | undefined): string {
-  return `${formatMoney(cents)} ₴`;
+  // Intl groups with a narrow no-break space; a plain no-break space keeps every font aligned.
+  return `${moneyFormat.format(Number(cents || 0) / 100).replace(/\u202f/g, "\u00a0")}\u00a0₴`;
 }
 
 /**

@@ -30,10 +30,10 @@ describe("AdminLayout", () => {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <AuthProvider>
-            <MemoryRouter initialEntries={["/admin/summary"]}>
+            <MemoryRouter initialEntries={["/admin/reports"]}>
               <Routes>
                 <Route path="/admin" element={<AdminLayout />}>
-                  <Route path="summary" element={<p>content</p>} />
+                  <Route path="reports" element={<p>content</p>} />
                 </Route>
               </Routes>
             </MemoryRouter>
@@ -46,14 +46,15 @@ describe("AdminLayout", () => {
   it("builds navigation from the registry and the user's permissions", () => {
     renderLayout();
     const sidebar = screen.getAllByRole("navigation", { name: "Внутрішній портал" })[0];
-    expect([...sidebar.querySelectorAll("a")].map((a) => a.textContent)).toEqual(["Зведений", "Звіти", "Адміністрування"]);
+    expect([...sidebar.querySelectorAll("a")].map((a) => a.textContent)).toEqual(["Звіти", "Адміністрування"]);
   });
 
   it("keeps the maker mark Easter egg", () => {
     renderLayout();
-    const trigger = screen.getByRole("button", { name: "Reveal creator credit" });
+    // The rail (desktop) and the top bar (mobile) each carry the mark; CSS shows one of them.
+    const trigger = screen.getAllByRole("button", { name: "Reveal creator credit" })[0];
     fireEvent.click(trigger);
-    expect(screen.getByText("Alsesd")).toBeDefined();
+    expect(screen.getAllByText("Alsesd").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Hide creator credit" })).toBeDefined();
   });
 

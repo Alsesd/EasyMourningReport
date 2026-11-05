@@ -45,10 +45,14 @@ export const uk = {
     readOnlyBanner: "Звіт надіслано й заблоковано для редагування.",
     unsavedChanges: "Є незбережені зміни",
     unsavedBeforeUnload: "У вас є незбережені зміни у звіті. Якщо ви залишите сторінку, вони будуть втрачені.",
-    offlineBadge: "Офлайн-режим",
-    pendingSyncBadge: "Очікує синхронізації",
-    desktopMode: "Табличний режим",
-    cardsMode: "Картковий режим",
+    offlineNotice: "Немає зв'язку. Зміни зберігаються на цьому пристрої й надішлються, щойно з'явиться мережа.",
+    filledOf: (filled: number, total: number) => `заповнено ${filled} з ${total}`,
+    calculationShort: "по розрахунку",
+    productsLabel: "Товари звіту",
+    periodLabel: "Місяць",
+    loadError: "Не вдалося завантажити звіт.",
+    saveError: "Не вдалося зберегти звіт.",
+    retry: "Спробувати знову",
   },
 
   summary: {
@@ -68,6 +72,46 @@ export const uk = {
     noData: "Немає даних за цей період",
     viewModeTable: "Таблиця",
     viewModeCards: "Картки по товарах",
+  },
+
+  month: {
+    crumb: "Звіти",
+    storesTitle: "Магазини",
+    storesDescription: "Стан звіту кожного магазину за місяць. Відкрийте рядок, щоб переглянути звіт.",
+    productsTitle: "Товари за місяць",
+    productsDescription: "Кількість за товарами й магазинами, як у файлі Excel.",
+    submittedOf: (sent: number, total: number) => `Надіслано ${sent} з ${total}`,
+    notReported: (n: number) => (n === 0 ? "усі магазини звітували" : `без звіту: ${n}`),
+    monthTotal: "Разом за місяць",
+    positions: (n: number) => {
+      const mod10 = n % 10;
+      const mod100 = n % 100;
+      const word = mod10 === 1 && mod100 !== 11 ? "позиція" : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? "позиції" : "позицій";
+      return `${n} ${word}`;
+    },
+    noReportYet: "звіт ще не почато",
+    archived: "в архіві",
+    loading: "Завантажую звіти…",
+    loadingSummary: "Формую зведення…",
+    loadError: "Не вдалося завантажити звіти.",
+    retry: "Повторити",
+    byStore: "За магазинами",
+    allReports: "Усі звіти",
+  },
+
+  detail: {
+    backToMonth: (month: string) => `Звіти, ${month.toLocaleLowerCase("uk-UA")}`,
+    backToReports: "Звіти",
+    loading: "Завантажую звіт…",
+    loadError: "Не вдалося завантажити звіт.",
+    linesTitle: "Позиції звіту",
+    noLines: "Кількостей у звіті ще немає.",
+    archivedProduct: "в архіві",
+    inactiveProduct: "неактивний",
+    total: "Разом",
+    locked: "Звіт заблоковано.",
+    unlocked: "Звіт розблоковано.",
+    statusError: "Не вдалося змінити стан звіту.",
   },
 
   reports: {

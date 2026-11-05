@@ -15,7 +15,7 @@ export const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm transition-opacity data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
+      "fixed inset-0 z-50 bg-[rgba(16,28,26,0.45)] transition-opacity data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out",
       className
     )}
     {...props}
@@ -32,13 +32,13 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/80 bg-surface p-6 shadow-2xl rounded-card focus-visible:outline-none sm:max-w-[425px] data-[state=open]:animate-dialog-show data-[state=closed]:animate-dialog-hide",
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-surface p-6 shadow-overlay rounded-card focus-visible:outline-none sm:max-w-[425px] data-[state=open]:animate-dialog-show data-[state=closed]:animate-dialog-hide",
         className
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-control p-1 text-text-muted opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] min-w-[44px] flex items-center justify-center active:scale-95">
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-control p-1 text-text-muted transition-colors hover:bg-surface-raised hover:text-text-main min-h-[44px] min-w-[44px] flex items-center justify-center">
         <X className="h-5 w-5" />
         <span className="sr-only">Закрити</span>
       </DialogPrimitive.Close>
@@ -53,7 +53,7 @@ export function DialogHeader({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex flex-col space-y-1.5 text-center sm:text-left", className)}
+      className={cn("flex flex-col space-y-1.5 text-left", className)}
       {...props}
     />
   );
@@ -81,7 +81,7 @@ export const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      "text-lg font-semibold leading-none tracking-tight text-text-main",
+      "pr-10 font-serif text-xl font-semibold leading-tight text-text-main",
       className
     )}
     {...props}

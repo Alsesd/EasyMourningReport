@@ -5,9 +5,20 @@ import { ThemeToggle } from "@/ui/ThemeToggle";
 import { MakerMark } from "@/ui/MakerMark";
 import { ukPlatform as uk } from "@/platform/i18n";
 import { navFor } from "@/app/registry";
-import { BookOpen, ChevronRight } from "lucide-react";
 import { AccountMenu } from "@/platform/account/AccountMenu";
 import { cn } from "@/ui/utils";
+
+/** The record book's monogram: the two initials of «Легкий звіт» in the book serif. */
+function Monogram({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-control bg-primary font-serif text-[15px] font-semibold text-primary-fg", className)}
+    >
+      ЛЗ
+    </span>
+  );
+}
 
 export default function AdminLayout() {
   const { session } = useAuth();
@@ -30,30 +41,19 @@ export default function AdminLayout() {
     document.title = `${pageTitle} — ${uk.appTitle}`;
   }, [pageTitle]);
 
-  const navClass = (active: boolean) => cn(
-    "portal-nav-link flex w-full items-center gap-3 rounded-control px-3.5 py-3 text-sm font-medium",
-    active && "font-semibold"
-  );
-
   return (
-    <div className="portal-shell min-h-screen flex flex-col lg:flex-row text-text-main">
-      {/* Desktop workspace rail */}
-      <aside className="portal-sidebar hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[258px] lg:flex-col lg:shrink-0 lg:px-4 lg:py-5">
-        <div className="flex items-center gap-3 px-2 pb-6">
-          <div className="portal-brand-mark" aria-hidden="true">
-            <BookOpen className="h-5 w-5" strokeWidth={1.7} />
-          </div>
+    <div className="flex min-h-screen flex-col text-text-main lg:flex-row">
+      {/* Desktop rail: brand, the modules' pages, then who is signed in. */}
+      <aside className="hidden border-r border-border bg-surface-raised lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[240px] lg:shrink-0 lg:flex-col">
+        <div className="flex items-center gap-3 px-5 pb-6 pt-6">
+          <Monogram />
           <div className="min-w-0">
-            <p className="text-[15px] font-semibold tracking-tight text-[#fffefa]">{uk.appTitle}</p>
-            <p className="mt-0.5 text-[11px] leading-snug text-[#c0d0c2]">{uk.appSubtitle}</p>
+            <p className="font-serif text-[17px] font-semibold leading-tight text-text-main">{uk.appTitle}</p>
+            <p className="text-xs leading-snug text-text-muted">{uk.appSubtitle}</p>
           </div>
         </div>
 
-        <div className="mx-2 mb-3 border-t border-white/10 pt-5">
-          <p className="portal-sidebar-eyebrow">{uk.nav.workspaceLabel}</p>
-        </div>
-
-        <nav aria-label={uk.nav.portalLabel} className="flex-1 space-y-1 px-1">
+        <nav aria-label={uk.nav.portalLabel} className="flex-1 space-y-0.5 px-3">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isItemActive(item.basePath);
@@ -62,49 +62,44 @@ export default function AdminLayout() {
                 key={item.id}
                 to={item.to}
                 aria-current={active ? "page" : undefined}
-                className={navClass(active)}
+                className={cn(
+                  "flex min-h-[44px] items-center gap-3 rounded-control px-3 text-[15px] transition-colors",
+                  active
+                    ? "bg-surface font-semibold text-text-main shadow-[inset_3px_0_0_var(--primary)]"
+                    : "text-text-muted hover:bg-surface/70 hover:text-text-main",
+                )}
               >
-                <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} />
+                <Icon className={cn("h-[18px] w-[18px] shrink-0", active && "text-primary")} strokeWidth={1.8} aria-hidden="true" />
                 <span className="flex-1">{item.label}</span>
-                {active && <ChevronRight className="h-4 w-4 opacity-70" aria-hidden="true" />}
               </NavLink>
             );
           })}
         </nav>
 
-        <div className="portal-sidebar-footer mx-1 mt-5 pt-4">
+        <div className="space-y-2 border-t border-border px-3 py-4">
           <AccountMenu variant="sidebar" />
-          <div className="mt-5 flex items-center justify-between px-2 text-[10px] tracking-wide text-[#97ad9e]">
-            <span>{uk.appTitle}</span>
-            <span>© {new Date().getFullYear()}</span>
+          <div className="flex items-center justify-between gap-2 px-1">
+            <ThemeToggle />
+            <MakerMark />
           </div>
         </div>
       </aside>
 
-      {/* Main application surface */}
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col pb-[calc(4.75rem+env(safe-area-inset-bottom))] lg:pb-0">
-        <header className="portal-topbar sticky top-0 z-30 flex min-h-[68px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="portal-brand-mark h-10 w-10 lg:hidden" aria-hidden="true">
-              <BookOpen className="h-[18px] w-[18px]" strokeWidth={1.7} />
-            </div>
-            <div className="min-w-0">
-              {/* Where you are: the brand is already in the sidebar, so the bar names the current area. */}
-              <p className="portal-context-label">{uk.appTitle}</p>
-              <span className="block truncate text-base font-semibold tracking-tight text-text-main sm:mt-0.5 sm:text-lg">{pageTitle}</span>
-            </div>
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0">
+        {/* Narrow screens: a slim bar with the brand and the personal controls. */}
+        <header className="sticky top-0 z-30 flex min-h-[60px] items-center justify-between gap-3 border-b border-border bg-page/95 px-4 lg:hidden">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Monogram className="h-8 w-8 text-sm" />
+            <span className="truncate font-serif text-base font-semibold">{uk.appTitle}</span>
           </div>
-
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="flex shrink-0 items-center gap-1">
             <MakerMark />
             <ThemeToggle />
-            <div className="lg:hidden">
-              <AccountMenu />
-            </div>
+            <AccountMenu />
           </div>
         </header>
 
-        <main className="portal-main flex-1 animate-fade-in">
+        <main className="flex-1 px-4 pb-12 pt-6 sm:px-8 lg:px-12 lg:pt-10">
           <Outlet />
         </main>
       </div>
@@ -112,7 +107,7 @@ export default function AdminLayout() {
       {/* Mobile bottom navigation keeps the daily destinations within thumb reach. */}
       <nav
         aria-label={uk.nav.portalLabel}
-        className="portal-mobile-nav fixed bottom-0 left-0 right-0 z-40 grid gap-1 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-40 grid border-t border-border bg-surface px-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] lg:hidden"
         style={{ gridTemplateColumns: `repeat(${Math.max(navItems.length, 1)}, minmax(0, 1fr))` }}
       >
         {navItems.map((item) => {
@@ -123,9 +118,12 @@ export default function AdminLayout() {
               key={item.id}
               to={item.to}
               aria-current={active ? "page" : undefined}
-              className={cn("portal-mobile-link flex flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-medium", active && "font-semibold")}
+              className={cn(
+                "flex min-h-[56px] flex-col items-center justify-center gap-0.5 text-xs",
+                active ? "font-semibold text-primary shadow-[inset_0_2px_0_var(--primary)]" : "text-text-muted",
+              )}
             >
-              <Icon className="h-[19px] w-[19px]" strokeWidth={1.8} />
+              <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
               <span className="max-w-full truncate">{item.shortLabel ?? item.label}</span>
             </NavLink>
           );

@@ -39,12 +39,12 @@ export function Switch({
         className={cn(
           "relative h-6 w-11 shrink-0 rounded-full border transition-colors duration-200 motion-reduce:transition-none",
           "peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-surface",
-          checked ? "border-primary bg-primary" : "border-border bg-page",
+          checked ? "border-primary bg-primary" : "border-border bg-surface-raised",
         )}
       >
         <span
           className={cn(
-            "absolute top-0.5 h-[18px] w-[18px] rounded-full bg-surface shadow-sm transition-transform duration-200 motion-reduce:transition-none",
+            "absolute top-0.5 h-[18px] w-[18px] rounded-full bg-surface transition-transform duration-200 motion-reduce:transition-none",
             checked ? "translate-x-[22px]" : "translate-x-0.5",
           )}
         />

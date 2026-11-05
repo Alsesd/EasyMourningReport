@@ -22,10 +22,10 @@ export function Notice({
         <div
           role="status"
           aria-live="polite"
-          className={`p-4 rounded-card border flex items-center justify-between gap-3 text-sm ${
+          className={`px-4 py-2 rounded-control border flex items-center justify-between gap-3 text-sm ${
             message.kind === "ok"
-              ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-700 dark:text-emerald-300"
-              : "bg-destructive/10 border-destructive/25 text-destructive"
+              ? "bg-primary-soft border-primary/30 text-primary"
+              : "bg-destructive/10 border-destructive/30 text-destructive"
           }`}
         >
           <div className="flex items-center gap-2 min-w-0">

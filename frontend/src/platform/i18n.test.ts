@@ -10,7 +10,8 @@ describe("Ukrainian formatting utilities", () => {
   });
 
   it("formats currency with hryvnia symbol", () => {
-    expect(formatCurrency(2500)).toBe("25.00 ₴");
+    expect(formatCurrency(2500)).toBe("25,00\u00a0₴");
+    expect(formatCurrency(372650)).toBe("3\u00a0726,50\u00a0₴");
   });
 
   it("parses cents from strings and numbers", () => {

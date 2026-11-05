@@ -10,6 +10,8 @@ interface QuantityStepperProps {
   min?: number;
   max?: number;
   id?: string;
+  /** What is being counted, e.g. the product and price; names the field and its buttons. */
+  label?: string;
   className?: string;
 }
 
@@ -20,6 +22,7 @@ export function QuantityStepper({
   min = 0,
   max = 99999,
   id,
+  label,
   className,
 }: QuantityStepperProps) {
   const [localText, setLocalText] = React.useState<string | null>(null);
@@ -60,8 +63,8 @@ export function QuantityStepper({
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-control border border-border bg-surface shadow-2xs",
-        disabled && "opacity-60 bg-page/50",
+        "inline-flex items-center rounded-control border border-border bg-surface",
+        disabled && "opacity-60 bg-surface-raised",
         className
       )}
     >
@@ -69,8 +72,8 @@ export function QuantityStepper({
         type="button"
         disabled={disabled || value <= min}
         onClick={handleDecrement}
-        aria-label={uk.common.decreaseQuantity}
-        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-text-main hover:bg-page active:scale-90 disabled:opacity-30 disabled:pointer-events-none rounded-l-control transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary z-10"
+        aria-label={label ? `${uk.common.decreaseQuantity}: ${label}` : uk.common.decreaseQuantity}
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-text-main hover:bg-surface-raised disabled:opacity-30 disabled:pointer-events-none rounded-l-control transition-colors z-10"
       >
         <Minus className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -88,16 +91,16 @@ export function QuantityStepper({
           setLocalText(value === 0 ? "" : String(value));
           e.target.select();
         }}
-        aria-label={uk.common.quantity}
-        className="w-14 text-center font-semibold text-base py-2 bg-transparent text-text-main focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded-xs transition-colors"
+        aria-label={label ? `${uk.common.quantity}: ${label}` : uk.common.quantity}
+        className="figure w-14 border-x border-border py-2 text-center text-base font-semibold bg-transparent text-text-main focus-visible:outline-none focus-visible:bg-primary-soft transition-colors"
       />
 
       <button
         type="button"
         disabled={disabled || value >= max}
         onClick={handleIncrement}
-        aria-label={uk.common.increaseQuantity}
-        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-text-main hover:bg-page active:scale-90 disabled:opacity-30 disabled:pointer-events-none rounded-r-control transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary z-10"
+        aria-label={label ? `${uk.common.increaseQuantity}: ${label}` : uk.common.increaseQuantity}
+        className="min-h-[44px] min-w-[44px] flex items-center justify-center text-text-main hover:bg-surface-raised disabled:opacity-30 disabled:pointer-events-none rounded-r-control transition-colors z-10"
       >
         <Plus className="h-4 w-4" aria-hidden="true" />
       </button>

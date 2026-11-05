@@ -21,7 +21,7 @@ export function AccountMenu({ variant = "header" }: { variant?: "header" | "side
   const context = session.organisation?.name ?? uk.account.platformStaff;
   const initial = name.slice(0, 1).toLocaleUpperCase("uk-UA");
   const itemClass =
-    "flex min-h-[44px] cursor-pointer items-center gap-2 rounded-control px-3 text-sm text-text-main outline-none data-[highlighted]:bg-page";
+    "flex min-h-[44px] cursor-pointer items-center gap-2 rounded-control px-3 text-sm text-text-main outline-none data-[highlighted]:bg-surface-raised";
 
   return (
     <>
@@ -29,26 +29,23 @@ export function AccountMenu({ variant = "header" }: { variant?: "header" | "side
         <DropdownMenu.Trigger
           aria-label={`${uk.account.menuLabel}: ${name}`}
           className={cn(
-            "flex min-h-[44px] min-w-0 items-center gap-2.5 rounded-control text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-            variant === "sidebar" ? "w-full px-2.5 py-2 hover:bg-white/[0.06]" : "px-1.5 hover:bg-page",
+            "flex min-h-[44px] min-w-0 items-center gap-2.5 rounded-control text-left transition-colors",
+            variant === "sidebar" ? "w-full px-2 py-1.5 hover:bg-surface/70" : "px-1 hover:bg-surface-raised",
           )}
         >
           <span
             className={cn(
-              "grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-semibold",
-              variant === "sidebar"
-                ? "border border-white/15 bg-white/[0.07] text-[#e4d1aa]"
-                : "border border-border bg-surface text-primary",
+              "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border bg-surface font-serif text-sm font-semibold text-primary",
             )}
             aria-hidden="true"
           >
             {initial}
           </span>
           <span className={cn("min-w-0", variant === "header" && "hidden sm:block")}>
-            <span className={cn("block truncate text-xs font-semibold", variant === "sidebar" ? "text-[#f1f2e9]" : "text-text-main")}>
+            <span className="block truncate text-sm font-medium text-text-main">
               {name}
             </span>
-            <span className={cn("block truncate text-[10px] tracking-wide", variant === "sidebar" ? "text-[#afc1b2]" : "text-text-muted")}>
+            <span className="block truncate text-xs text-text-muted">
               {context}
             </span>
           </span>
@@ -65,12 +62,12 @@ export function AccountMenu({ variant = "header" }: { variant?: "header" | "side
             align={variant === "sidebar" ? "start" : "end"}
             side={variant === "sidebar" ? "top" : "bottom"}
             sideOffset={6}
-            className="z-50 min-w-[220px] rounded-card border border-border bg-surface p-1.5 shadow-lg"
+            className="z-50 min-w-[220px] rounded-card border border-border bg-surface p-1.5 shadow-overlay data-[state=open]:animate-fade-in"
           >
             <div className="px-3 py-2">
               <p className="truncate text-sm font-semibold text-text-main">{name}</p>
               <p className="truncate text-xs text-text-muted">
-                {session.login} · {context}
+                {session.login}, {context}
               </p>
             </div>
             <DropdownMenu.Separator className="my-1 h-px bg-border" />
