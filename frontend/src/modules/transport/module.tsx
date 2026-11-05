@@ -4,8 +4,6 @@
  */
 
 import { lazy } from "react";
-import { Truck } from "lucide-react";
-import { ukPlatform as uk } from "@/platform/i18n";
 import type { AppModule } from "@/platform/modules";
 import { ANY_TRANSPORT } from "./permissions";
 
@@ -15,8 +13,8 @@ export const transportModule: AppModule = {
   routes: [
     { path: "transport", component: lazy(() => import("./pages/TransportPage")), permissions: ANY_TRANSPORT },
   ],
-  nav: [
-    { id: "transport", to: "/admin/transport", label: uk.nav.transport, icon: Truck, permissions: ANY_TRANSPORT, order: 30 },
-  ],
-  landing: [{ path: "/admin/transport", permissions: ANY_TRANSPORT, priority: 30 }],
+  // No menu entry or landing page until orders exist: a menu item leading to a placeholder is a
+  // dead end. When the orders pages land, add:
+  //   nav: [{ id: "transport", to: "/admin/transport", label: uk.nav.transport, icon: Truck, permissions: ANY_TRANSPORT, order: 30 }],
+  //   landing: [{ path: "/admin/transport", permissions: ANY_TRANSPORT, priority: 30 }],
 };

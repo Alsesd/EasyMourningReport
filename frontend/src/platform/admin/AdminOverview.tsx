@@ -142,7 +142,8 @@ export function AdminOverview({ sections }: { sections: AdminSection[] }) {
         </Card>
       )}
 
-      <section aria-labelledby="hub-sections" className="space-y-3">
+      {/* On desktop the grouped menu beside the overview already lists every section. */}
+      <section aria-labelledby="hub-sections" className="space-y-3 lg:hidden">
         <h2 id="hub-sections" className="text-sm font-semibold text-text-main">{uk.hub.sectionsTitle}</h2>
         {groupSections(sections).map(([group, items]) => (
           <div key={group} className="space-y-2">

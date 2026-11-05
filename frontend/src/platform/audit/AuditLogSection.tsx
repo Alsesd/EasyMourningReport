@@ -235,21 +235,28 @@ export default function AuditLogSection() {
                 <span>Завантажую журнал…</span>
               </div>
             ) : (
-              <table className="w-full text-left border-collapse text-sm">
+              <table className="w-full table-fixed text-left border-collapse text-sm">
+                {/* Fixed widths keep the table inside its card; long details wrap. */}
+                <colgroup>
+                  <col className="w-[22%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[17%]" />
+                  <col className="w-[17%]" />
+                  <col className="w-[30%]" />
+                </colgroup>
                 <thead>
                   <tr className="border-b border-border bg-page/50 text-text-muted text-xs uppercase tracking-wider font-semibold">
-                    <th className="py-3 px-4 whitespace-nowrap min-w-[160px]">Час</th>
-                    <th className="py-3 px-3 whitespace-nowrap min-w-[120px]">Користувач</th>
-                    <th className="py-3 px-3 whitespace-nowrap min-w-[90px]">Роль</th>
-                    <th className="py-3 px-3 whitespace-nowrap min-w-[130px]">Дія</th>
-                    <th className="py-3 px-4 min-w-[240px]">Деталі</th>
-                    <th className="py-3 px-4 whitespace-nowrap min-w-[120px]">IP-адреса</th>
+                    <th className="py-3 px-4 whitespace-nowrap">Час і IP</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Користувач</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Роль</th>
+                    <th className="py-3 px-3 whitespace-nowrap">Дія</th>
+                    <th className="py-3 px-4">Деталі</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {logEntries.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-text-muted text-sm">
+                      <td colSpan={5} className="py-12 text-center text-text-muted text-sm">
                         {uk.logs.noLogs}
                       </td>
                     </tr>
@@ -257,9 +264,10 @@ export default function AuditLogSection() {
                     logEntries.map((entry) => (
                       <tr key={entry.id} className="hover:bg-page/40 transition-colors">
                         <td className="py-3 px-4 whitespace-nowrap tabular-nums font-mono text-xs text-text-muted">
-                          {formatDateTime(entry.ts)}
+                          <span className="block text-text-main">{formatDateTime(entry.ts)}</span>
+                          <span className="block">{entry.ip}</span>
                         </td>
-                        <td className="py-3 px-3 font-medium text-text-main">
+                        <td className="py-3 px-3 font-medium text-text-main [overflow-wrap:anywhere]">
                           {entry.login}
                         </td>
                         <td className="py-3 px-3 text-xs">
@@ -273,14 +281,11 @@ export default function AuditLogSection() {
                             {entry.role}
                           </span>
                         </td>
-                        <td className="py-3 px-3 font-mono text-xs text-text-main">
+                        <td className="py-3 px-3 text-xs font-medium text-text-main">
                           {entry.action}
                         </td>
-                        <td className="py-3 px-4 text-xs text-text-muted max-w-md break-words">
+                        <td className="py-3 px-4 text-xs text-text-muted break-words [overflow-wrap:anywhere]">
                           {entry.detail}
-                        </td>
-                        <td className="py-3 px-4 whitespace-nowrap font-mono text-xs text-text-muted">
-                          {entry.ip}
                         </td>
                       </tr>
                     ))

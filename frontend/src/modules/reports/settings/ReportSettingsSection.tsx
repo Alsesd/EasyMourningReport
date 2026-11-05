@@ -6,6 +6,7 @@ import { uk } from "@/modules/reports/i18n";
 import type { AdminSectionProps } from "@/platform/modules";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/Card";
 import { Calculator } from "lucide-react";
+import { Switch } from "@/ui/Switch";
 
 export default function ReportSettingsSection({ notify }: AdminSectionProps) {
   const queryClient = useQueryClient();
@@ -40,9 +41,9 @@ export default function ReportSettingsSection({ notify }: AdminSectionProps) {
             <p className="p-5 text-sm text-text-muted">{uk.settings.reportSettings.empty}</p>
           ) : (
             visible.map((row) => (
-              <label
+              <div
                 key={row.organisation_id}
-                className="flex items-center justify-between gap-4 px-4 sm:px-5 min-h-[56px] cursor-pointer hover:bg-page/30"
+                className="flex items-center justify-between gap-4 px-4 sm:px-5 min-h-[60px]"
               >
                 <span className="min-w-0">
                   <span className="block text-sm font-medium text-text-main truncate">{row.organisation_name}</span>
@@ -50,17 +51,15 @@ export default function ReportSettingsSection({ notify }: AdminSectionProps) {
                     {uk.settings.reportSettings.reportsCount(row.reports_count ?? 0)}
                   </span>
                 </span>
-                <span className="flex items-center gap-2 text-xs text-text-muted shrink-0">
-                  {uk.settings.reportSettings.enabled}
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5"
-                    checked={row.calculation_enabled}
-                    disabled={toggle.isPending}
-                    onChange={(e) => toggle.mutate({ id: row.organisation_id, enabled: e.target.checked })}
-                  />
-                </span>
-              </label>
+                <Switch
+                  label={`${uk.settings.reportSettings.title}: ${row.organisation_name}`}
+                  onText={uk.settings.reportSettings.enabled}
+                  offText={uk.settings.reportSettings.disabled}
+                  checked={row.calculation_enabled}
+                  disabled={toggle.isPending}
+                  onChange={(enabled) => toggle.mutate({ id: row.organisation_id, enabled })}
+                />
+              </div>
             ))
           )}
         </div>

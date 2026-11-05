@@ -1,15 +1,13 @@
 import { Fragment, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
+import { PeriodPicker } from "@/ui/PeriodPicker";
 import { useQuery } from "@tanstack/react-query";
 import { reportsApi } from "@/modules/reports/api";
-import { uk, formatCurrency, formatPeriodReadable, shiftPeriod } from "@/modules/reports/i18n";
+import { uk, formatCurrency, formatPeriodReadable } from "@/modules/reports/i18n";
 import { Card, CardHeader, CardTitle, CardContent } from "@/ui/Card";
 import { Button } from "@/ui/Button";
 import {
-  ChevronLeft,
-  ChevronRight,
   Download,
-  TrendingUp,
   AlertCircle,
   Table as TableIcon,
   LayoutGrid,
@@ -34,6 +32,11 @@ export default function AdminSummaryPage() {
   const period = searchParams.get("period") || new Date().toISOString().slice(0, 7);
   const submittedOnly = searchParams.get("submitted_only") === "1" || searchParams.get("submitted_only") === "true";
 
+  // Submitted counts come from report statuses, not from totals (a draft can have amounts).
+  const { data: reportList } = useQuery({
+    queryKey: ["adminReports", period],
+    queryFn: () => reportsApi.reportList(period),
+  });
   const { data: summary, isLoading, error, refetch } = useQuery({
     queryKey: ["adminSummary", period, submittedOnly],
     queryFn: () => reportsApi.summary({ period, submitted_only: submittedOnly }),
@@ -56,8 +59,6 @@ export default function AdminSummaryPage() {
     setSearchParams(next);
   };
 
-  const previousPeriod = shiftPeriod(period, -1);
-  const nextPeriod = shiftPeriod(period, 1);
 
   const excelUrl = reportsApi.summaryExcelUrl(period, submittedOnly);
 
@@ -101,37 +102,13 @@ export default function AdminSummaryPage() {
       </div>
 
       {/* Filter and Period Selector Card */}
-      <Card className="transition-all hover:shadow-xs">
+      <Card>
         <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-11 w-11 shrink-0 transition-transform active:scale-95"
-              onClick={() => handlePeriodChange(previousPeriod)}
-              aria-label={uk.store.previousMonth}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-
-            <input
-              type="month"
-              value={period}
-              onChange={(e) => handlePeriodChange(e.target.value)}
-              className="h-11 px-3 py-2 rounded-control border border-border bg-page text-text-main text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors"
-              aria-label="Місяць"
-            />
-
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-11 w-11 shrink-0 transition-transform active:scale-95"
-              onClick={() => handlePeriodChange(nextPeriod)}
-              aria-label={uk.store.nextMonth}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
-          </div>
+          <PeriodPicker
+            value={period}
+            onChange={handlePeriodChange}
+            labels={{ previous: uk.store.previousMonth, next: uk.store.nextMonth, month: uk.store.monthLabel }}
+          />
 
           <label className="flex items-center space-x-3 cursor-pointer select-none min-h-[44px]">
             <input
@@ -164,11 +141,10 @@ export default function AdminSummaryPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="hover:-translate-y-0.5 transition-all duration-200">
+        <Card>
           <CardHeader className="p-4 pb-2">
             <div className="flex items-center justify-between text-text-muted">
               <span className="text-xs font-medium uppercase tracking-wider">{uk.summary.kpiTotal}</span>
-              <TrendingUp className="h-4 w-4 text-primary" />
             </div>
           </CardHeader>
           <CardContent className="p-4 pt-0">
@@ -178,25 +154,23 @@ export default function AdminSummaryPage() {
           </CardContent>
         </Card>
 
-        <Card className="hover:-translate-y-0.5 transition-all duration-200">
+        <Card>
           <CardHeader className="p-4 pb-2">
             <div className="flex items-center justify-between text-text-muted">
               <span className="text-xs font-medium uppercase tracking-wider">{uk.summary.kpiSubmittedReports}</span>
-              <TrendingUp className="h-4 w-4 text-primary" />
             </div>
           </CardHeader>
           <CardContent className="p-4 pt-0">
             <div className="text-2xl font-bold tabular-nums text-text-main">
-              {isLoading ? "—" : `${storeTotals.filter((t) => t > 0).length} / ${stores.length}`}
+              {reportList ? `${reportList.filter((r) => r.status === "submitted").length} / ${reportList.length}` : "—"}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="hover:-translate-y-0.5 transition-all duration-200">
+        <Card>
           <CardHeader className="p-4 pb-2">
             <div className="flex items-center justify-between text-text-muted">
-              <span className="text-xs font-medium uppercase tracking-wider">{uk.summary.tableTotalQuantity}</span>
-              <TrendingUp className="h-4 w-4 text-primary" />
+              <span className="text-xs font-medium uppercase tracking-wider">{uk.summary.kpiQuantity}</span>
             </div>
           </CardHeader>
           <CardContent className="p-4 pt-0">
@@ -349,8 +323,9 @@ export default function AdminSummaryPage() {
                   </th>
                   {stores.map((store) => (
                     <Fragment key={store.id}>
-                      <th className="py-3 px-3 text-right whitespace-nowrap min-w-[120px] border-r border-border/20 sticky top-0 bg-surface z-20">
-                        <span>{store.name}</span>
+                      <th className="py-3 px-3 text-right align-bottom leading-snug min-w-[96px] max-w-[160px] border-r border-border/20 sticky top-0 bg-surface z-20">
+                        {/* Long organisation names wrap instead of pushing the totals out of view. */}
+                        <span title={store.name}>{store.name}</span>
                         {store.archived && (
                           <span className="ml-1 text-[10px] text-destructive font-normal lowercase">(в архіві)</span>
                         )}

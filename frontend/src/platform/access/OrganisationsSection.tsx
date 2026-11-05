@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/platform/auth/AuthContext";
 import { accessApi, P } from "@/platform/access/api";
 import type { OrganisationDTO } from "@/platform/api/types";
+import { useModuleRegistry } from "@/platform/modules";
 import { ukPlatform as uk } from "@/platform/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/Card";
 import { Button } from "@/ui/Button";
@@ -14,14 +15,20 @@ import { useConfirm } from "@/ui/ConfirmDialog";
 import { Archive, Plus, RotateCcw, Trash2 } from "lucide-react";
 import type { AdminSectionProps } from "@/platform/modules";
 
-function usageText(org: OrganisationDTO): string {
+/** "Користувачів: 2 · Звіти: 5": record counts per module, named by the module's title. */
+function usageText(org: OrganisationDTO, titles: Record<string, string>): string {
   const parts = [uk.access.usersCount(org.user_count ?? 0)];
-  for (const [module, count] of Object.entries(org.usage ?? {})) parts.push(`${module}: ${count}`);
+  for (const [module, count] of Object.entries(org.usage ?? {})) parts.push(`${titles[module] ?? module}: ${count}`);
   return parts.join(" · ");
+}
+
+function useModuleTitles(): Record<string, string> {
+  return Object.fromEntries(useModuleRegistry().map((m) => [m.id, m.title]));
 }
 
 function OrganisationRow({ org, notify, onArchive }: { org: OrganisationDTO; notify: AdminSectionProps["notify"]; onArchive: () => void }) {
   const queryClient = useQueryClient();
+  const titles = useModuleTitles();
   const [name, setName] = useState(org.name);
   const rename = useMutation({
     mutationFn: () => accessApi.updateOrganisation(org.id, { name }),
@@ -43,7 +50,7 @@ function OrganisationRow({ org, notify, onArchive }: { org: OrganisationDTO; not
           maxLength={100}
           className="h-11 font-medium"
         />
-        <p className="text-xs text-text-muted">{usageText(org)}</p>
+        <p className="text-xs text-text-muted">{usageText(org, titles)}</p>
       </div>
       <div className="flex items-center gap-1 shrink-0">
         {changed && (
@@ -68,6 +75,7 @@ function OrganisationRow({ org, notify, onArchive }: { org: OrganisationDTO; not
 
 export default function OrganisationsSection({ notify }: AdminSectionProps) {
   const { can } = useAuth();
+  const titles = useModuleTitles();
   const queryClient = useQueryClient();
   const { ask, dialog } = useConfirm(uk.common.cancel);
   const [creating, setCreating] = useState(false);
@@ -216,7 +224,7 @@ export default function OrganisationsSection({ notify }: AdminSectionProps) {
               <div key={org.id} className="p-4 flex items-center justify-between gap-4">
                 <div>
                   <span className="text-sm text-text-muted line-through">{org.name}</span>
-                  <p className="text-xs text-text-muted">{usageText(org)}</p>
+                  <p className="text-xs text-text-muted">{usageText(org, titles)}</p>
                 </div>
                 <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => restore.mutate(org.id)}>
                   <RotateCcw className="h-4 w-4 mr-1.5" />

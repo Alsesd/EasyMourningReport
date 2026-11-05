@@ -18,6 +18,7 @@ export const uk = {
 
   store: {
     previousMonth: "Попередній місяць",
+    monthLabel: "Місяць звіту",
     nextMonth: "Наступний місяць",
     statusSent: "Надіслано",
     statusDraft: "Чернетка",
@@ -56,9 +57,10 @@ export const uk = {
     downloadXlsx: "Завантажити Excel",
     kpiTotal: "Загальна сума",
     kpiSubmittedReports: "Надіслано звітів",
+    kpiQuantity: "Одиниць за місяць",
     tableProduct: "Товар",
     tablePrice: "Ціна",
-    tableTotalQuantity: "К-сть",
+    tableTotalQuantity: "Кількість",
     tableCalculationQuantity: "Кількість по розрахунку",
     tableCalculationQuantityTotal: "По розрахунку (разом)",
     tableTotalSum: "Сума",
@@ -93,6 +95,7 @@ export const uk = {
         "Для увімкнених організацій у звіті з'являється окрема кількість «по розрахунку». Вона не впливає на суми.",
       reportsCount: (n: number) => `Звітів: ${n}`,
       enabled: "Увімкнено",
+      disabled: "Вимкнено",
       updated: "Налаштування звітів збережено.",
       empty: "Організацій ще немає.",
     },

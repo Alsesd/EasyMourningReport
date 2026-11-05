@@ -13,7 +13,7 @@ cd backend && uv run --project .. python -m app   # dev server on 127.0.0.1:8000
 
 cd frontend && npm ci
 npm run lint && npm run typecheck && npm test && npm run build
-npm run dev                               # Vite, proxies /api and /static to :8000
+npm run dev                               # app at :5173, proxies /api etc. to :8000 (BACKEND_URL overrides)
 npm run gen:api                           # regenerate src/platform/api/schema.d.ts from OpenAPI
 ```
 
@@ -32,6 +32,7 @@ npm run gen:api                           # regenerate src/platform/api/schema.d
 - The SPA catch-all in `routes/fallback.py` is registered last.
 - Database: SQLite in-process by design (docs/adr/0003-keep-sqlite.md). Don't write ORM code that reassigns large relationship collections (SQLModel `__eq__` makes it quadratic); delete/insert rows instead.
 - Public access is Cloudflare Tunnel only, supervised by the app (`platform/system/tunnel.py`). There is one container; backups run in-app.
+- `font-mono` means aligned figures (Onest + tabular numerals), not a code font. Months use `ui/PeriodPicker` (Ukrainian), on/off settings `ui/Switch`, never native month/file controls (they render in the browser's language).
 - Tailwind colours are CSS variables wrapped by `token()` in `tailwind.config.js` so opacity modifiers (`bg-primary/10`) work; keep new colours in that form.
 
 ## UI and copy

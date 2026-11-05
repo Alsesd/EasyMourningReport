@@ -1,11 +1,12 @@
 import { useSearchParams, Link } from "react-router-dom";
+import { PeriodPicker } from "@/ui/PeriodPicker";
 import { useQuery } from "@tanstack/react-query";
 import { reportsApi } from "@/modules/reports/api";
-import { uk, formatCurrency, formatPeriodReadable, shiftPeriod } from "@/modules/reports/i18n";
+import { uk, formatCurrency, formatPeriodReadable } from "@/modules/reports/i18n";
 import { Card, CardHeader, CardTitle, CardContent } from "@/ui/Card";
 import { Button } from "@/ui/Button";
 import { StatusPill } from "@/modules/reports/components/StatusPill";
-import { ChevronLeft, ChevronRight, ChevronRight as ArrowIcon, BarChart3, AlertCircle } from "lucide-react";
+import { ChevronRight as ArrowIcon, BarChart3, AlertCircle } from "lucide-react";
 
 export default function AdminReportsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -25,8 +26,6 @@ export default function AdminReportsPage() {
     setSearchParams(next);
   };
 
-  const previousPeriod = shiftPeriod(period, -1);
-  const nextPeriod = shiftPeriod(period, 1);
 
   const reportItems = reports || [];
   const totalSumCents = reportItems.reduce((acc, r) => acc + (r.total_cents || 0), 0);
@@ -53,35 +52,11 @@ export default function AdminReportsPage() {
       {/* Month Navigation */}
       <Card>
         <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-11 w-11 shrink-0"
-              onClick={() => handlePeriodChange(previousPeriod)}
-              aria-label={uk.store.previousMonth}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-
-            <input
-              type="month"
-              value={period}
-              onChange={(e) => handlePeriodChange(e.target.value)}
-              className="h-11 px-3 py-2 rounded-control border border-border bg-page text-text-main text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label="Місяць"
-            />
-
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-11 w-11 shrink-0"
-              onClick={() => handlePeriodChange(nextPeriod)}
-              aria-label={uk.store.nextMonth}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
-          </div>
+          <PeriodPicker
+            value={period}
+            onChange={handlePeriodChange}
+            labels={{ previous: uk.store.previousMonth, next: uk.store.nextMonth, month: uk.store.monthLabel }}
+          />
 
           <div className="flex items-center space-x-4 text-xs sm:text-sm text-text-muted">
             <span>

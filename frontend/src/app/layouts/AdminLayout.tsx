@@ -45,7 +45,7 @@ export default function AdminLayout() {
           </div>
           <div className="min-w-0">
             <p className="text-[15px] font-semibold tracking-tight text-[#fffefa]">{uk.appTitle}</p>
-            <p className="mt-0.5 truncate text-[11px] text-[#c0d0c2]">{uk.appSubtitle}</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-[#c0d0c2]">{uk.appSubtitle}</p>
           </div>
         </div>
 
@@ -89,8 +89,9 @@ export default function AdminLayout() {
               <BookOpen className="h-[18px] w-[18px]" strokeWidth={1.7} />
             </div>
             <div className="min-w-0">
-              <p className="portal-context-label hidden sm:block">{uk.nav.portalLabel}</p>
-              <span className="block truncate text-base font-semibold tracking-tight text-text-main sm:mt-0.5 sm:text-lg">{uk.appTitle}</span>
+              {/* Where you are: the brand is already in the sidebar, so the bar names the current area. */}
+              <p className="portal-context-label">{uk.appTitle}</p>
+              <span className="block truncate text-base font-semibold tracking-tight text-text-main sm:mt-0.5 sm:text-lg">{pageTitle}</span>
             </div>
           </div>
 

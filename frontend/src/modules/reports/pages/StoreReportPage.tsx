@@ -502,7 +502,7 @@ export default function StoreReportPage() {
                             {iIdx === 0 && (
                               <td
                                 rowSpan={inputs.length}
-                                className="py-3 px-4 align-top border-r border-border/30"
+                                className={`py-3 px-4 border-r border-border/30 ${inputs.length > 1 ? "align-top" : "align-middle"}`}
                               >
                                 <span className="font-semibold text-text-main block">{row.name}</span>
                               </td>

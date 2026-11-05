@@ -60,6 +60,10 @@ export default {
       },
       fontFamily: {
         sans: ["Onest", "sans-serif"],
+        // `font-mono` marks figures that must line up (money, quantities, times, logins). There is
+        // no bundled monospace face, so browsers fell back to a Courier look; Onest with tabular
+        // numerals (see index.css) keeps the columns aligned and the type consistent.
+        mono: ["Onest", "ui-sans-serif", "sans-serif"],
       },
       minHeight: {
         touch: "44px",

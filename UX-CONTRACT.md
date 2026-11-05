@@ -31,7 +31,8 @@
 | Buttons | `frontend/src/ui/Button.tsx` | UI primitives + design tokens | primary/secondary/destructive/ghost/outline | component/page tests |
 | Dialogs | `frontend/src/ui/Dialog.tsx` | action-specific confirmation copy | confirm/cancel | keyboard + action tests |
 | Navigation | `frontend/src/app/layouts/AdminLayout.tsx` | route map in `App.tsx` | desktop rail/mobile bottom bar | route + narrow viewport review |
-| Date/period | native month input + period helpers | `YYYY-MM`, report API | month selector | type validation + period tests |
+| Date/period | `frontend/src/ui/PeriodPicker.tsx` (Ukrainian month list with previous/next) + period helpers | `YYYY-MM`, report API | month selector | period tests |
+| On/off settings | `frontend/src/ui/Switch.tsx` (native checkbox, `role="switch"`, state text follows state) | API DTOs | per-row toggles | page tests |
 | Scrollbar | global stylesheet | root `DESIGN.md` | standard; native overflow for data tables | computed CSS + keyboard scroll |
 | CRUD and persistence | report module API + TanStack Query mutations | `docs/API.md` | draft, submit, archive/restore, lock/unlock | API and page tests |
 

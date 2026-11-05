@@ -139,7 +139,7 @@ describe("AdminHubPage", () => {
 
   it("toggles the calculation mode and confirms with a notice", async () => {
     renderAt(admin, "/admin/manage/report-settings");
-    const toggle = await screen.findByRole("checkbox", { name: /Магазин Центр/ });
+    const toggle = await screen.findByRole("switch", { name: /Магазин Центр/ });
     fireEvent.click(toggle);
     expect(await screen.findByText("Налаштування звітів збережено.")).toBeDefined();
     const put = vi.mocked(globalThis.fetch).mock.calls.find(([, init]) => init?.method === "PUT");

@@ -44,6 +44,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
   const [activeInput, setActiveInput] = useState<Record<number, boolean>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState("");
 
   // Queries
   const { data: productsData, isLoading: productsLoading } = useQuery({
@@ -112,6 +113,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["adminProducts"] });
       if (fileInputRef.current) fileInputRef.current.value = "";
+      setFileName("");
       notify(res?.message || "Імпорт товарів завершено.");
     },
     onError: (err: Error) => notify(err.message || "Не вдалося імпортувати товари.", "err"),
@@ -265,14 +267,22 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                 }}
                 className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  name="file"
-                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                  required
-                  className="flex-1 text-sm text-text-muted file:mr-4 file:py-2 file:px-4 file:rounded-control file:border-0 file:text-sm file:font-medium file:bg-surface file:text-text-main hover:file:bg-page min-h-[44px] border border-border rounded-control p-1 bg-page/40"
-                />
+                {/* The native file control renders in the browser's language; this label replaces its look. */}
+                <label className="flex flex-1 min-h-[44px] cursor-pointer items-center gap-3 rounded-control border border-border bg-page/40 p-1 pr-3 focus-within:ring-2 focus-within:ring-primary">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    name="file"
+                    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    required
+                    className="sr-only"
+                    onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")}
+                  />
+                  <span className="rounded-control bg-surface px-4 py-2 text-sm font-medium text-text-main shadow-2xs">Обрати файл</span>
+                  <span className={`truncate text-sm ${fileName ? "text-text-main" : "text-text-muted"}`}>
+                    {fileName || "Файл не обрано"}
+                  </span>
+                </label>
                 <Button
                   type="submit"
                   variant="outline"

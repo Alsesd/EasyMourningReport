@@ -1,11 +1,11 @@
 {
   "name": "Легкий звіт",
   "short_name": "Легкий звіт",
-  "description": "Щомісячні товарні звіти з кількох магазинів",
+  "description": "Внутрішня платформа ритуальних служб: звіти, довідники, доступ",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#F3F2EB",
   "theme_color": "#F3F2EB",
   "icons": [

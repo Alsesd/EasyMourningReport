@@ -130,7 +130,8 @@
     font: inherit;
   }
 
-  table {
+  table,
+  .font-mono {
     font-variant-numeric: tabular-nums;
   }
 
@@ -174,8 +175,8 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.52),
     0 1px 2px rgba(29, 47, 39, 0.035),
     0 12px 30px rgba(29, 47, 39, 0.055) !important;
-  backdrop-filter: blur(18px) saturate(118%);
-  -webkit-backdrop-filter: blur(18px) saturate(118%);
+  /* No backdrop blur here: cards sit on a near-flat background, so blurring it adds nothing but
+     repaint cost on every scroll (store machines are modest). Bars that overlap content keep it. */
 }
 .dark .shadow-card, [data-theme="dark"] .shadow-card {
   background: linear-gradient(

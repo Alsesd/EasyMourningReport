@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AdminSummaryPage from "./AdminSummaryPage";
@@ -50,6 +50,15 @@ describe("AdminSummaryPage", () => {
     queryClient.setQueryData(["adminSummary", "2026-10", false], mockSummary);
 
     globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/api/v1/admin/reports")) {
+        // A draft with amounts and a submitted report: only the latter counts as submitted.
+        const reports = [
+          { store_id: 1, store_name: "Магазин Центр", store_archived: false, report_id: 1, period: "2026-10", status: "draft", total_cents: 5000, item_count: 2 },
+          { store_id: 2, store_name: "Магазин Вокзал", store_archived: false, report_id: 2, period: "2026-10", status: "submitted", total_cents: 0, item_count: 0 },
+          { store_id: 3, store_name: "Магазин Парк", store_archived: false, report_id: null, period: "2026-10", status: "none", total_cents: 0, item_count: 0 },
+        ];
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(reports) });
+      }
       if (url.includes("/api/v1/admin/summary")) {
         return Promise.resolve({
           ok: true,
@@ -79,6 +88,12 @@ describe("AdminSummaryPage", () => {
     expect(screen.getByText("Свічка поминальна")).toBeDefined();
     expect(screen.getByText("Хустка шовкова")).toBeDefined();
     expect(screen.getByText("Загальний підсумок")).toBeDefined();
+  });
+
+  it("counts submitted reports by status, not by amounts", async () => {
+    renderPage();
+    const card = (await screen.findByText("Надіслано звітів")).closest("div.rounded-card") as HTMLElement;
+    expect(await within(card).findByText("1 / 3")).toBeDefined();
   });
 
   it("has excel download link with correct search params", async () => {

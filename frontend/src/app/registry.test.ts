@@ -31,7 +31,7 @@ describe("module registry", () => {
   it("builds navigation from permissions", () => {
     expect(navFor(["reports.submit"]).map((n) => n.id)).toEqual(["report"]);
     expect(navFor(["reports.review", "platform.audit.view"]).map((n) => n.id)).toEqual(["summary", "reports", "admin"]);
-    expect(navFor(["transport.orders.create", "org.users.manage"]).map((n) => n.id)).toEqual(["transport", "admin"]);
+    expect(navFor(["transport.orders.create", "org.users.manage"]).map((n) => n.id)).toEqual(["admin"]);
     // A module's catalogue permission alone is enough to reach the hub.
     expect(navFor(["reports.catalog.manage"]).map((n) => n.id)).toEqual(["admin"]);
   });
