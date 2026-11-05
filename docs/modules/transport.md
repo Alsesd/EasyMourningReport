@@ -12,4 +12,4 @@ Reserved for submitting and tracking transport orders. Today it registers its pe
 
 Suggested next step: a `TransportOrder` table with organisation, requested date/time, pickup, destination and notes, plus a `TransportOrderStatusChange` history table (`new → accepted → in_progress → done | cancelled`). Organisation members list and create their own orders. Staff with `manage` change status, and each change writes an audit entry.
 
-The public-tunnel controls that used to live in `frontend/src/modules/transport/api.ts` are now `frontend/src/platform/system/`.
+The public-tunnel controls that once lived in `frontend/src/modules/transport/api.ts` are in `frontend/src/platform/system/` (Cloudflare Tunnel only; Tailscale support was removed).

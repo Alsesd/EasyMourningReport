@@ -1,3 +1,13 @@
+/**
+ * Design tokens are CSS custom properties (src/app/index.css). Tailwind cannot apply opacity
+ * modifiers such as `bg-primary/10` to a plain `var(--primary)`, and silently emits nothing,
+ * so every token goes through `token()`, which mixes in transparency with color-mix().
+ */
+const token = (name) => ({ opacityValue }) =>
+  opacityValue === undefined || opacityValue === "1"
+    ? `var(${name})`
+    : `color-mix(in srgb, var(${name}) calc(${opacityValue} * 100%), transparent)`;
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
@@ -8,35 +18,35 @@ export default {
   theme: {
     extend: {
       colors: {
-        page: "var(--page)",
-        surface: "var(--surface)",
-        "surface-raised": "var(--surface-raised)",
-        "text-main": "var(--text)",
-        "text-muted": "var(--muted-text)",
-        border: "var(--border)",
+        page: token("--page"),
+        surface: token("--surface"),
+        "surface-raised": token("--surface-raised"),
+        "text-main": token("--text"),
+        "text-muted": token("--muted-text"),
+        border: token("--border"),
         accent: {
-          DEFAULT: "var(--accent)",
-          soft: "var(--accent-soft)",
-          cool: "var(--accent-cool)",
-          "cool-soft": "var(--accent-cool-soft)",
+          DEFAULT: token("--accent"),
+          soft: token("--accent-soft"),
+          cool: token("--accent-cool"),
+          "cool-soft": token("--accent-cool-soft"),
         },
         primary: {
-          DEFAULT: "var(--primary)",
-          fg: "var(--primary-fg)",
-          hover: "var(--primary-hover)",
+          DEFAULT: token("--primary"),
+          fg: token("--primary-fg"),
+          hover: token("--primary-hover"),
         },
         destructive: {
-          DEFAULT: "var(--destructive)",
-          fg: "var(--destructive-fg)",
-          hover: "var(--destructive-hover)",
+          DEFAULT: token("--destructive"),
+          fg: token("--destructive-fg"),
+          hover: token("--destructive-hover"),
         },
         pill: {
-          "sent-bg": "var(--pill-sent-bg)",
-          "sent-text": "var(--pill-sent-text)",
-          "draft-bg": "var(--pill-draft-bg)",
-          "draft-text": "var(--pill-draft-text)",
-          "none-bg": "var(--pill-none-bg)",
-          "none-text": "var(--pill-none-text)",
+          "sent-bg": token("--pill-sent-bg"),
+          "sent-text": token("--pill-sent-text"),
+          "draft-bg": token("--pill-draft-bg"),
+          "draft-text": token("--pill-draft-text"),
+          "none-bg": token("--pill-none-bg"),
+          "none-text": token("--pill-none-text"),
         },
       },
       borderRadius: {

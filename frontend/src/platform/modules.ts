@@ -2,8 +2,9 @@
  * The contract every frontend feature module implements.
  *
  * A module lives in `src/modules/<name>/` and exports one `AppModule` from `module.tsx`.
- * The app shell builds routes, navigation, the landing page and the settings tabs from the
- * list in `src/modules/index.ts`; nothing else in the shell changes when a module is added.
+ * The app shell builds routes, navigation, the landing page and the sections of the
+ * «Адміністрування» hub from the list in `src/modules/index.ts`; nothing else in the shell
+ * changes when a module is added.
  * Every entry names the permission codes (from the backend) that unlock it; a user needs
  * at least one of them.
  */
@@ -36,16 +37,22 @@ export interface NavItem {
   keepPeriod?: boolean;
 }
 
-export interface SettingsSectionProps {
+export interface AdminSectionProps {
   notify: (text: string, kind?: "ok" | "err") => void;
 }
 
-export interface SettingsSection {
+/** Where a section is listed in the hub's menu. */
+export type AdminGroup = "access" | "catalog" | "system" | "activity";
+
+export interface AdminSection {
+  /** Unique across modules; also the URL: `/admin/manage/<id>`. */
   id: string;
   label: string;
+  description: string;
+  group: AdminGroup;
   icon: LucideIcon;
   permissions: string[];
-  component: LazyExoticComponent<ComponentType<SettingsSectionProps>> | ComponentType<SettingsSectionProps>;
+  component: LazyExoticComponent<ComponentType<AdminSectionProps>> | ComponentType<AdminSectionProps>;
   order: number;
 }
 
@@ -61,7 +68,7 @@ export interface AppModule {
   title: string;
   routes: ModuleRoute[];
   nav?: NavItem[];
-  settings?: SettingsSection[];
+  admin?: AdminSection[];
   landing?: LandingPage[];
 }
 
@@ -78,12 +85,12 @@ export function useModuleRegistry(): AppModule[] {
   return useContext(ModuleRegistryContext);
 }
 
-export function settingsSectionsFor(
+export function adminSectionsFor(
   modules: AppModule[],
   permissions: readonly string[] | undefined,
-): SettingsSection[] {
+): AdminSection[] {
   return modules
-    .flatMap((m) => m.settings ?? [])
+    .flatMap((m) => m.admin ?? [])
     .filter((section) => allowed(permissions, section.permissions))
     .sort((a, b) => a.order - b.order);
 }

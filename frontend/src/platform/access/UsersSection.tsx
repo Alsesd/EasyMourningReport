@@ -12,7 +12,7 @@ import { Input } from "@/ui/Input";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { useConfirm } from "@/ui/ConfirmDialog";
 import { KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
-import type { Notify } from "./AccessPage";
+import type { AdminSectionProps } from "@/platform/modules";
 
 const PLATFORM = "platform";
 
@@ -188,7 +188,7 @@ function UserForm({
   );
 }
 
-function PasswordReset({ user, notify }: { user: UserDTO; notify: Notify }) {
+function PasswordReset({ user, notify }: { user: UserDTO; notify: AdminSectionProps["notify"] }) {
   const [password, setPassword] = useState("");
   const reset = useMutation({
     mutationFn: () => accessApi.setUserPassword(user.id, password),
@@ -226,7 +226,7 @@ function PasswordReset({ user, notify }: { user: UserDTO; notify: Notify }) {
   );
 }
 
-export default function UsersTab({ notify }: { notify: Notify }) {
+export default function UsersSection({ notify }: AdminSectionProps) {
   const { can, session } = useAuth();
   const platformManager = can(P.usersManage);
   const queryClient = useQueryClient();

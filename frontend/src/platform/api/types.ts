@@ -19,6 +19,11 @@ export type UserUpdateDTO = Schemas["UserUpdateDTO"];
 export type RoleDTO = Schemas["RoleDTO"];
 export type RoleInputDTO = Schemas["RoleInputDTO"];
 export type PermissionDTO = Schemas["PermissionDTO"];
+export type TunnelStatusDTO = Schemas["TunnelStatusDTO"];
+export type TunnelStartDTO = Schemas["TunnelStartDTO"];
+export type BackupDTO = Schemas["BackupDTO"];
+export type SystemHealthDTO = Schemas["SystemHealthDTO"];
+export type AdminOverviewDTO = Schemas["AdminOverviewDTO"];
 
 // Reports module
 export type StoreReportDTO = Schemas["StoreReportDTO"];

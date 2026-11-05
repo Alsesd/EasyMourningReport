@@ -20,10 +20,11 @@ export const reportsModule: AppModule = {
     { id: "summary", to: "/admin/summary", label: uk.nav.summary, icon: BarChart3, permissions: [RP.review], order: 10, keepPeriod: true },
     { id: "reports", to: "/admin/reports", label: uk.nav.reports, icon: FileText, permissions: [RP.review], order: 20, keepPeriod: true },
   ],
-  settings: [
-    { id: "products", label: uk.settings.tabs.products, icon: Package, permissions: [RP.catalogManage], order: 10,
-      component: lazy(() => import("./settings/ProductsSection")) },
-    { id: "report-settings", label: uk.settings.tabs.reportSettings, icon: SlidersHorizontal, permissions: [RP.settingsManage], order: 20,
+  admin: [
+    { id: "products", label: uk.settings.tabs.products, description: uk.settings.tabs.productsDescription, group: "catalog",
+      icon: Package, permissions: [RP.catalogManage], order: 10, component: lazy(() => import("./settings/ProductsSection")) },
+    { id: "report-settings", label: uk.settings.tabs.reportSettings, description: uk.settings.tabs.reportSettingsDescription,
+      group: "catalog", icon: SlidersHorizontal, permissions: [RP.settingsManage], order: 20,
       component: lazy(() => import("./settings/ReportSettingsSection")) },
   ],
   landing: [

@@ -17,12 +17,13 @@ Monthly store reports: product catalogue with price history, report entry by org
 | `permissions.py` | `reports.submit`, `reports.review`, `reports.catalog.manage`, `reports.settings.manage`, audit actions |
 | `migrations.py` | Upgrades from older releases |
 | `seed.py` | Demo data |
+| `overview.py` | Figures on the «Адміністрування» overview (reports submitted this month, active products) |
 
 A report belongs to an organisation (`reports.store_id` → `organisations.id`; the column keeps its historic name). Members with `reports.submit` only ever reach their own organisation's report.
 
 ## Frontend
 
-`module.tsx` registers the standalone store report (`/report`), the summary and report pages, the «Товари» and «Звіти організацій» settings sections, and the landing pages. `api.ts` wraps the endpoints, `i18n.ts` extends the platform dictionary, and `permissions.ts` mirrors the backend codes.
+`module.tsx` registers the standalone store report (`/report`), the summary and report pages, the «Товари й ціни» and «Звіти організацій» sections of «Адміністрування», and the landing pages. `api.ts` wraps the endpoints, `i18n.ts` extends the platform dictionary, and `permissions.ts` mirrors the backend codes.
 
 ## Tests
 

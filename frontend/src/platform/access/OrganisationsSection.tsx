@@ -12,7 +12,7 @@ import { Input } from "@/ui/Input";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { useConfirm } from "@/ui/ConfirmDialog";
 import { Archive, Plus, RotateCcw, Trash2 } from "lucide-react";
-import type { Notify } from "./AccessPage";
+import type { AdminSectionProps } from "@/platform/modules";
 
 function usageText(org: OrganisationDTO): string {
   const parts = [uk.access.usersCount(org.user_count ?? 0)];
@@ -20,7 +20,7 @@ function usageText(org: OrganisationDTO): string {
   return parts.join(" · ");
 }
 
-function OrganisationRow({ org, notify, onArchive }: { org: OrganisationDTO; notify: Notify; onArchive: () => void }) {
+function OrganisationRow({ org, notify, onArchive }: { org: OrganisationDTO; notify: AdminSectionProps["notify"]; onArchive: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState(org.name);
   const rename = useMutation({
@@ -66,7 +66,7 @@ function OrganisationRow({ org, notify, onArchive }: { org: OrganisationDTO; not
   );
 }
 
-export default function OrganisationsTab({ notify }: { notify: Notify }) {
+export default function OrganisationsSection({ notify }: AdminSectionProps) {
   const { can } = useAuth();
   const queryClient = useQueryClient();
   const { ask, dialog } = useConfirm(uk.common.cancel);

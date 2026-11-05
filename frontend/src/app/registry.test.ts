@@ -24,28 +24,23 @@ describe("module registry", () => {
     expect(new Set(nav).size).toBe(nav.length);
     const paths = appModules.flatMap((m) => m.routes).map((r) => r.path);
     expect(new Set(paths).size).toBe(paths.length);
+    const sections = appModules.flatMap((m) => m.admin ?? []).map((s) => s.id);
+    expect(new Set(sections).size).toBe(sections.length);
   });
 
   it("builds navigation from permissions", () => {
-    expect(navFor(["reports.submit"]).map((n) => n.id)).toEqual(["report", "settings"]);
-    expect(navFor(["reports.review", "platform.audit.view"]).map((n) => n.id)).toEqual([
-      "summary",
-      "reports",
-      "settings",
-      "logs",
-    ]);
-    expect(navFor(["transport.orders.create", "org.users.manage"]).map((n) => n.id)).toEqual([
-      "transport",
-      "access",
-      "settings",
-    ]);
+    expect(navFor(["reports.submit"]).map((n) => n.id)).toEqual(["report"]);
+    expect(navFor(["reports.review", "platform.audit.view"]).map((n) => n.id)).toEqual(["summary", "reports", "admin"]);
+    expect(navFor(["transport.orders.create", "org.users.manage"]).map((n) => n.id)).toEqual(["transport", "admin"]);
+    // A module's catalogue permission alone is enough to reach the hub.
+    expect(navFor(["reports.catalog.manage"]).map((n) => n.id)).toEqual(["admin"]);
   });
 
   it("lands every kind of user on the best page they may open", () => {
     expect(landingPathFor(session(["reports.review", "reports.submit"]))).toBe("/admin/summary");
     expect(landingPathFor(session(["reports.submit"], { id: 1, name: "Shop" }))).toBe("/report");
-    expect(landingPathFor(session(["org.users.manage"], { id: 1, name: "Shop" }))).toBe("/admin/access");
-    expect(landingPathFor(session([]))).toBe("/admin/settings");
+    expect(landingPathFor(session(["org.users.manage"], { id: 1, name: "Shop" }))).toBe("/admin/manage");
+    expect(landingPathFor(session([]))).toBe("/admin/home");
     expect(landingPathFor(null)).toBe("/login");
   });
 });

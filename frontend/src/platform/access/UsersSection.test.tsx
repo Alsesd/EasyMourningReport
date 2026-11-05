@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import AccessPage from "./AccessPage";
+import UsersSection from "./UsersSection";
 import { AuthProvider } from "@/platform/auth/AuthContext";
 import type { RoleDTO, SessionDTO, UserDTO } from "@/platform/api/types";
 
@@ -40,7 +40,7 @@ function json(data: unknown, status = 200) {
   return Promise.resolve({ ok: status < 400, status, json: () => Promise.resolve(data) });
 }
 
-describe("AccessPage", () => {
+describe("UsersSection", () => {
   let queryClient: QueryClient;
 
   beforeEach(() => {
@@ -64,17 +64,16 @@ describe("AccessPage", () => {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <MemoryRouter>
-            <AccessPage />
+            <UsersSection notify={vi.fn()} />
           </MemoryRouter>
         </AuthProvider>
       </QueryClientProvider>
     );
   }
 
-  it("shows an organisation admin only the users tab for their organisation", async () => {
+  it("shows an organisation admin only their organisation's users", async () => {
     renderPage(orgAdmin);
     expect(await screen.findByText("clerk")).toBeDefined();
-    expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.getByText("Вимкнено")).toBeDefined();
     // No organisation picker: the server always uses the manager's own organisation.
     expect(screen.queryByLabelText("Організація")).toBeNull();
@@ -103,9 +102,8 @@ describe("AccessPage", () => {
     });
   });
 
-  it("gives a platform admin users, organisations and roles tabs", async () => {
+  it("lets a platform admin pick the organisation", async () => {
     renderPage(platformAdmin);
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Користувачі", "Організації", "Ролі"]);
     expect(await screen.findByLabelText("Організація")).toBeDefined();
   });
 });

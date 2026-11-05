@@ -11,7 +11,7 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 - Every resource response is a DTO, not a serialized SQLModel/ORM instance. Password hashes and persistence-only fields are never exposed.
 - The browser uses the existing signed session cookie. Unauthenticated requests return `401`, missing permissions return `403`, missing resources return `404`, conflicting state returns `409`, and invalid payloads return `422`.
 - Unsafe methods (POST, PUT, PATCH, DELETE) require a same-origin `Origin` or `Referer` header. Browser `fetch` supplies the origin automatically for these requests.
-- Legacy HTML form routes remain registered for compatibility, but migrated admin/store actions use the JSON API. API CSRF failures also return JSON.
+- Outside `/api/v1` the server only serves the SPA, PWA files (`/manifest.webmanifest`, `/sw.js`, `/offline`) and the container health probe `GET /healthz`.
 
 ## Access control
 
@@ -38,8 +38,14 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | GET | `/roles?organisation_id=` | `platform.roles.manage`, `platform.users.manage` or `org.users.manage` | All roles for platform managers; assignable roles otherwise |
 | POST / PUT / DELETE | `/roles`, `/roles/{id}` | `platform.roles.manage` | Custom roles. Built-in roles cannot be deleted; «Адміністратор» and «Адміністратор організації» always hold every permission of their scope |
 | GET | `/admin/log-actions`, `/admin/logs?login=&action=&limit=200` | `platform.audit.view` | Audit-log filter values and entries |
-| GET / POST / PUT / DELETE | `/admin/tunnel`, `/admin/tunnel/autostart`, `/admin/tailscale…` | `platform.system.manage` | Public tunnel and Tailscale Funnel |
-| GET | `/admin/backup/download` | `platform.system.manage` | Download a fresh SQLite snapshot |
+| GET | `/admin/overview` | signed in | «Адміністрування» overview: account counts, tunnel, database health, recent activity, module figures. Each part is present only when the caller may see it |
+| GET | `/admin/tunnel` | `platform.system.manage` | Tunnel status: `state` is disabled, stopped, starting, running or error; `public_url`; `has_token` (the token itself is never returned) |
+| POST | `/admin/tunnel` | `platform.system.manage` | `{confirm_public: true, token?, autostart}`. Starts cloudflared; a token is saved for later starts. `503` with `detail` if it cannot start |
+| PUT | `/admin/tunnel/autostart` | `platform.system.manage` | `{enabled}`: start the tunnel with the app |
+| DELETE | `/admin/tunnel` | `platform.system.manage` | Disconnect now (autostart preference unchanged) |
+| GET | `/admin/backups?limit=20` | `platform.system.manage` | Newest backups: name, size, time |
+| GET | `/admin/system/health` | `platform.system.manage` | Integrity check result, journal mode, database size, backup count and time, schedule |
+| GET | `/admin/backup/download` | `platform.system.manage` | Take a fresh verified snapshot and download it (`500` if it cannot be made; the live file is never streamed) |
 
 ## Reports module endpoints
 
@@ -110,7 +116,6 @@ The browser UI is a React single-page application built with Vite and TypeScript
 From the repository root, install the locked dependencies, then launch from the backend package root:
 
 ```bash
-uv lock  # first run after migrating from PDM; commit uv.lock
 uv sync
 cd backend
 uv run --project .. python -m app

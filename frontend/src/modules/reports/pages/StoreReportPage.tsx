@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/platform/api/client";
 import { reportsApi } from "@/modules/reports/api";
 import { Link } from "react-router-dom";
+import { AccountMenu } from "@/platform/account/AccountMenu";
 import { useAuth } from "@/platform/auth/AuthContext";
 import { navItemsFor, useModuleRegistry } from "@/platform/modules";
 import type { StoreReportDTO, ReportLineDTO, ReportSaveDTO } from "@/platform/api/types";
@@ -26,7 +27,6 @@ import { saveLocalDraft, loadLocalDraft, clearLocalDraft } from "@/platform/offl
 import {
   ChevronLeft,
   ChevronRight,
-  LogOut,
   AlertCircle,
   CheckCircle2,
   Lock,
@@ -38,7 +38,7 @@ import {
 import { cn } from "@/ui/utils";
 
 export default function StoreReportPage() {
-  const { session, logout } = useAuth();
+  const { session } = useAuth();
   // Users who can do more than file this report (or change their password) get a way into the workspace.
   const workspaceLink = navItemsFor(useModuleRegistry(), session?.permissions).find(
     (item) => item.to !== "/report",
@@ -340,16 +340,7 @@ export default function StoreReportPage() {
 
             <MakerMark />
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => logout()}
-              aria-label={uk.auth.logoutButton}
-              title={uk.auth.logoutButton}
-              className="h-9 w-9 text-text-muted hover:text-destructive"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <AccountMenu />
           </div>
         </div>
       </header>

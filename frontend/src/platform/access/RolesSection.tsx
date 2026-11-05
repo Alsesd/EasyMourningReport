@@ -11,7 +11,7 @@ import { Input } from "@/ui/Input";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { useConfirm } from "@/ui/ConfirmDialog";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import type { Notify } from "./AccessPage";
+import type { AdminSectionProps } from "@/platform/modules";
 
 type Scope = "platform" | "organisation";
 
@@ -167,7 +167,7 @@ function RoleForm({
   );
 }
 
-export default function RolesTab({ notify }: { notify: Notify }) {
+export default function RolesSection({ notify }: AdminSectionProps) {
   const queryClient = useQueryClient();
   const { ask, dialog } = useConfirm(uk.common.cancel);
   const [creating, setCreating] = useState(false);

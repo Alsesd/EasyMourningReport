@@ -4,91 +4,6 @@
  */
 
 export interface paths {
-    "/manifest.webmanifest": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Manifest */
-        get: operations["manifest_manifest_webmanifest_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/sw.js": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Service Worker */
-        get: operations["service_worker_sw_js_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/offline": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Offline */
-        get: operations["offline_offline_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Login Post */
-        post: operations["login_post_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Logout */
-        post: operations["logout_logout_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/session": {
         parameters: {
             query?: never;
@@ -356,54 +271,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/tailscale": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Tailscale Status
-         * @description Return the app-specific Tailscale Funnel status without credentials.
-         */
-        get: operations["get_tailscale_status_api_v1_admin_tailscale_get"];
-        put?: never;
-        /**
-         * Enable Tailscale Funnel
-         * @description Start the optional public Funnel after explicit confirmation; never persist auth keys.
-         */
-        post: operations["enable_tailscale_funnel_api_v1_admin_tailscale_post"];
-        /**
-         * Disable Tailscale Funnel
-         * @description Disconnect the live helper; the autostart preference remains independent.
-         */
-        delete: operations["disable_tailscale_funnel_api_v1_admin_tailscale_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/tailscale/autostart": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Update Tailscale Autostart
-         * @description Toggle startup autostart without changing the current Funnel session.
-         */
-        put: operations["update_tailscale_autostart_api_v1_admin_tailscale_autostart_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/tunnel": {
         parameters: {
             query?: never;
@@ -411,22 +278,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get Tunnel Status
-         * @description Return the tunnel status without credentials.
-         */
-        get: operations["get_tunnel_status_api_v1_admin_tunnel_get"];
+        /** Get Tunnel */
+        get: operations["get_tunnel_api_v1_admin_tunnel_get"];
         put?: never;
         /**
-         * Enable Tunnel
-         * @description Start public tunnel after explicit confirmation; never persist auth keys.
+         * Start Tunnel
+         * @description Open public access after explicit confirmation. A supplied token is stored, never returned.
          */
-        post: operations["enable_tunnel_api_v1_admin_tunnel_post"];
-        /**
-         * Disable Tunnel
-         * @description Disconnect the tunnel helper; the autostart preference remains independent.
-         */
-        delete: operations["disable_tunnel_api_v1_admin_tunnel_delete"];
+        post: operations["start_tunnel_api_v1_admin_tunnel_post"];
+        /** Stop Tunnel */
+        delete: operations["stop_tunnel_api_v1_admin_tunnel_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -440,11 +301,42 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /**
-         * Update Tunnel Autostart
-         * @description Toggle startup autostart without changing the current tunnel session.
-         */
-        put: operations["update_tunnel_autostart_api_v1_admin_tunnel_autostart_put"];
+        /** Set Tunnel Autostart */
+        put: operations["set_tunnel_autostart_api_v1_admin_tunnel_autostart_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Backups */
+        get: operations["get_backups_api_v1_admin_backups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Health */
+        get: operations["get_health_api_v1_admin_system_health_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -461,9 +353,29 @@ export interface paths {
         };
         /**
          * Download Backup Snapshot
-         * @description Generate an on-demand live SQLite backup snapshot and stream it as an attachment.
+         * @description Take a fresh, verified snapshot and stream it as an attachment.
          */
         get: operations["download_backup_snapshot_api_v1_admin_backup_download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Overview
+         * @description Everything the caller may see; sections they have no permission for are omitted.
+         */
+        get: operations["read_overview_api_v1_admin_overview_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -710,6 +622,32 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccountsSummaryDTO */
+        AccountsSummaryDTO: {
+            /** Organisations */
+            organisations: number;
+            /** Archived Organisations */
+            archived_organisations: number;
+            /** Users */
+            users: number;
+            /** Inactive Users */
+            inactive_users: number;
+            /** Roles */
+            roles: number;
+        };
+        /** AdminOverviewDTO */
+        AdminOverviewDTO: {
+            accounts?: components["schemas"]["AccountsSummaryDTO"] | null;
+            tunnel?: components["schemas"]["TunnelStatusDTO"] | null;
+            health?: components["schemas"]["SystemHealthDTO"] | null;
+            /** Recent Activity */
+            recent_activity?: components["schemas"]["AuditLogDTO"][] | null;
+            /**
+             * Modules
+             * @default []
+             */
+            modules: components["schemas"]["ModuleOverviewDTO"][];
+        };
         /** AdminReportDTO */
         AdminReportDTO: {
             /** Report Id */
@@ -821,17 +759,22 @@ export interface components {
             /** Ip */
             ip: string;
         };
+        /** BackupDTO */
+        BackupDTO: {
+            /** Name */
+            name: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** Body_import_products_api_v1_admin_products_import_post */
         Body_import_products_api_v1_admin_products_import_post: {
             /** File */
             file: string;
-        };
-        /** Body_login_post_login_post */
-        Body_login_post_login_post: {
-            /** Login */
-            login: string;
-            /** Password */
-            password: string;
         };
         /** FirstUserDTO */
         FirstUserDTO: {
@@ -872,6 +815,15 @@ export interface components {
         MessageDTO: {
             /** Message */
             message: string;
+        };
+        /** ModuleOverviewDTO */
+        ModuleOverviewDTO: {
+            /** Module */
+            module: string;
+            /** Title */
+            title: string;
+            /** Stats */
+            stats: components["schemas"]["OverviewStatDTO"][];
         };
         /** MutationDTO */
         MutationDTO: {
@@ -925,6 +877,23 @@ export interface components {
         OrganisationUpdateDTO: {
             /** Name */
             name: string;
+        };
+        /** OverviewStatDTO */
+        OverviewStatDTO: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /**
+             * Hint
+             * @default
+             */
+            hint: string;
+            /**
+             * Section
+             * @default
+             */
+            section: string;
         };
         /** PasswordDTO */
         PasswordDTO: {
@@ -1240,12 +1209,70 @@ export interface components {
              */
             calculation_enabled: boolean;
         };
+        /** SystemHealthDTO */
+        SystemHealthDTO: {
+            /** Database Ok */
+            database_ok: boolean;
+            /** Integrity */
+            integrity: string;
+            /** Journal Mode */
+            journal_mode: string;
+            /** Database Size Bytes */
+            database_size_bytes: number;
+            /** Backups Count */
+            backups_count: number;
+            /** Last Backup At */
+            last_backup_at?: string | null;
+            /** Backup Every Min */
+            backup_every_min: number;
+        };
         /** TransportStatusDTO */
         TransportStatusDTO: {
             /** Ready */
             ready: boolean;
             /** Message */
             message: string;
+        };
+        /** TunnelAutostartDTO */
+        TunnelAutostartDTO: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** TunnelStartDTO */
+        TunnelStartDTO: {
+            /** Confirm Public */
+            confirm_public: boolean;
+            /**
+             * Autostart
+             * @default true
+             */
+            autostart: boolean;
+            /** Token */
+            token?: string | null;
+        };
+        /** TunnelStatusDTO */
+        TunnelStatusDTO: {
+            /** Enabled */
+            enabled: boolean;
+            /** Autostart */
+            autostart: boolean;
+            /** Has Token */
+            has_token: boolean;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "disabled" | "stopped" | "starting" | "running" | "error";
+            /**
+             * Public Url
+             * @default
+             */
+            public_url: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
         };
         /** UserCreateDTO */
         UserCreateDTO: {
@@ -1328,119 +1355,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    manifest_manifest_webmanifest_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    service_worker_sw_js_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    offline_offline_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    login_post_login_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_login_post_login_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    logout_logout_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
     get_session_api_v1_session_get: {
         parameters: {
             query?: never;
@@ -2066,7 +1980,7 @@ export interface operations {
             };
         };
     };
-    get_tailscale_status_api_v1_admin_tailscale_get: {
+    get_tunnel_api_v1_admin_tunnel_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -2081,14 +1995,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TunnelStatusDTO"];
                 };
             };
         };
     };
-    enable_tailscale_funnel_api_v1_admin_tailscale_post: {
+    start_tunnel_api_v1_admin_tunnel_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -2097,9 +2009,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["TunnelStartDTO"];
             };
         };
         responses: {
@@ -2109,9 +2019,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TunnelStatusDTO"];
                 };
             };
             /** @description Validation Error */
@@ -2125,7 +2033,7 @@ export interface operations {
             };
         };
     };
-    disable_tailscale_funnel_api_v1_admin_tailscale_delete: {
+    stop_tunnel_api_v1_admin_tunnel_delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -2140,14 +2048,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TunnelStatusDTO"];
                 };
             };
         };
     };
-    update_tailscale_autostart_api_v1_admin_tailscale_autostart_put: {
+    set_tunnel_autostart_api_v1_admin_tunnel_autostart_put: {
         parameters: {
             query?: never;
             header?: never;
@@ -2156,9 +2062,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["TunnelAutostartDTO"];
             };
         };
         responses: {
@@ -2168,9 +2072,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["TunnelStatusDTO"];
                 };
             };
             /** @description Validation Error */
@@ -2184,7 +2086,38 @@ export interface operations {
             };
         };
     };
-    get_tunnel_status_api_v1_admin_tunnel_get: {
+    get_backups_api_v1_admin_backups_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupDTO"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_health_api_v1_admin_system_health_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -2199,105 +2132,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    enable_tunnel_api_v1_admin_tunnel_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    disable_tunnel_api_v1_admin_tunnel_delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    update_tunnel_autostart_api_v1_admin_tunnel_autostart_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["SystemHealthDTO"];
                 };
             };
         };
@@ -2318,6 +2153,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    read_overview_api_v1_admin_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverviewDTO"];
                 };
             };
         };

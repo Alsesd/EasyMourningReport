@@ -3,11 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { reportsApi } from "@/modules/reports/api";
 import { uk } from "@/modules/reports/i18n";
-import type { SettingsSectionProps } from "@/platform/modules";
+import type { AdminSectionProps } from "@/platform/modules";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/Card";
 import { Calculator } from "lucide-react";
 
-export default function ReportSettingsSection({ notify }: SettingsSectionProps) {
+export default function ReportSettingsSection({ notify }: AdminSectionProps) {
   const queryClient = useQueryClient();
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["reportSettings"],

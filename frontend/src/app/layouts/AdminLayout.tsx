@@ -1,16 +1,16 @@
 import { useEffect } from "react";
 import { Outlet, NavLink, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/platform/auth/AuthContext";
-import { Button } from "@/ui/Button";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 import { MakerMark } from "@/ui/MakerMark";
 import { ukPlatform as uk } from "@/platform/i18n";
 import { navFor } from "@/app/registry";
-import { LogOut, BookOpen, ChevronRight } from "lucide-react";
+import { BookOpen, ChevronRight } from "lucide-react";
+import { AccountMenu } from "@/platform/account/AccountMenu";
 import { cn } from "@/ui/utils";
 
 export default function AdminLayout() {
-  const { session, logout } = useAuth();
+  const { session } = useAuth();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const period = searchParams.get("period");
@@ -73,25 +73,7 @@ export default function AdminLayout() {
         </nav>
 
         <div className="portal-sidebar-footer mx-1 mt-5 pt-4">
-          <div className="mb-3 flex min-w-0 items-center gap-3 rounded-xl px-2.5 py-3">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/15 bg-white/[0.07] text-xs font-semibold text-[#e4d1aa]">
-              {(session?.login || "A").slice(0, 1).toLocaleUpperCase("uk-UA")}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-[#f1f2e9]">{session?.full_name || session?.login}</p>
-              <p className="mt-0.5 truncate text-[10px] tracking-wide text-[#afc1b2]">
-                {session?.organisation?.name ?? uk.auth.secureAccess}
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            className="portal-logout w-full justify-start text-[#e6b5a8] hover:text-[#fffefa]"
-            onClick={() => logout()}
-          >
-            <LogOut className="mr-3 h-4 w-4" />
-            {uk.auth.logoutButton}
-          </Button>
+          <AccountMenu variant="sidebar" />
           <div className="mt-5 flex items-center justify-between px-2 text-[10px] tracking-wide text-[#97ad9e]">
             <span>{uk.appTitle}</span>
             <span>© {new Date().getFullYear()}</span>
@@ -113,22 +95,11 @@ export default function AdminLayout() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <div className="portal-session-pill hidden sm:inline-flex">
-              <span className="portal-session-dot" aria-hidden="true" />
-              <span className="max-w-[150px] truncate">{session?.login}</span>
-            </div>
-            <MakerMark className="hidden sm:inline-flex" />
+            <MakerMark />
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => logout()}
-              aria-label={uk.auth.logoutButton}
-              title={uk.auth.logoutButton}
-              className="portal-mobile-logout h-10 w-10 text-text-muted hover:text-destructive lg:hidden"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <div className="lg:hidden">
+              <AccountMenu />
+            </div>
           </div>
         </header>
 

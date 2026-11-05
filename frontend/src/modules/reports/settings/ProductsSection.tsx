@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { reportsApi } from "@/modules/reports/api";
 import { uk, formatCurrency, formatMoney, parseCents } from "@/modules/reports/i18n";
-import type { SettingsSectionProps } from "@/platform/modules";
+import type { AdminSectionProps } from "@/platform/modules";
 import { Card, CardHeader, CardTitle, CardContent } from "@/ui/Card";
 import { Button } from "@/ui/Button";
 import { Input } from "@/ui/Input";
@@ -27,7 +27,7 @@ const normalize = (v: string) =>
     .trim()
     .replace(/\s+/g, " ");
 
-export default function ProductsSection({ notify }: SettingsSectionProps) {
+export default function ProductsSection({ notify }: AdminSectionProps) {
   const queryClient = useQueryClient();
 
   // ----------------------------------------------------

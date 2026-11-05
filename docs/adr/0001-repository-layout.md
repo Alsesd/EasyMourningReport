@@ -25,3 +25,5 @@ The backend, frontend shell, generic browser capabilities, domain pages, deploym
 - Adding a new feature should use `scripts/new_module.py` and document its boundaries in `docs/modules/`.
 
 Deployment keeps the existing root `./data` and `./backups` bind mounts while running periodic SQLite snapshots in a dedicated sidecar that reuses the application’s online-backup implementation.
+
+> **Update 2026-11-05:** the backup sidecar was removed. Backups run inside the app process and the deployment is a single container (see [ADR 0003](0003-keep-sqlite.md)). Host folders are `./app_storage/data` and `./app_storage/backups`.

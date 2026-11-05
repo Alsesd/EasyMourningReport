@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import AdminLogsPage from "./AuditLogPage";
+import AdminLogsPage from "./AuditLogSection";
 import type { AuditLogDTO } from "@/platform/api/types";
 
 const mockActions = ["auth.login", "report.submit", "product.update"];
@@ -69,7 +69,7 @@ describe("AdminLogsPage", () => {
 
   it("renders log title, action options, and log table rows", async () => {
     renderPage();
-    expect(await screen.findByText("Журнал аудиту")).toBeDefined();
+    expect(await screen.findByPlaceholderText("Фільтр за логіном…")).toBeDefined();
     expect(screen.getByText("Усі дії")).toBeDefined();
     expect(screen.getAllByText("auth.login").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("report.submit").length).toBeGreaterThanOrEqual(1);
@@ -79,7 +79,7 @@ describe("AdminLogsPage", () => {
 
   it("allows entering login and submitting filter", async () => {
     renderPage();
-    await screen.findByText("Журнал аудиту");
+    await screen.findByPlaceholderText("Фільтр за логіном…");
 
     const input = screen.getByLabelText("Логін");
     fireEvent.change(input, { target: { value: "store1" } });
@@ -91,7 +91,7 @@ describe("AdminLogsPage", () => {
 
   it("toggles between table view and cards view", async () => {
     renderPage();
-    await screen.findByText("Журнал аудиту");
+    await screen.findByPlaceholderText("Фільтр за логіном…");
 
     const cardsBtn = screen.getByRole("button", { name: "Картки" });
     fireEvent.click(cardsBtn);

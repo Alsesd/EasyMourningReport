@@ -26,7 +26,7 @@ repo/
 │       └── modules/
 │           ├── reports/         # report pages, settings sections, API, strings, tests
 │           └── transport/       # transport orders (scaffold)
-├── deploy/                      # production Dockerfile, Compose, env example and backup sidecar configuration
+├── deploy/                      # production Dockerfile, Compose and env example (one container)
 ├── docs/                        # API, architecture, ADRs, module notes and design docs
 └── scripts/                     # module scaffold, DB migration and OpenAPI export
 ```
@@ -35,16 +35,15 @@ repo/
 
 Requirements: Python 3.11 (3.10+ is supported by the code), uv, Node.js 22.22.2+ and npm (the current lockfile includes packages that require recent Node 22 releases).
 
-Install `uv` first (see the [official installation guide](https://docs.astral.sh/uv/getting-started/installation/)). On the first checkout after migrating from PDM, generate the new lockfile once, then sync the environment and launch the backend from its package root:
+Install `uv` first (see the [official installation guide](https://docs.astral.sh/uv/getting-started/installation/)), then sync the environment and launch the backend from its package root:
 
 ```bash
-uv lock
 uv sync
 cd backend
 uv run --project .. python -m app
 ```
 
-Commit `uv.lock` to version control. When dependencies in `pyproject.toml` change, run `uv lock` again and review the lockfile diff. Other machines and Docker builds should use that checked-in lockfile rather than resolving a different set of versions.
+`uv.lock` is committed. When dependencies in `pyproject.toml` change, run `uv lock` and review the lockfile diff; Docker builds install exactly what the lockfile pins.
 
 The server binds to `127.0.0.1:8000` by default. `HOST` and `PORT` override that address. The single runtime entry point is `python -m app`; `backend/app/main.py` only composes FastAPI and is also the ASGI import target `app.main:app`.
 
@@ -75,64 +74,56 @@ The production frontend build is written to `backend/app/static/app/`. The Docke
 
 ## Upgrading from the single-admin release
 
-The first start of this version migrates the database automatically and writes a `before-migrate` backup into `backups/` first. Each store becomes an **organisation** and keeps its login, which gets the «Магазин» role. The administrator keeps their login and gets the «Адміністратор» role. Reports, prices and the «По розрахунку» settings are preserved. Afterwards, add more users per organisation and define roles under **Користувачі**.
+The first start of this version migrates the database automatically and writes a `before-migrate` backup into `backups/` first. Each store becomes an **organisation** and keeps its login, which gets the «Магазин» role. The administrator keeps their login and gets the «Адміністратор» role. Reports, prices and the «По розрахунку» settings are preserved. Afterwards, add more users per organisation and define roles under **Адміністрування → Доступ**.
 
 ## Docker deployment
 
-Copy the env template, review its values, and start Compose from the repository root. For reproducible releases, generate and commit `uv.lock` from an internet-connected checkout before building the image. The Dockerfile has a temporary first-build fallback if the lockfile is absent, but release builds should use the checked-in lockfile.
+Copy the env template, review its values, and start Compose from the repository root:
 
 ```bash
-# One-time migration step, only if uv.lock is absent
-uv lock
 cp deploy/.env.example .env
 docker compose up -d --build
 ```
 
-The root `compose.yaml` intentionally remains as a small compatibility wrapper that includes `deploy/compose.yaml`; this preserves the existing `docker compose up -d` workflow while keeping the canonical deployment files together. Use Docker Compose v2.24 or newer; this setup uses `include` and optional `env_file` handling.
+The root `compose.yaml` is a small wrapper that includes `deploy/compose.yaml`, so the usual `docker compose up -d` works from the repository root. Use Docker Compose v2.24 or newer (it uses `include` and optional `env_file`).
 
-The web container remains named `mourningreport-app`, publishes the configured host port (default `8000`), and binds persistent host folders into `/app/data` and `/app/backups`. A separate `mourningreport-backup` sidecar uses the same SQLite online-backup routine and retention settings; the app keeps on-demand/startup/shutdown snapshots but disables its own periodic loop while the sidecar is enabled. Default host paths remain `./data` and `./backups` at the repository root. **Do not delete or rename those folders during an update.** To update an existing deployment, back up `data/` and `backups/`, pull/replace the source or image as applicable, then run:
+Everything runs in **one container**, `mourningreport-app`: the web server, the SQLite database, periodic backups and the Cloudflare Tunnel (`cloudflared` is started and supervised by the app). The container publishes the configured host port (default `8000`) and keeps its data in bind-mounted host folders:
 
-```bash
-docker compose up -d --build
-```
+| Host folder | In the container | Contents |
+|---|---|---|
+| `./app_storage/data` | `/app/data` | `reports.db`, `secret.key`, tunnel token |
+| `./app_storage/backups` | `/app/backups` | verified SQLite backups |
 
-Follow the web app or periodic backups with:
-
-```bash
-docker compose logs -f app
-docker compose logs -f backup
-```
-
-Useful environment values are documented in `deploy/.env.example`. Keep `.env`, `secret.key`, the SQLite database, and backups out of version control.
-
-## Database transfer helper
-
-`scripts/sqlite_to_postgres.py` can migrate a whole SQLite database or copy selected tables into an already-created PostgreSQL schema. It preserves row data and explicit primary-key values, batches inserts, and advances PostgreSQL serial/identity sequences where available. It does not delete destination rows unless `--replace` is explicitly set.
-
-Install a PostgreSQL driver in the migration environment, for example `pip install 'psycopg[binary]'`, then use a SQLAlchemy URL:
+**Do not delete or rename those folders during an update.** To update, back up both folders, pull the new source, then run:
 
 ```bash
-export DATABASE_URL='postgresql+psycopg://user:password@host:5432/database'
-python scripts/sqlite_to_postgres.py --source ./data/reports.db --target "$DATABASE_URL"
+docker compose up -d --build --remove-orphans
 ```
 
-For a partial transfer, ensure the destination table and its foreign-key dependencies already exist, then name only the table(s):
+`--remove-orphans` removes the `mourningreport-backup` container that older releases ran next to the app; backups now run inside the app (every `BACKUP_EVERY_MIN` minutes when something changed, plus at start-up and shutdown, keeping `BACKUP_KEEP` copies). Follow the logs with `docker compose logs -f app`; `GET /healthz` is the container health probe.
 
-```bash
-python scripts/sqlite_to_postgres.py \
-  --source ./data/reports.db \
-  --target "$DATABASE_URL" \
-  --tables reports
-```
+Useful environment values are documented in `deploy/.env.example`. Keep `.env`, `secret.key`, the database and backups out of version control.
 
-The helper copies data; it does not switch the running application from SQLite to PostgreSQL. Application database-backend support should be changed and tested separately before changing production configuration.
+### Public access (Cloudflare Tunnel)
+
+Open **Адміністрування → Система → Публічний доступ**. Without a token the app opens a temporary Quick Tunnel and shows its `trycloudflare.com` address. With a Cloudflare tunnel token (pasted there, or `TUNNEL_TOKEN` in `.env`) it runs your named tunnel; set `PUBLIC_URL` to show its address. `TUNNEL_ENABLED=0` keeps the tunnel off at start-up regardless of the saved preference.
+
+### Power cuts and the database
+
+SQLite runs inside the app and needs no server. Each committed change is flushed to disk (`synchronous=FULL`), so a power cut loses no saved report. On local disks the database uses WAL mode; on shared folders (Docker Desktop host folders, network shares) it falls back to the classic rollback journal, which is safe there. Override with `SQLITE_JOURNAL_MODE=wal|delete`. Every start runs an integrity check, and every backup is verified. The reasoning, with load-test numbers, is in [ADR 0003](docs/adr/0003-keep-sqlite.md).
 
 ## Project scripts
 
-Scaffold a new frontend module without overwriting an existing one:
+Scaffold a new feature module (backend and frontend halves, with tests) without overwriting anything:
 
 ```bash
-python scripts/new_module.py inventory --title "Inventory"
+python3 scripts/new_module.py inventory --title "Склад"
+```
+
+Run the browser end-to-end check (needs Playwright; `CHROMIUM_PATH` reuses an installed Chromium):
+
+```bash
+uv run --with playwright python scripts/e2e_test.py
 ```
 
 Export the current OpenAPI schema for TypeScript generation:

@@ -9,7 +9,7 @@ import { Input } from "@/ui/Input";
 import { ShieldCheck, Filter, AlertCircle, RefreshCw, Table as TableIcon, LayoutGrid } from "lucide-react";
 import { cn } from "@/ui/utils";
 
-export default function AuditLogPage() {
+export default function AuditLogSection() {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const storedMode = typeof window !== "undefined" ? (localStorage.getItem("admin.logs.viewMode") as "table" | "cards" | null) : null;
   const [viewMode, setViewMode] = useState<"table" | "cards">(storedMode || (isMobile ? "cards" : "table"));
@@ -65,19 +65,11 @@ export default function AuditLogPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-text-main">{uk.logs.title}</h1>
-          <p className="text-sm text-text-muted mt-1">
-            Аудит дій користувачів та змін у системі
-          </p>
-        </div>
-
+      <div className="flex justify-end">
         <Button
           variant="outline"
           size="sm"
-          className="min-h-[44px] self-start sm:self-auto"
+          className="min-h-[44px]"
           onClick={() => refetch()}
           disabled={isFetching}
         >

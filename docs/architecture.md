@@ -5,24 +5,28 @@ One Python process (`python -m app`, run from `backend/`) serves the REST API an
 ```text
 backend/app/
 ├── main.py, __main__.py   # composition and the single launcher
-├── core/                  # infrastructure: module contract, security, paths, errors, periods, tunnel…
-├── db/                    # engine/session, backups, migration runner, bootstrap
+├── lifecycle.py           # start-up/shutdown: integrity check, migrations, backups, tunnel
+├── core/                  # infrastructure: module contract, security, paths, errors, periods
+├── db/                    # SQLite engine/session (journal mode, durability), backups, migration runner
 ├── platform/              # features every module relies on
 │   ├── accounts/          # organisations, users, roles, permissions, sign-in, access checks
 │   ├── audit/             # audit log
-│   ├── system/            # backups, tunnel, Tailscale endpoints
+│   ├── system/            # Cloudflare Tunnel manager, backups list, database health
+│   ├── overview.py        # «Адміністрування» overview (platform figures + module figures)
+│   ├── bootstrap.py       # run migrations, ensure built-in roles, seed the first admin
 │   ├── module.py          # the platform described as a Module
 │   └── registry.py        # platform + installed modules (the only platform file that loads modules)
 ├── modules/
 │   ├── __init__.py        # INSTALLED_MODULES = (reports, transport)
 │   ├── reports/           # models, schemas, routes, permissions, migrations, seed, tests
 │   └── transport/         # scaffold and template for new modules
-└── routes/                # PWA files, legacy form sign-in, SPA fallback, router composition
+└── routes/                # PWA files, /healthz, SPA fallback, router composition
 
 frontend/src/
 ├── app/                   # shell: App.tsx, layout, login page, routing, registry.ts
 ├── platform/              # API client, auth, i18n, theme, offline drafts, module contract,
-│                          # access (users/orgs/roles), settings host, audit log, system settings
+│                          # admin/ (the «Адміністрування» hub), access/ (users, orgs, roles),
+│                          # account/ (account menu, own password), audit/, system/
 ├── ui/                    # design-system primitives
 └── modules/
     ├── index.ts           # installedModules = [reportsModule, transportModule]
@@ -44,8 +48,16 @@ frontend/src/
 | `default_grants` | Permissions a newly created built-in role receives, e.g. `{"store": ("reports.submit",)}` |
 | `organisation_usage` | `db -> {organisation_id: count}`. An organisation with data in any module is archived instead of deleted |
 | `seed` | Demo data for `DEMO=1` on an empty database |
+| `overview` | `(db, principal) -> [OverviewStat]`: figures for the «Адміністрування» overview, filtered by the caller's permissions |
 
-**Frontend** (`src/platform/modules.ts`). A module exports an `AppModule` from `module.tsx` with `routes` (shell pages relative to `/admin`, or standalone absolute paths), `nav` items, `settings` sections (tabs in «Налаштування»), and `landing` pages with priorities. Every entry lists the permission codes that unlock it. The shell builds routing, navigation, the settings page and the post-login redirect from these lists.
+**Frontend** (`src/platform/modules.ts`). A module exports an `AppModule` from `module.tsx` with:
+
+- `routes`: shell pages relative to `/admin`, or standalone absolute paths;
+- `nav` items;
+- `admin` sections, each with `id`, `label`, `description`, `group` (`access`, `catalog`, `system` or `activity`), `icon`, `permissions` and `component`;
+- `landing` pages with priorities.
+
+Every entry lists the permission codes that unlock it. The shell builds routing, navigation, the «Адміністрування» hub (`/admin/manage`, one URL per section: `/admin/manage/<id>`) and the post-login redirect from these lists. The hub's menu item appears for anyone who can open at least one section. Sections receive a `notify(text, kind)` prop for the hub's shared status message.
 
 **Boundaries** (enforced by `backend/app/tests/test_import_architecture.py` and `frontend/src/app/registry.test.ts`):
 
@@ -58,7 +70,7 @@ frontend/src/
 1. Backend: fill in `app/modules/transport/` with `models.py`, `schemas.py`, `routes.py` and tests. Add the table classes to `models=`. Protect each route with `Depends(require(...))` or `Depends(require_member(...))` from `app.platform.accounts.access`. Scope organisation data with `principal.organisation_id`.
 2. Frontend: add pages under `src/modules/transport/pages/` and list them in `module.tsx`.
 3. Run `npm run gen:api` (from `frontend/`) to refresh the DTO types, then add aliases in `src/platform/api/types.ts`.
-4. Grant the new permissions to roles in «Користувачі → Ролі». Optionally set `default_grants` for built-in roles.
+4. Grant the new permissions to roles in «Адміністрування → Ролі». Optionally set `default_grants` for built-in roles.
 5. A completely new module only needs `INSTALLED_MODULES` (backend) and `installedModules` (frontend) updated.
 
 ## Accounts and access
@@ -77,7 +89,7 @@ frontend/src/
 | `platform.users.manage` | platform | All user accounts |
 | `platform.roles.manage` | platform | Role editor |
 | `platform.audit.view` | platform | Audit log |
-| `platform.system.manage` | platform | Backups, tunnel, Tailscale |
+| `platform.system.manage` | platform | Backups, database health, Cloudflare Tunnel |
 | `org.users.manage` | organisation | Own organisation's users |
 | `reports.submit` | organisation | Fill and submit own monthly report |
 | `reports.review` | platform | Summary, report list/detail, lock/unlock, Excel |
@@ -89,7 +101,9 @@ frontend/src/
 
 ## Persistence and migrations
 
-SQLite stays the default. `LEGKYI_DATA_DIR` and `LEGKYI_BACKUPS_DIR` resolve the persistent folders, and Compose bind-mounts them to `./data` and `./backups`.
+SQLite runs inside the app process (decision and load-test numbers: [ADR 0003](adr/0003-keep-sqlite.md)). Every connection uses `synchronous=FULL`, foreign keys, and WAL on local disks or the rollback journal on shared folders (`app/db/session.py`). `LEGKYI_DATA_DIR` and `LEGKYI_BACKUPS_DIR` set the persistent folders; Compose bind-mounts them from `./app_storage/data` and `./app_storage/backups`.
+
+Backups (`app/db/backup.py`) run inside the app: at start-up, every `BACKUP_EVERY_MIN` minutes when the database or its WAL changed, on demand, and at shutdown. Each one is a verified single file, and the newest `BACKUP_KEEP` are kept. Start-up runs `PRAGMA quick_check`.
 
 `app/db/migrations.py` applies each module's migrations once, in registry order, and records them in `schema_migrations`:
 
@@ -105,7 +119,11 @@ The upgrade from the single-role release (`platform.0001_organisations_and_roles
 
 Logins, passwords, reports and settings are preserved. `backend/app/tests/test_migrations.py` replays the exact previous-release schema.
 
-`deploy/Dockerfile` builds the frontend and Python runtime in separate stages. `deploy/compose.yaml` defines the web app and a `backup` sidecar. Keep the data and backup mounts unchanged when updating.
+`deploy/Dockerfile` builds the frontend and Python runtime in separate stages and adds `cloudflared`. `deploy/compose.yaml` runs a single container; its health probe is `GET /healthz`. Keep the data and backup mounts unchanged when updating.
+
+## Public access
+
+`app/platform/system/tunnel.py` runs `cloudflared` as a child process of the app and reads its status from cloudflared's local metrics endpoint (`127.0.0.1:20241`). With a token (saved from the UI or `TUNNEL_TOKEN`) it runs a named tunnel; without one, a Quick Tunnel. The app trusts `X-Forwarded-For` only from `127.0.0.1` (`FORWARDED_ALLOW_IPS`), i.e. from its own cloudflared, so client addresses in the audit log and the sign-in rate limit cannot be spoofed.
 
 ## Verification commands
 
