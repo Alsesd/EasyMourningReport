@@ -61,7 +61,7 @@ npm ci
 npm run dev
 ```
 
-Vite proxies `/api` and `/static` to `http://127.0.0.1:8000`. To check the frontend:
+Open `http://localhost:5173`. Vite serves the app there (deep links work) and forwards `/api`, `/healthz`, `/manifest.webmanifest` and the backend's static icons to `http://127.0.0.1:8000`; set `BACKEND_URL` to use another backend port. The `Host` header is kept, so the backend's same-origin check accepts sign-in and saves. To check the frontend:
 
 ```bash
 npm run lint

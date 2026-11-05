@@ -3,10 +3,15 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 
-// https://vitejs.dev/config/
-export default defineConfig({
+// The backend serves the production bundle from /static/app/; the dev server serves the app at /
+// and forwards only backend-owned paths. BACKEND_URL points the proxy at another backend port.
+const backend = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
+// Keep the Host header: the backend's same-origin guard compares it with the browser's Origin.
+const toBackend = { target: backend, changeOrigin: false };
+
+export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: "/static/app/",
+  base: command === "build" ? "/static/app/" : "/",
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -26,14 +31,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": {
-        target: "http://127.0.0.1:8000",
-        changeOrigin: true,
-      },
-      "/static": {
-        target: "http://127.0.0.1:8000",
-        changeOrigin: true,
-      },
+      "/api": toBackend,
+      "/healthz": toBackend,
+      "/manifest.webmanifest": toBackend,
+      // Icons and other backend static files, but not the app bundle (Vite serves that in dev).
+      "^/static/(?!app/)": toBackend,
     },
   },
   test: {
@@ -41,4 +43,4 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
   },
-});
+}));
