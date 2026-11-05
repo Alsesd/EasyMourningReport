@@ -74,10 +74,10 @@ class BackupTests(unittest.TestCase):
                 backup.backup_db(tag="retention")
             self.assertEqual(len(list(backup_dir.glob("reports-*.db"))), 2)
 
-    def test_get_backup_dir_supports_backups_path_and_nested_parents(self):
+    def test_get_backup_dir_supports_override_and_nested_parents(self):
         with tempfile.TemporaryDirectory() as tmp:
             custom_path = Path(tmp) / "nested" / "custom_backups"
-            with patch.dict(backup.os.environ, {"BACKUPS_PATH": str(custom_path)}):
+            with patch.dict(backup.os.environ, {"LEGKYI_BACKUPS_DIR": str(custom_path)}):
                 resolved = backup._get_backup_dir()
                 self.assertEqual(resolved, custom_path.resolve())
 
@@ -98,7 +98,7 @@ class BackupTests(unittest.TestCase):
     def test_get_backup_dir_strips_quotes(self):
         with tempfile.TemporaryDirectory() as tmp:
             custom_path = Path(tmp) / "quoted_backups"
-            with patch.dict(backup.os.environ, {"BACKUPS_PATH": f'"{custom_path}"'}):
+            with patch.dict(backup.os.environ, {"LEGKYI_BACKUPS_DIR": f'"{custom_path}"'}):
                 resolved = backup._get_backup_dir()
                 self.assertEqual(resolved, custom_path.resolve())
 

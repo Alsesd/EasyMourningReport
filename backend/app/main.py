@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.http_errors import register_exception_handlers
-from app.core.lifecycle import lifespan
+from app.lifecycle import lifespan
 from app.core.paths import asset_dir
 from app.core.security import load_secret, same_origin_post_guard
 from app.routes import api_router

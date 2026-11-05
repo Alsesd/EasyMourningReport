@@ -1,18 +1,14 @@
-"""Credential checks and the legacy form sign-in routes (``POST /login``, ``POST /logout``)."""
+"""Credential checks with rate limiting and audit entries, used by the JSON sign-in endpoints."""
 
-from fastapi import APIRouter, Depends, Form, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi import Request
 from sqlmodel import Session, select
 
 from app.core.ratelimit import clear_failures, record_failure, retry_after
 from app.core.security import check_pw, client_ip
 from app.core.text import norm_login
-from app.db.session import get_db
 from app.platform.accounts.access import can_sign_in, principal_for
 from app.platform.accounts.models import User
 from app.platform.audit.service import audit
-
-router = APIRouter()
 
 
 class AuthResult:
@@ -81,31 +77,3 @@ def logout_user(request: Request, db: Session) -> None:
         audit(db, request, user.login, principal_for(user).role_label, "вихід")
         db.commit()
     request.session.clear()
-
-
-@router.post("/login")
-def login_post(
-    request: Request,
-    login: str = Form(),
-    password: str = Form(),
-    db: Session = Depends(get_db),
-):
-    result = authenticate_credentials(request, login, password, db)
-    if not result.is_success:
-        if result.status_code == 429:
-            return Response(
-                result.error,
-                status_code=429,
-                headers={"Retry-After": str(result.retry_after_seconds), "Cache-Control": "no-store"},
-            )
-        return Response(
-            result.error,
-            status_code=result.status_code,
-        )
-    return RedirectResponse("/", 303)
-
-
-@router.post("/logout")
-def logout(request: Request, db: Session = Depends(get_db)):
-    logout_user(request, db)
-    return RedirectResponse("/login", 303)

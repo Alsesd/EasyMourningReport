@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter
 from sqlalchemy.engine import Connection
@@ -51,6 +51,17 @@ class Migration:
 
 
 @dataclass(frozen=True)
+class OverviewStat:
+    """One figure a module shows on the administration overview (e.g. "Надіслано звітів: 12 / 14")."""
+
+    label: str
+    value: str
+    hint: str = ""
+    # Section of the administration hub the figure links to, if any.
+    section: str = ""
+
+
+@dataclass(frozen=True)
 class Module:
     """Everything the platform needs to know about a feature module."""
 
@@ -71,6 +82,8 @@ class Module:
     organisation_usage: Callable[[Session], dict[int, int]] | None = None
     # Runs once on an empty database after the first administrator is created (demo data etc.).
     seed: Callable[[Session], None] | None = None
+    # Figures for the administration overview: (db, principal) -> stats the principal may see.
+    overview: Callable[[Session, Any], list[OverviewStat]] | None = None
 
 
 class ModuleRegistry:

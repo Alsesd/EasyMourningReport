@@ -1,7 +1,9 @@
-"""System endpoints (tunnel, Tailscale Funnel) require platform.system.manage and never leak secrets."""
+"""System endpoints (tunnel, backups, health) require platform.system.manage and never leak secrets."""
 
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 os.environ.setdefault("SECRET_KEY", "api-test-session-secret")
@@ -52,97 +54,16 @@ class SystemApiTests(unittest.TestCase):
         app.dependency_overrides.clear()
         self.engine.dispose()
 
-    def test_tailscale_funnel_controls_are_admin_only_and_do_not_return_secrets(self):
-        status = {
-            "enabled": False,
-            "state": "disabled",
-            "public_url": "",
-            "login_url": "",
-            "error": "",
-        }
-        with patch("app.platform.system.routes.tailscale_status", return_value=status):
-            response = self.admin_client.get("/api/v1/admin/tailscale")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["state"], "disabled")
-
-        refused = self.admin_client.post(
-            "/api/v1/admin/tailscale",
-            json={"confirm_public": False},
-            headers={"origin": "http://testserver"},
-        )
-        self.assertEqual(refused.status_code, 400)
-
-        running = {**status, "enabled": True, "state": "authentication-required",
-                   "login_url": "https://login.tailscale.com/example"}
-        with patch("app.platform.system.routes.start_funnel", return_value=running) as start:
-            response = self.admin_client.post(
-                "/api/v1/admin/tailscale",
-                json={"confirm_public": True, "auth_key": "tskey-test-secret"},
-                headers={"origin": "http://testserver"},
-            )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["state"], "authentication-required")
-        start.assert_called_once_with("tskey-test-secret", autostart=True)
-        self.assertNotIn("auth_key", response.json())
-
-        with patch("app.platform.system.routes.stop_funnel", return_value=status):
-            response = self.admin_client.delete(
-                "/api/v1/admin/tailscale",
-                headers={"origin": "http://testserver"},
-            )
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.json()["enabled"])
-
-        forbidden = self.store_client.get("/api/v1/admin/tailscale")
-        self.assertEqual(forbidden.status_code, 403)
-
-    def test_tailscale_autostart_toggle_is_admin_only_and_does_not_disconnect(self):
-        enabled = {"enabled": True, "autostart": True, "state": "running",
-                   "public_url": "https://example.ts.net", "login_url": "", "error": ""}
-        with patch("app.platform.system.routes.set_tailscale_autostart", return_value=enabled) as setter:
-            response = self.admin_client.put(
-                "/api/v1/admin/tailscale/autostart",
-                json={"enabled": True},
-                headers={"origin": "http://testserver"},
-            )
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.json()["autostart"])
-        setter.assert_called_once_with(True)
-
-        disabled = {**enabled, "autostart": False}
-        with patch("app.platform.system.routes.set_tailscale_autostart", return_value=disabled) as setter:
-            response = self.admin_client.put(
-                "/api/v1/admin/tailscale/autostart",
-                json={"enabled": False},
-                headers={"origin": "http://testserver"},
-            )
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.json()["autostart"])
-        self.assertEqual(response.json()["state"], "running")
-        setter.assert_called_once_with(False)
-
-        invalid = self.admin_client.put(
-            "/api/v1/admin/tailscale/autostart",
-            json={"enabled": "yes"},
-            headers={"origin": "http://testserver"},
-        )
-        self.assertEqual(invalid.status_code, 422)
-        forbidden = self.store_client.put(
-            "/api/v1/admin/tailscale/autostart",
-            json={"enabled": True},
-            headers={"origin": "http://testserver"},
-        )
-        self.assertEqual(forbidden.status_code, 403)
-
     def test_tunnel_controls_and_autostart_are_admin_only(self):
         status = {
             "enabled": False,
+            "autostart": False,
+            "has_token": False,
             "state": "disabled",
             "public_url": "",
-            "login_url": "",
             "error": "",
         }
-        with patch("app.platform.system.routes.tunnel_status", return_value=status):
+        with patch("app.platform.system.routes.tunnel.status", return_value=status):
             response = self.admin_client.get("/api/v1/admin/tunnel")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["state"], "disabled")
@@ -155,17 +76,17 @@ class SystemApiTests(unittest.TestCase):
         self.assertEqual(refused.status_code, 400)
 
         running = {**status, "enabled": True, "state": "running", "public_url": "https://test.trycloudflare.com"}
-        with patch("app.platform.system.routes.start_tunnel", return_value=running) as start:
+        with patch("app.platform.system.routes.tunnel.start", return_value=running) as start:
             response = self.admin_client.post(
                 "/api/v1/admin/tunnel",
-                json={"confirm_public": True, "auth_key": "tok-123"},
+                json={"confirm_public": True, "token": "tok-123"},
                 headers={"origin": "http://testserver"},
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["public_url"], "https://test.trycloudflare.com")
         start.assert_called_once_with("tok-123", autostart=True)
 
-        with patch("app.platform.system.routes.set_tunnel_autostart", return_value=running) as setter:
+        with patch("app.platform.system.routes.tunnel.set_autostart", return_value=running) as setter:
             response = self.admin_client.put(
                 "/api/v1/admin/tunnel/autostart",
                 json={"enabled": True},
@@ -174,7 +95,7 @@ class SystemApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         setter.assert_called_once_with(True)
 
-        with patch("app.platform.system.routes.stop_tunnel", return_value=status):
+        with patch("app.platform.system.routes.tunnel.stop", return_value=status):
             response = self.admin_client.delete(
                 "/api/v1/admin/tunnel",
                 headers={"origin": "http://testserver"},
@@ -184,6 +105,30 @@ class SystemApiTests(unittest.TestCase):
 
         forbidden = self.store_client.get("/api/v1/admin/tunnel")
         self.assertEqual(forbidden.status_code, 403)
+
+    def test_tunnel_start_errors_are_reported_as_503(self):
+        failed = {"enabled": False, "autostart": True, "has_token": False, "state": "error",
+                  "public_url": "", "error": "cloudflared не встановлено на цьому сервері."}
+        with patch("app.platform.system.routes.tunnel.start", return_value=failed):
+            response = self.admin_client.post(
+                "/api/v1/admin/tunnel", json={"confirm_public": True}, headers={"origin": "http://testserver"},
+            )
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("cloudflared", response.json()["detail"])
+
+    def test_health_and_backups(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            backups = Path(tmp)
+            (backups / "reports-20261101-010000.db").write_bytes(b"x" * 10)
+            (backups / "reports-20261102-010000-snapshot.db").write_bytes(b"y" * 20)
+            with patch("app.db.backup.BACKUP_DIR", backups):
+                listed = self.admin_client.get("/api/v1/admin/backups")
+                health = self.admin_client.get("/api/v1/admin/system/health")
+        self.assertEqual([b["name"] for b in listed.json()], ["reports-20261102-010000-snapshot.db", "reports-20261101-010000.db"])
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(health.json()["backups_count"], 2)
+        self.assertIn(health.json()["journal_mode"], {"wal", "delete"})
+        self.assertEqual(self.store_client.get("/api/v1/admin/system/health").status_code, 403)
 
 
 if __name__ == "__main__":

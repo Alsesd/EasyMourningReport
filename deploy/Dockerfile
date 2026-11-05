@@ -20,29 +20,22 @@ COPY --from=ghcr.io/astral-sh/uv:0.10.0 /uv /uvx /bin/
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-# Preserve a checked-in uv.lock when present. During the one-time migration only,
-# permit the image build to generate it if the checkout does not have one yet.
-COPY . /tmp/repo/
+COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    cp /tmp/repo/pyproject.toml ./ && \
-    if [ -f /tmp/repo/uv.lock ]; then \
-      cp /tmp/repo/uv.lock ./ && uv sync --locked --no-dev --no-install-project; \
-    else \
-      uv lock && uv sync --locked --no-dev --no-install-project; \
-    fi
+    uv sync --locked --no-dev --no-install-project
 
 # Stage 3: Minimal production runtime
 FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
-# Install curl and ca-certificates for robust healthcheck probes and secure tunnel operations
+# curl for the health check, CA certificates for cloudflared
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy official cloudflared binary directly for internal tunnel capability
+# cloudflared is started and supervised by the app itself (Адміністрування → Система)
 COPY --from=cloudflare/cloudflared:latest /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 
 # Copy production virtualenv built with prefix /app/.venv
@@ -67,12 +60,11 @@ ENV PATH="/app/.venv/bin:$PATH" \
     HOST=0.0.0.0 \
     PORT=8000
 
-# Expose application port across Linux and Windows networks
 EXPOSE 8000
 
-# Enterprise healthcheck using native HTTP endpoint on port 8000
+# Liveness: the process answers and the database is reachable
 HEALTHCHECK --interval=20s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -fsS "http://127.0.0.1:8000/" || exit 1
+  CMD curl -fsS "http://127.0.0.1:8000/healthz" || exit 1
 
-# Unified production entry point with enterprise startup diagnostics and banner
+# Single entry point: migrations, backups, tunnel and the web server
 CMD ["python", "-m", "app"]

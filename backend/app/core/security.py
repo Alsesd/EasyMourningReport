@@ -58,9 +58,6 @@ async def same_origin_post_guard(request: Request, call_next):
 
 
 def client_ip(request: Request) -> str:
-    host = request.client.host if request.client else "?"
-    if host in ("127.0.0.1", "::1"):
-        fwd = request.headers.get("x-forwarded-for", "")
-        if fwd:
-            return fwd.split(",")[0].strip()
-    return host
+    """The caller's address. Uvicorn already resolves X-Forwarded-For from trusted local proxies
+    (cloudflared runs next to the app), so this is the real client for tunnelled requests too."""
+    return request.client.host if request.client else "?"

@@ -58,9 +58,8 @@ class ExcelImportTests(unittest.TestCase):
             [None, None],
         ])
         with self.Session() as db:
-            response = parse_products_excel(payload, db, self.user.login, "Адміністратор", self.request)
-            self.assertEqual(response.status_code, 303)
-            self.assertIn("додано 2 товарів", self.request.session["flash"]["text"])
+            message = parse_products_excel(payload, db, self.user.login, "Адміністратор", self.request)
+            self.assertIn("додано 2 товарів", message)
             self.assertEqual(
                 [(p.name, p.price_cents) for p in db.scalars(select(Product).order_by(Product.name))],
                 [("Bread", 125), ("Milk", 200)],
@@ -74,11 +73,10 @@ class ExcelImportTests(unittest.TestCase):
         with self.Session() as db:
             db.add(Product(name="Bread", price_cents=125))
             db.commit()
-            response = parse_products_excel(
+            message = parse_products_excel(
                 make_xlsx([["Bread", 2], ["Bread", 3]]), db, self.user.login, "Адміністратор", self.request
             )
-            self.assertEqual(response.status_code, 303)
-            self.assertIn("усі 2 рядків уже існують", self.request.session["flash"]["text"])
+            self.assertIn("усі 2 рядків уже існують", message)
             self.assertEqual(len(list(db.scalars(select(Product)))), 1)
             self.assertEqual(len(list(db.scalars(select(AuditLog)))), 0)
 

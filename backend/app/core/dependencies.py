@@ -3,7 +3,7 @@
 import re
 from decimal import Decimal, InvalidOperation
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 
 from app.core.errors import FormError
 from app.core.periods import current_period
@@ -15,15 +15,6 @@ def parse_period(p: str | None) -> str:
     if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", p):
         raise HTTPException(400, "Період має мати вигляд 2026-10")
     return p
-
-
-def admin_period(request: Request, p: str | None) -> str:
-    """Month for admin pages. An explicit choice is remembered, so the tabs keep showing the same month."""
-    if p:
-        period = parse_period(p)
-        request.session["period"] = period
-        return period
-    return parse_period(request.session.get("period"))
 
 
 def to_cents(s: str) -> int:

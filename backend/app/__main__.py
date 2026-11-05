@@ -35,7 +35,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 import uvicorn
 from app.db.backup import BACKUP_DIR
-from app.db.session import DB_PATH
+from app.db.session import DB_PATH, JOURNAL_MODE
 from app.main import app
 
 
@@ -62,11 +62,11 @@ def print_startup_banner(host: str, port: int) -> None:
     banner = f"""
 ======================================================================
   EasyMourningReport / Легкий звіт
-  Multi-Store Reporting & Analytics
+  Organisations · Reports · Transport
 ======================================================================
   • Data Directory : {data_dir}
   • Backups Dir    : {BACKUP_DIR}
-  • Database File  : {DB_PATH}
+  • Database File  : {DB_PATH} (journal: {JOURNAL_MODE})
   • Storage Access : {storage_status}
   • Server Address : http://{host}:{port}
   • REST API       : http://{host}:{port}/api/v1
@@ -88,7 +88,9 @@ def main() -> None:
         host=host,
         port=port,
         proxy_headers=True,
-        forwarded_allow_ips="*",
+        # Only the local cloudflared may set the client address; anyone else could spoof it
+        # (and dodge the sign-in rate limit) with a forged X-Forwarded-For header.
+        forwarded_allow_ips=os.getenv("FORWARDED_ALLOW_IPS", "127.0.0.1"),
     )
 
 

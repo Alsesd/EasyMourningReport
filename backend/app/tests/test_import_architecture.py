@@ -65,7 +65,7 @@ def test_main_is_composition_only():
         if isinstance(node, (ast.Import, ast.ImportFrom))
     }
     assert "app.routes" in imported
-    assert "app.core.lifecycle" in imported
+    assert "app.lifecycle" in imported
     assert "app.core.http_errors" in imported
     package_tree = ast.parse(PACKAGE_ENTRY.read_text(encoding="utf-8"))
     package_imports = {

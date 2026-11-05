@@ -20,7 +20,8 @@ services:
       PORT: 8000
       LEGKYI_DATA_DIR: /app/data
       LEGKYI_BACKUPS_DIR: /app/backups
-      BACKUP_SIDECAR_ENABLED: "1"
+      BACKUP_EVERY_MIN: ${BACKUP_EVERY_MIN:-60}
+      BACKUP_KEEP: ${BACKUP_KEEP:-100}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       SECRET_KEY: ${SECRET_KEY:-}
       DEMO: ${DEMO:-0}
@@ -36,42 +37,11 @@ services:
       - ./app_storage/backups:/app/backups
 
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/healthz"]
       interval: 15s
       timeout: 5s
       retries: 3
       start_period: 10s
-
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: "3"
-
-  backup:
-    image: easymourningreport:local
-    build:
-      context: .
-      dockerfile: deploy/Dockerfile
-    container_name: mourningreport-backup
-    restart: unless-stopped
-    init: true
-
-    command: ["python", "-m", "app.backup_sidecar"]
-
-    environment:
-      LEGKYI_DATA_DIR: /app/data
-      LEGKYI_BACKUPS_DIR: /app/backups
-      BACKUP_EVERY_MIN: ${BACKUP_EVERY_MIN:-60}
-      BACKUP_KEEP: ${BACKUP_KEEP:-100}
-
-    volumes:
-      - ./app_storage/data:/app/data
-      - ./app_storage/backups:/app/backups
-
-    depends_on:
-      app:
-        condition: service_healthy
 
     logging:
       driver: json-file

@@ -21,7 +21,6 @@ def run_tests():
     env["HOST"] = "127.0.0.1"
     env["PORT"] = "8888"
     env["TUNNEL_ENABLED"] = "0"  # The app's optional .env loader must not enable a real tunnel in tests.
-    env["BACKUP_SIDECAR_ENABLED"] = "0"
 
     server_process = subprocess.Popen(
         [sys.executable, "-m", "app"],
@@ -36,7 +35,8 @@ def run_tests():
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            # CHROMIUM_PATH lets the script reuse an already-installed browser instead of `playwright install`.
+            browser = p.chromium.launch(headless=True, executable_path=os.getenv("CHROMIUM_PATH") or None)
 
             # -------------------------------------------------------------
             # 1. Store Clerk Flow (Mobile viewport 390x844)
@@ -114,9 +114,9 @@ def run_tests():
             assert first_input.is_disabled(), "Quantity input should be disabled after submission"
             print("Verified report is read-only after submission.")
 
-            # Logout
-            logout_btn = page.locator('button[aria-label="Вийти"]')
-            logout_btn.click()
+            # Logout through the account menu
+            page.locator('button[aria-label^="Обліковий запис"]').click()
+            page.get_by_role("menuitem", name="Вийти").click()
             page.wait_for_url("**/login", timeout=5000)
             print("Successfully logged out!")
             context.close()
@@ -168,11 +168,14 @@ def run_tests():
                 admin_page.wait_for_selector('text=Звіт розблоковано', timeout=5000)
                 print("Report unlocked successfully!")
 
-            # Navigate to Settings
-            admin_page.click('a:has-text("Налаштування")')
-            admin_page.wait_for_url("**/admin/settings**", timeout=5000)
+            # Administration hub -> products (a section contributed by the reports module)
+            admin_page.click('aside a:has-text("Адміністрування")')
+            admin_page.wait_for_url("**/admin/manage", timeout=5000)
+            admin_page.wait_for_selector('text=Облікові записи', timeout=5000)
+            admin_page.locator('a:visible:has-text("Товари й ціни")').first.click()
+            admin_page.wait_for_url("**/admin/manage/products", timeout=5000)
             admin_page.wait_for_selector('button:has-text("Створити товар")', timeout=5000)
-            print("Navigated to Settings")
+            print("Navigated to the products section of the administration hub")
 
             # Add a new product
             admin_page.click('button:has-text("Створити товар")')
@@ -208,10 +211,9 @@ def run_tests():
             admin_page.wait_for_selector('text=Ціну оновлено', timeout=5000)
             print("Price update verified!")
 
-            # Navigate to Logs
-            admin_page.click('a:has-text("Журнал")')
-            admin_page.wait_for_url("**/admin/logs**", timeout=5000)
-            admin_page.wait_for_selector('text=Журнал аудиту', timeout=5000)
+            # Audit log section of the hub
+            admin_page.locator('nav[aria-label="Розділи адміністрування"] a:visible:has-text("Журнал дій")').first.click()
+            admin_page.wait_for_url("**/admin/manage/audit", timeout=5000)
             admin_page.wait_for_selector('text=Тестовий Чай', timeout=5000)
             print("Navigated to Logs. Total logs rows:", admin_page.locator("tr, .rounded-card").count())
             assert admin_page.locator("text=Тестовий Чай").count() > 0, "Audit log should mention the created product"

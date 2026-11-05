@@ -3,7 +3,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 
-from sqlalchemy import func
+from sqlalchemy import delete, func
 
 from sqlmodel import select
 from sqlmodel import Session
@@ -61,6 +61,35 @@ def find_report(db: Session, store_id: int, period: str) -> Report | None:
     return db.scalar(
         select(Report).where(Report.store_id == store_id, Report.period == period)
     )
+
+
+def replace_editable_items(
+    db: Session,
+    report: Report,
+    editable_product_ids: set[int],
+    quantities: dict[int, dict[int, tuple[int, int]]],
+) -> None:
+    """Swap the report's rows for editable products with ``{product: {price: (qty, qty_calc)}}``.
+
+    Rows are deleted and inserted with plain statements. Reassigning ``report.items`` would
+    make SQLAlchemy locate every removed row with ``list.remove``, and SQLModel's field-by-field
+    ``__eq__`` turns that into tens of thousands of comparisons per save.
+    """
+    stale = [item.id for item in report.items if item.product_id in editable_product_ids]
+    if stale:
+        db.execute(delete(ReportItem).where(ReportItem.id.in_(stale)))
+    db.add_all(
+        ReportItem(
+            report_id=report.id,
+            product_id=product_id,
+            quantity=quantity,
+            quantity_calc=quantity_calc,
+            unit_price_cents=price,
+        )
+        for product_id in editable_product_ids
+        for price, (quantity, quantity_calc) in quantities.get(product_id, {}).items()
+    )
+    db.expire(report, ["items"])
 
 
 def report_total(r: Report) -> int:

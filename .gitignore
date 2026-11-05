@@ -25,18 +25,15 @@ dist/
 .envrc
 result
 
-# Downloaded runtime
-backend/app/static/alpine.min.js
+# Frontend (build output is written into the backend package)
 backend/app/static/app/
-
-# Frontend
 frontend/node_modules/
 frontend/dist/
 .agents/
 
 # Docker & local data
 data/
-
+app_storage/
 
 # IDE
 .idea/
@@ -51,7 +48,6 @@ Thumbs.db
 
 # Environment secrets (never commit)
 .env
-.agents/skills/
 
 # Claude Code (personal overrides)
 .claude/settings.local.json

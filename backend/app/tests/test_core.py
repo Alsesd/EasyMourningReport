@@ -1,16 +1,13 @@
 import os
 import unittest
-from unittest.mock import MagicMock
 
 os.environ["SECRET_KEY"] = "unit-test-only-secret-key"
 
 from fastapi import HTTPException
-from fastapi.requests import Request
 
 from app.core import dependencies
 from app.core.errors import FormError
-from app.core.periods import current_period, money, shift_period
-from app.core.web import _safe_redirect_target, done, flash, render, safe_referer
+from app.core.periods import current_period, money
 
 
 class CoreUiTests(unittest.TestCase):
@@ -19,70 +16,6 @@ class CoreUiTests(unittest.TestCase):
         self.assertEqual(money(2550), "25.50")
         self.assertEqual(money(0), "0.00")
 
-    def test_shift_period(self):
-        self.assertEqual(shift_period("2026-10", 1), "2026-11")
-        self.assertEqual(shift_period("2026-10", -1), "2026-09")
-        self.assertEqual(shift_period("2026-12", 1), "2027-01")
-        self.assertEqual(shift_period("2026-01", -1), "2025-12")
-
-    def test_safe_redirect_target(self):
-        self.assertEqual(_safe_redirect_target("/admin"), "/admin")
-        self.assertEqual(_safe_redirect_target("https://evil.com"), "/")
-        self.assertEqual(_safe_redirect_target("//evil.com"), "/")
-        self.assertEqual(_safe_redirect_target(""), "/")
-        self.assertEqual(_safe_redirect_target(None), "/")
-        self.assertEqual(_safe_redirect_target("relative/path"), "/")
-        self.assertEqual(_safe_redirect_target(r"\\\\evil.example"), "/")
-
-    def test_safe_referer(self):
-        req = MagicMock(spec=Request)
-        req.headers = {"referer": "http://localhost:8000/report?period=2026-10", "host": "localhost:8000"}
-        self.assertEqual(safe_referer(req), "/report?period=2026-10")
-
-        # Cross-origin referer
-        req.headers = {"referer": "http://evil.com/phish", "host": "localhost:8000"}
-        self.assertIsNone(safe_referer(req))
-
-        # Missing referer
-        req.headers = {"host": "localhost:8000"}
-        self.assertIsNone(safe_referer(req))
-
-        req.headers = {"referer": "/admin?period=2026-10", "host": "localhost:8000"}
-        self.assertEqual(safe_referer(req), "/admin?period=2026-10")
-
-    def test_flash_and_done(self):
-        req = MagicMock(spec=Request)
-        req.session = {}
-        flash(req, "ok", "Готово")
-        self.assertEqual(req.session["flash"], {"kind": "ok", "text": "Готово"})
-
-        resp = done(req, "/report", "Збережено")
-        self.assertEqual(resp.status_code, 303)
-        self.assertEqual(resp.headers["location"], "/report")
-        self.assertEqual(req.session["flash"], {"kind": "ok", "text": "Збережено"})
-
-
-    def test_render_consumes_flash_and_keeps_explicit_period_links(self):
-        req = MagicMock(spec=Request)
-        req.session = {"flash": {"kind": "ok", "text": "saved"}, "period": "2026-08"}
-        response = render(
-            req,
-            "error.html",
-            {"code": 418, "message": "test", "period": "2026-10", "prev_period": "custom-prev"},
-            status_code=418,
-        )
-        self.assertEqual(response.status_code, 418)
-        self.assertNotIn("flash", req.session)
-        self.assertEqual(response.context["flash"], {"kind": "ok", "text": "saved"})
-        self.assertEqual(response.context["nav_period"], "2026-08")
-        self.assertEqual(response.context["prev_period"], "custom-prev")
-
-        empty = render(req, "error.html", None)
-        self.assertEqual(empty.status_code, 200)
-        self.assertIsNone(empty.context["user"])
-
-
-class CoreDependenciesTests(unittest.TestCase):
     def test_parse_period(self):
         self.assertEqual(dependencies.parse_period("2026-10"), "2026-10")
         self.assertEqual(dependencies.parse_period(None), current_period())
@@ -124,16 +57,6 @@ class CoreDependenciesTests(unittest.TestCase):
         self.assertEqual(dependencies.new_password("secret123"), "secret123")
         with self.assertRaises(FormError):
             dependencies.new_password("12345")  # < 6 chars
-
-    def test_admin_period(self):
-        req = MagicMock(spec=Request)
-        req.session = {}
-        # Explicit period
-        p = dependencies.admin_period(req, "2026-05")
-        self.assertEqual(p, "2026-05")
-        self.assertEqual(req.session["period"], "2026-05")
-        # Read from session
-        self.assertEqual(dependencies.admin_period(req, None), "2026-05")
 
 
 if __name__ == "__main__":

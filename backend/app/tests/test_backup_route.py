@@ -44,39 +44,26 @@ class BackupDownloadRouteTests(unittest.TestCase):
             self.db.commit.assert_called_once_with()
             self.db.rollback.assert_not_called()
 
-    def test_falls_back_to_live_database_if_snapshot_is_unavailable(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            db_file = Path(tmp) / "reports.db"
-            db_file.write_bytes(b"database")
-            with patch.object(backup_route, "backup_db", return_value=None), \
-                 patch.object(backup_route, "DB_PATH", db_file), \
-                 patch.object(backup_route, "audit", side_effect=RuntimeError("audit down")), \
-                 patch.object(backup_route.logger, "exception") as log_exception:
-                response = backup_route.download_backup_snapshot(self.request, self.user, self.db)
-            self.assertEqual(Path(response.path), db_file)
-            self.db.rollback.assert_called_once_with()
-            self.db.commit.assert_not_called()
-            log_exception.assert_called_once()
 
-    def test_missing_snapshot_and_missing_database_returns_500(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            missing = Path(tmp) / "reports.db"
-            with patch.object(backup_route, "backup_db", return_value=None), \
-                 patch.object(backup_route, "DB_PATH", missing):
+    def test_failed_snapshot_is_a_500_and_never_streams_the_live_database(self):
+        for outcome in (None, RuntimeError("Backup failed its integrity check: corrupt")):
+            kwargs = {"side_effect": outcome} if isinstance(outcome, Exception) else {"return_value": outcome}
+            with patch.object(backup_route, "backup_db", **kwargs):
                 with self.assertRaises(HTTPException) as caught:
                     backup_route.download_backup_snapshot(self.request, self.user, self.db)
             self.assertEqual(caught.exception.status_code, 500)
 
-    def test_nonexistent_snapshot_falls_back_to_database(self):
+    def test_audit_failure_does_not_fail_the_download(self):
         with tempfile.TemporaryDirectory() as tmp:
-            db_file = Path(tmp) / "reports.db"
-            db_file.write_bytes(b"database")
-            snapshot = Path(tmp) / "deleted-snapshot.db"
+            snapshot = Path(tmp) / "reports-snapshot.db"
+            snapshot.write_bytes(b"sqlite snapshot")
             with patch.object(backup_route, "backup_db", return_value=snapshot), \
-                 patch.object(backup_route, "DB_PATH", db_file), \
-                 patch.object(backup_route, "audit"):
+                 patch.object(backup_route, "audit", side_effect=RuntimeError("audit down")), \
+                 patch.object(backup_route.logger, "exception") as log_exception:
                 response = backup_route.download_backup_snapshot(self.request, self.user, self.db)
-            self.assertEqual(response.path, db_file)
+            self.assertEqual(Path(response.path), snapshot)
+            self.db.rollback.assert_called_once_with()
+            log_exception.assert_called_once()
 
 
 if __name__ == "__main__":

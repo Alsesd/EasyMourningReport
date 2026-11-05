@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.security import check_pw
 from app.db.base import Base
-from app.db import bootstrap
+from app.platform import bootstrap
 from app.modules.reports.models import Product, ProductPrice
 from app.platform.accounts.models import Organisation
 from app.platform.accounts.models import User

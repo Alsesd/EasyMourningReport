@@ -19,7 +19,6 @@ from app.db.base import Base
 from app.modules.reports.models import Product, ProductPrice
 from app.modules.reports.models import Report, ReportItem
 from app.platform.accounts.models import Organisation
-from app.platform.accounts.models import User
 from app.main import app
 from app.platform.accounts.testing import make_admin, make_member, make_organisation
 from app.modules.reports.pricing import BASE_PERIOD
@@ -61,15 +60,15 @@ class RestApiTests(unittest.TestCase):
         self.admin_client = TestClient(app, follow_redirects=False)
         self.store_client = TestClient(app, follow_redirects=False)
         admin_login = self.admin_client.post(
-            "/login", data={"login": "apiadmin", "password": "admin123"},
+            "/api/v1/auth/login", json={"login": "apiadmin", "password": "admin123"},
             headers={"origin": "http://testserver"},
         )
         store_login = self.store_client.post(
-            "/login", data={"login": "apistore", "password": "store123"},
+            "/api/v1/auth/login", json={"login": "apistore", "password": "store123"},
             headers={"origin": "http://testserver"},
         )
-        self.assertEqual(admin_login.status_code, 303)
-        self.assertEqual(store_login.status_code, 303)
+        self.assertEqual(admin_login.status_code, 200)
+        self.assertEqual(store_login.status_code, 200)
 
     def tearDown(self):
         self.admin_client.close()

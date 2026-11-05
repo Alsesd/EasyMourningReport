@@ -3,6 +3,7 @@
 from app.core.modules import Module
 from app.modules.reports.migrations import MIGRATIONS
 from app.modules.reports.models import Product, ProductPrice, Report, ReportItem, ReportSettings
+from app.modules.reports.overview import overview
 from app.modules.reports.permissions import AUDIT_ACTIONS, PERMISSIONS, SUBMIT
 from app.modules.reports.reports_repo import reports_per_organisation
 from app.modules.reports.routes import router
@@ -19,4 +20,5 @@ module = Module(
     default_grants={"store": (SUBMIT,)},
     organisation_usage=reports_per_organisation,
     seed=seed_demo,
+    overview=overview,
 )

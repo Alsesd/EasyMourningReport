@@ -25,6 +25,7 @@ from app.modules.reports.pricing import (
 from app.modules.reports.products_repo import history_of, load_history, save_history
 from app.modules.reports.reports_repo import (
     build_lines,
+    replace_editable_items,
     build_summary,
     calculation_enabled,
     calculation_enabled_ids,
@@ -186,12 +187,8 @@ async def import_products(
     payload = await file.read(max_import_bytes + 1)
     if not payload or len(payload) > max_import_bytes:
         raise HTTPException(status_code=400, detail="Файл порожній або перевищує 10 МБ")
-    # Reuse the existing import parser/transaction. Its legacy redirect is discarded;
-    # the flash message is returned as a DTO to the client-rendered page.
-    request.session.pop("flash", None)
-    parse_products_excel(payload, db, principal.login, principal.role_label, request)
-    flash = request.session.pop("flash", None) or {}
-    return ImportResultDTO(message=flash.get("text", "Імпорт завершено."))
+    message = parse_products_excel(payload, db, principal.login, principal.role_label, request)
+    return ImportResultDTO(message=message)
 
 
 @router.post("/admin/products", response_model=ProductDTO, status_code=status.HTTP_201_CREATED)
@@ -395,20 +392,8 @@ def save_store_report(
             calculation_quantity,
         )
 
-    # Preserve saved rows for inactive/archived products; those rows are read-only in the UI.
-    preserved = [item for item in report.items if item.product_id not in allowed]
-    new_items = list(preserved)
-    for product_id in allowed:
-        for price, (quantity, calculation_quantity) in quantities.get(product_id, {}).items():
-            new_items.append(
-                ReportItem(
-                    product_id=product_id,
-                    quantity=quantity,
-                    quantity_calc=calculation_quantity,
-                    unit_price_cents=price,
-                )
-            )
-    report.items = new_items
+    # Rows of inactive/archived products are read-only in the UI and stay untouched.
+    replace_editable_items(db, report, set(allowed), quantities)
     submitting = payload.action == "submit"
     report.status = "submitted" if submitting else "draft"
     audit(
@@ -464,7 +449,6 @@ def read_admin_report(
     report = db.get(Report, rid)
     if not report:
         raise HTTPException(status_code=404, detail="Звіт не знайдено.")
-    request.session["period"] = report.period
     rows, inactive, inactive_total = build_lines(
         db,
         report.period,

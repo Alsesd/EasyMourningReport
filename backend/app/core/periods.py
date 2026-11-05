@@ -11,10 +11,3 @@ def money(cents: int) -> str:
 def current_period() -> str:
     """Return the current local calendar month as YYYY-MM."""
     return date.today().strftime("%Y-%m")
-
-
-def shift_period(period: str, delta: int) -> str:
-    """Shift a YYYY-MM period by the given number of months."""
-    year, month = map(int, period.split("-"))
-    absolute_month = year * 12 + (month - 1) + delta
-    return f"{absolute_month // 12:04d}-{absolute_month % 12 + 1:02d}"

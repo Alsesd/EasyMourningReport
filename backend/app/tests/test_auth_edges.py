@@ -45,31 +45,30 @@ class AuthenticationEdgeTests(unittest.TestCase):
 
     def test_missing_login_is_rejected_and_failure_is_audited(self):
         with self.Session() as db, patch.object(auth, "retry_after", return_value=0), patch.object(auth, "record_failure") as record:
-            response = auth.login_post(request_with_session(), "unknown", "x", db)
-            self.assertEqual(response.status_code, 401)
+            result = auth.authenticate_credentials(request_with_session(), "unknown", "x", db)
+            self.assertEqual(result.status_code, 401)
             record.assert_called_once_with("192.0.2.100", "unknown")
             self.assertEqual(db.scalar(select(AuditLog.action)), "невдалий вхід")
 
     def test_rate_limit_returns_429_without_database_lookup(self):
         with self.Session() as db, patch.object(auth, "retry_after", return_value=42), patch.object(auth, "record_failure") as record:
-            response = auth.login_post(request_with_session(), "ADMIN", "admin-pass", db)
-            self.assertEqual(response.status_code, 429)
-            self.assertEqual(response.headers["Retry-After"], "42")
-            self.assertEqual(response.headers["Cache-Control"], "no-store")
+            result = auth.authenticate_credentials(request_with_session(), "ADMIN", "admin-pass", db)
+            self.assertEqual(result.status_code, 429)
+            self.assertEqual(result.retry_after_seconds, 42)
             record.assert_not_called()
 
     def test_archived_store_cannot_login(self):
         with self.Session() as db, patch.object(auth, "retry_after", return_value=0), patch.object(auth, "record_failure") as record:
-            response = auth.login_post(request_with_session(), "shop2", "shop-pass", db)
-            self.assertEqual(response.status_code, 403)
-            self.assertIn("обліковий запис вимкнено", response.body.decode())
+            result = auth.authenticate_credentials(request_with_session(), "shop2", "shop-pass", db)
+            self.assertEqual(result.status_code, 403)
+            self.assertIn("обліковий запис вимкнено", result.error)
             record.assert_called_once_with("192.0.2.100", "shop2")
             self.assertEqual(db.scalar(select(AuditLog.detail)), "організація в архіві")
 
     def test_disabled_user_cannot_login(self):
         with self.Session() as db, patch.object(auth, "retry_after", return_value=0), patch.object(auth, "record_failure"):
-            response = auth.login_post(request_with_session(), "shop3", "shop-pass", db)
-            self.assertEqual(response.status_code, 403)
+            result = auth.authenticate_credentials(request_with_session(), "shop3", "shop-pass", db)
+            self.assertEqual(result.status_code, 403)
             self.assertEqual(
                 db.scalar(select(AuditLog.detail).where(AuditLog.login == "shop3")),
                 "обліковий запис вимкнено",
@@ -78,9 +77,8 @@ class AuthenticationEdgeTests(unittest.TestCase):
     def test_active_store_can_login_and_session_is_replaced(self):
         request = request_with_session({"old": "state", "uid": 999})
         with self.Session() as db, patch.object(auth, "retry_after", return_value=0), patch.object(auth, "clear_failures") as clear:
-            response = auth.login_post(request, " SHOP1 ", "shop-pass", db)
-            self.assertEqual(response.status_code, 303)
-            self.assertEqual(response.headers["location"], "/")
+            result = auth.authenticate_credentials(request, " SHOP1 ", "shop-pass", db)
+            self.assertTrue(result.is_success)
             self.assertEqual(request.session, {"uid": self.active_id})
             clear.assert_called_once_with("192.0.2.100", "shop1")
             self.assertEqual(db.scalar(select(AuditLog.action)), "вхід")
@@ -88,9 +86,7 @@ class AuthenticationEdgeTests(unittest.TestCase):
     def test_logout_without_session_user_still_clears_session(self):
         request = request_with_session({"other": "data"})
         with self.Session() as db:
-            response = auth.logout(request, db)
-            self.assertEqual(response.status_code, 303)
-            self.assertEqual(response.headers["location"], "/login")
+            auth.logout_user(request, db)
             self.assertEqual(request.session, {})
             self.assertEqual(len(list(db.scalars(select(AuditLog)))), 0)
 

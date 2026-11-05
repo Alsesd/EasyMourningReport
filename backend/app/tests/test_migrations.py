@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import select
 
 from app.core.security import hash_pw
-from app.db import bootstrap
+from app.platform import bootstrap
 from app.modules.reports.pricing import BASE_PERIOD
 from app.platform.accounts.access import effective_permissions
 from app.platform.accounts.models import User

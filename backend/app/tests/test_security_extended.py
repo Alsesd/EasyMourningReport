@@ -5,7 +5,6 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 from starlette.requests import Request
@@ -52,10 +51,8 @@ class SecurityHelpersTests(unittest.TestCase):
             self.assertEqual(security.load_secret(), first)
             self.assertEqual(len(first), 64)
 
-    def test_client_ip_prefers_forwarded_ip_only_for_loopback(self):
-        request = make_request(headers={"x-forwarded-for": "203.0.113.7, 10.0.0.2"}, client_host="127.0.0.1")
-        self.assertEqual(security.client_ip(request), "203.0.113.7")
-        self.assertEqual(security.client_ip(make_request(client_host="127.0.0.1")), "127.0.0.1")
+    def test_client_ip_never_trusts_forwarded_headers_itself(self):
+        # Uvicorn resolves X-Forwarded-For from trusted proxies before the app sees the request.
         request = make_request(headers={"x-forwarded-for": "203.0.113.7"}, client_host="198.51.100.3")
         self.assertEqual(security.client_ip(request), "198.51.100.3")
 

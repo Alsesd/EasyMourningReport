@@ -11,6 +11,7 @@ from app.platform.accounts.session_routes import router as session_router
 from app.platform.audit.models import AuditLog
 from app.platform.audit.routes import router as audit_router
 from app.platform.audit.service import PLATFORM_ACTIONS
+from app.platform.overview import router as overview_router
 from app.platform.system.routes import router as system_router
 
 router = APIRouter()
@@ -18,6 +19,7 @@ router.include_router(session_router)
 router.include_router(accounts_router)
 router.include_router(audit_router)
 router.include_router(system_router)
+router.include_router(overview_router)
 
 module = Module(
     name="platform",

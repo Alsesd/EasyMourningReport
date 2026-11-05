@@ -1,194 +1,119 @@
-"""Tests for unified Tunnel preference and status layer."""
+"""The app-managed cloudflared process: preference, token, lifecycle and status."""
 
-import json
+import os
+import stat
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app.core import tunnel
+from app.platform.system import tunnel
+
+FAKE_CLOUDFLARED = """#!/bin/sh
+echo "args: $*"
+exec sleep 30
+"""
+FAILING_CLOUDFLARED = """#!/bin/sh
+echo "2026-11-05T10:00:00Z ERR Provided Tunnel token is not valid"
+exit 1
+"""
 
 
 class TunnelTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
-        self.root = Path(self.temp.name)
-        self.patcher = patch("app.core.tunnel.user_data_dir", return_value=self.root)
-        self.patcher.start()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.env = patch.dict(os.environ, {"TUNNEL_TOKEN": "", "TUNNEL_ENABLED": "", "PUBLIC_URL": ""})
+        self.env.start()
 
     def tearDown(self):
-        self.patcher.stop()
-        self.temp.cleanup()
+        tunnel.shutdown()
+        self.env.stop()
+        self.tmp.cleanup()
+
+    def fake_binary(self, script: str) -> str:
+        path = self.root / "cloudflared"
+        path.write_text(script)
+        path.chmod(path.stat().st_mode | stat.S_IEXEC)
+        return str(path)
 
     def test_disabled_by_default(self):
-        status = tunnel.get_status()
-        self.assertFalse(status["enabled"])
-        self.assertEqual(status["state"], "disabled")
-        self.assertEqual(status["public_url"], "")
-
-    def test_start_if_enabled_returns_none_when_disabled(self):
-        self.assertIsNone(tunnel.start_if_enabled())
-
-    def test_set_autostart_creates_markers(self):
-        tunnel.set_autostart(True)
-        self.assertTrue((self.root / ".tunnel-enabled").exists())
-        self.assertTrue((self.root / ".tailscale-funnel-enabled").exists())
-        status = tunnel.get_status()
-        self.assertTrue(status["autostart"])
-
-    def test_set_autostart_false_removes_markers(self):
-        (self.root / ".tunnel-enabled").write_text("enabled\n", encoding="utf-8")
-        (self.root / ".tailscale-funnel-enabled").write_text("enabled\n", encoding="utf-8")
-        tunnel.set_autostart(False)
-        self.assertFalse((self.root / ".tunnel-enabled").exists())
-        self.assertFalse((self.root / ".tailscale-funnel-enabled").exists())
-        status = tunnel.get_status()
-        self.assertFalse(status["autostart"])
-        self.assertEqual(status["state"], "disabled")
-
-    def test_start_tunnel_records_preference(self):
-        result = tunnel.start_tunnel(autostart=True)
-        self.assertTrue((self.root / ".tunnel-enabled").exists())
-        self.assertTrue(result["autostart"])
-
-    def test_start_tunnel_rejects_bad_key(self):
-        result = tunnel.start_tunnel("bad\nkey")
-        self.assertEqual(result["state"], "error")
-        self.assertIn("Invalid auth key", result["error"])
-
-    def test_start_tunnel_without_autostart(self):
-        result = tunnel.start_tunnel(autostart=False)
-        self.assertFalse((self.root / ".tunnel-enabled").exists())
-
-    def test_stop_tunnel_clears_status_files(self):
-        tunnel_dir = self.root / "tunnel"
-        tunnel_dir.mkdir(parents=True, exist_ok=True)
-        (tunnel_dir / "status.json").write_text('{"state":"running"}', encoding="utf-8")
-
-        ts_dir = self.root / "tailscale"
-        ts_dir.mkdir(parents=True, exist_ok=True)
-        (ts_dir / "status.json").write_text('{"state":"running"}', encoding="utf-8")
-
-        tunnel.stop_tunnel()
-        self.assertFalse((tunnel_dir / "status.json").exists())
-        self.assertFalse((ts_dir / "status.json").exists())
-
-    def test_status_reads_saved_fields(self):
-        (self.root / ".tunnel-enabled").write_text("enabled\n", encoding="utf-8")
-        state_dir = self.root / "tunnel"
-        state_dir.mkdir(parents=True, exist_ok=True)
-        (state_dir / "status.json").write_text(json.dumps({
-            "state": "running",
-            "public_url": "https://random.trycloudflare.com",
-            "login_url": "",
-            "error": "",
-            "updated_at": "2026-10-20T00:00:00Z",
-        }), encoding="utf-8")
-        result = tunnel.get_status()
-        self.assertEqual(result["state"], "running")
-        self.assertEqual(result["public_url"], "https://random.trycloudflare.com")
-        self.assertEqual(result["updated_at"], "2026-10-20T00:00:00Z")
-
-    def test_status_reads_fallback_tailscale_fields(self):
-        (self.root / ".tailscale-funnel-enabled").write_text("enabled\n", encoding="utf-8")
-        state_dir = self.root / "tailscale"
-        state_dir.mkdir(parents=True, exist_ok=True)
-        (state_dir / "status.json").write_text(json.dumps({
-            "state": "running",
-            "public_url": "https://example.ts.net",
-            "login_url": "",
-            "error": "",
-            "updated_at": "2026-10-20T00:00:00Z",
-        }), encoding="utf-8")
-        result = tunnel.get_status()
-        self.assertEqual(result["state"], "running")
-        self.assertEqual(result["public_url"], "https://example.ts.net")
-
-    def test_disabled_status_clears_stale_urls(self):
-        state_dir = self.root / "tunnel"
-        state_dir.mkdir(parents=True, exist_ok=True)
-        (state_dir / "status.json").write_text(json.dumps({
-            "state": "running",
-            "public_url": "https://stale.trycloudflare.com",
-            "login_url": "https://login.example.com",
-        }), encoding="utf-8")
-        result = tunnel.get_status()
-        self.assertEqual(result["state"], "disabled")
-        self.assertEqual(result["public_url"], "")
-        self.assertEqual(result["login_url"], "")
-
-    def test_start_if_enabled_returns_status_when_enabled(self):
-        (self.root / ".tunnel-enabled").write_text("enabled\n", encoding="utf-8")
-        result = tunnel.start_if_enabled()
-        self.assertIsNotNone(result)
-        self.assertTrue(result["enabled"])
-
-    def test_environment_override_public_url(self):
-        with patch.dict("os.environ", {"PUBLIC_URL": "https://custom.domain.com"}):
-            status = tunnel.get_status()
-            self.assertEqual(status["public_url"], "https://custom.domain.com")
-            self.assertEqual(status["state"], "running")
-
-    def test_shutdown_is_noop(self):
-        tunnel.shutdown()
-
-    def test_status_extracts_custom_domain_from_cloudflared_log(self):
-        (self.root / ".tunnel-enabled").write_text("enabled\n", encoding="utf-8")
-        state_dir = self.root / "tunnel"
-        state_dir.mkdir(parents=True, exist_ok=True)
-        log_content = (
-            '2026-10-24T22:10:41Z INF Updated to new configuration '
-            'config="{\\"ingress\\":[{\\"hostname\\":\\"mourningreport.pp.ua\\", \\"service\\":\\"http://0.0.0.0:8000\\"}]}"\n'
-            '2026-10-24T22:10:41Z INF Registered tunnel connection connIndex=0 location=kbp02 protocol=quic\n'
+        self.assertEqual(
+            tunnel.status(self.root),
+            {"enabled": False, "autostart": False, "has_token": False, "state": "disabled", "public_url": "", "error": ""},
         )
-        (state_dir / "cloudflared.log").write_text(log_content, encoding="utf-8")
-        status = tunnel.get_status()
-        self.assertEqual(status["state"], "running")
-        self.assertEqual(status["public_url"], "https://mourningreport.pp.ua")
+        self.assertIsNone(tunnel.start_if_enabled(self.root))
 
-    def test_token_persistence_across_restarts(self):
-        token_value = "eyJhIjoidGVzdCIsInQiOiJ0dW5uZWwtaWQiLCJzIjoic2VjcmV0In0="
-        tunnel.start_tunnel(auth_key=token_value, autostart=True)
-        token_path = self.root / "tunnel" / "token"
-        self.assertTrue(token_path.exists())
-        self.assertEqual(token_path.read_text(encoding="utf-8").strip(), token_value)
+    def test_autostart_marker_and_legacy_tailscale_marker(self):
+        self.assertTrue(tunnel.set_autostart(True, self.root)["autostart"])
+        self.assertEqual(tunnel.status(self.root)["state"], "stopped")
+        self.assertFalse(tunnel.set_autostart(False, self.root)["autostart"])
+        (self.root / ".tailscale-funnel-enabled").write_text("enabled\n")
+        self.assertTrue(tunnel.status(self.root)["autostart"])
+        self.assertTrue((self.root / ".tunnel-enabled").is_file())
+        self.assertFalse((self.root / ".tailscale-funnel-enabled").exists())
 
-        # After stop_tunnel, token remains preserved for restart
-        tunnel.stop_tunnel()
-        self.assertTrue(token_path.exists())
-        self.assertEqual(token_path.read_text(encoding="utf-8").strip(), token_value)
+    def test_missing_cloudflared_is_reported(self):
+        with patch.dict(os.environ, {"CLOUDFLARED_PATH": str(self.root / "missing")}):
+            result = tunnel.start(root=self.root)
+        self.assertEqual(result["state"], "error")
+        self.assertIn("cloudflared", result["error"])
 
-    def test_start_and_stop_tunnel_clears_running_state(self):
-        tunnel.start_tunnel(autostart=True)
-        state_dir = self.root / "tunnel"
-        (state_dir / "cloudflared.log").write_text("INF Registered tunnel connection\n", encoding="utf-8")
-        s1 = tunnel.get_status()
-        self.assertEqual(s1["state"], "running")
+    def test_token_with_whitespace_is_rejected_and_not_saved(self):
+        result = tunnel.start("abc def", root=self.root)
+        self.assertEqual(result["state"], "error")
+        self.assertFalse((self.root / "tunnel" / "token").exists())
 
-        s2 = tunnel.stop_tunnel()
-        self.assertNotEqual(s2["state"], "running")
-        self.assertIn(s2["state"], ("stopped", "enabled-but-not-running"))
-        self.assertFalse((state_dir / "cloudflared.log").exists())
-        self.assertFalse((state_dir / "status.json").exists())
+    def test_named_tunnel_runs_with_saved_token_and_stops(self):
+        binary = self.fake_binary(FAKE_CLOUDFLARED)
+        with patch.dict(os.environ, {"CLOUDFLARED_PATH": binary, "PUBLIC_URL": "https://zvit.example.com"}), \
+             patch.object(tunnel, "_metrics", side_effect=lambda path: {"readyConnections": 2} if path == "/ready" else None):
+            started = tunnel.start("secret-token", root=self.root)
+            self.assertEqual(started["state"], "running")
+            self.assertEqual(started["public_url"], "https://zvit.example.com")
+            self.assertTrue(started["has_token"])
+            self.assertNotIn("secret-token", str(started))
+            token_file = self.root / "tunnel" / "token"
+            self.assertEqual(token_file.read_text(), "secret-token")
+            self.assertEqual(stat.S_IMODE(token_file.stat().st_mode), 0o600)
+            time.sleep(0.2)
+            self.assertIn("run --token secret-token", (self.root / "tunnel" / "cloudflared.log").read_text())
+            stopped = tunnel.stop(self.root)
+        self.assertEqual(stopped["state"], "stopped")  # autostart stays on
+        self.assertTrue(stopped["autostart"])
 
-    def test_start_if_enabled_with_tunnel_enabled_env(self):
-        with patch.dict(tunnel.os.environ, {"TUNNEL_ENABLED": "true"}):
-            result = tunnel.start_if_enabled()
-            self.assertIsNotNone(result)
-            self.assertTrue(result["enabled"])
+    def test_quick_tunnel_reports_trycloudflare_url(self):
+        binary = self.fake_binary(FAKE_CLOUDFLARED)
+        metrics = {"/ready": {"readyConnections": 1}, "/quicktunnel": {"hostname": "calm-river.trycloudflare.com"}}
+        with patch.dict(os.environ, {"CLOUDFLARED_PATH": binary}), patch.object(tunnel, "_metrics", side_effect=metrics.get):
+            result = tunnel.start(autostart=False, root=self.root)
+        self.assertEqual(result["public_url"], "https://calm-river.trycloudflare.com")
+        self.assertFalse(result["autostart"])
+        time.sleep(0.2)
+        self.assertIn("--url http://127.0.0.1:", (self.root / "tunnel" / "cloudflared.log").read_text())
 
-    def test_start_if_enabled_disabled_by_env_override(self):
-        (self.root / ".tunnel-enabled").write_text("enabled\n", encoding="utf-8")
-        with patch.dict(tunnel.os.environ, {"TUNNEL_ENABLED": "false"}):
-            result = tunnel.start_if_enabled()
-            self.assertIsNone(result)
+    def test_crashed_process_surfaces_its_error(self):
+        binary = self.fake_binary(FAILING_CLOUDFLARED)
+        with patch.dict(os.environ, {"CLOUDFLARED_PATH": binary}):
+            tunnel.start("bad-token", root=self.root)
+            for _ in range(50):
+                if tunnel._process is not None and tunnel._process.poll() is not None:
+                    break
+                time.sleep(0.05)
+            result = tunnel.status(self.root)
+        self.assertEqual(result["state"], "error")
+        self.assertIn("token is not valid", result["error"])
 
-    def test_start_if_enabled_with_tunnel_token_env(self):
-        with patch.dict(tunnel.os.environ, {"TUNNEL_TOKEN": "some-token-string"}):
-            result = tunnel.start_if_enabled()
-            self.assertIsNotNone(result)
-            self.assertTrue(result["enabled"])
-
+    def test_start_if_enabled_rules(self):
+        with patch.object(tunnel, "start", return_value={"state": "starting"}) as start:
+            with patch.dict(os.environ, {"TUNNEL_ENABLED": "0", "TUNNEL_TOKEN": "x"}):
+                self.assertIsNone(tunnel.start_if_enabled(self.root))
+            with patch.dict(os.environ, {"TUNNEL_TOKEN": "x"}):
+                self.assertEqual(tunnel.start_if_enabled(self.root), {"state": "starting"})
+            tunnel.set_autostart(True, self.root)
+            self.assertEqual(tunnel.start_if_enabled(self.root), {"state": "starting"})
+        self.assertEqual(start.call_count, 2)
 
 
 if __name__ == "__main__":
