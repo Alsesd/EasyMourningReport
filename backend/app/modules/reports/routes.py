@@ -1,214 +1,66 @@
-"""Versioned REST endpoints for the client-rendered UI.
+"""REST endpoints of the reports module: catalogue, store reports, review, summary and settings."""
 
-The browser sends DTOs and receives DTOs only; ORM models stay behind this
-boundary. Existing HTML form routes remain available for old bookmarks and
-for the Excel upload flow while the UI is migrated incrementally.
-"""
 from collections import defaultdict
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import delete, func
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from app.core.dependencies import clean_login, clean_name, new_password, parse_period, to_cents
-from app.core.security import hash_pw
-from app.core.tailscale import get_status as tailscale_status, set_autostart as set_tailscale_autostart, start_funnel, stop_funnel
-from app.core.tunnel import get_status as tunnel_status, set_autostart as set_tunnel_autostart, start_tunnel, stop_tunnel
-from app.core.errors import FormError
+from app.core.dependencies import clean_name, parse_period, to_cents
 from app.core.periods import current_period, money
+from app.core.schemas import MutationDTO
 from app.db.backup import backup_db
-from app.db.models.audit import AuditLog
-from app.db.models.product import Product, ProductPrice
-from app.db.models.report import Report, ReportItem
-from app.db.models.store import Store
-from app.db.models.user import User
-from app.db.repositories.audit import ACTIONS, audit
-from app.db.repositories.products import history_of, load_history, save_history
-from app.db.repositories.reports import build_lines, build_summary, find_report, report_total
-from app.db.repositories.stores import check_unique_store, store_periods
 from app.db.session import get_db
-from app.routes.auth import authenticate_credentials, logout_user
-from app.services.excel import parse_products_excel
-from app.services.pricing import (
+from app.modules.reports.excel import generate_summary_excel, parse_products_excel
+from app.modules.reports.models import Product, ProductPrice, Report, ReportItem
+from app.modules.reports.permissions import CATALOG_MANAGE, REVIEW, SETTINGS_MANAGE, SUBMIT
+from app.modules.reports.pricing import (
     BASE_PERIOD,
     apply_price_change,
     latest_price,
     month_price_timeline,
     offered_prices,
 )
-
-from app.dto import (
+from app.modules.reports.products_repo import history_of, load_history, save_history
+from app.modules.reports.reports_repo import (
+    build_lines,
+    build_summary,
+    calculation_enabled,
+    calculation_enabled_ids,
+    find_report,
+    report_total,
+    reports_per_organisation,
+    set_calculation_enabled,
+    store_periods,
+)
+from app.modules.reports.schemas import (
     AdminReportDTO,
     AdminReportDetailDTO,
     AdminReportListItemDTO,
-    AuditLogDTO,
     ImportResultDTO,
     InactiveReportLineDTO,
-    LoginDTO,
-    MessageDTO,
-    MutationDTO,
-    PasswordDTO,
     PricePointDTO,
     ProductCreateDTO,
     ProductDTO,
     ProductUpdateDTO,
     ReportInputDTO,
     ReportLineDTO,
-    ReportQuantityDTO,
     ReportSaveDTO,
+    ReportSettingsDTO,
+    ReportSettingsUpdateDTO,
     ReportStatusDTO,
-    SessionDTO,
-    StoreCreateDTO,
-    StoreDTO,
-    StorePasswordDTO,
     StoreReportDTO,
-    StoreUpdateDTO,
     SummaryDTO,
     SummaryRowDTO,
     SummaryStoreDTO,
 )
+from app.platform.accounts.access import Principal, require, require_member
+from app.platform.accounts.models import Organisation
+from app.platform.audit.service import audit
 
+router = APIRouter(tags=["Reports"])
 
-router = APIRouter(tags=["REST API v1"])
-
-def api_user_required(
-    request: Request, db: Session = Depends(get_db)
-) -> User:
-    """Authenticate using the existing signed session cookie, but return JSON errors."""
-    uid = request.session.get("uid")
-    user = db.get(User, uid) if uid else None
-    if user and user.role == "store" and (not user.store or user.store.archived):
-        user = None
-    if not user:
-        raise HTTPException(status_code=401, detail="Увійдіть у систему.")
-    return user
-
-
-def api_admin_required(user: User = Depends(api_user_required)) -> User:
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Лише для адміністраторів.")
-    return user
-
-
-def api_store_required(user: User = Depends(api_user_required)) -> User:
-    if user.role != "store":
-        raise HTTPException(status_code=403, detail="Лише для користувачів магазинів.")
-    return user
-
-
-@router.get("/admin/tailscale")
-def get_tailscale_status(
-    user: User = Depends(api_admin_required),
-) -> dict:
-    """Return the app-specific Tailscale Funnel status without credentials."""
-    return tailscale_status()
-
-
-@router.post("/admin/tailscale")
-def enable_tailscale_funnel(
-    payload: dict,
-    user: User = Depends(api_admin_required),
-) -> dict:
-    """Start the optional public Funnel after explicit confirmation; never persist auth keys."""
-    if payload.get("confirm_public") is not True:
-        raise HTTPException(
-            status_code=400,
-            detail="Підтвердьте, що Funnel відкриває застосунок для публічного доступу.",
-        )
-    auth_key = payload.get("auth_key")
-    if auth_key is not None and not isinstance(auth_key, str):
-        raise HTTPException(status_code=422, detail="Некоректний формат auth key.")
-    autostart = payload.get("autostart", True)
-    if not isinstance(autostart, bool):
-        raise HTTPException(status_code=422, detail="Некоректне значення автозапуску.")
-    result = start_funnel(auth_key or None, autostart=autostart)
-    if result.get("state") == "error":
-        raise HTTPException(status_code=503, detail=result.get("error") or "Tailscale не запустився.")
-    return result
-
-
-@router.put("/admin/tailscale/autostart")
-def update_tailscale_autostart(
-    payload: dict,
-    user: User = Depends(api_admin_required),
-) -> dict:
-    """Toggle startup autostart without changing the current Funnel session."""
-    enabled = payload.get("enabled")
-    if not isinstance(enabled, bool):
-        raise HTTPException(status_code=422, detail="Некоректне значення автозапуску.")
-    try:
-        return set_tailscale_autostart(enabled)
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@router.delete("/admin/tailscale")
-def disable_tailscale_funnel(
-    user: User = Depends(api_admin_required),
-) -> dict:
-    """Disconnect the live helper; the autostart preference remains independent."""
-    result = stop_funnel()
-    if result.get("state") == "error":
-        raise HTTPException(status_code=500, detail=result.get("error") or "Не вдалося вимкнути Funnel.")
-    return result
-
-
-@router.get("/admin/tunnel")
-def get_tunnel_status(
-    user: User = Depends(api_admin_required),
-) -> dict:
-    """Return the tunnel status without credentials."""
-    return tunnel_status()
-
-
-@router.post("/admin/tunnel")
-def enable_tunnel(
-    payload: dict,
-    user: User = Depends(api_admin_required),
-) -> dict:
-    """Start public tunnel after explicit confirmation; never persist auth keys."""
-    if payload.get("confirm_public") is not True:
-        raise HTTPException(
-            status_code=400,
-            detail="Підтвердьте, що тунель відкриває застосунок для публічного доступу.",
-        )
-    auth_key = payload.get("auth_key")
-    if auth_key is not None and not isinstance(auth_key, str):
-        raise HTTPException(status_code=422, detail="Некоректний формат auth key.")
-    autostart = payload.get("autostart", True)
-    if not isinstance(autostart, bool):
-        raise HTTPException(status_code=422, detail="Некоректне значення автозапуску.")
-    result = start_tunnel(auth_key or None, autostart=autostart)
-    if result.get("state") == "error":
-        raise HTTPException(status_code=503, detail=result.get("error") or "Тунель не запустився.")
-    return result
-
-
-@router.put("/admin/tunnel/autostart")
-def update_tunnel_autostart(
-    payload: dict,
-    user: User = Depends(api_admin_required),
-) -> dict:
-    """Toggle startup autostart without changing the current tunnel session."""
-    enabled = payload.get("enabled")
-    if not isinstance(enabled, bool):
-        raise HTTPException(status_code=422, detail="Некоректне значення автозапуску.")
-    try:
-        return set_tunnel_autostart(enabled)
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@router.delete("/admin/tunnel")
-def disable_tunnel(
-    user: User = Depends(api_admin_required),
-) -> dict:
-    """Disconnect the tunnel helper; the autostart preference remains independent."""
-    result = stop_tunnel()
-    if result.get("state") == "error":
-        raise HTTPException(status_code=500, detail=result.get("error") or "Не вдалося вимкнути тунель.")
-    return result
 
 def _product_dto(
     db: Session,
@@ -239,25 +91,6 @@ def _product_usage(db: Session) -> dict[int, int]:
             select(ReportItem.product_id, func.count(ReportItem.id)).group_by(ReportItem.product_id)
         )
     }
-
-
-def _store_dto(db: Session, store: Store, store_user: User, report_counts: dict[int, int] | None = None) -> StoreDTO:
-    counts = report_counts
-    if counts is None:
-        counts = {
-            sid: count
-            for sid, count in db.execute(
-                select(Report.store_id, func.count(Report.id)).group_by(Report.store_id)
-            )
-        }
-    return StoreDTO(
-        id=store.id,
-        name=store.name,
-        login=store_user.login,
-        archived=store.archived,
-        reports_count=counts.get(store.id, 0),
-        calculation_enabled=store.calculation_enabled,
-    )
 
 
 def _report_line_dtos(rows: list[dict]) -> list[ReportLineDTO]:
@@ -295,22 +128,24 @@ def _inactive_line_dtos(rows: list[dict]) -> list[InactiveReportLineDTO]:
 
 
 def _store_report_dto(
-    db: Session, user: User, period: str, report: Report | None
+    db: Session, principal: Principal, period: str, report: Report | None
 ) -> StoreReportDTO:
+    org = principal.user.organisation
+    enabled = calculation_enabled(db, principal.organisation_id)
     rows, inactive, inactive_total = build_lines(
         db,
         period,
         report.items if report else [],
-        calculation_enabled=bool(user.store and user.store.calculation_enabled),
+        calculation_enabled=enabled,
     )
-    known = store_periods(db, user.store_id)
+    known = store_periods(db, principal.organisation_id)
     return StoreReportDTO(
         report_id=report.id if report else None,
-        store_name=user.store.name if user.store else user.login,
+        store_name=org.name if org else principal.login,
         period=period,
         status=report.status if report else "new",
         read_only=bool(report and report.status == "submitted"),
-        calculation_enabled=bool(user.store and user.store.calculation_enabled),
+        calculation_enabled=enabled,
         rows=_report_line_dtos(rows),
         inactive_rows=_inactive_line_dtos(inactive),
         inactive_total_cents=inactive_total,
@@ -319,59 +154,12 @@ def _store_report_dto(
     )
 
 
-@router.get("/session", response_model=SessionDTO)
-def get_session(user: User = Depends(api_user_required)) -> SessionDTO:
-    return SessionDTO(
-        login=user.login,
-        role=user.role,
-        store_id=user.store_id,
-        store_name=user.store.name if user.store else None,
-        period=current_period(),
-    )
-
-
-@router.post("/auth/login", response_model=SessionDTO)
-def api_login(
-    request: Request,
-    payload: LoginDTO,
-    db: Session = Depends(get_db),
-) -> SessionDTO:
-    result = authenticate_credentials(request, payload.login, payload.password, db)
-    if not result.is_success:
-        headers = {}
-        if result.retry_after_seconds:
-            headers["Retry-After"] = str(result.retry_after_seconds)
-            headers["Cache-Control"] = "no-store"
-        raise HTTPException(
-            status_code=result.status_code,
-            detail=result.error,
-            headers=headers,
-        )
-    user = result.user
-    return SessionDTO(
-        login=user.login,
-        role=user.role,
-        store_id=user.store_id,
-        store_name=user.store.name if user.store else None,
-        period=current_period(),
-    )
-
-
-@router.post("/auth/logout", response_model=MessageDTO)
-def api_logout(
-    request: Request,
-    db: Session = Depends(get_db),
-) -> MessageDTO:
-    logout_user(request, db)
-    return MessageDTO(message="Ви вийшли із системи.")
-
-
 # --- Administrator: products -------------------------------------------------
 
 @router.get("/admin/products", response_model=list[ProductDTO])
 def list_products(
     period: str | None = None,
-    _: User = Depends(api_admin_required),
+    _: Principal = Depends(require(CATALOG_MANAGE)),
     db: Session = Depends(get_db),
 ) -> list[ProductDTO]:
     active_period = parse_period(period)
@@ -388,7 +176,7 @@ def list_products(
 async def import_products(
     request: Request,
     file: UploadFile = File(...),
-    user: User = Depends(api_admin_required),
+    principal: Principal = Depends(require(CATALOG_MANAGE)),
     db: Session = Depends(get_db),
 ) -> ImportResultDTO:
     """Import an Excel workbook through the JSON API with a bounded upload."""
@@ -401,7 +189,7 @@ async def import_products(
     # Reuse the existing import parser/transaction. Its legacy redirect is discarded;
     # the flash message is returned as a DTO to the client-rendered page.
     request.session.pop("flash", None)
-    parse_products_excel(payload, db, user, request)
+    parse_products_excel(payload, db, principal.login, principal.role_label, request)
     flash = request.session.pop("flash", None) or {}
     return ImportResultDTO(message=flash.get("text", "Імпорт завершено."))
 
@@ -410,7 +198,7 @@ async def import_products(
 def create_product(
     payload: ProductCreateDTO,
     request: Request,
-    user: User = Depends(api_admin_required),
+    principal: Principal = Depends(require(CATALOG_MANAGE)),
     db: Session = Depends(get_db),
 ) -> ProductDTO:
     name = clean_name(payload.name)
@@ -419,7 +207,7 @@ def create_product(
     db.add(product)
     db.flush()
     db.add(ProductPrice(product_id=product.id, period=BASE_PERIOD, price_cents=cents))
-    audit(db, request, user.login, user.role, "додано товар", f"{name} · {money(cents)}")
+    audit(db, request, principal.login, principal.role_label, "додано товар", f"{name} · {money(cents)}")
     db.commit()
     db.refresh(product)
     return _product_dto(db, product)
@@ -430,7 +218,7 @@ def update_product_price(
     pid: int,
     payload: dict,
     request: Request,
-    user: User = Depends(api_admin_required),
+    principal: Principal = Depends(require(CATALOG_MANAGE)),
     db: Session = Depends(get_db),
 ) -> ProductDTO:
     """Change only a product's price, preserving all month history and product edits."""
@@ -448,7 +236,7 @@ def update_product_price(
         save_history(db, pid, new_history)
         product.price_cents = latest_price(new_history)
         audit(
-            db, request, user.login, user.role, "змінено ціну товару",
+            db, request, principal.login, principal.role_label, "змінено ціну товару",
             f"{product.name} · {money(previous)} → {money(now)} з {period}",
         )
         db.commit()
@@ -461,7 +249,7 @@ def update_product(
     pid: int,
     payload: ProductUpdateDTO,
     request: Request,
-    user: User = Depends(api_admin_required),
+    principal: Principal = Depends(require(CATALOG_MANAGE)),
     db: Session = Depends(get_db),
 ) -> ProductDTO:
     product = db.get(Product, pid)
@@ -477,7 +265,7 @@ def update_product(
         save_history(db, pid, new_history)
         product.price_cents = latest_price(new_history)
         audit(
-            db, request, user.login, user.role, "змінено ціну товару",
+            db, request, principal.login, principal.role_label, "змінено ціну товару",
             f"{product.name} · {money(previous)} → {money(now)} з {period}",
         )
     changed = []
@@ -488,7 +276,7 @@ def update_product(
         product.active = payload.active
         changed.append("увімкнено" if payload.active else "вимкнено")
     if changed:
-        audit(db, request, user.login, user.role, "змінено товар", f"{name} · " + "; ".join(changed))
+        audit(db, request, principal.login, principal.role_label, "змінено товар", f"{name} · " + "; ".join(changed))
     db.commit()
     db.refresh(product)
     return _product_dto(db, product, _product_usage(db).get(pid, 0))
@@ -498,7 +286,7 @@ def update_product(
 def delete_product(
     pid: int,
     request: Request,
-    user: User = Depends(api_admin_required),
+    principal: Principal = Depends(require(CATALOG_MANAGE)),
     db: Session = Depends(get_db),
 ) -> MutationDTO:
     product = db.get(Product, pid)
@@ -507,14 +295,14 @@ def delete_product(
     used = db.scalar(select(func.count(ReportItem.id)).where(ReportItem.product_id == pid)) or 0
     if used:
         product.archived, product.active = True, False
-        audit(db, request, user.login, user.role, "архівовано товар", f"{product.name} · рядків у звітах: {used}")
+        audit(db, request, principal.login, principal.role_label, "архівовано товар", f"{product.name} · рядків у звітах: {used}")
         db.commit()
         return MutationDTO(id=pid, archived=True, message=f"«{product.name}» переміщено в архів. Дані звітів збережено.")
     backup_db("before-delete")
     name = product.name
     db.execute(delete(ProductPrice).where(ProductPrice.product_id == pid))
     db.execute(delete(Product).where(Product.id == pid))
-    audit(db, request, user.login, user.role, "видалено товар", name)
+    audit(db, request, principal.login, principal.role_label, "видалено товар", name)
     db.commit()
     return MutationDTO(id=pid, deleted=True, message=f"Товар «{name}» остаточно видалено.")
 
@@ -523,177 +311,17 @@ def delete_product(
 def restore_product(
     pid: int,
     request: Request,
-    user: User = Depends(api_admin_required),
+    principal: Principal = Depends(require(CATALOG_MANAGE)),
     db: Session = Depends(get_db),
 ) -> ProductDTO:
     product = db.get(Product, pid)
     if not product:
         raise HTTPException(status_code=404, detail="Товар не знайдено.")
     product.archived, product.active = False, True
-    audit(db, request, user.login, user.role, "відновлено товар", product.name)
+    audit(db, request, principal.login, principal.role_label, "відновлено товар", product.name)
     db.commit()
     db.refresh(product)
     return _product_dto(db, product, _product_usage(db).get(pid, 0))
-
-
-# --- Administrator: stores ---------------------------------------------------
-
-@router.get("/admin/stores", response_model=list[StoreDTO])
-def list_stores(
-    _: User = Depends(api_admin_required),
-    db: Session = Depends(get_db),
-) -> list[StoreDTO]:
-    counts = {
-        sid: count
-        for sid, count in db.execute(
-            select(Report.store_id, func.count(Report.id)).group_by(Report.store_id)
-        )
-    }
-    store_users = db.scalars(select(User).where(User.role == "store").order_by(User.login)).all()
-    result = []
-    for account in store_users:
-        if account.store:
-            result.append(_store_dto(db, account.store, account, counts))
-    return sorted(result, key=lambda item: item.name.casefold())
-
-
-@router.post("/admin/stores", response_model=StoreDTO, status_code=status.HTTP_201_CREATED)
-def create_store(
-    payload: StoreCreateDTO,
-    request: Request,
-    user: User = Depends(api_admin_required),
-    db: Session = Depends(get_db),
-) -> StoreDTO:
-    name = clean_name(payload.name, "Назва магазину")
-    login = clean_login(payload.login)
-    password = new_password(payload.password)
-    check_unique_store(db, name, login)
-    store = Store(name=name)
-    db.add(store)
-    try:
-        db.flush()
-        account = User(login=login, password_hash=hash_pw(password), role="store", store_id=store.id)
-        db.add(account)
-        audit(db, request, user.login, user.role, "додано магазин", f"{name} · логін {login}")
-        db.commit()
-        db.refresh(store)
-        db.refresh(account)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="Магазин із такою назвою або логін уже існує.")
-    return _store_dto(db, store, account, {})
-
-
-@router.put("/admin/stores/{sid}", response_model=StoreDTO)
-def update_store(
-    sid: int,
-    payload: StoreUpdateDTO,
-    request: Request,
-    user: User = Depends(api_admin_required),
-    db: Session = Depends(get_db),
-) -> StoreDTO:
-    store = db.get(Store, sid)
-    account = db.scalar(select(User).where(User.store_id == sid, User.role == "store"))
-    if not store or not account:
-        raise HTTPException(status_code=404, detail="Магазин не знайдено.")
-    name, login = clean_name(payload.name, "Назва магазину"), clean_login(payload.login)
-    check_unique_store(db, name, login, store_id=sid, user_id=account.id)
-    notes = []
-    if store.name != name:
-        notes.append(f"назва «{store.name}» → «{name}»")
-        store.name = name
-    if account.login != login:
-        notes.append(f"логін {account.login} → {login}")
-        account.login = login
-    if (
-        payload.calculation_enabled is not None
-        and store.calculation_enabled != payload.calculation_enabled
-    ):
-        store.calculation_enabled = payload.calculation_enabled
-        state = "увімкнено" if payload.calculation_enabled else "вимкнено"
-        notes.append(f"режим «По розрахунку» {state}")
-    if notes:
-        audit(db, request, user.login, user.role, "змінено магазин", "; ".join(notes))
-    try:
-        db.commit()
-        db.refresh(store)
-        db.refresh(account)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="Магазин із такою назвою або логін уже існує.")
-    return _store_dto(db, store, account)
-
-
-@router.delete("/admin/stores/{sid}", response_model=MutationDTO)
-def delete_store(
-    sid: int,
-    request: Request,
-    user: User = Depends(api_admin_required),
-    db: Session = Depends(get_db),
-) -> MutationDTO:
-    store = db.get(Store, sid)
-    if not store:
-        raise HTTPException(status_code=404, detail="Магазин не знайдено.")
-    count = db.scalar(select(func.count(Report.id)).where(Report.store_id == sid)) or 0
-    if count:
-        store.archived = True
-        audit(db, request, user.login, user.role, "архівовано магазин", f"{store.name} · звітів: {count}")
-        db.commit()
-        return MutationDTO(id=sid, archived=True, message=f"«{store.name}» переміщено в архів. Звіти збережено.")
-    backup_db("before-delete")
-    name = store.name
-    db.execute(delete(User).where(User.store_id == sid))
-    db.execute(delete(Store).where(Store.id == sid))
-    audit(db, request, user.login, user.role, "видалено магазин", name)
-    db.commit()
-    return MutationDTO(id=sid, deleted=True, message=f"Магазин «{name}» остаточно видалено.")
-
-
-@router.post("/admin/stores/{sid}/restore", response_model=StoreDTO)
-def restore_store(
-    sid: int,
-    request: Request,
-    user: User = Depends(api_admin_required),
-    db: Session = Depends(get_db),
-) -> StoreDTO:
-    store = db.get(Store, sid)
-    account = db.scalar(select(User).where(User.store_id == sid, User.role == "store"))
-    if not store or not account:
-        raise HTTPException(status_code=404, detail="Магазин не знайдено.")
-    store.archived = False
-    audit(db, request, user.login, user.role, "відновлено магазин", store.name)
-    db.commit()
-    return _store_dto(db, store, account)
-
-
-@router.put("/admin/password", response_model=MessageDTO)
-def update_admin_password(
-    payload: PasswordDTO,
-    request: Request,
-    user: User = Depends(api_admin_required),
-    db: Session = Depends(get_db),
-) -> MessageDTO:
-    user.password_hash = hash_pw(new_password(payload.password))
-    audit(db, request, user.login, user.role, "змінено пароль адміністратора")
-    db.commit()
-    return MessageDTO(message="Ваш пароль змінено.")
-
-
-@router.put("/admin/stores/{sid}/password", response_model=MessageDTO)
-def reset_store_password(
-    sid: int,
-    payload: StorePasswordDTO,
-    request: Request,
-    user: User = Depends(api_admin_required),
-    db: Session = Depends(get_db),
-) -> MessageDTO:
-    account = db.scalar(select(User).where(User.store_id == sid, User.role == "store"))
-    if not account:
-        raise HTTPException(status_code=404, detail="Обліковий запис магазину не знайдено.")
-    account.password_hash = hash_pw(new_password(payload.password))
-    audit(db, request, user.login, user.role, "змінено пароль магазину", account.login)
-    db.commit()
-    return MessageDTO(message=f"Пароль для «{account.login}» змінено.")
 
 
 # --- Store: monthly report ---------------------------------------------------
@@ -701,15 +329,15 @@ def reset_store_password(
 @router.get("/store/reports/{period}", response_model=StoreReportDTO)
 def read_store_report(
     period: str,
-    user: User = Depends(api_store_required),
+    principal: Principal = Depends(require_member(SUBMIT)),
     db: Session = Depends(get_db),
 ) -> StoreReportDTO:
     selected = parse_period(period)
-    known = store_periods(db, user.store_id)
+    known = store_periods(db, principal.organisation_id)
     if selected != current_period() and selected not in known:
         raise HTTPException(status_code=404, detail=f"Звіту за {selected} немає.")
-    report = find_report(db, user.store_id, selected)
-    return _store_report_dto(db, user, selected, report)
+    report = find_report(db, principal.organisation_id, selected)
+    return _store_report_dto(db, principal, selected, report)
 
 
 @router.put("/store/reports/{period}", response_model=StoreReportDTO)
@@ -717,19 +345,19 @@ def save_store_report(
     period: str,
     payload: ReportSaveDTO,
     request: Request,
-    user: User = Depends(api_store_required),
+    principal: Principal = Depends(require_member(SUBMIT)),
     db: Session = Depends(get_db),
 ) -> StoreReportDTO:
     selected = parse_period(period)
-    known = store_periods(db, user.store_id)
+    known = store_periods(db, principal.organisation_id)
     if selected != current_period() and selected not in known:
         raise HTTPException(status_code=403, detail=f"Звіту за {selected} не існує.")
-    report = find_report(db, user.store_id, selected)
+    report = find_report(db, principal.organisation_id, selected)
     if report and report.status == "submitted":
         raise HTTPException(status_code=409, detail="Звіт надіслано й заблоковано адміністратором.")
 
     if not report:
-        report = Report(store_id=user.store_id, period=selected, status="draft")
+        report = Report(store_id=principal.organisation_id, period=selected, status="draft")
         db.add(report)
         db.flush()
 
@@ -784,21 +412,21 @@ def save_store_report(
     submitting = payload.action == "submit"
     report.status = "submitted" if submitting else "draft"
     audit(
-        db, request, user.login, user.role,
+        db, request, principal.login, principal.role_label,
         "надіслано звіт" if submitting else "збережено звіт",
-        f"{user.store.name if user.store else user.login} · {selected}",
+        f"{principal.user.organisation.name if principal.user.organisation else principal.login} · {selected}",
     )
     db.commit()
     db.refresh(report)
-    return _store_report_dto(db, user, selected, report)
+    return _store_report_dto(db, principal, selected, report)
 
 
-# --- Administrator: submitted reports and monthly summary -------------------
+# --- Review: submitted reports and monthly summary -------------------------
 
 @router.get("/admin/reports", response_model=list[AdminReportListItemDTO])
 def list_admin_reports(
     period: str | None = None,
-    _: User = Depends(api_admin_required),
+    _: Principal = Depends(require(REVIEW)),
     db: Session = Depends(get_db),
 ) -> list[AdminReportListItemDTO]:
     selected = parse_period(period)
@@ -807,7 +435,7 @@ def list_admin_reports(
         for report in db.scalars(select(Report).where(Report.period == selected))
     }
     result = []
-    for store in db.scalars(select(Store).order_by(Store.name)):
+    for store in db.scalars(select(Organisation).order_by(Organisation.name)):
         report = reports_by_store.get(store.id)
         if store.archived and not report:
             continue
@@ -830,7 +458,7 @@ def list_admin_reports(
 def read_admin_report(
     rid: int,
     request: Request,
-    user: User = Depends(api_admin_required),
+    principal: Principal = Depends(require(REVIEW)),
     db: Session = Depends(get_db),
 ) -> AdminReportDetailDTO:
     report = db.get(Report, rid)
@@ -841,14 +469,14 @@ def read_admin_report(
         db,
         report.period,
         report.items,
-        calculation_enabled=bool(report.store and report.store.calculation_enabled),
+        calculation_enabled=calculation_enabled(db, report.store_id),
     )
     return AdminReportDetailDTO(
         report_id=report.id,
         store_id=report.store_id,
         store_name=report.store.name if report.store else "?",
         store_archived=bool(report.store and report.store.archived),
-        calculation_enabled=bool(report.store and report.store.calculation_enabled),
+        calculation_enabled=calculation_enabled(db, report.store_id),
         period=report.period,
         status=report.status,
         total_cents=report_total(report),
@@ -864,7 +492,7 @@ def update_admin_report_status(
     rid: int,
     payload: ReportStatusDTO,
     request: Request,
-    user: User = Depends(api_admin_required),
+    principal: Principal = Depends(require(REVIEW)),
     db: Session = Depends(get_db),
 ) -> AdminReportDTO:
     target = payload.status
@@ -874,7 +502,7 @@ def update_admin_report_status(
     report.status = target
     store = report.store
     audit(
-        db, request, user.login, user.role,
+        db, request, principal.login, principal.role_label,
         "заблоковано звіт" if target == "submitted" else "розблоковано звіт",
         f"{store.name if store else '?'} · {report.period}",
     )
@@ -885,7 +513,7 @@ def update_admin_report_status(
         store_id=report.store_id,
         store_name=store.name if store else "?",
         store_archived=bool(store and store.archived),
-        calculation_enabled=bool(store and store.calculation_enabled),
+        calculation_enabled=calculation_enabled(db, report.store_id),
         period=report.period,
         status=report.status,
         total_cents=report_total(report),
@@ -897,7 +525,7 @@ def update_admin_report_status(
 def read_admin_summary(
     period: str | None = None,
     submitted_only: bool = False,
-    _: User = Depends(api_admin_required),
+    _: Principal = Depends(require(REVIEW)),
     db: Session = Depends(get_db),
 ) -> SummaryDTO:
     selected = parse_period(period)
@@ -933,24 +561,60 @@ def read_admin_summary(
     )
 
 
-@router.get("/admin/log-actions", response_model=list[str])
-def read_admin_log_actions(
-    _: User = Depends(api_admin_required),
-) -> list[str]:
-    return ACTIONS
-
-
-@router.get("/admin/logs", response_model=list[AuditLogDTO])
-def read_admin_logs(
-    login: str | None = None,
-    action: str | None = None,
-    limit: int = Query(default=200, ge=1, le=500),
-    _: User = Depends(api_admin_required),
+@router.get("/admin/summary.xlsx")
+def export_summary_xlsx(
+    period: str | None = None,
+    submitted_only: bool = False,
+    _: Principal = Depends(require(REVIEW)),
     db: Session = Depends(get_db),
-) -> list[AuditLogDTO]:
-    query = select(AuditLog)
-    if login:
-        query = query.where(AuditLog.login.contains(login.strip().lower()))
-    if action:
-        query = query.where(AuditLog.action == action)
-    return list(db.scalars(query.order_by(AuditLog.id.desc()).limit(limit)).all())
+):
+    selected = parse_period(period)
+    stream = generate_summary_excel(db, selected, submitted_only)
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="zvit-{selected}.xlsx"'},
+    )
+
+
+# --- Per-organisation report settings ----------------------------------------
+
+
+def _settings_dto(org: Organisation, enabled: set[int], counts: dict[int, int]) -> ReportSettingsDTO:
+    return ReportSettingsDTO(
+        organisation_id=org.id,
+        organisation_name=org.name,
+        archived=org.archived,
+        calculation_enabled=org.id in enabled,
+        reports_count=counts.get(org.id, 0),
+    )
+
+
+@router.get("/reports/settings", response_model=list[ReportSettingsDTO])
+def list_report_settings(
+    _: Principal = Depends(require(SETTINGS_MANAGE)),
+    db: Session = Depends(get_db),
+) -> list[ReportSettingsDTO]:
+    enabled, counts = calculation_enabled_ids(db), reports_per_organisation(db)
+    orgs = db.scalars(select(Organisation)).all()
+    return [_settings_dto(o, enabled, counts) for o in sorted(orgs, key=lambda o: o.name.casefold())]
+
+
+@router.put("/reports/settings/{oid}", response_model=ReportSettingsDTO)
+def update_report_settings(
+    oid: int,
+    payload: ReportSettingsUpdateDTO,
+    request: Request,
+    principal: Principal = Depends(require(SETTINGS_MANAGE)),
+    db: Session = Depends(get_db),
+) -> ReportSettingsDTO:
+    org = db.get(Organisation, oid)
+    if not org:
+        raise HTTPException(status_code=404, detail="Організацію не знайдено.")
+    if calculation_enabled(db, oid) != payload.calculation_enabled:
+        set_calculation_enabled(db, oid, payload.calculation_enabled)
+        state = "увімкнено" if payload.calculation_enabled else "вимкнено"
+        audit(db, request, principal.login, principal.role_label, "змінено налаштування звітів",
+              f"{org.name}: режим «По розрахунку» {state}")
+        db.commit()
+    return _settings_dto(org, calculation_enabled_ids(db), reports_per_organisation(db))

@@ -5,7 +5,7 @@ import { reportsApi } from "@/modules/reports/api";
 import { uk, formatCurrency, formatPeriodReadable } from "@/modules/reports/i18n";
 import { Card, CardHeader, CardTitle, CardContent } from "@/ui/Card";
 import { Button } from "@/ui/Button";
-import { StatusPill } from "@/ui/StatusPill";
+import { StatusPill } from "@/modules/reports/components/StatusPill";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import {
   Dialog,

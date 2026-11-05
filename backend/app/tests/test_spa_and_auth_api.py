@@ -8,11 +8,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from sqlmodel import create_engine
 
-from app.core.dependencies import get_db
-from app.core.security import hash_pw
+from app.db.session import get_db
 from app.db.base import Base
-from app.db.models.store import Store
-from app.db.models.user import User
+from app.platform.accounts.testing import make_admin, make_member, make_organisation
 from app.main import app
 
 
@@ -31,25 +29,11 @@ class SpaAndAuthApiTests(unittest.TestCase):
         app.dependency_overrides[get_db] = override_get_db
 
         with self.Session() as db:
-            admin = User(login="superadmin", password_hash=hash_pw("adminsecret"), role="admin")
-            store = Store(name="Фруктовий Магазин", archived=False)
-            archived_store = Store(name="Закритий Магазин", archived=True)
-            db.add_all([admin, store, archived_store])
-            db.flush()
-
-            store_user = User(
-                login="fruitstore",
-                password_hash=hash_pw("storesecret"),
-                role="store",
-                store_id=store.id,
-            )
-            archived_user = User(
-                login="closedstore",
-                password_hash=hash_pw("closedsecret"),
-                role="store",
-                store_id=archived_store.id,
-            )
-            db.add_all([store_user, archived_user])
+            make_admin(db, "superadmin", "adminsecret")
+            store = make_organisation(db, "Фруктовий Магазин")
+            archived_store = make_organisation(db, "Закритий Магазин", archived=True)
+            make_member(db, store, "fruitstore", "storesecret")
+            make_member(db, archived_store, "closedstore", "closedsecret")
             db.commit()
 
         self.client = TestClient(app, base_url="http://testserver")
@@ -67,7 +51,8 @@ class SpaAndAuthApiTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertEqual(data["login"], "superadmin")
-        self.assertEqual(data["role"], "admin")
+        self.assertIsNone(data["organisation"])
+        self.assertIn("platform.system.manage", data["permissions"])
 
         # Session cookie is present and verifies identity
         session_resp = self.client.get("/api/v1/session")
@@ -83,8 +68,8 @@ class SpaAndAuthApiTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertEqual(data["login"], "fruitstore")
-        self.assertEqual(data["role"], "store")
-        self.assertEqual(data["store_name"], "Фруктовий Магазин")
+        self.assertEqual(data["permissions"], ["reports.submit"])
+        self.assertEqual(data["organisation"]["name"], "Фруктовий Магазин")
 
     def test_json_login_invalid_password(self):
         resp = self.client.post(
@@ -114,7 +99,7 @@ class SpaAndAuthApiTests(unittest.TestCase):
         self.assertIn("обліковий запис вимкнено", resp.json()["detail"])
 
     def test_json_login_rate_limiting(self):
-        with patch("app.routes.auth.retry_after", return_value=60):
+        with patch("app.platform.accounts.auth.retry_after", return_value=60):
             resp = self.client.post(
                 "/api/v1/auth/login",
                 json={"login": "superadmin", "password": "adminsecret"},

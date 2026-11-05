@@ -13,10 +13,10 @@ from sqlalchemy.pool import StaticPool
 from app.core.security import check_pw
 from app.db.base import Base
 from app.db import bootstrap
-from app.db.models.product import Product, ProductPrice
-from app.db.models.store import Store
-from app.db.models.user import User
-from app.services.pricing import BASE_PERIOD
+from app.modules.reports.models import Product, ProductPrice
+from app.platform.accounts.models import Organisation
+from app.platform.accounts.models import User
+from app.modules.reports.pricing import BASE_PERIOD
 
 
 class BootstrapTests(unittest.TestCase):
@@ -46,7 +46,7 @@ class BootstrapTests(unittest.TestCase):
 
     def test_seed_returns_without_changes_when_a_user_exists(self):
         with self.Session() as db:
-            db.add(User(login="admin", password_hash="existing", role="admin"))
+            db.add(User(login="admin", password_hash="existing"))
             db.commit()
         with patch("builtins.print") as output:
             bootstrap.seed()
@@ -62,17 +62,31 @@ class BootstrapTests(unittest.TestCase):
             prices = list(db.scalars(select(ProductPrice)))
             self.assertEqual(len(prices), 3)
             self.assertTrue(all(row.period == BASE_PERIOD for row in prices))
-            self.assertEqual(len(list(db.scalars(select(Store))),), 2)
-            self.assertEqual(len(list(db.scalars(select(User)))), 3)
+            self.assertEqual(len(list(db.scalars(select(Organisation)))), 2)
+            users = {u.login: u for u in db.scalars(select(User))}
+            self.assertEqual(set(users), {"admin", "store1", "store2"})
+            self.assertEqual([r.key for r in users["admin"].roles], ["platform_admin"])
+            self.assertEqual([r.key for r in users["store1"].roles], ["store"])
+            self.assertIsNotNone(users["store1"].organisation_id)
 
     def test_migrate_creates_a_fresh_schema_without_backup(self):
-        with patch.object(bootstrap, "backup_db") as backup:
-            bootstrap.migrate()
-            backup.assert_not_called()
-            bootstrap.migrate()
-        with self.engine.connect() as connection:
-            names = {row[0] for row in connection.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'")}
-        self.assertTrue({"users", "stores", "products", "product_prices", "reports", "report_items", "audit_log"}.issubset(names))
+        empty = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+        try:
+            with patch.object(bootstrap, "engine", empty), patch.object(bootstrap, "backup_db") as backup:
+                self.assertEqual(bootstrap.migrate(), [])
+                self.assertEqual(bootstrap.migrate(), [])
+                backup.assert_not_called()
+            with empty.connect() as connection:
+                names = {row[0] for row in connection.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'")}
+                recorded = {row[0] for row in connection.exec_driver_sql("SELECT id FROM schema_migrations")}
+        finally:
+            empty.dispose()
+        self.assertTrue({
+            "users", "organisations", "roles", "role_permissions", "user_roles", "products",
+            "product_prices", "reports", "report_items", "report_settings", "audit_log",
+        }.issubset(names))
+        self.assertIn("platform.0001_organisations_and_roles", recorded)
+        self.assertIn("reports.0002_settings_table", recorded)
 
 
 if __name__ == "__main__":

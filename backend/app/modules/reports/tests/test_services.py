@@ -6,18 +6,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
-from app.db.models.product import Product, ProductPrice
-from app.db.models.report import Report, ReportItem
-from app.db.models.store import Store
-from app.services.excel import generate_summary_excel
-from app.services.pricing import (
-    BASE_PERIOD,
-    line_labels,
-    norm_login,
-    offered_prices,
-    same_name,
-    valid_login,
-)
+from app.modules.reports.models import Product, ProductPrice
+from app.modules.reports.models import Report, ReportItem
+from app.platform.accounts.models import Organisation
+from app.modules.reports.excel import generate_summary_excel
+from app.core.text import norm_login, same_name, valid_login
+from app.modules.reports.pricing import BASE_PERIOD, line_labels, offered_prices
 
 
 class PricingServiceTests(unittest.TestCase):
@@ -65,7 +59,7 @@ class ExcelServiceTests(unittest.TestCase):
 
     def test_generate_summary_excel(self):
         with self.Session() as db:
-            s = Store(name="Test Shop")
+            s = Organisation(name="Test Shop")
             p = Product(name="Apples", price_cents=2000, active=True)
             db.add_all([s, p])
             db.flush()

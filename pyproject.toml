@@ -23,7 +23,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["backend/app/tests"]
+testpaths = ["backend/app/tests", "backend/app/modules"]
 python_files = ["test_*.py"]
 pythonpath = ["backend"]
 addopts = "-ra"

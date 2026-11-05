@@ -1,22 +1,14 @@
 import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "@/app/providers/ThemeContext";
+import { ThemeProvider } from "@/platform/theme/ThemeContext";
 import { AuthProvider, useAuth } from "@/platform/auth/AuthContext";
-import { ProtectedRoute } from "@/platform/auth/ProtectedRoute";
+import { ModuleRegistryContext } from "@/platform/modules";
+import { PageSpinner, ProtectedRoute } from "@/app/routing/ProtectedRoute";
+import { useLandingPath } from "@/app/routing/landing";
 import { LoginPage } from "@/app/pages/LoginPage";
-import { uk } from "@/modules/reports/i18n";
-import { reportPages } from "@/modules/reports/module";
+import { appModules } from "@/app/registry";
 
-// Route-level code splitting: the reports module owns its lazy page registry.
-const {
-  StoreReportPage,
-  AdminSummaryPage,
-  AdminReportsPage,
-  AdminReportDetailPage,
-  AdminLogsPage,
-  AdminSettingsPage,
-} = reportPages;
 const AdminLayout = lazy(() => import("@/app/layouts/AdminLayout"));
 
 const queryClient = new QueryClient({
@@ -30,74 +22,68 @@ const queryClient = new QueryClient({
 
 function RootRedirect() {
   const { session, isLoading } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-page text-text-muted">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!session) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <Navigate to={session.role === "admin" ? "/admin/summary" : "/report"} replace />;
+  const landing = useLandingPath();
+  if (isLoading) return <PageSpinner />;
+  if (!session) return <Navigate to="/login" replace />;
+  return <Navigate to={landing} replace />;
 }
 
-function PageFallback() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-page text-text-muted">
-      <div className="flex flex-col items-center space-y-2">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        <span className="text-xs">{uk.common.loading}</span>
-      </div>
-    </div>
-  );
-}
+const routes = appModules.flatMap((m) => m.routes);
+const standaloneRoutes = routes.filter((r) => r.layout === "standalone");
+const shellRoutes = routes.filter((r) => r.layout !== "standalone");
 
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <BrowserRouter>
-            <Suspense fallback={<PageFallback />}>
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
+          <ModuleRegistryContext.Provider value={appModules}>
+            <BrowserRouter>
+              <Suspense fallback={<PageSpinner />}>
+                <Routes>
+                  <Route path="/login" element={<LoginPage />} />
 
-                <Route
-                  path="/report"
-                  element={
-                    <ProtectedRoute allowedRole="store">
-                      <StoreReportPage />
-                    </ProtectedRoute>
-                  }
-                />
+                  {standaloneRoutes.map(({ path, component: Page, permissions }) => (
+                    <Route
+                      key={path}
+                      path={path}
+                      element={
+                        <ProtectedRoute permissions={permissions}>
+                          <Page />
+                        </ProtectedRoute>
+                      }
+                    />
+                  ))}
 
-                <Route
-                  path="/admin"
-                  element={
-                    <ProtectedRoute allowedRole="admin">
-                      <AdminLayout />
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route index element={<Navigate to="summary" replace />} />
-                  <Route path="summary" element={<AdminSummaryPage />} />
-                  <Route path="reports" element={<AdminReportsPage />} />
-                  <Route path="reports/:reportId" element={<AdminReportDetailPage />} />
-                  <Route path="logs" element={<AdminLogsPage />} />
-                  <Route path="settings" element={<AdminSettingsPage />} />
-                  <Route path="*" element={<Navigate to="summary" replace />} />
-                </Route>
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute>
+                        <AdminLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    <Route index element={<RootRedirect />} />
+                    {shellRoutes.map(({ path, component: Page, permissions }) => (
+                      <Route
+                        key={path}
+                        path={path}
+                        element={
+                          <ProtectedRoute permissions={permissions}>
+                            <Page />
+                          </ProtectedRoute>
+                        }
+                      />
+                    ))}
+                    <Route path="*" element={<RootRedirect />} />
+                  </Route>
 
-                <Route path="/" element={<RootRedirect />} />
-                <Route path="*" element={<RootRedirect />} />
-              </Routes>
-            </Suspense>
-          </BrowserRouter>
+                  <Route path="/" element={<RootRedirect />} />
+                  <Route path="*" element={<RootRedirect />} />
+                </Routes>
+              </Suspense>
+            </BrowserRouter>
+          </ModuleRegistryContext.Provider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

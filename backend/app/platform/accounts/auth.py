@@ -1,4 +1,4 @@
-"""Authentication and session credential verification logic."""
+"""Credential checks and the legacy form sign-in routes (``POST /login``, ``POST /logout``)."""
 
 from fastapi import APIRouter, Depends, Form, Request, Response
 from fastapi.responses import RedirectResponse
@@ -6,10 +6,11 @@ from sqlmodel import Session, select
 
 from app.core.ratelimit import clear_failures, record_failure, retry_after
 from app.core.security import check_pw, client_ip
-from app.db.models.user import User
-from app.db.repositories.audit import audit
+from app.core.text import norm_login
 from app.db.session import get_db
-from app.services.pricing import norm_login
+from app.platform.accounts.access import can_sign_in, principal_for
+from app.platform.accounts.models import User
+from app.platform.audit.service import audit
 
 router = APIRouter()
 
@@ -56,16 +57,17 @@ def authenticate_credentials(
             error="Неправильний логін або пароль",
             status_code=401,
         )
-    if user.role == "store" and (not user.store or user.store.archived):
+    if not can_sign_in(user):
         record_failure(ip, key)
-        audit(db, request, user.login, user.role, "невдалий вхід", "магазин в архіві")
+        reason = "обліковий запис вимкнено" if not user.active else "організація в архіві"
+        audit(db, request, user.login, principal_for(user).role_label, "невдалий вхід", reason)
         db.commit()
         return AuthResult(
             error="Цей обліковий запис вимкнено. Зверніться до адміністратора.",
             status_code=403,
         )
     clear_failures(ip, key)
-    audit(db, request, user.login, user.role, "вхід")
+    audit(db, request, user.login, principal_for(user).role_label, "вхід")
     db.commit()
     request.session.clear()
     request.session["uid"] = user.id
@@ -76,7 +78,7 @@ def logout_user(request: Request, db: Session) -> None:
     uid = request.session.get("uid")
     user = db.get(User, uid) if uid else None
     if user:
-        audit(db, request, user.login, user.role, "вихід")
+        audit(db, request, user.login, principal_for(user).role_label, "вихід")
         db.commit()
     request.session.clear()
 

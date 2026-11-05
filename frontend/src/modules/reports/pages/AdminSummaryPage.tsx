@@ -59,9 +59,7 @@ export default function AdminSummaryPage() {
   const previousPeriod = shiftPeriod(period, -1);
   const nextPeriod = shiftPeriod(period, 1);
 
-  const excelUrl = `/admin/summary.xlsx?period=${encodeURIComponent(period)}${
-    submittedOnly ? "&submitted_only=1" : ""
-  }`;
+  const excelUrl = reportsApi.summaryExcelUrl(period, submittedOnly);
 
   const stores = summary?.stores || [];
   const rows = summary?.rows || [];

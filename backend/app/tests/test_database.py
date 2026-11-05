@@ -4,7 +4,7 @@ import unittest
 
 from sqlalchemy import text
 
-from app.db.models.product import Product
+from app.modules.reports.models import Product
 from app.db.session import get_db
 from app.db.session import engine
 from app.main import app
@@ -31,8 +31,8 @@ class DatabaseConfigurationTests(unittest.TestCase):
     def test_admin_backup_route_is_registered(self):
         """Verify the actual public schema, not FastAPI's internal route objects."""
         paths = app.openapi()["paths"]
-        self.assertIn("/admin/backup/download", paths)
-        self.assertIn("get", paths["/admin/backup/download"])
+        self.assertIn("/api/v1/admin/backup/download", paths)
+        self.assertIn("get", paths["/api/v1/admin/backup/download"])
 
     def test_get_db_yields_session_and_closes_context_on_generator_close(self):
         from unittest.mock import MagicMock, patch

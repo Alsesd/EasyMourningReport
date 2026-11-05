@@ -1,4 +1,4 @@
-/** Typed API surface for the public transport/tunnel connection. */
+/** Typed API for server administration: public tunnel status and controls. */
 
 import { api } from "@/platform/api/client";
 
@@ -12,7 +12,7 @@ export interface TunnelStatus {
   error: string;
 }
 
-export const transportApi = {
+export const systemApi = {
   status: () => api.get<TunnelStatus>("/api/v1/admin/tunnel"),
   start: (payload: { confirm_public: true; autostart: boolean; auth_key: string | null }) =>
     api.post<TunnelStatus>("/api/v1/admin/tunnel", payload),

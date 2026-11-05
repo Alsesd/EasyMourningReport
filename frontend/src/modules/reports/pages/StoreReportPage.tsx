@@ -2,12 +2,14 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/platform/api/client";
 import { reportsApi } from "@/modules/reports/api";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/platform/auth/AuthContext";
+import { navItemsFor, useModuleRegistry } from "@/platform/modules";
 import type { StoreReportDTO, ReportLineDTO, ReportSaveDTO } from "@/platform/api/types";
 import { uk, formatCurrency, formatPeriodReadable, shiftPeriod } from "@/modules/reports/i18n";
 import { Card, CardHeader, CardTitle, CardContent } from "@/ui/Card";
 import { Button } from "@/ui/Button";
-import { StatusPill } from "@/ui/StatusPill";
+import { StatusPill } from "@/modules/reports/components/StatusPill";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { QuantityStepper } from "@/ui/QuantityStepper";
 import { ThemeToggle } from "@/ui/ThemeToggle";
@@ -37,14 +39,18 @@ import { cn } from "@/ui/utils";
 
 export default function StoreReportPage() {
   const { session, logout } = useAuth();
+  // Users who can do more than file this report (or change their password) get a way into the workspace.
+  const workspaceLink = navItemsFor(useModuleRegistry(), session?.permissions).find(
+    (item) => item.to !== "/report",
+  );
   const queryClient = useQueryClient();
 
   const currentMonth = session?.period || new Date().toISOString().slice(0, 7);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(currentMonth);
 
   useEffect(() => {
-    document.title = `${session?.store_name || uk.nav.report} — ${uk.appTitle}`;
-  }, [session?.store_name]);
+    document.title = `${session?.organisation?.name || uk.nav.report} — ${uk.appTitle}`;
+  }, [session?.organisation?.name]);
 
   const isDesktop = typeof window !== "undefined" && window.innerWidth >= 640;
   const storedViewMode = typeof window !== "undefined" ? (localStorage.getItem("store.viewMode") as "desktop" | "cards" | null) : null;
@@ -106,14 +112,14 @@ export default function StoreReportPage() {
     }
 
     // Check if there is an unsubmitted local draft
-    const localDraft = loadLocalDraft(selectedPeriod, session?.store_id ?? undefined);
+    const localDraft = loadLocalDraft(selectedPeriod, session?.organisation?.id ?? undefined);
     if (localDraft && !report.read_only) {
       Object.assign(initialMap, localDraft.quantities);
     }
 
     setQuantities(initialMap);
     setInitialSnapshot(JSON.stringify(initialMap));
-  }, [report, selectedPeriod, session?.store_id]);
+  }, [report, selectedPeriod, session?.organisation?.id]);
 
   // Clear feedback when switching periods
   useEffect(() => {
@@ -145,11 +151,11 @@ export default function StoreReportPage() {
         const quantityKey = `${productId}_${priceCents}${calculation ? "_calc" : ""}`;
         const next = { ...prev, [quantityKey]: newQty };
         // Persist locally for offline draft protection
-        saveLocalDraft(selectedPeriod, next, session?.store_id ?? undefined);
+        saveLocalDraft(selectedPeriod, next, session?.organisation?.id ?? undefined);
         return next;
       });
     },
-    [selectedPeriod, session?.store_id]
+    [selectedPeriod, session?.organisation?.id]
   );
 
   // Compute live totals
@@ -201,7 +207,7 @@ export default function StoreReportPage() {
     onSuccess: (updatedReport, action) => {
       queryClient.setQueryData(["storeReport", selectedPeriod], updatedReport);
       setInitialSnapshot(JSON.stringify(quantities));
-      clearLocalDraft(selectedPeriod, session?.store_id ?? undefined);
+      clearLocalDraft(selectedPeriod, session?.organisation?.id ?? undefined);
 
       setFeedback({
         type: "ok",
@@ -282,12 +288,22 @@ export default function StoreReportPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="min-w-0 pr-2">
             <h1 className="font-bold text-base sm:text-lg text-primary truncate">
-              {session?.store_name || session?.login}
+              {session?.organisation?.name || session?.login}
             </h1>
             <p className="text-xs text-text-muted">{uk.appTitle}</p>
           </div>
 
           <div className="flex items-center space-x-2 shrink-0">
+            {workspaceLink && (
+              <Link
+                to={workspaceLink.to}
+                aria-label={workspaceLink.label}
+                title={workspaceLink.label}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-control border border-border text-text-muted hover:text-text-main"
+              >
+                <workspaceLink.icon className="h-4 w-4" />
+              </Link>
+            )}
             {/* View Mode Toggle (Desktop vs Cards) */}
             <div className="flex items-center bg-page p-1 rounded-control border border-border">
               <button

@@ -1,5 +1,5 @@
-import { useTheme, type Theme } from "@/app/providers/ThemeContext";
-import { uk } from "@/modules/reports/i18n";
+import { useTheme, type Theme } from "@/platform/theme/ThemeContext";
+import { ukPlatform as uk } from "@/platform/i18n";
 import { Sun, Moon, Laptop } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/ui/utils";

@@ -2,16 +2,19 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "@/app/providers/ThemeContext";
+import { ThemeProvider } from "@/platform/theme/ThemeContext";
 import { AuthProvider } from "@/platform/auth/AuthContext";
 import StoreReportPage from "./StoreReportPage";
 import type { StoreReportDTO, SessionDTO } from "@/platform/api/types";
 
 const mockSession: SessionDTO = {
+  user_id: 5,
   login: "teststore",
-  role: "store",
-  store_id: 1,
-  store_name: "Тестовий магазин",
+  full_name: "",
+  organisation: { id: 1, name: "Тестовий магазин" },
+  roles: ["Магазин"],
+  permissions: ["reports.submit"],
+  modules: ["platform", "reports"],
   period: "2026-10",
 };
 

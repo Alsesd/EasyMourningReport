@@ -6,23 +6,24 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.errors import FormError
 from app.db.base import Base
-from app.db.models.audit import AuditLog
-from app.db.models.product import Product
-from app.db.models.store import Store
-from app.db.models.report import Report, ReportItem
-from app.db.repositories.audit import ACTIONS, audit
-from app.db.repositories.products import (
+from app.platform.audit.models import AuditLog
+from app.modules.reports.models import Product, ProductPrice
+from app.platform.accounts.models import Organisation, User
+from app.platform.accounts.service import check_unique_login, check_unique_organisation
+from app.modules.reports.models import Report, ReportItem
+from app.platform.audit.service import PLATFORM_ACTIONS as ACTIONS, audit
+from app.modules.reports.products_repo import (
     in_form,
     load_history,
     save_history,
 )
-from app.db.repositories.stores import check_unique_store, store_periods
-from app.db.repositories.reports import (
+from app.modules.reports.reports_repo import set_calculation_enabled, store_periods
+from app.modules.reports.reports_repo import (
     find_report,
     money,
     report_total,
 )
-from app.services.pricing import BASE_PERIOD
+from app.modules.reports.pricing import BASE_PERIOD
 
 
 class RepositoryTests(unittest.TestCase):
@@ -68,7 +69,7 @@ class RepositoryTests(unittest.TestCase):
 
     def test_stores_repository(self):
         with self.Session() as db:
-            s = Store(name="Store One")
+            s = Organisation(name="Store One")
             db.add(s)
             db.flush()
             r = Report(store_id=s.id, period="2026-10", status="draft")
@@ -80,11 +81,11 @@ class RepositoryTests(unittest.TestCase):
 
             # Name collision raises FormError
             with self.assertRaises(FormError):
-                check_unique_store(db, "Store One", "unique_login")
+                check_unique_organisation(db, "Store One")
 
     def test_reports_repository(self):
         with self.Session() as db:
-            s = Store(name="Shop")
+            s = Organisation(name="Shop")
             p = Product(name="Item", price_cents=500, active=True, archived=False)
             db.add_all([s, p])
             db.flush()
@@ -107,10 +108,10 @@ class RepositoryTests(unittest.TestCase):
             db.add(product)
             db.flush()
             db.add_all([
-                __import__("app.db.models.product", fromlist=["ProductPrice"]).ProductPrice(
+                ProductPrice(
                     product_id=product.id, period=BASE_PERIOD, price_cents=100
                 ),
-                __import__("app.db.models.product", fromlist=["ProductPrice"]).ProductPrice(
+                ProductPrice(
                     product_id=product.id, period="2026-10", price_cents=125
                 ),
             ])
@@ -122,25 +123,22 @@ class RepositoryTests(unittest.TestCase):
 
     def test_archived_store_name_and_duplicate_login_are_rejected(self):
         with self.Session() as db:
-            store = Store(name="Old Store", archived=True)
-            user = __import__("app.db.models.user", fromlist=["User"]).User(
-                login="taken-login", password_hash="hash", role="store"
-            )
+            store = Organisation(name="Old Store", archived=True)
+            user = User(login="taken-login", password_hash="hash")
             db.add_all([store, user])
             db.commit()
             with self.assertRaisesRegex(FormError, "в архіві"):
-                check_unique_store(db, " old   store ", "other-login")
+                check_unique_organisation(db, " old   store ")
             with self.assertRaisesRegex(FormError, "уже зайнятий"):
-                check_unique_store(db, "Different Store", "taken-login")
+                check_unique_login(db, "taken-login")
             # Editing the matching records must not conflict with themselves.
-            check_unique_store(
-                db, "Old Store", "taken-login", store_id=store.id, user_id=user.id
-            )
+            check_unique_organisation(db, "Old Store", store.id)
+            check_unique_login(db, "taken-login", user.id)
 
     def test_empty_store_periods_and_archived_product_form_visibility(self):
-        from app.db.repositories.products import in_form
+        from app.modules.reports.products_repo import in_form
         with self.Session() as db:
-            store = Store(name="No reports")
+            store = Organisation(name="No reports")
             archived = Product(name="Archived but active", price_cents=100, active=True, archived=True)
             db.add_all([store, archived])
             db.commit()
@@ -148,9 +146,9 @@ class RepositoryTests(unittest.TestCase):
             self.assertFalse(in_form(archived))
 
     def test_build_lines_keeps_saved_lines_for_inactive_and_archived_products(self):
-        from app.db.repositories.reports import build_lines
+        from app.modules.reports.reports_repo import build_lines
         with self.Session() as db:
-            store = Store(name="Shop")
+            store = Organisation(name="Shop")
             inactive = Product(name="Inactive", price_cents=100, active=False, archived=False)
             archived = Product(name="Archived", price_cents=200, active=True, archived=True)
             active_no_history = Product(name="No history", price_cents=300, active=True, archived=False)
@@ -170,12 +168,13 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(inactive_total, 800)
 
     def test_calculation_quantities_are_separate_from_summary_totals(self):
-        from app.db.repositories.reports import build_lines, build_summary
+        from app.modules.reports.reports_repo import build_lines, build_summary
         with self.Session() as db:
-            store = Store(name="Calculation shop", calculation_enabled=True)
+            store = Organisation(name="Calculation shop")
             product = Product(name="Calculation item", price_cents=250, active=True, archived=False)
             db.add_all([store, product])
             db.flush()
+            set_calculation_enabled(db, store.id, True)
             save_history(db, product.id, [(BASE_PERIOD, 250)])
             report = Report(store_id=store.id, period="2026-10", status="draft")
             db.add(report)
@@ -206,8 +205,7 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(store_sums, [500])
             self.assertEqual(grand, 500)
 
-            stores[0].calculation_enabled = False
-            db.add(stores[0])
+            set_calculation_enabled(db, store.id, False)
             db.commit()
             _, hidden_rows, _, _ = build_summary(db, "2026-10")
             self.assertEqual(hidden_rows[0]["calculation_cells"], [0])
@@ -215,10 +213,10 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(hidden_rows[0]["sum"], 500)
 
     def test_summary_filter_includes_archived_data_only_when_submitted(self):
-        from app.db.repositories.reports import build_summary
+        from app.modules.reports.reports_repo import build_summary
         with self.Session() as db:
-            current_store = Store(name="Current store")
-            archived_store = Store(name="Archived store", archived=True)
+            current_store = Organisation(name="Current store")
+            archived_store = Organisation(name="Archived store", archived=True)
             current_product = Product(name="Current product", price_cents=100, active=True, archived=False)
             archived_product = Product(name="Archived product", price_cents=200, active=False, archived=True)
             db.add_all([current_store, archived_store, current_product, archived_product])

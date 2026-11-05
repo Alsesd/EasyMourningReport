@@ -1,7 +1,8 @@
 import unittest
 
-from app.services.pricing import (BASE_PERIOD, apply_price_change, dedupe_logins, latest_price, line_labels, month_price_timeline,
-                         norm_login, offered_prices, same_name, valid_login)
+from app.core.text import dedupe_logins, norm_login, same_name, valid_login
+from app.modules.reports.pricing import (BASE_PERIOD, apply_price_change, latest_price, line_labels, month_price_timeline,
+                                         offered_prices)
 
 
 class OfferedPrices(unittest.TestCase):

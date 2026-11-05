@@ -49,7 +49,7 @@ A well-kept records room: dark pine cabinetry, archival paper, a discreet brass 
 ### Product context and register
 
 - **Audience and primary job:** Internal staff and administrators of a burial agency enter monthly store quantities, review submissions, manage the catalogue and accounts, and download reports.
-- **Target market(s) and evidence:** Ukrainian interface and Ukrainian numeric/date formatting are established in `frontend/src/modules/reports/i18n.ts`; the app brief identifies the business as a burial agency.
+- **Target market(s) and evidence:** Ukrainian interface and Ukrainian numeric/date formatting are established in `frontend/src/platform/i18n.ts`; the app brief identifies the business as a burial agency.
 - **Locale(s) and language policy:** Ukrainian (`uk-UA`) for interface copy, dates and currency. New user-facing labels belong in the shared `uk` dictionary.
 - **Usage scene:** Repeated operational use on desktop at an office, with store/report entry also used on phones. Controls need touch-safe sizing and content must work without hover.
 - **Register:** Product/admin; consistency, task clarity, data density and recovery take priority over expressive presentation.

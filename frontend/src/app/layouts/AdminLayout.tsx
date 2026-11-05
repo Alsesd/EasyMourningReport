@@ -4,8 +4,9 @@ import { useAuth } from "@/platform/auth/AuthContext";
 import { Button } from "@/ui/Button";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 import { MakerMark } from "@/ui/MakerMark";
-import { uk } from "@/modules/reports/i18n";
-import { BarChart3, FileText, Settings, ShieldCheck, LogOut, BookOpen, ChevronRight } from "lucide-react";
+import { ukPlatform as uk } from "@/platform/i18n";
+import { navFor } from "@/app/registry";
+import { LogOut, BookOpen, ChevronRight } from "lucide-react";
 import { cn } from "@/ui/utils";
 
 export default function AdminLayout() {
@@ -14,36 +15,16 @@ export default function AdminLayout() {
   const [searchParams] = useSearchParams();
   const period = searchParams.get("period");
 
-  const navItems = [
-    {
-      basePath: "/admin/summary",
-      to: period ? `/admin/summary?period=${period}` : "/admin/summary",
-      label: uk.nav.summary,
-      icon: BarChart3,
-    },
-    {
-      basePath: "/admin/reports",
-      to: period ? `/admin/reports?period=${period}` : "/admin/reports",
-      label: uk.nav.reports,
-      icon: FileText,
-    },
-    {
-      basePath: "/admin/settings",
-      to: "/admin/settings",
-      label: uk.nav.settings,
-      icon: Settings,
-    },
-    {
-      basePath: "/admin/logs",
-      to: "/admin/logs",
-      label: uk.nav.logs,
-      icon: ShieldCheck,
-    },
-  ];
+  // Navigation is composed from every installed module and filtered by the user's permissions.
+  const navItems = navFor(session?.permissions).map((item) => ({
+    ...item,
+    basePath: item.to,
+    to: item.keepPeriod && period ? `${item.to}?period=${period}` : item.to,
+  }));
 
   const isItemActive = (basePath: string) => location.pathname.startsWith(basePath);
   const activeItem = navItems.find((item) => isItemActive(item.basePath));
-  const pageTitle = location.pathname.match(/^\/admin\/reports\/[^/]+/) ? uk.reports.detailTitle : (activeItem?.label || uk.nav.summary);
+  const pageTitle = activeItem?.label || uk.appTitle;
 
   useEffect(() => {
     document.title = `${pageTitle} — ${uk.appTitle}`;
@@ -78,7 +59,7 @@ export default function AdminLayout() {
             const active = isItemActive(item.basePath);
             return (
               <NavLink
-                key={item.basePath}
+                key={item.id}
                 to={item.to}
                 aria-current={active ? "page" : undefined}
                 className={navClass(active)}
@@ -97,8 +78,10 @@ export default function AdminLayout() {
               {(session?.login || "A").slice(0, 1).toLocaleUpperCase("uk-UA")}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-[#f1f2e9]">{session?.login}</p>
-              <p className="mt-0.5 text-[10px] tracking-wide text-[#afc1b2]">{uk.auth.secureAccess}</p>
+              <p className="truncate text-xs font-semibold text-[#f1f2e9]">{session?.full_name || session?.login}</p>
+              <p className="mt-0.5 truncate text-[10px] tracking-wide text-[#afc1b2]">
+                {session?.organisation?.name ?? uk.auth.secureAccess}
+              </p>
             </div>
           </div>
           <Button
@@ -154,20 +137,24 @@ export default function AdminLayout() {
         </main>
       </div>
 
-      {/* Mobile bottom navigation keeps the four daily destinations within thumb reach. */}
-      <nav aria-label={uk.nav.portalLabel} className="portal-mobile-nav fixed bottom-0 left-0 right-0 z-40 grid grid-cols-4 gap-1 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] lg:hidden">
+      {/* Mobile bottom navigation keeps the daily destinations within thumb reach. */}
+      <nav
+        aria-label={uk.nav.portalLabel}
+        className="portal-mobile-nav fixed bottom-0 left-0 right-0 z-40 grid gap-1 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] lg:hidden"
+        style={{ gridTemplateColumns: `repeat(${Math.max(navItems.length, 1)}, minmax(0, 1fr))` }}
+      >
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isItemActive(item.basePath);
           return (
             <NavLink
-              key={item.basePath}
+              key={item.id}
               to={item.to}
               aria-current={active ? "page" : undefined}
               className={cn("portal-mobile-link flex flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-medium", active && "font-semibold")}
             >
               <Icon className="h-[19px] w-[19px]" strokeWidth={1.8} />
-              <span>{item.basePath === "/admin/settings" ? uk.nav.settingsShort : item.label}</span>
+              <span className="max-w-full truncate">{item.shortLabel ?? item.label}</span>
             </NavLink>
           );
         })}

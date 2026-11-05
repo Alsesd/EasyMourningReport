@@ -1,16 +1,11 @@
-"""Typed API request/response DTOs.
+"""Request/response DTOs of the reports module. ORM models never leave the route layer."""
 
-Database models are deliberately not returned directly from HTTP handlers:
-DTOs make the public contract explicit and keep ORM-only fields private.
-"""
-from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
+from app.core.schemas import DTO
 
-class DTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
 
 
 class PricePointDTO(DTO):
@@ -38,61 +33,17 @@ class ProductUpdateDTO(ProductCreateDTO):
     active: bool
 
 
-class MutationDTO(DTO):
-    id: int
-    archived: bool = False
-    deleted: bool = False
-    message: str
 
 
-class StoreDTO(DTO):
-    id: int
-    name: str
-    login: str
-    archived: bool
-    reports_count: int = 0
-    calculation_enabled: bool = False
 
 
-class StoreCreateDTO(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
-    login: str = Field(min_length=2, max_length=40)
-    password: str = Field(min_length=6, max_length=256)
 
 
-class StoreUpdateDTO(BaseModel):
-    name: str = Field(min_length=1, max_length=100)
-    login: str = Field(min_length=2, max_length=40)
-    calculation_enabled: bool | None = None
-
-
-class PasswordDTO(BaseModel):
-    password: str = Field(min_length=6, max_length=256)
-
-
-class StorePasswordDTO(PasswordDTO):
-    pass
-
-
-class LoginDTO(BaseModel):
-    login: str = Field(min_length=1, max_length=100)
-    password: str = Field(min_length=1, max_length=256)
-
-
-class MessageDTO(DTO):
-    message: str
 
 
 class ImportResultDTO(DTO):
     message: str
 
-
-class SessionDTO(DTO):
-    login: str
-    role: Literal["admin", "store"]
-    store_id: int | None = None
-    store_name: str | None = None
-    period: str
 
 
 class ReportInputDTO(DTO):
@@ -207,11 +158,13 @@ class SummaryDTO(DTO):
     grand_total_cents: int
 
 
-class AuditLogDTO(DTO):
-    id: int
-    ts: datetime
-    login: str
-    role: str
-    action: str
-    detail: str
-    ip: str
+class ReportSettingsDTO(DTO):
+    organisation_id: int
+    organisation_name: str
+    archived: bool
+    calculation_enabled: bool
+    reports_count: int = 0
+
+
+class ReportSettingsUpdateDTO(BaseModel):
+    calculation_enabled: bool

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "@/app/providers/ThemeContext";
+import { ThemeProvider } from "@/platform/theme/ThemeContext";
 import { AuthProvider } from "@/platform/auth/AuthContext";
 import { LoginPage } from "./LoginPage";
 

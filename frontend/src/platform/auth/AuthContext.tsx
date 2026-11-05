@@ -10,6 +10,8 @@ interface AuthContextType {
   login: (credentials: LoginDTO) => Promise<SessionDTO>;
   logout: () => Promise<void>;
   refetchSession: () => Promise<void>;
+  /** True when the signed-in user holds at least one of the permission codes. */
+  can: (...codes: string[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -77,6 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refetch();
   };
 
+  const can = (...codes: string[]) =>
+    Boolean(session && codes.some((code) => session.permissions?.includes(code)));
+
   return (
     <AuthContext.Provider
       value={{
@@ -86,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         refetchSession,
+        can,
       }}
     >
       {children}

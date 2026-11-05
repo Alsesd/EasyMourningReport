@@ -8,8 +8,9 @@ from unittest.mock import MagicMock, patch
 from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
 
-import app.routes.admin.backup as backup_route
-from app.db.models.user import User
+import app.platform.system.routes as backup_route
+from app.platform.accounts.access import Principal
+from app.platform.accounts.models import Role, User
 
 
 def fake_request():
@@ -23,7 +24,9 @@ def fake_request():
 class BackupDownloadRouteTests(unittest.TestCase):
     def setUp(self):
         self.request = fake_request()
-        self.user = User(id=1, login="admin", password_hash="hash", role="admin")
+        user = User(id=1, login="admin", password_hash="hash")
+        user.roles = [Role(name="Адміністратор", scope="platform", key="platform_admin")]
+        self.user = Principal(user=user, permissions=frozenset({"platform.system.manage"}))
         self.db = MagicMock(spec=Session)
 
     def test_streams_snapshot_and_records_audit(self):
@@ -36,7 +39,7 @@ class BackupDownloadRouteTests(unittest.TestCase):
             self.assertEqual(Path(response.path), snapshot)
             self.assertIn("reports-snapshot.db", response.headers["content-disposition"])
             audit.assert_called_once_with(
-                self.db, self.request, "admin", "admin", "завантажено бекап", snapshot.name
+                self.db, self.request, "admin", "Адміністратор", "завантажено бекап", snapshot.name
             )
             self.db.commit.assert_called_once_with()
             self.db.rollback.assert_not_called()

@@ -1,26 +1,22 @@
-"""Hierarchical router composition for PWA assets, auth, admin server routes, and REST API."""
+"""Compose every router: PWA assets, legacy form sign-in, then each module's REST API under /api/v1."""
 
 from fastapi import APIRouter
 
-from app.routes.admin import admin_router
-from app.routes.api_v1 import router as api_v1_router
-from app.routes.auth import router as auth_router
+from app.platform.accounts.auth import router as form_auth_router
+from app.platform.registry import get_registry
 from app.routes.pwa import router as pwa_router
 
-public_router = APIRouter()
-public_router.include_router(pwa_router)
-public_router.include_router(auth_router)
 
-api_router = APIRouter()
-api_router.include_router(public_router)
-api_router.include_router(admin_router)
-api_router.include_router(api_v1_router, prefix="/api/v1")
+def build_api_router() -> APIRouter:
+    router = APIRouter()
+    router.include_router(pwa_router)
+    router.include_router(form_auth_router)
+    for module in get_registry():
+        if module.router is not None:
+            router.include_router(module.router, prefix="/api/v1")
+    return router
 
-__all__ = [
-    "admin_router",
-    "api_router",
-    "api_v1_router",
-    "auth_router",
-    "public_router",
-    "pwa_router",
-]
+
+api_router = build_api_router()
+
+__all__ = ["api_router", "build_api_router"]

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/platform/auth/AuthContext";
-import { uk } from "@/modules/reports/i18n";
+import { ukPlatform as uk } from "@/platform/i18n";
+import { landingPathFor } from "@/app/routing/landing";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/ui/Card";
 import { Input } from "@/ui/Input";
 import { Button } from "@/ui/Button";
@@ -34,7 +35,7 @@ export function LoginPage() {
   }
 
   if (session) {
-    return <Navigate to={session.role === "admin" ? "/admin" : "/report"} replace />;
+    return <Navigate to={landingPathFor(session)} replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,7 +50,7 @@ export function LoginPage() {
 
     try {
       const newSession = await login({ login: username.trim(), password });
-      navigate(newSession.role === "admin" ? "/admin" : "/report", { replace: true });
+      navigate(landingPathFor(newSession), { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

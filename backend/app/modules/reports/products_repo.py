@@ -5,8 +5,8 @@ from collections import defaultdict
 from sqlmodel import select
 from sqlmodel import Session
 
-from app.db.models.product import Product, ProductPrice
-from app.services.pricing import BASE_PERIOD, History, sort_history
+from app.modules.reports.models import Product, ProductPrice
+from app.modules.reports.pricing import BASE_PERIOD, History, sort_history
 
 
 def load_history(db: Session) -> dict[int, History]:

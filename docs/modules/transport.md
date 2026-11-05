@@ -1,9 +1,15 @@
-# Transport module
+# Transport module (scaffold)
 
-**Location:** `frontend/src/modules/transport/`
+**Backend:** `backend/app/modules/transport/` · **Frontend:** `frontend/src/modules/transport/`
 
-The transport module currently owns the typed API surface for public tunnel lifecycle operations: status polling, starting with explicit public-access confirmation, disconnecting, and changing autostart. `AdminSettingsPage` uses this API wrapper for its existing tunnel settings section.
+Reserved for submitting and tracking transport orders. Today it registers its permissions, a `GET /api/v1/transport/status` endpoint, a «Транспорт» navigation item and a placeholder page, so it already appears in the role editor and navigation. It also serves as the template for new modules (see `docs/architecture.md` → *Adding a module*).
 
-Tunnel process management, token discovery, saved state, and shutdown handling remain backend responsibilities in `backend/app/core/tunnel.py` and the application lifecycle module. The frontend must not infer that an endpoint is publicly reachable until the backend reports its state and URL.
+| Permission | Scope | Intended use |
+|---|---|---|
+| `transport.orders.create` | organisation | Members place orders for their organisation and see their statuses |
+| `transport.orders.view_all` | platform | Staff see every organisation's orders |
+| `transport.orders.manage` | platform | Staff accept orders and move them through statuses |
 
-A future extraction of the visual settings panel into a dedicated transport page/component should preserve the existing admin route and public-access confirmation behavior.
+Suggested next step: a `TransportOrder` table with organisation, requested date/time, pickup, destination and notes, plus a `TransportOrderStatusChange` history table (`new → accepted → in_progress → done | cancelled`). Organisation members list and create their own orders. Staff with `manage` change status, and each change writes an audit entry.
+
+The public-tunnel controls that used to live in `frontend/src/modules/transport/api.ts` are now `frontend/src/platform/system/`.

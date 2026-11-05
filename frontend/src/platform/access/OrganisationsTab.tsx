@@ -1,0 +1,233 @@
+/** Organisations (stores and future partners): create, rename, archive or delete, restore. */
+
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/platform/auth/AuthContext";
+import { accessApi, P } from "@/platform/access/api";
+import type { OrganisationDTO } from "@/platform/api/types";
+import { ukPlatform as uk } from "@/platform/i18n";
+import { Card, CardContent, CardHeader, CardTitle } from "@/ui/Card";
+import { Button } from "@/ui/Button";
+import { Input } from "@/ui/Input";
+import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
+import { useConfirm } from "@/ui/ConfirmDialog";
+import { Archive, Plus, RotateCcw, Trash2 } from "lucide-react";
+import type { Notify } from "./AccessPage";
+
+function usageText(org: OrganisationDTO): string {
+  const parts = [uk.access.usersCount(org.user_count ?? 0)];
+  for (const [module, count] of Object.entries(org.usage ?? {})) parts.push(`${module}: ${count}`);
+  return parts.join(" · ");
+}
+
+function OrganisationRow({ org, notify, onArchive }: { org: OrganisationDTO; notify: Notify; onArchive: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(org.name);
+  const rename = useMutation({
+    mutationFn: () => accessApi.updateOrganisation(org.id, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["access"] });
+      notify(uk.access.saved);
+    },
+    onError: (err: Error) => notify(err.message, "err"),
+  });
+  const changed = name.trim() !== org.name;
+
+  return (
+    <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3" data-organisation-id={org.id}>
+      <div className="flex-1 min-w-0 space-y-1">
+        <Input
+          aria-label={uk.access.organisationName}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={100}
+          className="h-11 font-medium"
+        />
+        <p className="text-xs text-text-muted">{usageText(org)}</p>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {changed && (
+          <Button size="sm" className="min-h-[44px]" disabled={rename.isPending} onClick={() => rename.mutate()}>
+            {uk.common.save}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-destructive hover:bg-destructive/10 min-h-[44px] min-w-[44px]"
+          aria-label={`${uk.access.archive} ${org.name}`}
+          title={uk.access.archive}
+          onClick={onArchive}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export default function OrganisationsTab({ notify }: { notify: Notify }) {
+  const { can } = useAuth();
+  const queryClient = useQueryClient();
+  const { ask, dialog } = useConfirm(uk.common.cancel);
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState("");
+  const [firstLogin, setFirstLogin] = useState("");
+  const [firstPassword, setFirstPassword] = useState("");
+
+  const { data: organisations = [], isLoading } = useQuery({
+    queryKey: ["access", "organisations"],
+    queryFn: () => accessApi.organisations(),
+  });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["access"] });
+  const onError = (err: Error) => notify(err.message, "err");
+
+  const create = useMutation({
+    mutationFn: () =>
+      accessApi.createOrganisation({
+        name,
+        first_user: firstLogin.trim() ? { login: firstLogin, password: firstPassword } : null,
+      }),
+    onSuccess: (org) => {
+      refresh();
+      setCreating(false);
+      setName("");
+      setFirstLogin("");
+      setFirstPassword("");
+      notify(`${uk.access.saved} ${org.name}`);
+    },
+    onError,
+  });
+  const remove = useMutation({
+    mutationFn: (id: number) => accessApi.deleteOrganisation(id),
+    onSuccess: (res) => {
+      refresh();
+      notify(res.message);
+    },
+    onError,
+  });
+  const restore = useMutation({
+    mutationFn: (id: number) => accessApi.restoreOrganisation(id),
+    onSuccess: () => {
+      refresh();
+      notify(uk.access.saved);
+    },
+    onError,
+  });
+
+  const active = organisations.filter((o) => !o.archived);
+  const archived = organisations.filter((o) => o.archived);
+  const canCreateUsers = can(P.usersManage);
+
+  return (
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex justify-end">
+        <Button className="min-h-[44px]" onClick={() => setCreating(!creating)}>
+          <Plus className="h-4 w-4 mr-1.5" />
+          {creating ? uk.common.cancel : uk.access.addOrganisation}
+        </Button>
+      </div>
+
+      <AnimatedCollapse open={creating}>
+        {creating && (
+          <Card className="border-primary/50">
+            <CardHeader className="p-4 sm:p-5 border-b border-border">
+              <CardTitle className="text-base">{uk.access.newOrganisation}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-5">
+              <form
+                className="space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (name.trim()) create.mutate();
+                }}
+              >
+                <div className="space-y-1.5">
+                  <label htmlFor="org-name" className="text-xs font-medium text-text-muted">{uk.access.organisationName}</label>
+                  <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} required className="h-11" />
+                </div>
+                {canCreateUsers && (
+                  <>
+                    <p className="text-xs text-text-muted">{uk.access.firstUserHint}</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <label htmlFor="org-first-login" className="text-xs font-medium text-text-muted">{uk.access.firstUserLogin}</label>
+                        <Input id="org-first-login" value={firstLogin} onChange={(e) => setFirstLogin(e.target.value)} maxLength={40} autoComplete="off" className="h-11" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label htmlFor="org-first-password" className="text-xs font-medium text-text-muted">{uk.access.firstUserPassword}</label>
+                        <Input
+                          id="org-first-password"
+                          type="password"
+                          value={firstPassword}
+                          onChange={(e) => setFirstPassword(e.target.value)}
+                          minLength={6}
+                          required={Boolean(firstLogin.trim())}
+                          autoComplete="new-password"
+                          className="h-11"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+                <Button type="submit" className="min-h-[44px]" disabled={create.isPending}>
+                  {create.isPending ? uk.common.loading : uk.access.addOrganisation}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
+      </AnimatedCollapse>
+
+      <Card>
+        <div className="divide-y divide-border">
+          {isLoading ? (
+            <p className="p-6 text-sm text-text-muted">{uk.common.loading}</p>
+          ) : (
+            active.map((org) => (
+              <OrganisationRow
+                key={`${org.id}-${org.name}`}
+                org={org}
+                notify={notify}
+                onArchive={() =>
+                  ask({
+                    title: uk.access.archive,
+                    description: uk.access.confirmArchive(org.name),
+                    actionLabel: uk.access.archive,
+                    onConfirm: () => remove.mutate(org.id),
+                  })
+                }
+              />
+            ))
+          )}
+        </div>
+      </Card>
+
+      {archived.length > 0 && (
+        <Card className="border-dashed border-border/80 bg-page/30">
+          <CardHeader className="p-4 sm:p-5 border-b border-border">
+            <CardTitle className="text-sm font-semibold text-text-muted flex items-center space-x-2">
+              <Archive className="h-4 w-4" />
+              <span>{uk.access.archivedSection} ({archived.length})</span>
+            </CardTitle>
+          </CardHeader>
+          <div className="divide-y divide-border/60">
+            {archived.map((org) => (
+              <div key={org.id} className="p-4 flex items-center justify-between gap-4">
+                <div>
+                  <span className="text-sm text-text-muted line-through">{org.name}</span>
+                  <p className="text-xs text-text-muted">{usageText(org)}</p>
+                </div>
+                <Button size="sm" variant="outline" className="min-h-[44px]" onClick={() => restore.mutate(org.id)}>
+                  <RotateCcw className="h-4 w-4 mr-1.5" />
+                  {uk.access.restore}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      {dialog}
+    </div>
+  );
+}

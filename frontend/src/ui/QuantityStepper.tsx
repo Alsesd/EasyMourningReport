@@ -1,7 +1,7 @@
 import React from "react";
 import { Minus, Plus } from "lucide-react";
 import { cn } from "@/ui/utils";
-import { uk } from "@/modules/reports/i18n";
+import { ukPlatform as uk } from "@/platform/i18n";
 
 interface QuantityStepperProps {
   value: number;
@@ -69,7 +69,7 @@ export function QuantityStepper({
         type="button"
         disabled={disabled || value <= min}
         onClick={handleDecrement}
-        aria-label={uk.store.decreaseQuantity}
+        aria-label={uk.common.decreaseQuantity}
         className="min-h-[44px] min-w-[44px] flex items-center justify-center text-text-main hover:bg-page active:scale-90 disabled:opacity-30 disabled:pointer-events-none rounded-l-control transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary z-10"
       >
         <Minus className="h-4 w-4" aria-hidden="true" />
@@ -88,7 +88,7 @@ export function QuantityStepper({
           setLocalText(value === 0 ? "" : String(value));
           e.target.select();
         }}
-        aria-label={uk.store.quantity}
+        aria-label={uk.common.quantity}
         className="w-14 text-center font-semibold text-base py-2 bg-transparent text-text-main focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary rounded-xs transition-colors"
       />
 
@@ -96,7 +96,7 @@ export function QuantityStepper({
         type="button"
         disabled={disabled || value >= max}
         onClick={handleIncrement}
-        aria-label={uk.store.increaseQuantity}
+        aria-label={uk.common.increaseQuantity}
         className="min-h-[44px] min-w-[44px] flex items-center justify-center text-text-main hover:bg-page active:scale-90 disabled:opacity-30 disabled:pointer-events-none rounded-r-control transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary z-10"
       >
         <Plus className="h-4 w-4" aria-hidden="true" />

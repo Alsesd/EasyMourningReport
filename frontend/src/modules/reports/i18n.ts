@@ -1,53 +1,21 @@
 /**
- * Ukrainian localization dictionary and formatting utilities.
- * All user-facing strings live here.
+ * Reports-module strings. Shared shell strings and formatters come from the platform dictionary.
  */
 
+import { ukPlatform } from "@/platform/i18n";
+
+export {
+  formatMoney,
+  formatCurrency,
+  parseCents,
+  formatPeriodReadable,
+  shiftPeriod,
+  formatDateTime,
+} from "@/platform/i18n";
+
 export const uk = {
-  appTitle: "Легкий звіт",
-  appSubtitle: "щомісячні товарні звіти",
+  ...ukPlatform,
 
-  // Auth
-  auth: {
-    loginTitle: "Вхід до системи",
-    loginDescription: "Введіть логін та пароль для доступу",
-    portalEyebrow: "Внутрішній портал",
-    portalHeadline: "Щоденна звітність — впорядковано й надійно.",
-    portalDescription: "Єдиний робочий простір для обліку товарів, звітів магазинів і адміністративних операцій.",
-    secureAccess: "Захищений доступ для співробітників",
-    dataPrivacyNote: "Використовуйте службовий обліковий запис. Не передавайте пароль іншим особам.",
-    credentialsRequired: "Введіть логін і пароль для входу.",
-    workspaceLabel: "Робочий простір",
-    loginLabel: "Логін",
-    passwordLabel: "Пароль",
-    showPassword: "Показати пароль",
-    hidePassword: "Приховати пароль",
-    submitButton: "Увійти",
-    submittingButton: "Вхід…",
-    logoutButton: "Вийти",
-    invalidCredentials: "Неправильний логін або пароль",
-    accountDisabled: "Цей обліковий запис вимкнено. Зверніться до адміністратора.",
-    rateLimited: "Забагато невдалих спроб. Спробуйте пізніше.",
-    networkError: "Помилка зв’язку із сервером. Перевірте з’єднання.",
-  },
-
-  // Navigation & Shell
-  nav: {
-    portalLabel: "Внутрішній портал",
-    workspaceLabel: "Робочий простір",
-    report: "Звіт",
-    summary: "Зведений",
-    reports: "Звіти",
-    settings: "Налаштування",
-    settingsShort: "Параметри",
-    logs: "Журнал",
-    themeToggle: "Тема оформлення",
-    themeLight: "Світла тема",
-    themeDark: "Темна тема",
-    themeSystem: "Системна",
-  },
-
-  // Store Report Screen
   store: {
     previousMonth: "Попередній місяць",
     nextMonth: "Наступний місяць",
@@ -85,7 +53,6 @@ export const uk = {
     cardsMode: "Картковий режим",
   },
 
-  // Admin Summary
   summary: {
     title: "Зведений звіт",
     submittedOnly: "Лише надіслані",
@@ -107,7 +74,6 @@ export const uk = {
     viewModeCards: "Картки по товарах",
   },
 
-  // Admin Reports List & Detail
   reports: {
     title: "Звіти магазинів",
     periodLabel: "Період",
@@ -127,15 +93,20 @@ export const uk = {
     reportUnlockedNotice: "Звіт розблоковано.",
   },
 
-  // Admin Settings
   settings: {
     title: "Налаштування та довідники",
     tabs: {
       products: "Товари",
-      stores: "Магазини",
-      security: "Безпека",
-      tunnel: "Публічний доступ",
-      backup: "Резервні копії",
+      reportSettings: "Звіти організацій",
+    },
+    reportSettings: {
+      title: "Режим «По розрахунку»",
+      description:
+        "Для увімкнених організацій у звіті з'являється окрема кількість «по розрахунку». Вона не впливає на суми.",
+      reportsCount: (n: number) => `Звітів: ${n}`,
+      enabled: "Увімкнено",
+      updated: "Налаштування звітів збережено.",
+      empty: "Організацій ще немає.",
     },
     products: {
       searchPlaceholder: "Пошук товарів…",
@@ -164,159 +135,5 @@ export const uk = {
       importing: "Імпортую…",
       importSuccess: "Імпорт успішно завершено.",
     },
-    stores: {
-      addStore: "Створити магазин",
-      nameLabel: "Назва магазину",
-      loginLabel: "Логін магазину",
-      passwordLabel: "Пароль",
-    showPassword: "Показати пароль",
-    hidePassword: "Приховати пароль",
-      resetPassword: "Змінити пароль",
-      newPasswordLabel: "Новий пароль",
-      saveStore: "Зберегти",
-      storeCreated: "Магазин успішно створено.",
-      storeUpdated: "Дані магазину оновлено.",
-      passwordReset: "Пароль успішно змінено.",
-      archiveStore: "В архів",
-      restoreStore: "Відновити",
-      confirmArchive: "Перемістити магазин в архів? Його співробітники не зможуть увійти.",
-      activeSection: "Активні магазини",
-      archivedSection: "Архів магазинів",
-    },
-    security: {
-      title: "Зміна пароля адміністратора",
-      currentAdminPassword: "Новий пароль адміністратора",
-      minChars: "Мінімум 6 символів",
-      changeButton: "Змінити пароль адміністратора",
-      changedSuccess: "Пароль адміністратора успішно оновлено.",
-    },
-    tunnel: {
-      title: "Публічний доступ через інтернет",
-      subtitle: "Cloudflare Tunnel забезпечує безпечний доступ без білої IP-адреси",
-      statusLabel: "Статус підключення",
-      statusRunning: "Підключено",
-      statusStarting: "Підключення…",
-      statusStopped: "Зупинено",
-      statusDisabled: "Вимкнено",
-      statusError: "Помилка підключення",
-      liveUrl: "Публічна адреса",
-      openLiveUrl: "Відкрити публічне посилання",
-      startTunnel: "Увімкнути доступ",
-      stopTunnel: "Вимкнути доступ",
-      autostartToggle: "Автозапуск при старті системи",
-      authKeyLabel: "Токен тунелю (необов’язково для Quick Tunnel)",
-    },
-    backup: {
-      title: "Резервне копіювання бази даних",
-      description: "Завантажте актуальну резервну копію SQLite бази даних на свій комп’ютер",
-      downloadButton: "Завантажити резервну копію (.db)",
-    },
-  },
-
-  // Audit Logs
-  logs: {
-    title: "Журнал аудиту",
-    filterAction: "Дія",
-    allActions: "Усі дії",
-    filterLogin: "Логін користувача",
-    searchPlaceholder: "Пошук за логіном…",
-    timestampColumn: "Час",
-    userColumn: "Користувач",
-    roleColumn: "Роль",
-    actionColumn: "Дія",
-    detailsColumn: "Деталі",
-    ipColumn: "IP-адреса",
-    noLogs: "Записів у журналі не знайдено",
-  },
-
-  // Common actions & dialogs
-  common: {
-    loading: "Завантаження…",
-    save: "Зберегти",
-    cancel: "Скасувати",
-    delete: "Видалити",
-    edit: "Редагувати",
-    close: "Закрити",
-    actions: "Дії",
-    error: "Помилка",
-    success: "Успішно",
-    confirmTitle: "Підтвердження",
-    currencySymbol: "₴",
   },
 };
-
-/**
- * Format price in cents as decimal string (e.g. 2500 -> "25.00").
- * Matches `cents / 100:.2f` from backend and legacy UI.
- */
-export function formatMoney(cents: number | null | undefined): string {
-  const value = Number(cents || 0);
-  return (value / 100).toFixed(2);
-}
-
-/**
- * Format price with Ukrainian currency symbol (e.g. 2500 -> "25.00 ₴").
- */
-export function formatCurrency(cents: number | null | undefined): string {
-  return `${formatMoney(cents)} ₴`;
-}
-
-/**
- * Parse money string (like "25.50" or "25,50") into integer cents.
- */
-export function parseCents(value: string | number | null | undefined): number {
-  if (value === null || value === undefined || value === "") return 0;
-  if (typeof value === "number") return Math.round(value);
-  const normalized = value.trim().replace(/\s/g, "").replace(",", ".");
-  const num = parseFloat(normalized);
-  return isNaN(num) ? 0 : Math.round(num * 100);
-}
-
-const MONTH_NAMES_UK = [
-  "Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень",
-  "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"
-];
-
-/**
- * Format period string "YYYY-MM" to "Місяць YYYY" (e.g. "2026-10" -> "Жовтень 2026").
- */
-export function formatPeriodReadable(period: string): string {
-  if (!period || !/^\d{4}-\d{2}$/.test(period)) return period;
-  const [yearStr, monthStr] = period.split("-");
-  const monthIdx = parseInt(monthStr, 10) - 1;
-  const monthName = MONTH_NAMES_UK[monthIdx] || monthStr;
-  return `${monthName} ${yearStr}`;
-}
-
-/**
- * Shift period "YYYY-MM" by delta months (+1 or -1).
- */
-export function shiftPeriod(period: string, delta: number): string {
-  if (!period || !/^\d{4}-\d{2}$/.test(period)) return period;
-  const [y, m] = period.split("-").map(Number);
-  const total = y * 12 + (m - 1) + delta;
-  const newY = Math.floor(total / 12);
-  const newM = (total % 12) + 1;
-  return `${newY}-${String(newM).padStart(2, "0")}`;
-}
-
-/**
- * Format ISO datetime string to Ukrainian readable date and time.
- */
-export function formatDateTime(isoString: string): string {
-  if (!isoString) return "";
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return isoString;
-    return new Intl.DateTimeFormat("uk-UA", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    }).format(d);
-  } catch {
-    return isoString;
-  }
-}

@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[3]
 APP = ROOT / "backend" / "app"
 APPLICATION_ENTRY = APP / "main.py"
 PACKAGE_ENTRY = APP / "__main__.py"
-FORBIDDEN_FACADES = {"app.core", "app.db", "app.services", "app.db.repositories"}
+FORBIDDEN_FACADES = {"app.core", "app.db", "app.platform", "app.platform.accounts", "app.platform.audit", "app.platform.system"}
 
 
 def imported_module(node: ast.AST) -> str | None:
@@ -39,8 +39,10 @@ def test_package_initializers_do_not_define_dynamic_facades():
     package_entries = [
         APP / "core" / "__init__.py",
         APP / "db" / "__init__.py",
-        APP / "services" / "__init__.py",
-        APP / "db" / "repositories" / "__init__.py",
+        APP / "platform" / "__init__.py",
+        APP / "platform" / "accounts" / "__init__.py",
+        APP / "platform" / "audit" / "__init__.py",
+        APP / "platform" / "system" / "__init__.py",
     ]
     for path in package_entries:
         source = path.read_text(encoding="utf-8")
@@ -74,3 +76,41 @@ def test_main_is_composition_only():
     assert "app.db.session" in package_imports
     assert "app.db" not in package_imports
     assert not any(module and module.startswith("app.routes.admin.") for module in imported)
+
+
+MODULES = APP / "modules"
+# The only platform file allowed to know modules exist: it loads the registry lazily.
+REGISTRY_LOADER = APP / "platform" / "registry.py"
+
+
+def _imports(path: Path) -> list[tuple[int, str]]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    return [
+        (node.lineno, module)
+        for node in ast.walk(tree)
+        if (module := imported_module(node))
+    ]
+
+
+def test_modules_do_not_import_each_other():
+    """A module may use core, db and platform code, never another module's internals."""
+    violations = []
+    for package in sorted(p for p in MODULES.iterdir() if (p / "__init__.py").is_file()):
+        own = f"app.modules.{package.name}"
+        for path in sorted(package.rglob("*.py")):
+            for lineno, module in _imports(path):
+                if module.startswith("app.modules") and not module.startswith(own):
+                    violations.append(f"{path.relative_to(ROOT)}:{lineno}: imports {module}")
+    assert violations == [], "Modules must stay independent:\n" + "\n".join(violations)
+
+
+def test_platform_and_core_never_import_modules():
+    violations = []
+    for folder in ("core", "db", "platform", "routes"):
+        for path in sorted((APP / folder).rglob("*.py")):
+            if path == REGISTRY_LOADER or "tests" in path.parts:
+                continue
+            for lineno, module in _imports(path):
+                if module.startswith("app.modules"):
+                    violations.append(f"{path.relative_to(ROOT)}:{lineno}: imports {module}")
+    assert violations == [], "Only app/platform/registry.py may load modules:\n" + "\n".join(violations)

@@ -1,6 +1,6 @@
 # EasyMourningReport / Легкий звіт
 
-A FastAPI + React application for monthly store reports, product-price histories, audit logs, and controlled public access through a tunnel. SQLite remains the default local database; the project includes an explicit SQLite-to-PostgreSQL data-transfer tool for later database moves.
+A modular FastAPI + React platform: organisations with multiple user accounts, roles and permissions, and feature modules (monthly store reports today, transport orders next), plus audit logs and controlled public access through a tunnel. See [docs/architecture.md](docs/architecture.md) for the module contract and how to add a feature. SQLite remains the default local database; the project includes an explicit SQLite-to-PostgreSQL data-transfer tool for later database moves.
 
 ## Repository layout
 
@@ -10,21 +10,22 @@ repo/
 │   └── app/
 │       ├── main.py              # FastAPI composition only
 │       ├── __main__.py          # single runtime entry point: python -m app
-│       ├── core/                # lifecycle, security, paths, validation, HTTP handlers
-│       ├── db/                  # SQLModel models, sessions, repositories, backups
-│       ├── routes/              # REST, authentication, PWA and SPA fallback routes
-│       ├── services/            # business operations (pricing, Excel)
+│       ├── core/                # module contract, security, paths, validation, HTTP handlers
+│       ├── db/                  # engine/sessions, backups, migration runner, bootstrap
+│       ├── platform/            # accounts (organisations, users, roles, permissions), audit, system
+│       ├── modules/             # one self-contained folder per feature: reports/, transport/
+│       ├── routes/              # PWA, legacy form sign-in, SPA fallback, router composition
 │       ├── static/              # PWA assets and compiled React app
 │       ├── templates/           # minimal error and offline fallback templates
-│       └── tests/               # pytest suite
+│       └── tests/               # platform pytest suite (module tests live in each module)
 ├── frontend/
 │   └── src/
-│       ├── app/                 # app shell, providers, layouts and login page
-│       ├── platform/            # API client/types, auth guard, offline draft queue
+│       ├── app/                 # shell: router, layout, login page, module registry
+│       ├── platform/            # API client/types, auth, i18n, theme, access & settings pages
 │       ├── ui/                  # reusable design-system primitives
 │       └── modules/
-│           ├── reports/         # report pages, API, localization and tests
-│           └── transport/       # public tunnel API surface
+│           ├── reports/         # report pages, settings sections, API, strings, tests
+│           └── transport/       # transport orders (scaffold)
 ├── deploy/                      # production Dockerfile, Compose, env example and backup sidecar configuration
 ├── docs/                        # API, architecture, ADRs, module notes and design docs
 └── scripts/                     # module scaffold, DB migration and OpenAPI export
@@ -71,6 +72,10 @@ npm run build
 ```
 
 The production frontend build is written to `backend/app/static/app/`. The Docker build does not require a previously built frontend because its Node build stage creates these assets.
+
+## Upgrading from the single-admin release
+
+The first start of this version migrates the database automatically and writes a `before-migrate` backup into `backups/` first. Each store becomes an **organisation** and keeps its login, which gets the «Магазин» role. The administrator keeps their login and gets the «Адміністратор» role. Reports, prices and the «По розрахунку» settings are preserved. Afterwards, add more users per organisation and define roles under **Користувачі**.
 
 ## Docker deployment
 

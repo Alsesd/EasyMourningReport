@@ -1,38 +1,13 @@
-"""FastAPI request dependencies and validators."""
+"""Request validators shared by the platform and modules."""
 
 import re
 from decimal import Decimal, InvalidOperation
 
-from fastapi import Depends, HTTPException, Request
-from sqlmodel import Session
+from fastapi import HTTPException, Request
 
 from app.core.errors import FormError
 from app.core.periods import current_period
-from app.db.models.user import User
-from app.db.session import get_db
-from app.services.pricing import norm_login, norm_name, valid_login
-
-
-def user_required(request: Request, db: Session = Depends(get_db)) -> User:
-    uid = request.session.get("uid")
-    user = db.get(User, uid) if uid else None
-    if user and user.role == "store" and (not user.store or user.store.archived):
-        user = None  # archived store: the login no longer works
-    if not user:
-        raise HTTPException(303, headers={"Location": "/login"})
-    return user
-
-
-def admin_required(user: User = Depends(user_required)) -> User:
-    if user.role != "admin":
-        raise HTTPException(403, "Лише для адміністраторів")
-    return user
-
-
-def store_required(user: User = Depends(user_required)) -> User:
-    if user.role != "store":
-        raise HTTPException(403, "Лише для користувачів магазинів")
-    return user
+from app.core.text import norm_login, norm_name, valid_login
 
 
 def parse_period(p: str | None) -> str:

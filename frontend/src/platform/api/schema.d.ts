@@ -62,8 +62,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Login Form */
-        get: operations["login_form_login_get"];
+        get?: never;
         put?: never;
         /** Login Post */
         post: operations["login_post_login_post"];
@@ -90,15 +89,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/": {
+    "/api/v1/session": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Index */
-        get: operations["index__get"];
+        /** Get Session */
+        get: operations["get_session_api_v1_session_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -107,42 +106,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/report": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Report Page */
-        get: operations["report_page_report_get"];
-        put?: never;
-        /** Report Save */
-        post: operations["report_save_report_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Admin Page */
-        get: operations["admin_page_admin_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/products/import": {
+    "/api/v1/auth/login": {
         parameters: {
             query?: never;
             header?: never;
@@ -151,18 +115,105 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Api Login */
+        post: operations["api_login_api_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Api Logout */
+        post: operations["api_logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Own Password */
+        put: operations["change_own_password_api_v1_me_password_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Permissions */
+        get: operations["list_permissions_api_v1_permissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organisations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Organisations */
+        get: operations["list_organisations_api_v1_organisations_get"];
+        put?: never;
+        /** Create Organisation */
+        post: operations["create_organisation_api_v1_organisations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organisations/{oid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Organisation */
+        put: operations["update_organisation_api_v1_organisations__oid__put"];
+        post?: never;
         /**
-         * Product Import
-         * @description Create products from an Excel workbook: column A=name, column B=price.
+         * Delete Organisation
+         * @description Archive an organisation that has records in any module; delete it (and its users) otherwise.
          */
-        post: operations["product_import_admin_products_import_post"];
-        delete?: never;
+        delete: operations["delete_organisation_api_v1_organisations__oid__delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/admin/products": {
+    "/api/v1/organisations/{oid}/restore": {
         parameters: {
             query?: never;
             header?: never;
@@ -171,15 +222,33 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Product Add */
-        post: operations["product_add_admin_products_post"];
+        /** Restore Organisation */
+        post: operations["restore_organisation_api_v1_organisations__oid__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/admin/products/{pid}": {
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Users */
+        get: operations["list_users_api_v1_users_get"];
+        put?: never;
+        /** Create User */
+        post: operations["create_user_api_v1_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{uid}": {
         parameters: {
             query?: never;
             header?: never;
@@ -187,16 +256,17 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
-        /** Product Edit */
-        post: operations["product_edit_admin_products__pid__post"];
-        delete?: never;
+        /** Update User */
+        put: operations["update_user_api_v1_users__uid__put"];
+        post?: never;
+        /** Delete User */
+        delete: operations["delete_user_api_v1_users__uid__delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/admin/products/{pid}/delete": {
+    "/api/v1/users/{uid}/password": {
         parameters: {
             query?: never;
             header?: never;
@@ -204,127 +274,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
-        /** Product Delete */
-        post: operations["product_delete_admin_products__pid__delete_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/products/{pid}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Product Restore */
-        post: operations["product_restore_admin_products__pid__restore_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/stores": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Store Add */
-        post: operations["store_add_admin_stores_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/stores/{sid}/edit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Store Edit */
-        post: operations["store_edit_admin_stores__sid__edit_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/stores/{sid}/delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Store Delete */
-        post: operations["store_delete_admin_stores__sid__delete_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/stores/{sid}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Store Restore */
-        post: operations["store_restore_admin_stores__sid__restore_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/stores/{sid}/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Store Password */
-        post: operations["store_password_admin_stores__sid__password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/reports": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Reports Page */
-        get: operations["reports_page_admin_reports_get"];
-        put?: never;
+        /** Reset User Password */
+        put: operations["reset_user_password_api_v1_users__uid__password_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -332,109 +283,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/reports/{rid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Report View */
-        get: operations["report_view_admin_reports__rid__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/reports/{rid}/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Report Status */
-        post: operations["report_status_admin_reports__rid__status_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Summary Page */
-        get: operations["summary_page_admin_summary_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/summary.xlsx": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Summary Xlsx */
-        get: operations["summary_xlsx_admin_summary_xlsx_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/logs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Logs Page */
-        get: operations["logs_page_admin_logs_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Admin Password */
-        post: operations["admin_password_admin_password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/backup/download": {
+    "/api/v1/roles": {
         parameters: {
             query?: never;
             header?: never;
@@ -442,10 +291,63 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Download Backup Snapshot
-         * @description Generate an on-demand live SQLite backup snapshot and stream it as an attachment.
+         * List Roles
+         * @description All roles for role managers; otherwise the roles the caller may assign.
          */
-        get: operations["download_backup_snapshot_admin_backup_download_get"];
+        get: operations["list_roles_api_v1_roles_get"];
+        put?: never;
+        /** Create Role */
+        post: operations["create_role_api_v1_roles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{rid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Role */
+        put: operations["update_role_api_v1_roles__rid__put"];
+        post?: never;
+        /** Delete Role */
+        delete: operations["delete_role_api_v1_roles__rid__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/log-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Log Actions */
+        get: operations["read_log_actions_api_v1_admin_log_actions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Logs */
+        get: operations["read_logs_api_v1_admin_logs_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -550,51 +452,20 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/session": {
+    "/api/v1/admin/backup/download": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get Session */
-        get: operations["get_session_api_v1_session_get"];
+        /**
+         * Download Backup Snapshot
+         * @description Generate an on-demand live SQLite backup snapshot and stream it as an attachment.
+         */
+        get: operations["download_backup_snapshot_api_v1_admin_backup_download_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Api Login */
-        post: operations["api_login_api_v1_auth_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Api Logout */
-        post: operations["api_logout_api_v1_auth_logout_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -694,93 +565,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/stores": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Stores */
-        get: operations["list_stores_api_v1_admin_stores_get"];
-        put?: never;
-        /** Create Store */
-        post: operations["create_store_api_v1_admin_stores_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/stores/{sid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update Store */
-        put: operations["update_store_api_v1_admin_stores__sid__put"];
-        post?: never;
-        /** Delete Store */
-        delete: operations["delete_store_api_v1_admin_stores__sid__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/stores/{sid}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Restore Store */
-        post: operations["restore_store_api_v1_admin_stores__sid__restore_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update Admin Password */
-        put: operations["update_admin_password_api_v1_admin_password_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/stores/{sid}/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Reset Store Password */
-        put: operations["reset_store_password_api_v1_admin_stores__sid__password_put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/store/reports/{period}": {
         parameters: {
             query?: never;
@@ -851,15 +635,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/log-actions": {
+    "/api/v1/admin/summary.xlsx": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Read Admin Log Actions */
-        get: operations["read_admin_log_actions_api_v1_admin_log_actions_get"];
+        /** Export Summary Xlsx */
+        get: operations["export_summary_xlsx_api_v1_admin_summary_xlsx_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -868,15 +652,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/logs": {
+    "/api/v1/reports/settings": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Read Admin Logs */
-        get: operations["read_admin_logs_api_v1_admin_logs_get"];
+        /** List Report Settings */
+        get: operations["list_report_settings_api_v1_reports_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/settings/{oid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Report Settings */
+        put: operations["update_report_settings_api_v1_reports_settings__oid__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transport/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Module Status
+         * @description Lets the client confirm the module is installed and the caller may use it.
+         */
+        get: operations["module_status_api_v1_transport_status_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -899,7 +720,10 @@ export interface components {
             store_name: string;
             /** Store Archived */
             store_archived: boolean;
-            /** Calculation Enabled */
+            /**
+             * Calculation Enabled
+             * @default false
+             */
             calculation_enabled: boolean;
             /** Period */
             period: string;
@@ -923,7 +747,10 @@ export interface components {
             store_name: string;
             /** Store Archived */
             store_archived: boolean;
-            /** Calculation Enabled */
+            /**
+             * Calculation Enabled
+             * @default false
+             */
             calculation_enabled: boolean;
             /** Period */
             period: string;
@@ -994,11 +821,6 @@ export interface components {
             /** Ip */
             ip: string;
         };
-        /** Body_admin_password_admin_password_post */
-        Body_admin_password_admin_password_post: {
-            /** Password */
-            password: string;
-        };
         /** Body_import_products_api_v1_admin_products_import_post */
         Body_import_products_api_v1_admin_products_import_post: {
             /** File */
@@ -1011,41 +833,10 @@ export interface components {
             /** Password */
             password: string;
         };
-        /** Body_product_add_admin_products_post */
-        Body_product_add_admin_products_post: {
-            /** Name */
-            name: string;
-            /** Price */
-            price: string;
-        };
-        /** Body_product_import_admin_products_import_post */
-        Body_product_import_admin_products_import_post: {
-            /** File */
-            file: string;
-        };
-        /** Body_report_status_admin_reports__rid__status_post */
-        Body_report_status_admin_reports__rid__status_post: {
-            /** Status */
-            status: string;
-        };
-        /** Body_store_add_admin_stores_post */
-        Body_store_add_admin_stores_post: {
-            /** Name */
-            name: string;
+        /** FirstUserDTO */
+        FirstUserDTO: {
             /** Login */
             login: string;
-            /** Password */
-            password: string;
-        };
-        /** Body_store_edit_admin_stores__sid__edit_post */
-        Body_store_edit_admin_stores__sid__edit_post: {
-            /** Name */
-            name: string;
-            /** Login */
-            login: string;
-        };
-        /** Body_store_password_admin_stores__sid__password_post */
-        Body_store_password_admin_stores__sid__password_post: {
             /** Password */
             password: string;
         };
@@ -1099,10 +890,67 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** OrganisationCreateDTO */
+        OrganisationCreateDTO: {
+            /** Name */
+            name: string;
+            first_user?: components["schemas"]["FirstUserDTO"] | null;
+        };
+        /** OrganisationDTO */
+        OrganisationDTO: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Archived */
+            archived: boolean;
+            /**
+             * User Count
+             * @default 0
+             */
+            user_count: number;
+            /** Usage */
+            usage?: {
+                [key: string]: number;
+            };
+        };
+        /** OrganisationRefDTO */
+        OrganisationRefDTO: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+        };
+        /** OrganisationUpdateDTO */
+        OrganisationUpdateDTO: {
+            /** Name */
+            name: string;
+        };
         /** PasswordDTO */
         PasswordDTO: {
             /** Password */
             password: string;
+        };
+        /** PermissionDTO */
+        PermissionDTO: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "platform" | "organisation";
+            /** Module */
+            module: string;
+            /** Module Title */
+            module_title: string;
         };
         /** PricePointDTO */
         PricePointDTO: {
@@ -1155,7 +1003,10 @@ export interface components {
             price_cents: number;
             /** Quantity */
             quantity: number;
-            /** Quantity Calc */
+            /**
+             * Quantity Calc
+             * @default 0
+             */
             quantity_calc: number;
             /**
              * Label
@@ -1200,47 +1051,12 @@ export interface components {
             /** Quantities */
             quantities?: components["schemas"]["ReportQuantityDTO"][];
         };
-        /** ReportStatusDTO */
-        ReportStatusDTO: {
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "draft" | "submitted";
-        };
-        /** SessionDTO */
-        SessionDTO: {
-            /** Login */
-            login: string;
-            /**
-             * Role
-             * @enum {string}
-             */
-            role: "admin" | "store";
-            /** Store Id */
-            store_id?: number | null;
-            /** Store Name */
-            store_name?: string | null;
-            /** Period */
-            period: string;
-        };
-        /** StoreCreateDTO */
-        StoreCreateDTO: {
-            /** Name */
-            name: string;
-            /** Login */
-            login: string;
-            /** Password */
-            password: string;
-        };
-        /** StoreDTO */
-        StoreDTO: {
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Login */
-            login: string;
+        /** ReportSettingsDTO */
+        ReportSettingsDTO: {
+            /** Organisation Id */
+            organisation_id: number;
+            /** Organisation Name */
+            organisation_name: string;
             /** Archived */
             archived: boolean;
             /** Calculation Enabled */
@@ -1251,10 +1067,88 @@ export interface components {
              */
             reports_count: number;
         };
-        /** StorePasswordDTO */
-        StorePasswordDTO: {
-            /** Password */
-            password: string;
+        /** ReportSettingsUpdateDTO */
+        ReportSettingsUpdateDTO: {
+            /** Calculation Enabled */
+            calculation_enabled: boolean;
+        };
+        /** ReportStatusDTO */
+        ReportStatusDTO: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "submitted";
+        };
+        /** RoleDTO */
+        RoleDTO: {
+            /** Id */
+            id: number;
+            /** Key */
+            key?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "platform" | "organisation";
+            /** Organisation Id */
+            organisation_id?: number | null;
+            /** Organisation Name */
+            organisation_name?: string | null;
+            /** Permissions */
+            permissions?: string[];
+            /**
+             * Built In
+             * @default false
+             */
+            built_in: boolean;
+            /**
+             * All Permissions
+             * @default false
+             */
+            all_permissions: boolean;
+            /**
+             * User Count
+             * @default 0
+             */
+            user_count: number;
+        };
+        /** RoleInputDTO */
+        RoleInputDTO: {
+            /** Name */
+            name: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "platform" | "organisation";
+            /** Organisation Id */
+            organisation_id?: number | null;
+            /** Permissions */
+            permissions?: string[];
+        };
+        /** SessionDTO */
+        SessionDTO: {
+            /** User Id */
+            user_id: number;
+            /** Login */
+            login: string;
+            /**
+             * Full Name
+             * @default
+             */
+            full_name: string;
+            organisation?: components["schemas"]["OrganisationRefDTO"] | null;
+            /** Roles */
+            roles?: string[];
+            /** Permissions */
+            permissions?: string[];
+            /** Modules */
+            modules?: string[];
+            /** Period */
+            period: string;
         };
         /** StoreReportDTO */
         StoreReportDTO: {
@@ -1271,7 +1165,10 @@ export interface components {
             status: "new" | "draft" | "submitted";
             /** Read Only */
             read_only: boolean;
-            /** Calculation Enabled */
+            /**
+             * Calculation Enabled
+             * @default false
+             */
             calculation_enabled: boolean;
             /** Rows */
             rows?: components["schemas"]["ReportLineDTO"][];
@@ -1289,15 +1186,6 @@ export interface components {
             total_cents: number;
             /** Available Periods */
             available_periods?: string[];
-        };
-        /** StoreUpdateDTO */
-        StoreUpdateDTO: {
-            /** Name */
-            name: string;
-            /** Login */
-            login: string;
-            /** Calculation Enabled */
-            calculation_enabled?: boolean | null;
         };
         /** SummaryDTO */
         SummaryDTO: {
@@ -1330,7 +1218,10 @@ export interface components {
             calculation_cells?: number[];
             /** Quantity */
             quantity: number;
-            /** Calculation Quantity */
+            /**
+             * Calculation Quantity
+             * @default 0
+             */
             calculation_quantity: number;
             /** Sum Cents */
             sum_cents: number;
@@ -1343,8 +1234,77 @@ export interface components {
             name: string;
             /** Archived */
             archived: boolean;
-            /** Calculation Enabled */
+            /**
+             * Calculation Enabled
+             * @default false
+             */
             calculation_enabled: boolean;
+        };
+        /** TransportStatusDTO */
+        TransportStatusDTO: {
+            /** Ready */
+            ready: boolean;
+            /** Message */
+            message: string;
+        };
+        /** UserCreateDTO */
+        UserCreateDTO: {
+            /** Login */
+            login: string;
+            /** Password */
+            password: string;
+            /**
+             * Full Name
+             * @default
+             */
+            full_name: string;
+            /** Organisation Id */
+            organisation_id?: number | null;
+            /** Role Ids */
+            role_ids?: number[];
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+        };
+        /** UserDTO */
+        UserDTO: {
+            /** Id */
+            id: number;
+            /** Login */
+            login: string;
+            /**
+             * Full Name
+             * @default
+             */
+            full_name: string;
+            /** Active */
+            active: boolean;
+            organisation?: components["schemas"]["OrganisationRefDTO"] | null;
+            /** Role Ids */
+            role_ids?: number[];
+            /** Role Names */
+            role_names?: string[];
+        };
+        /** UserUpdateDTO */
+        UserUpdateDTO: {
+            /** Login */
+            login: string;
+            /**
+             * Full Name
+             * @default
+             */
+            full_name: string;
+            /** Organisation Id */
+            organisation_id?: number | null;
+            /** Role Ids */
+            role_ids?: number[];
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
         };
         /** ValidationError */
         ValidationError: {
@@ -1428,26 +1388,6 @@ export interface operations {
             };
         };
     };
-    login_form_login_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
     login_post_login_post: {
         parameters: {
             query?: never;
@@ -1501,7 +1441,7 @@ export interface operations {
             };
         };
     };
-    index__get: {
+    get_session_api_v1_session_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -1516,15 +1456,272 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SessionDTO"];
                 };
             };
         };
     };
-    report_page_report_get: {
+    api_login_api_v1_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginDTO"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    api_logout_api_v1_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageDTO"];
+                };
+            };
+        };
+    };
+    change_own_password_api_v1_me_password_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordDTO"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_permissions_api_v1_permissions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionDTO"][];
+                };
+            };
+        };
+    };
+    list_organisations_api_v1_organisations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganisationDTO"][];
+                };
+            };
+        };
+    };
+    create_organisation_api_v1_organisations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganisationCreateDTO"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganisationDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_organisation_api_v1_organisations__oid__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganisationUpdateDTO"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganisationDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_organisation_api_v1_organisations__oid__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MutationDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_organisation_api_v1_organisations__oid__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                oid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganisationDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_users_get: {
         parameters: {
             query?: {
-                period?: string | null;
+                organisation_id?: number | null;
+                platform?: boolean;
             };
             header?: never;
             path?: never;
@@ -1538,7 +1735,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UserDTO"][];
                 };
             };
             /** @description Validation Error */
@@ -1552,47 +1749,7 @@ export interface operations {
             };
         };
     };
-    report_save_report_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    admin_page_admin_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
-    product_import_admin_products_import_post: {
+    create_user_api_v1_users_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -1601,17 +1758,17 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["Body_product_import_admin_products_import_post"];
+                "application/json": components["schemas"]["UserCreateDTO"];
             };
         };
         responses: {
             /** @description Successful Response */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UserDTO"];
                 };
             };
             /** @description Validation Error */
@@ -1625,177 +1782,18 @@ export interface operations {
             };
         };
     };
-    product_add_admin_products_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_product_add_admin_products_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    product_edit_admin_products__pid__post: {
+    update_user_api_v1_users__uid__put: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                pid: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    product_delete_admin_products__pid__delete_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                pid: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    product_restore_admin_products__pid__restore_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                pid: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    store_add_admin_stores_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_store_add_admin_stores_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    store_edit_admin_stores__sid__edit_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sid: number;
+                uid: number;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_store_edit_admin_stores__sid__edit_post"];
+                "application/json": components["schemas"]["UserUpdateDTO"];
             };
         };
         responses: {
@@ -1805,7 +1803,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UserDTO"];
                 };
             };
             /** @description Validation Error */
@@ -1819,12 +1817,12 @@ export interface operations {
             };
         };
     };
-    store_delete_admin_stores__sid__delete_post: {
+    delete_user_api_v1_users__uid__delete: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                sid: number;
+                uid: number;
             };
             cookie?: never;
         };
@@ -1836,7 +1834,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MutationDTO"];
                 };
             };
             /** @description Validation Error */
@@ -1850,49 +1848,18 @@ export interface operations {
             };
         };
     };
-    store_restore_admin_stores__sid__restore_post: {
+    reset_user_password_api_v1_users__uid__password_put: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                sid: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    store_password_admin_stores__sid__password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sid: number;
+                uid: number;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_store_password_admin_stores__sid__password_post"];
+                "application/json": components["schemas"]["PasswordDTO"];
             };
         };
         responses: {
@@ -1902,7 +1869,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MessageDTO"];
                 };
             };
             /** @description Validation Error */
@@ -1916,10 +1883,10 @@ export interface operations {
             };
         };
     };
-    reports_page_admin_reports_get: {
+    list_roles_api_v1_roles_get: {
         parameters: {
             query?: {
-                period?: string | null;
+                organisation_id?: number | null;
             };
             header?: never;
             path?: never;
@@ -1933,7 +1900,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RoleDTO"][];
                 };
             };
             /** @description Validation Error */
@@ -1947,7 +1914,75 @@ export interface operations {
             };
         };
     };
-    report_view_admin_reports__rid__get: {
+    create_role_api_v1_roles_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleInputDTO"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_role_api_v1_roles__rid__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rid: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleInputDTO"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_role_api_v1_roles__rid__delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -1964,7 +1999,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MutationDTO"];
                 };
             };
             /** @description Validation Error */
@@ -1978,48 +2013,10 @@ export interface operations {
             };
         };
     };
-    report_status_admin_reports__rid__status_post: {
+    read_log_actions_api_v1_admin_log_actions_get: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                rid: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_report_status_admin_reports__rid__status_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    summary_page_admin_summary_get: {
-        parameters: {
-            query?: {
-                period?: string | null;
-                submitted_only?: boolean;
-            };
-            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -2031,57 +2028,17 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": string[];
                 };
             };
         };
     };
-    summary_xlsx_admin_summary_xlsx_get: {
-        parameters: {
-            query?: {
-                period?: string | null;
-                submitted_only?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    logs_page_admin_logs_get: {
+    read_logs_api_v1_admin_logs_get: {
         parameters: {
             query?: {
                 login?: string | null;
                 action?: string | null;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -2095,7 +2052,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuditLogDTO"][];
                 };
             };
             /** @description Validation Error */
@@ -2105,59 +2062,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    admin_password_admin_password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_admin_password_admin_password_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    download_backup_snapshot_admin_backup_download_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
         };
@@ -2398,7 +2302,7 @@ export interface operations {
             };
         };
     };
-    get_session_api_v1_session_get: {
+    download_backup_snapshot_api_v1_admin_backup_download_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -2413,60 +2317,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SessionDTO"];
-                };
-            };
-        };
-    };
-    api_login_api_v1_auth_login_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginDTO"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    api_logout_api_v1_auth_logout_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageDTO"];
+                    "application/json": unknown;
                 };
             };
         };
@@ -2702,224 +2553,6 @@ export interface operations {
             };
         };
     };
-    list_stores_api_v1_admin_stores_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StoreDTO"][];
-                };
-            };
-        };
-    };
-    create_store_api_v1_admin_stores_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StoreCreateDTO"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StoreDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_store_api_v1_admin_stores__sid__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sid: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StoreUpdateDTO"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StoreDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_store_api_v1_admin_stores__sid__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sid: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MutationDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    restore_store_api_v1_admin_stores__sid__restore_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sid: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StoreDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_admin_password_api_v1_admin_password_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PasswordDTO"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reset_store_password_api_v1_admin_stores__sid__password_put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                sid: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["StorePasswordDTO"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     read_store_report_api_v1_store_reports__period__get: {
         parameters: {
             query?: never;
@@ -3115,7 +2748,39 @@ export interface operations {
             };
         };
     };
-    read_admin_log_actions_api_v1_admin_log_actions_get: {
+    export_summary_xlsx_api_v1_admin_summary_xlsx_get: {
+        parameters: {
+            query?: {
+                period?: string | null;
+                submitted_only?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_report_settings_api_v1_reports_settings_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3130,18 +2795,49 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": string[];
+                    "application/json": components["schemas"]["ReportSettingsDTO"][];
                 };
             };
         };
     };
-    read_admin_logs_api_v1_admin_logs_get: {
+    update_report_settings_api_v1_reports_settings__oid__put: {
         parameters: {
-            query?: {
-                login?: string | null;
-                action?: string | null;
-                limit?: number;
+            query?: never;
+            header?: never;
+            path: {
+                oid: number;
             };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportSettingsUpdateDTO"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSettingsDTO"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    module_status_api_v1_transport_status_get: {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -3154,16 +2850,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuditLogDTO"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["TransportStatusDTO"];
                 };
             };
         };

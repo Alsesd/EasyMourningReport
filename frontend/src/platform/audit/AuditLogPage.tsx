@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { reportsApi } from "@/modules/reports/api";
-import { uk, formatDateTime } from "@/modules/reports/i18n";
+import { accessApi } from "@/platform/access/api";
+import { ukPlatform as uk, formatDateTime } from "@/platform/i18n";
 import { Card, CardHeader, CardTitle, CardContent } from "@/ui/Card";
 import { Button } from "@/ui/Button";
 import { Input } from "@/ui/Input";
 import { ShieldCheck, Filter, AlertCircle, RefreshCw, Table as TableIcon, LayoutGrid } from "lucide-react";
 import { cn } from "@/ui/utils";
 
-export default function AdminLogsPage() {
+export default function AuditLogPage() {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const storedMode = typeof window !== "undefined" ? (localStorage.getItem("admin.logs.viewMode") as "table" | "cards" | null) : null;
   const [viewMode, setViewMode] = useState<"table" | "cards">(storedMode || (isMobile ? "cards" : "table"));
@@ -38,7 +38,7 @@ export default function AdminLogsPage() {
 
   const { data: actionsList } = useQuery({
     queryKey: ["adminLogActions"],
-    queryFn: () => reportsApi.logActions(),
+    queryFn: () => accessApi.logActions(),
   });
 
   const {
@@ -50,7 +50,7 @@ export default function AdminLogsPage() {
   } = useQuery({
     queryKey: ["adminLogs", urlLogin, urlAction],
     queryFn: () =>
-      reportsApi.logs({ limit: 200, login: urlLogin.trim() || undefined, action: urlAction.trim() || undefined }),
+      accessApi.logs({ limit: 200, login: urlLogin.trim() || undefined, action: urlAction.trim() || undefined }),
   });
 
   const handleFilterSubmit = (e: React.FormEvent) => {
@@ -208,7 +208,7 @@ export default function AdminLogsPage() {
                     </span>
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium shrink-0 ${
-                        entry.role === "admin"
+                        (entry.role === "admin" || entry.role.includes("Адміністратор"))
                           ? "bg-primary/10 text-primary"
                           : "bg-surface border border-border text-text-muted"
                       }`}
@@ -273,7 +273,7 @@ export default function AdminLogsPage() {
                         <td className="py-3 px-3 text-xs">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
-                              entry.role === "admin"
+                              (entry.role === "admin" || entry.role.includes("Адміністратор"))
                                 ? "bg-primary/10 text-primary"
                                 : "bg-surface border border-border text-text-muted"
                             }`}

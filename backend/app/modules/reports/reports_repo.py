@@ -1,16 +1,60 @@
 """Report construction, lines calculation, and summary queries."""
 
 from collections import defaultdict
+from dataclasses import dataclass
+
+from sqlalchemy import func
 
 from sqlmodel import select
 from sqlmodel import Session
 
 from app.core.periods import money
-from app.db.models.product import Product
-from app.db.models.report import Report, ReportItem
-from app.db.models.store import Store
-from app.db.repositories.products import history_of, in_form, load_history
-from app.services.pricing import line_labels, offered_prices
+from app.modules.reports.models import Product, Report, ReportItem, ReportSettings
+from app.modules.reports.pricing import line_labels, offered_prices
+from app.modules.reports.products_repo import history_of, in_form, load_history
+from app.platform.accounts.models import Organisation
+
+
+@dataclass(frozen=True)
+class SummaryStore:
+    id: int
+    name: str
+    archived: bool
+    calculation_enabled: bool
+
+
+def calculation_enabled_ids(db: Session) -> set[int]:
+    return set(
+        db.scalars(select(ReportSettings.organisation_id).where(ReportSettings.calculation_enabled))
+    )
+
+
+def calculation_enabled(db: Session, organisation_id: int | None) -> bool:
+    if organisation_id is None:
+        return False
+    row = db.get(ReportSettings, organisation_id)
+    return bool(row and row.calculation_enabled)
+
+
+def set_calculation_enabled(db: Session, organisation_id: int, enabled: bool) -> None:
+    row = db.get(ReportSettings, organisation_id)
+    if row is None:
+        db.add(ReportSettings(organisation_id=organisation_id, calculation_enabled=enabled))
+    else:
+        row.calculation_enabled = enabled
+
+
+def store_periods(db: Session, store_id: int) -> set[str]:
+    return set(db.scalars(select(Report.period).where(Report.store_id == store_id)))
+
+
+def reports_per_organisation(db: Session) -> dict[int, int]:
+    return {
+        sid: count
+        for sid, count in db.execute(
+            select(Report.store_id, func.count(Report.id)).group_by(Report.store_id)
+        )
+    }
 
 
 def find_report(db: Session, store_id: int, period: str) -> Report | None:
@@ -109,9 +153,7 @@ def build_summary(db: Session, period: str, submitted_only: bool = False):
         q = q.where(Report.status == "submitted")
 
     qty, calc_qty, amt = defaultdict(int), defaultdict(int), defaultdict(int)
-    enabled_store_ids = set(
-        db.scalars(select(Store.id).where(Store.calculation_enabled))
-    )
+    enabled_store_ids = calculation_enabled_ids(db)
     data_pids, data_sids, data_prices = set(), set(), defaultdict(set)
     for sid, pid, n, calc_n, price in db.execute(q):
         qty[pid, price, sid] += n
@@ -124,8 +166,8 @@ def build_summary(db: Session, period: str, submitted_only: bool = False):
 
     # Archived stores / switched-off products stay in the table only for months where they have data.
     stores = [
-        s
-        for s in db.scalars(select(Store).order_by(Store.name))
+        SummaryStore(s.id, s.name, s.archived, s.id in enabled_store_ids)
+        for s in db.scalars(select(Organisation).order_by(Organisation.name))
         if not s.archived or s.id in data_sids
     ]
     products = [

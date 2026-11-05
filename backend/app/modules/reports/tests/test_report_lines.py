@@ -9,12 +9,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.db.repositories.reports import build_lines, build_summary
+from app.modules.reports.reports_repo import build_lines, build_summary
 from app.db.base import Base
-from app.db.models.product import Product, ProductPrice
-from app.db.models.report import Report, ReportItem
-from app.db.models.store import Store
-from app.services.pricing import BASE_PERIOD
+from app.modules.reports.models import Product, ProductPrice
+from app.modules.reports.models import Report, ReportItem
+from app.platform.accounts.models import Organisation
+from app.modules.reports.pricing import BASE_PERIOD
 
 
 class ReportLineIntegrationTests(unittest.TestCase):
@@ -30,7 +30,7 @@ class ReportLineIntegrationTests(unittest.TestCase):
 
     def test_price_change_month_has_two_lines_and_correct_total(self):
         with self.Session() as db:
-            store = Store(name="Test store")
+            store = Organisation(name="Test store")
             product = Product(name="Test product", price_cents=2700, active=True, archived=False)
             db.add_all([store, product])
             db.flush()
@@ -58,7 +58,7 @@ class ReportLineIntegrationTests(unittest.TestCase):
 
     def test_merged_summary_keeps_old_and_new_price_rows(self):
         with self.Session() as db:
-            store = Store(name="Test store")
+            store = Organisation(name="Test store")
             product = Product(name="Test product", price_cents=2700, active=True, archived=False)
             db.add_all([store, product])
             db.flush()

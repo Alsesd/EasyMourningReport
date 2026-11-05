@@ -1,6 +1,6 @@
 # EasyMourningReport (Легкий звіт)
 
-Internal monthly store-report app for a burial-service business. FastAPI + SQLModel (SQLite) backend serving a React 18 + Vite + Tailwind SPA. UI language is Ukrainian (`uk-UA`).
+Internal platform for a burial-service business: organisations (stores) with multiple users, roles and permissions, and feature modules (monthly reports; transport orders scaffolded). FastAPI + SQLModel (SQLite) backend serving a React 18 + Vite + Tailwind SPA from one process. UI language is Ukrainian (`uk-UA`).
 
 ## Commands
 
@@ -8,7 +8,7 @@ Run from the repository root unless noted.
 
 ```bash
 uv sync                                   # install backend deps (uv.lock is committed)
-uv run --locked pytest                    # backend tests (testpaths = backend/app/tests)
+uv run --locked pytest                    # backend tests (platform: backend/app/tests, modules: backend/app/modules/*/tests)
 cd backend && uv run --project .. python -m app   # dev server on 127.0.0.1:8000
 
 cd frontend && npm ci
@@ -21,22 +21,20 @@ npm run gen:api                           # regenerate src/platform/api/schema.d
 - `scripts/e2e_test.py` drives the real app with Python Playwright on port 8888 with `DEMO=1`.
 - There is no CI; the commands above are the whole verification gate. Run the relevant ones before committing.
 
-## Architecture rules (enforced by tests)
+## Architecture (read docs/architecture.md before structural changes)
 
-- Backend: `main.py` only composes FastAPI; the sole launcher is `python -m app` (`__main__.py`).
-- Import symbols from the module that owns them, never from package facades (`app.core`, `app.db`, `app.services`, `app.db.repositories`). Package `__init__.py` files stay empty of re-exports. See `backend/app/tests/test_import_architecture.py` and `test_api_router_structure.py`.
-- Layers: `routes/` → `services/` → `db/repositories/` → `db/models/`. Business logic goes in `services/`, not routes.
-- The SPA catch-all in `routes/fallback.py` is registered last so it never shadows `/api/*`, `/static/*`, backups, manifest, or service worker.
-- Frontend: `app/` = shell/providers/layout, `platform/` = API client, auth, offline drafts, `ui/` = design-system primitives, `modules/<feature>/` = pages, `api.ts`, `i18n.ts`, tests. Pages call their module's `api.ts`; never hardcode endpoint paths in pages. New modules: `python scripts/new_module.py`.
-
-## API contract changes
-
-Changing a DTO in `backend/app/dto.py` or a route's response shape means: update `docs/API.md`, run `npm run gen:api`, update `frontend/src/platform/api/types.ts` aliases, and fix **both** backend tests and frontend test fixtures (recent commits show fixtures drifting from DTOs). Use the `api-contract-change` skill.
+- **Platform + modules.** `backend/app/platform/` (accounts, roles/permissions, audit, system) and `frontend/src/platform/` are shared. Each feature is one self-contained folder: `backend/app/modules/<name>/` + `frontend/src/modules/<name>/`, registered in `backend/app/modules/__init__.py` and `frontend/src/modules/index.ts`. Scaffold a new one with `python3 scripts/new_module.py <name> --title "…"`.
+- **Contracts:** backend `app/core/modules.py` (`Module`: router, permissions, models, migrations, audit actions, default grants, organisation usage, seed); frontend `src/platform/modules.ts` (`AppModule`: routes, nav, settings sections, landing). Shell routing/nav/settings are built from these. Never hardcode a feature into the shell.
+- **Boundaries (tests enforce):** modules never import other modules; `core`/`db`/`platform`/`routes` never import modules (only `platform/registry.py`, lazily); frontend `platform/` and `ui/` never import `modules/` or `app/`. Import from the owning file, not package facades.
+- **Access control:** every route uses `Depends(require("perm.code"))` or `require_member(...)` from `app.platform.accounts.access`. Organisation-scope permissions must only touch `principal.organisation_id`'s data. Platform users have `organisation_id = None`. Frontend gates with `permissions` on routes/nav and `useAuth().can(...)`. Permission codes are mirrored in each module's `permissions.ts`.
+- **Schema changes:** add a `Migration` to the owning module (`migrations.py`, id `<module>.NNNN_name`). Migrations run before `create_all` and must create any new table they touch themselves. Never edit an applied migration. Production data exists: test upgrades like `backend/app/tests/test_migrations.py` does.
+- Backend layering inside a module: routes → repo/service functions → models. Business rules stay out of routes where practical.
+- The SPA catch-all in `routes/fallback.py` is registered last.
 
 ## UI and copy
 
 - Read `UX-CONTRACT.md` and `DESIGN.md` before UI work. CSS custom properties in `frontend/src/app/index.css` are the token source; Tailwind consumes them. Reuse `frontend/src/ui/*` primitives.
-- All user-facing strings go in `frontend/src/modules/reports/i18n.ts`, in Ukrainian. Use the shared number/date/money helpers.
+- User-facing strings are Ukrainian: shared ones in `frontend/src/platform/i18n.ts`, module ones in the module's `i18n.ts` (which spreads `ukPlatform`). Use the shared number/date/money helpers.
 - Target WCAG 2.2 AA: 44px touch targets, visible focus, labelled icon-only buttons, reduced-motion support, light/dark/system themes.
 
 ## Data safety

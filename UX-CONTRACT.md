@@ -4,7 +4,7 @@
 
 - **Audience:** Ukrainian-speaking staff and administrators of a burial agency.
 - **Primary jobs:** Enter monthly store report quantities; save drafts or submit a read-only report; review all stores' reports; manage products, prices, store accounts, access settings, backups and audit logs.
-- **Active locale:** Ukrainian (`uk-UA`). Interface copy is centralized in `frontend/src/modules/reports/i18n.ts`; number/date formatting uses shared helpers.
+- **Active locale:** Ukrainian (`uk-UA`). Shared interface copy and number/date helpers live in `frontend/src/platform/i18n.ts`; each module extends it in its own `i18n.ts`.
 - **Accessibility target:** WCAG 2.2 AA as the working target, with 44px minimum touch targets where practical, visible keyboard focus, named icon-only controls, and reduced-motion support.
 
 ## Business-context sources
@@ -14,7 +14,7 @@
 | API access and error contracts | [`docs/API.md`](docs/API.md) | API contract |
 | Route map and behavior owners | [`docs/ui-parity.md`](docs/ui-parity.md) | Implementation map |
 | Product-specific report and price rules | [`docs/DESIGN.md`](docs/DESIGN.md) | Maintained product UX notes |
-| Role enforcement | `backend/app/core/dependencies.py`, `frontend/src/platform/auth/ProtectedRoute.tsx` | Runtime enforcement evidence |
+| Permission enforcement | `backend/app/platform/accounts/access.py`, `frontend/src/app/routing/ProtectedRoute.tsx` | Runtime enforcement evidence |
 
 ## Visual contract
 
@@ -37,7 +37,7 @@
 
 ## Navigation and responsive behavior
 
-- Admin destinations are Summary, Reports, Settings and Audit Log. Desktop uses a persistent sidebar; mobile uses a fixed bottom navigation with safe-area padding and matching `aria-current` state.
+- Workspace destinations come from the module registry and the user's permissions (e.g. Summary, Reports, Transport, Users, Settings, Audit Log). Desktop uses a persistent sidebar; mobile uses a fixed bottom navigation with safe-area padding and matching `aria-current` state.
 - The report detail route remains nested under Reports and has a clear return path to its parent list.
 - Report-period state belongs in the URL where existing pages already use query parameters; switching periods must preserve related filters.
 - Tables preserve comparison relationships; use horizontal overflow or the existing card mode when appropriate. Never silently discard a column's data or actions on mobile.

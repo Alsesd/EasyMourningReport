@@ -6,12 +6,13 @@ This document records the current browser behavior and points to the code that o
 
 | Behavior | Current implementation |
 |---|---|
-| React router and route-level lazy loading | `frontend/src/app/App.tsx`, `frontend/src/modules/reports/module.tsx` |
+| React router and route-level lazy loading | `frontend/src/app/App.tsx`, each module's `module.tsx` |
 | Login form, validation feedback, and focus behavior | `frontend/src/app/pages/LoginPage.tsx` |
 | Session loading, sign-in, and sign-out | `frontend/src/platform/auth/AuthContext.tsx` |
-| Role-based route protection | `frontend/src/platform/auth/ProtectedRoute.tsx` |
+| Permission-based route protection and post-login landing | `frontend/src/app/routing/ProtectedRoute.tsx`, `frontend/src/app/routing/landing.ts` |
+| Module registry (routes, nav, settings, landing) | `frontend/src/app/registry.ts`, `frontend/src/platform/modules.ts`, `frontend/src/modules/index.ts` |
 | Same-origin request behavior and structured API errors | `frontend/src/platform/api/client.ts` |
-| Theme selection and persistence | `frontend/src/app/providers/ThemeContext.tsx`, `frontend/src/ui/ThemeToggle.tsx` |
+| Theme selection and persistence | `frontend/src/platform/theme/ThemeContext.tsx`, `frontend/src/ui/ThemeToggle.tsx` |
 | Shared responsive navigation and application layout | `frontend/src/app/layouts/AdminLayout.tsx` |
 
 ## Store report
@@ -19,7 +20,7 @@ This document records the current browser behavior and points to the code that o
 | Behavior | Current implementation |
 |---|---|
 | Period selection, report load/save, dirty state, and submission | `frontend/src/modules/reports/pages/StoreReportPage.tsx` |
-| Quantity stepper and read-only/report status cues | `frontend/src/ui/QuantityStepper.tsx`, `frontend/src/ui/StatusPill.tsx` |
+| Quantity stepper and read-only/report status cues | `frontend/src/ui/QuantityStepper.tsx`, `frontend/src/modules/reports/components/StatusPill.tsx` |
 | Collapsible feedback and inactive-product sections | `frontend/src/ui/AnimatedCollapse.tsx`, `StoreReportPage.tsx` |
 | Submission confirmation | `frontend/src/ui/Dialog.tsx`, `StoreReportPage.tsx` |
 | Offline draft persistence and queued edits | `frontend/src/platform/offline/offlineDrafts.ts` |
@@ -32,16 +33,20 @@ This document records the current browser behavior and points to the code that o
 | Summary cards, reporting period, submitted-only filter, and XLSX export | `frontend/src/modules/reports/pages/AdminSummaryPage.tsx` |
 | Report listing and period filter | `frontend/src/modules/reports/pages/AdminReportsPage.tsx` |
 | Report detail and draft/submitted status update | `frontend/src/modules/reports/pages/AdminReportDetailPage.tsx` |
-| Product catalogue search, price changes, archive/restore, import, store accounts, and password settings | `frontend/src/modules/reports/pages/AdminSettingsPage.tsx` |
-| Tunnel status/start/stop/autostart contract | `frontend/src/modules/transport/api.ts`, consumed by `AdminSettingsPage.tsx` |
-| Audit log filters and entries | `frontend/src/modules/reports/pages/AdminLogsPage.tsx` |
+| Settings host (tabs contributed by modules) | `frontend/src/platform/settings/SettingsPage.tsx` |
+| Product catalogue search, price changes, archive/restore, import | `frontend/src/modules/reports/settings/ProductsSection.tsx` |
+| Per-organisation «По розрахунку» option | `frontend/src/modules/reports/settings/ReportSettingsSection.tsx` |
+| Own password | `frontend/src/platform/settings/AccountSection.tsx` |
+| Users, organisations and roles | `frontend/src/platform/access/` |
+| Tunnel and backup settings | `frontend/src/platform/system/` |
+| Audit log filters and entries | `frontend/src/platform/audit/AuditLogPage.tsx` |
 | Shared API calls and DTO types | `frontend/src/modules/reports/api.ts`, `frontend/src/platform/api/types.ts` |
 
 ## Server compatibility and static assets
 
 | Behavior | Current implementation |
 |---|---|
-| JSON API and authentication endpoints | `backend/app/routes/api_v1.py`, `backend/app/routes/auth.py`, `backend/app/routes/admin/` |
+| JSON API and authentication endpoints | `backend/app/platform/*/routes.py`, `backend/app/modules/*/routes.py`, composed in `backend/app/routes/__init__.py` |
 | REST API error envelopes and legacy HTML fallback errors | `backend/app/core/http_errors.py`, `backend/app/core/web.py` |
 | Offline page and PWA endpoints | `backend/app/routes/pwa.py`, `backend/app/templates/offline.html` |
 | Last-resort SPA routing after API/PWA routes | `backend/app/routes/fallback.py` |

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import AdminLogsPage from "./AdminLogsPage";
+import AdminLogsPage from "./AuditLogPage";
 import type { AuditLogDTO } from "@/platform/api/types";
 
 const mockActions = ["auth.login", "report.submit", "product.update"];

@@ -11,12 +11,10 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import app.routes.auth as auth
-from app.core.security import hash_pw
+import app.platform.accounts.auth as auth
 from app.db.base import Base
-from app.db.models.audit import AuditLog
-from app.db.models.store import Store
-from app.db.models.user import User
+from app.platform.audit.models import AuditLog
+from app.platform.accounts.testing import make_admin, make_member, make_organisation
 
 
 def request_with_session(session=None):
@@ -33,14 +31,12 @@ class AuthenticationEdgeTests(unittest.TestCase):
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(self.engine, expire_on_commit=False)
         with self.Session() as db:
-            self.admin = User(login="admin", password_hash=hash_pw("admin-pass"), role="admin")
-            self.active_store = Store(name="Active")
-            self.archived_store = Store(name="Archived", archived=True)
-            db.add_all([self.admin, self.active_store, self.archived_store])
-            db.flush()
-            self.active_user = User(login="shop1", password_hash=hash_pw("shop-pass"), role="store", store_id=self.active_store.id)
-            self.archived_user = User(login="shop2", password_hash=hash_pw("shop-pass"), role="store", store_id=self.archived_store.id)
-            db.add_all([self.active_user, self.archived_user])
+            self.admin = make_admin(db, "admin", "admin-pass")
+            self.active_store = make_organisation(db, "Active")
+            self.archived_store = make_organisation(db, "Archived", archived=True)
+            self.active_user = make_member(db, self.active_store, "shop1", "shop-pass")
+            self.archived_user = make_member(db, self.archived_store, "shop2", "shop-pass")
+            self.disabled_user = make_member(db, self.active_store, "shop3", "shop-pass", active=False)
             db.commit()
             self.admin_id, self.active_id, self.archived_id = self.admin.id, self.active_user.id, self.archived_user.id
 
@@ -68,7 +64,16 @@ class AuthenticationEdgeTests(unittest.TestCase):
             self.assertEqual(response.status_code, 403)
             self.assertIn("обліковий запис вимкнено", response.body.decode())
             record.assert_called_once_with("192.0.2.100", "shop2")
-            self.assertEqual(db.scalar(select(AuditLog.detail)), "магазин в архіві")
+            self.assertEqual(db.scalar(select(AuditLog.detail)), "організація в архіві")
+
+    def test_disabled_user_cannot_login(self):
+        with self.Session() as db, patch.object(auth, "retry_after", return_value=0), patch.object(auth, "record_failure"):
+            response = auth.login_post(request_with_session(), "shop3", "shop-pass", db)
+            self.assertEqual(response.status_code, 403)
+            self.assertEqual(
+                db.scalar(select(AuditLog.detail).where(AuditLog.login == "shop3")),
+                "обліковий запис вимкнено",
+            )
 
     def test_active_store_can_login_and_session_is_replaced(self):
         request = request_with_session({"old": "state", "uid": 999})

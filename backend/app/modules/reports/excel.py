@@ -8,14 +8,14 @@ from sqlmodel import select
 from sqlmodel import Session
 
 from app.core.web import done
-from app.db.models.product import Product, ProductPrice
-from app.db.models.user import User
-from app.db.repositories.audit import audit
-from app.services.pricing import BASE_PERIOD, norm_name
+from app.core.text import norm_name
+from app.modules.reports.models import Product, ProductPrice
+from app.modules.reports.pricing import BASE_PERIOD
+from app.platform.audit.service import audit
 
 
 def parse_products_excel(
-    payload: bytes, db: Session, user: User, request: Request
+    payload: bytes, db: Session, login: str, role: str, request: Request
 ):
     """Parse products from Excel and insert them into the database."""
     from app.core.dependencies import clean_name, to_cents
@@ -83,8 +83,8 @@ def parse_products_excel(
             audit(
                 db,
                 request,
-                user.login,
-                user.role,
+                login,
+                role,
                 "масово додано товари",
                 f"створено: {len(created)}, пропущено дублікатів: {skipped}",
             )
@@ -109,7 +109,7 @@ def generate_summary_excel(
     db: Session, period: str, submitted_only: bool = False
 ) -> io.BytesIO:
     """Generate Excel matrix workbook of monthly report summary."""
-    from app.db.repositories.reports import build_summary
+    from app.modules.reports.reports_repo import build_summary
     stores, rows, store_sums, grand = build_summary(db, period, submitted_only)
     workbook = Workbook()
     sheet = workbook.active
