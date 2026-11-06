@@ -1,5 +1,0 @@
-# Keep the historical root-level command and host paths working.
-include:
-  - path: deploy/compose.yaml
-    project_directory: .
-    env_file: .env

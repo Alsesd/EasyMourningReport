@@ -100,7 +100,7 @@ Backups (`internal/store/backup.go`) run inside the app: at start-up, every `BAC
 
 Schema: `internal/store/schema/fresh.sql` holds the DDL of a fresh database, and any missing table is created on start. The migrations of the Python releases are not ported. Start-up checks that `schema_migrations` already contains `platform.0001_organisations_and_roles` and the reports migrations; a database that predates them must first be started once with the last Python release (commit `92564ef`). `testdata/schema/*.sql` are snapshots of fresh and legacy-migrated databases, and `internal/store/store_test.go` verifies Go leaves them unchanged and that a fresh Go database has the same schema.
 
-Containers: `deploy/Dockerfile` builds the frontend (Node), then one static Go binary with the SPA embedded (`golang`), and ships it on `debian:bookworm-slim` with `curl` and `cloudflared`. `deploy/compose.yaml` runs a single container; its health probe is `GET /healthz`. Keep the data and backup mounts unchanged when updating.
+Distribution: `scripts/build_go.sh` builds the Vite app, then one Go binary per OS with the UI and a pinned `cloudflared` embedded (`-tags bundle`). `.github/workflows/release.yml` runs it, tests the result and publishes `legkyi.exe`.
 
 ## Public access
 

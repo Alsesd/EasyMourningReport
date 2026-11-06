@@ -1,6 +1,6 @@
 # Reports module
 
-**Backend:** `backend/app/modules/reports/` · **Frontend:** `frontend/src/modules/reports/`
+**Backend:** `internal/reports/`, `internal/web/reports*.go` · **Frontend:** `frontend/src/modules/reports/`
 
 Monthly store reports: product catalogue with price history, report entry by organisation members, review, combined summary with Excel export, and per-organisation report settings.
 
@@ -8,16 +8,13 @@ Monthly store reports: product catalogue with price history, report entry by org
 
 | File | Owns |
 |---|---|
-| `__init__.py` | The `Module` definition |
-| `models.py` | `Product`, `ProductPrice`, `Report`, `ReportItem`, `ReportSettings` |
-| `pricing.py` | Pure price-history rules |
-| `products_repo.py`, `reports_repo.py` | Queries, report lines and the summary matrix |
-| `excel.py` | Product import and summary export |
-| `routes.py`, `schemas.py` | REST endpoints and DTOs (see `docs/API.md`) |
-| `permissions.py` | `reports.submit`, `reports.review`, `reports.catalog.manage`, `reports.settings.manage`, audit actions |
-| `migrations.py` | Upgrades from older releases |
-| `seed.py` | Demo data |
-| `overview.py` | Figures on the «Адміністрування» overview (reports submitted this month, active products) |
+| `module.go` | The `core.Module` definition: permissions, audit actions, default grants |
+| `pricing.go` | Pure price-history rules |
+| `money.go` | Price parsing to cents and formatting |
+| `repo.go` | Queries: products, report lines, the summary matrix |
+| `xlsx_import.go`, `xlsx_export.go` | Product import and summary export |
+| `seed.go`, `overview.go`, `usage.go` | Demo data, overview figures, organisation usage |
+| `internal/web/reports.go`, `reports_xlsx.go` | REST endpoints (see `docs/API.md`) |
 
 A report belongs to an organisation (`reports.store_id` → `organisations.id`; the column keeps its historic name). Members with `reports.submit` only ever reach their own organisation's report.
 
@@ -28,6 +25,6 @@ A report belongs to an organisation (`reports.store_id` → `organisations.id`; 
 ## Tests
 
 ```bash
-uv run pytest backend/app/modules/reports
+go test ./internal/reports ./internal/web
 cd frontend && npm test -- src/modules/reports
 ```

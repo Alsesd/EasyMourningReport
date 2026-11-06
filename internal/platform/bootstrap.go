@@ -120,7 +120,7 @@ func Seed(tx *sql.Tx, grants map[string][]string, getenv func(string) string, ou
 	return nil
 }
 
-// demoEnabled: DEMO is off when empty or an explicit "0/false/no/off" (compose passes DEMO=0 by default).
+// demoEnabled: DEMO is off when empty or an explicit "0/false/no/off" (a literal DEMO=0 in .env must not enable it).
 func demoEnabled(v string) bool {
 	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "", "0", "false", "no", "off":

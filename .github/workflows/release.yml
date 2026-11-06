@@ -1,0 +1,157 @@
+name: Release exe
+
+# Run by hand: Actions → "Release exe" → Run workflow.
+# Builds the single-file legkyi.exe (UI + cloudflared inside), tests it on Linux and on a real Windows
+# runner, and publishes a GitHub release. Untick "publish" to only build and test.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to create, e.g. Soup.V6"
+        required: true
+        type: string
+      publish:
+        description: "Publish a GitHub release (untick to only build and test)"
+        required: true
+        type: boolean
+        default: true
+      prerelease:
+        description: "Mark the release as a pre-release"
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refuse an existing tag
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "::error::Tag ${{ inputs.version }} already exists. Choose a new version."; exit 1
+          fi
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Frontend checks
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Go checks
+        run: |
+          go vet ./cmd/... ./internal/...
+          go test ./cmd/... ./internal/...
+
+      - name: Build exe and Linux binary (cloudflared bundled)
+        run: SKIP_FRONTEND=1 bash scripts/build_go.sh
+
+      - name: Bundled build tests
+        run: go test -tags bundle ./internal/tunnelbin
+
+      - name: Smoke test (Linux binary, with tunnel process)
+        run: |
+          go run ./cmd/smoke -exe dist/legkyi
+          go run ./cmd/smoke -exe dist/legkyi -tunnel
+
+      - name: Browser end-to-end test (Linux binary)
+        env:
+          CHROMIUM_PATH: /usr/bin/google-chrome
+          LEGKYI_E2E_BINARY: dist/legkyi
+        run: uv run scripts/e2e_test.py
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum legkyi.exe legkyi > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: legkyi-build
+          path: |
+            dist/legkyi.exe
+            dist/legkyi
+            dist/NOTICE.txt
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  windows:
+    name: Test legkyi.exe on Windows
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v4
+        with:
+          name: legkyi-build
+          path: dist
+
+      - name: Checksum matches the build job
+        shell: bash
+        working-directory: dist
+        run: sha256sum --check --ignore-missing SHA256SUMS.txt
+
+      - name: Smoke test (starts the exe in an empty folder)
+        run: go run ./cmd/smoke -exe dist/legkyi.exe
+
+      - name: Smoke test with the bundled cloudflared (forced kill must take it down too)
+        run: go run ./cmd/smoke -exe dist/legkyi.exe -tunnel
+
+  release:
+    name: Publish release
+    needs: [build, windows]
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: legkyi-build
+          path: dist
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          flags=()
+          if [ "${{ inputs.prerelease }}" = "true" ]; then flags+=(--prerelease); fi
+          cat > notes.md <<'EON'
+          **legkyi.exe** is one file: copy it to a writable folder and start it. The database, backups, secret key and tunnel state are created next to it; put a `.env` there to configure it (see `.env.example` in the repository).
+          The first start prints the administrator password in the console. The Cloudflare Tunnel starts automatically; set `TUNNEL_TOKEN` in `.env` for a stable address.
+          `legkyi` is the same program for Linux. Checksums are in `SHA256SUMS.txt`. The exe is not code-signed, so SmartScreen may warn.
+          EON
+          gh release create "${{ inputs.version }}" \
+            dist/legkyi.exe dist/legkyi dist/SHA256SUMS.txt dist/NOTICE.txt \
+            --target "${{ github.sha }}" \
+            --title "${{ inputs.version }}" \
+            --notes-file notes.md --generate-notes \
+            "${flags[@]}"

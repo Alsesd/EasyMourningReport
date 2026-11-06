@@ -130,7 +130,7 @@ func run() error {
 	case serveErr = <-errc:
 	}
 	// Shutdown order: HTTP, tunnel, loop, checkpoint, final backup.
-	// Windows gives a closing console about 5 s and Docker 10 s: finish in-flight requests quickly so the
+	// Windows gives a closing console about 5 s: finish in-flight requests quickly so the
 	// checkpoint and the final backup still run.
 	sctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

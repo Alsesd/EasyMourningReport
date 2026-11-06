@@ -17,7 +17,7 @@ npm run dev                              # app at :5173, proxies /api etc. to :8
 ```
 
 - `go build` fails if `internal/assets/static/` is missing; without `static/app/` (the Vite build) the binary starts but serves no UI. Web tests use a stub SPA and do not need the build.
-- `go build -o dist/legkyi ./cmd/server && CHROMIUM_PATH=/opt/pw-browsers/chromium uv run scripts/e2e_test.py` drives the real binary in a browser (port 8888, `DEMO=1`, throwaway data dir). Run it after UI or navigation changes. `LEGKYI_E2E_BINARY` overrides the binary path.
+- `bash scripts/build_go.sh && go run ./cmd/smoke -exe dist/legkyi -tunnel && CHROMIUM_PATH=/opt/pw-browsers/chromium LEGKYI_E2E_BINARY=dist/legkyi uv run scripts/e2e_test.py` drives the real binary in a browser (port 8888, `DEMO=1`, throwaway data dir). Run it after UI or navigation changes. `LEGKYI_E2E_BINARY` overrides the binary path.
 - There is no CI; the commands above are the whole verification gate. Run the relevant ones before committing.
 
 ## Architecture (read docs/architecture.md before structural changes)
@@ -31,13 +31,13 @@ npm run dev                              # app at :5173, proxies /api etc. to :8
 - **Fixtures:** `testdata/contracts/*.json` (HTTP scenarios), `testdata/reports/` (money, pricing, XLSX golden files), `testdata/passwords/`, `testdata/schema/` are frozen output of the Python implementation. Change them only when behaviour changes on purpose, and say why.
 - Database: SQLite in-process by design (docs/adr/0003-keep-sqlite.md).
 - Public access is Cloudflare Tunnel only, supervised by the app (`internal/system/tunnel.go`). Bundled builds (`-tags bundle`, `internal/tunnelbin`) embed a pinned cloudflared, extract it to `<data>/tunnel/` and turn the tunnel on once at first start; plain builds (Docker, `go run`) use `CLOUDFLARED_PATH` or PATH. Update the version and both SHA-256 in `scripts/build_go.sh` together with `tunnelbin.Version`. Data, `.env`, backups and the tunnel state live next to the exe when it is writable. Backups run in-app.
-- Figures (money, quantities, months) use `.figure` / `font-mono`: Literata with tabular numerals, not a code font. Interface text is IBM Plex Sans. Pages are `ui/PageHeader` + `ui/LedgerSection` (ruled, flat; see DESIGN.md). Months use `ui/PeriodPicker` (Ukrainian), on/off settings `ui/Switch`, never native month/file controls (they render in the browser's language).
+- Figures (money, quantities, months) use `.figure` / `font-mono`: Literata with tabular numerals, not a code font. Interface text is IBM Plex Sans. Pages are `ui/PageHeader` + `ui/LedgerSection` (ruled, flat; see docs/design-system.md). Months use `ui/PeriodPicker` (Ukrainian), on/off settings `ui/Switch`, never native month/file controls (they render in the browser's language).
 - Tailwind colours are CSS variables wrapped by `token()` in `tailwind.config.js` so opacity modifiers (`bg-primary/10`) work; keep new colours in that form.
 - `frontend/src/platform/api/schema.d.ts` is maintained by hand (no OpenAPI export any more). Update it with every API shape change.
 
 ## UI and copy
 
-- Read `UX-CONTRACT.md` and `DESIGN.md` before UI work. CSS custom properties in `frontend/src/app/index.css` are the token source; Tailwind consumes them. Reuse `frontend/src/ui/*` primitives.
+- Read `docs/ux-contract.md` and `docs/design-system.md` before UI work. CSS custom properties in `frontend/src/app/index.css` are the token source; Tailwind consumes them. Reuse `frontend/src/ui/*` primitives.
 - User-facing strings are Ukrainian: shared ones in `frontend/src/platform/i18n.ts`, module ones in the module's `i18n.ts` (which spreads `ukPlatform`). Use the shared number/date/money helpers.
 - Target WCAG 2.2 AA: 44px touch targets, visible focus, labelled icon-only buttons, reduced-motion support, light/dark/system themes.
 
@@ -45,4 +45,4 @@ npm run dev                              # app at :5173, proxies /api etc. to :8
 
 - Never delete, rename, or rewrite `data/`, `backups/`, `reports.db`, or `secret.key`. Don't read or print `.env`.
 - Money is stored in integer cents (`*_cents`). Report periods are `YYYY-MM` strings.
-- Production deploy is `docker compose up -d --build --remove-orphans` (one container); keep the `app_storage/` bind mounts unchanged.
+- Release: run the **Release exe** workflow (Actions → Run workflow). It builds, tests and publishes `legkyi.exe`. See `.github/workflows/release.yml`.

@@ -13,12 +13,12 @@
 |---|---|---|
 | API access and error contracts | [`docs/API.md`](docs/API.md) | API contract |
 | Route map and behavior owners | [`docs/ui-parity.md`](docs/ui-parity.md) | Implementation map |
-| Product-specific report and price rules | [`docs/DESIGN.md`](docs/DESIGN.md) | Maintained product UX notes |
+| Product-specific report and price rules | [`DESIGN.md`](DESIGN.md) | Maintained product UX notes |
 | Permission enforcement | `internal/web/session.go`, `internal/platform/principal.go`, `frontend/src/app/routing/ProtectedRoute.tsx` | Runtime enforcement evidence |
 
 ## Visual contract
 
-- **Design:** [`DESIGN.md`](DESIGN.md)
+- **Design:** [`design-system.md`](design-system.md)
 - **Token ownership:** Existing CSS custom properties remain canonical; Tailwind semantic colors and shared components consume them.
 - **Runtime token source:** `frontend/src/app/index.css`, `frontend/tailwind.config.js`.
 - **Themes:** Light, dark and system preference persisted by `ThemeContext`.
@@ -33,7 +33,7 @@
 | Navigation | `frontend/src/app/layouts/AdminLayout.tsx` | route map in `App.tsx` | desktop rail/mobile bottom bar | route + narrow viewport review |
 | Date/period | `frontend/src/ui/PeriodPicker.tsx` (Ukrainian month list with previous/next) + period helpers | `YYYY-MM`, report API | month selector | period tests |
 | On/off settings | `frontend/src/ui/Switch.tsx` (native checkbox, `role="switch"`, state text follows state) | API DTOs | per-row toggles | page tests |
-| Scrollbar | global stylesheet | root `DESIGN.md` | standard; native overflow for data tables | computed CSS + keyboard scroll |
+| Scrollbar | global stylesheet | `design-system.md` | standard; native overflow for data tables | computed CSS + keyboard scroll |
 | CRUD and persistence | report module API + TanStack Query mutations | `docs/API.md` | draft, submit, archive/restore, lock/unlock | API and page tests |
 
 ## Navigation and responsive behavior

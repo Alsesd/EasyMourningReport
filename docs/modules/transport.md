@@ -1,6 +1,6 @@
 # Transport module (scaffold)
 
-**Backend:** `backend/app/modules/transport/` · **Frontend:** `frontend/src/modules/transport/`
+**Backend:** `internal/transport/` · **Frontend:** `frontend/src/modules/transport/`
 
 Reserved for submitting and tracking transport orders. Today it registers its permissions, a `GET /api/v1/transport/status` endpoint, a «Транспорт» navigation item and a placeholder page, so it already appears in the role editor and navigation. It also serves as the template for new modules (see `docs/architecture.md` → *Adding a module*).
 

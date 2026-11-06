@@ -1,6 +1,6 @@
 # EasyMourningReport — UI behavior and implementation notes
 
-The canonical visual design contract is maintained in the repository-root [`DESIGN.md`](../DESIGN.md). Runtime theme tokens are canonical in `frontend/src/app/index.css`, with semantic Tailwind mappings in `frontend/tailwind.config.js`.
+The canonical visual design contract is maintained in [`design-system.md`](design-system.md). Runtime theme tokens are canonical in `frontend/src/app/index.css`, with semantic Tailwind mappings in `frontend/tailwind.config.js`.
 
 ## Responsive product rules
 

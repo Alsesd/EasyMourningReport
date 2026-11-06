@@ -6,7 +6,6 @@ A modular Go + React platform: organisations with multiple user accounts, roles 
 
 ```text
 repo/
-├── cmd/server/                  # the single entry point
 ├── internal/                    # Go packages: config, store, core, platform, reports, transport,
 │                                # system (tunnel, health), registry, web (HTTP), assets (embedded UI)
 ├── frontend/src/
@@ -15,7 +14,10 @@ repo/
 │   ├── ui/                      # reusable design-system primitives
 │   └── modules/                 # reports/, transport/ (scaffold)
 ├── testdata/                    # frozen HTTP, money, pricing, XLSX, password and schema fixtures
-├── deploy/                      # production Dockerfile, Compose and env example (one container)
+├── cmd/server, cmd/smoke        # the program, and the post-build smoke test
+├── .github/workflows/           # manual build, test and release of the single-file exe
+├── .env.example                 # every setting, commented
+├── README.md, CLAUDE.md         # everything else in docs/
 ├── docs/                        # API, architecture, ADRs, module notes, design docs, migration record
 └── scripts/                     # build_go.sh (linux + windows binaries), e2e_test.py (browser smoke test)
 ```
@@ -87,52 +89,30 @@ Notes: the file is not code-signed, so Windows SmartScreen may warn on first sta
 
 The Go server opens existing databases from the Python releases unchanged (same file, same schema, same password hashes). It does **not** carry the old upgrade code: a database must already have been started once by the last Python release (commit `92564ef`, which migrated the single-admin layout to organisations and roles). Otherwise start-up stops with a message saying so. Everyone has to sign in once more after the switch because the session cookie format changed.
 
-## Docker deployment
-
-Copy the env template, review its values, and start Compose from the repository root:
-
-```bash
-cp deploy/.env.example .env
-docker compose up -d --build
-```
-
-The root `compose.yaml` is a small wrapper that includes `deploy/compose.yaml`, so the usual `docker compose up -d` works from the repository root. Use Docker Compose v2.24 or newer (it uses `include` and optional `env_file`).
-
-Everything runs in **one container**, `mourningreport-app`: the web server, the SQLite database, periodic backups and the Cloudflare Tunnel (`cloudflared` is started and supervised by the app). The container publishes the configured host port (default `8000`) and keeps its data in bind-mounted host folders:
-
-| Host folder | In the container | Contents |
-|---|---|---|
-| `./app_storage/data` | `/app/data` | `reports.db`, `secret.key`, tunnel token |
-| `./app_storage/backups` | `/app/backups` | verified SQLite backups |
-
-**Do not delete or rename those folders during an update.** To update, back up both folders, pull the new source, then run:
-
-```bash
-docker tag easymourningreport:local easymourningreport:previous 2>/dev/null || true   # keep the old image for rollback
-docker compose up -d --build --remove-orphans
-```
-
-**Rolling back from the Go release to the Python one:** stop the container, restore the pre-update copy of `app_storage/`, and check out commit `92564ef` (the last Python release) or run the `easymourningreport:previous` image. Do not run the old release on data that the Go release has written after the switch without a backup, and keep the pre-switch backup until you are confident.
-
-`--remove-orphans` removes the `mourningreport-backup` container that older releases ran next to the app; backups now run inside the app (every `BACKUP_EVERY_MIN` minutes when something changed, plus at start-up and shutdown, keeping `BACKUP_KEEP` copies). Follow the logs with `docker compose logs -f app`; `GET /healthz` is the container health probe.
-
-Useful environment values (`ADMIN_PASSWORD`, `SECRET_KEY`, `DEMO`, `PORT`, `PUBLIC_URL`, `TUNNEL_ENABLED`, `TUNNEL_TOKEN`, `BACKUP_EVERY_MIN`, `BACKUP_KEEP`, `SQLITE_JOURNAL_MODE`, `COOKIE_SECURE`, `FORWARDED_ALLOW_IPS`) are documented in `deploy/.env.example`. Keep `.env`, `secret.key`, the database and backups out of version control.
-
-### Public access (Cloudflare Tunnel)
+## Public access (Cloudflare Tunnel)
 
 Open **Адміністрування → Система → Публічний доступ**. Without a token the app opens a temporary Quick Tunnel and shows its `trycloudflare.com` address. With a Cloudflare tunnel token (pasted there, or `TUNNEL_TOKEN` in `.env`) it runs your named tunnel; set `PUBLIC_URL` to show its address. `TUNNEL_ENABLED=0` keeps the tunnel off at start-up regardless of the saved preference.
 
-### Power cuts and the database
+## Power cuts and the database
 
 SQLite runs inside the app and needs no server. Each committed change is flushed to disk (`synchronous=FULL`), so a power cut loses no saved report. On local disks the database uses WAL mode; on shared folders (Docker Desktop host folders, network shares) it falls back to the classic rollback journal, which is safe there. Override with `SQLITE_JOURNAL_MODE=wal|delete`. Every start runs an integrity check, and every backup is verified. The reasoning, with load-test numbers, is in [ADR 0003](docs/adr/0003-keep-sqlite.md).
 
-## Project scripts
+## Releasing
 
-Run the browser end-to-end check against the real binary (needs Playwright via `uv`; `CHROMIUM_PATH` reuses an installed Chromium):
+Releases are cut by hand: GitHub → **Actions → Release exe → Run workflow**, enter the tag (for example `Soup.V6`). The workflow (`.github/workflows/release.yml`):
+
+1. runs frontend lint, typecheck and tests, Go vet and tests;
+2. builds `legkyi.exe` and the Linux binary with `scripts/build_go.sh` (UI and a SHA-256-checked cloudflared inside);
+3. tests the Linux binary (`cmd/smoke`, with and without the tunnel process) and in a real browser (`scripts/e2e_test.py`);
+4. downloads `legkyi.exe` on a **Windows runner** and runs `cmd/smoke` there, including a forced kill that must also stop cloudflared;
+5. only if everything passed (and "publish" is ticked) creates the GitHub release with `legkyi.exe`, `legkyi`, `SHA256SUMS.txt` and `NOTICE.txt`.
+
+The same checks run locally:
 
 ```bash
-go build -o dist/legkyi ./cmd/server
-uv run scripts/e2e_test.py
+bash scripts/build_go.sh                       # builds dist/legkyi.exe and dist/legkyi
+go run ./cmd/smoke -exe dist/legkyi            # starts it in an empty folder and checks it (add -tunnel for cloudflared)
+CHROMIUM_PATH=/opt/pw-browsers/chromium LEGKYI_E2E_BINARY=dist/legkyi uv run scripts/e2e_test.py   # browser test
 ```
 
-See [Architecture](docs/architecture.md), [REST API](docs/API.md), and the module notes in `docs/modules/` before making structural changes. The history of the Python-to-Go port is in [docs/migration/](docs/migration/) and [ADR 0004](docs/adr/0004-port-backend-to-go.md).
+See [Architecture](docs/architecture.md), [REST API](docs/API.md), [UX contract](docs/ux-contract.md), [design system](docs/design-system.md) and the module notes in `docs/modules/` before making structural changes. The history of the Python-to-Go port is in [docs/migration/](docs/migration/) and [ADR 0004](docs/adr/0004-port-backend-to-go.md).
