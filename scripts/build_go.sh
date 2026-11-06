@@ -32,7 +32,10 @@ flags=(-trimpath -ldflags="-s -w" -tags bundle)
 # The two targets use different embedded files, so the unused one is hidden by the build tags (GOOS).
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build "${flags[@]}" -o dist/legkyi.exe ./cmd/server
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build "${flags[@]}" -o dist/legkyi ./cmd/server
+# Android/Termux and other ARM64 Linux: no bundled cloudflared (a generic Linux cloudflared cannot resolve DNS on
+# Android); install the tunnel client with `pkg install cloudflared` and start with TUNNEL_ENABLED=1.
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o dist/legkyi-linux-arm64 ./cmd/server
 cat > dist/NOTICE.txt <<'EON'
 legkyi.exe contains cloudflared (https://github.com/cloudflare/cloudflared), licensed under the Apache License 2.0.
 EON
-ls -l dist/legkyi dist/legkyi.exe
+ls -l dist/legkyi dist/legkyi.exe dist/legkyi-linux-arm64

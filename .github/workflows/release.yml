@@ -87,7 +87,7 @@ jobs:
 
       - name: Checksums
         working-directory: dist
-        run: sha256sum legkyi.exe legkyi > SHA256SUMS.txt && cat SHA256SUMS.txt
+        run: sha256sum legkyi.exe legkyi legkyi-linux-arm64 > SHA256SUMS.txt && cat SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -95,6 +95,7 @@ jobs:
           path: |
             dist/legkyi.exe
             dist/legkyi
+            dist/legkyi-linux-arm64
             dist/NOTICE.txt
             dist/SHA256SUMS.txt
           if-no-files-found: error
@@ -147,10 +148,10 @@ jobs:
           cat > notes.md <<'EON'
           **legkyi.exe** is one file: copy it to a writable folder and start it. The database, backups, secret key and tunnel state are created next to it; put a `.env` there to configure it (see `.env.example` in the repository).
           The first start prints the administrator password in the console. The Cloudflare Tunnel starts automatically; set `TUNNEL_TOKEN` in `.env` for a stable address.
-          `legkyi` is the same program for Linux. Checksums are in `SHA256SUMS.txt`. The exe is not code-signed, so SmartScreen may warn.
+          `legkyi` is the same program for Linux (x86-64); `legkyi-linux-arm64` is for Android/Termux and ARM servers (install `cloudflared` separately and run with `TUNNEL_ENABLED=1`). Checksums are in `SHA256SUMS.txt`. The exe is not code-signed, so SmartScreen may warn.
           EON
           gh release create "${{ inputs.version }}" \
-            dist/legkyi.exe dist/legkyi dist/SHA256SUMS.txt dist/NOTICE.txt \
+            dist/legkyi.exe dist/legkyi dist/legkyi-linux-arm64 dist/SHA256SUMS.txt dist/NOTICE.txt \
             --target "${{ github.sha }}" \
             --title "${{ inputs.version }}" \
             --notes-file notes.md --generate-notes \
