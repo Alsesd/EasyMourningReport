@@ -326,6 +326,28 @@ export function shiftPeriod(period: string, delta: number): string {
   return `${newY}-${String(newM).padStart(2, "0")}`;
 }
 
+const dayFormat = new Intl.DateTimeFormat("uk-UA", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
+
+/** Today as YYYY-MM-DD in the browser's local calendar. */
+export function todayIso(now: Date = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+/** Shift a YYYY-MM-DD day by delta days (calendar arithmetic, immune to daylight-saving changes). */
+export function shiftDay(day: string, delta: number): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return day;
+  const [y, m, d] = day.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + delta));
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** "2026-11-06" -> "пт, 6 листопада 2026 р." in Ukrainian, whatever the browser's language. */
+export function formatDayReadable(day: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return day;
+  const [y, m, d] = day.split("-").map(Number);
+  return dayFormat.format(new Date(Date.UTC(y, m - 1, d, 12)));
+}
+
 /**
  * Format ISO datetime string to Ukrainian readable date and time.
  */

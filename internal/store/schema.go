@@ -55,10 +55,56 @@ var goOwned = []string{
 		last_used_at INTEGER NOT NULL DEFAULT 0
 	)`,
 	`CREATE INDEX IF NOT EXISTS ix_passkeys_user ON passkeys (user_id)`,
+	// Transport orders (module transport). One order per deceased: an optional delivery part (car, time,
+	// destination) and an optional carriers part (men, time, departure place, cemetery number), at least one.
+	// The submitting employee is stored as id plus a name snapshot so the signature survives renames.
+	`CREATE TABLE IF NOT EXISTS transport_orders (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		organisation_id INTEGER NOT NULL REFERENCES organisations (id),
+		service_date TEXT NOT NULL,
+		deceased TEXT NOT NULL,
+		notes TEXT NOT NULL DEFAULT '',
+		has_delivery INTEGER NOT NULL DEFAULT 0,
+		car_number TEXT NOT NULL DEFAULT '',
+		delivery_time TEXT NOT NULL DEFAULT '',
+		destination TEXT NOT NULL DEFAULT '',
+		has_carriers INTEGER NOT NULL DEFAULT 0,
+		carriers_count INTEGER NOT NULL DEFAULT 0,
+		carriers_time TEXT NOT NULL DEFAULT '',
+		carriers_from TEXT NOT NULL DEFAULT '',
+		cemetery_number TEXT NOT NULL DEFAULT '',
+		status TEXT NOT NULL,
+		reply_note TEXT NOT NULL DEFAULT '',
+		created_by_id INTEGER,
+		created_by_name TEXT NOT NULL DEFAULT '',
+		created_at INTEGER NOT NULL,
+		updated_at INTEGER NOT NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_transport_orders_date ON transport_orders (service_date)`,
+	`CREATE INDEX IF NOT EXISTS ix_transport_orders_org ON transport_orders (organisation_id, service_date)`,
+	`CREATE TABLE IF NOT EXISTS transport_order_stops (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		order_id INTEGER NOT NULL REFERENCES transport_orders (id) ON DELETE CASCADE,
+		part TEXT NOT NULL,
+		position INTEGER NOT NULL,
+		place TEXT NOT NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_transport_order_stops_order ON transport_order_stops (order_id)`,
+	`CREATE TABLE IF NOT EXISTS transport_order_events (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		order_id INTEGER NOT NULL REFERENCES transport_orders (id) ON DELETE CASCADE,
+		ts INTEGER NOT NULL,
+		user_id INTEGER,
+		user_name TEXT NOT NULL DEFAULT '',
+		kind TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT '',
+		note TEXT NOT NULL DEFAULT ''
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_transport_order_events_order ON transport_order_events (order_id)`,
 }
 
 // GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
-var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys"}
+var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events"}
 
 type object struct {
 	kind, name, table, sql string

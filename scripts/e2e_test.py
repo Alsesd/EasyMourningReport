@@ -128,8 +128,22 @@ def run_tests():
             assert first_input.is_disabled(), "Quantity input should be disabled after submission"
             print("Verified report is read-only after submission.")
 
+            # Transport desk: the same user places an order for today
+            page.click('a[aria-label="Транспорт"]')
+            page.wait_for_url("**/admin/transport", timeout=5000)
+            page.click('button:has-text("Нове замовлення")')
+            page.fill('#order-deceased', "Тестовий Т. Т.")
+            page.fill('#delivery-car', "АА 0001 АА")
+            page.fill('#delivery-time', "0930")
+            page.fill('#delivery-destination', "Морг №1")
+            page.click('[role="dialog"] button:has-text("Надіслати")')
+            page.wait_for_selector('text=Замовлення надіслано', timeout=5000)
+            page.wait_for_selector('article:has-text("Тестовий Т. Т.")', timeout=5000)
+            assert page.locator('article:has-text("Тестовий Т. Т.") >> text=Надіслано').count() > 0
+            print("Desk placed a transport order!")
+
             # Logout through the account menu
-            page.locator('button[aria-label^="Обліковий запис"]').click()
+            page.locator('button[aria-label^="Обліковий запис"]:visible').first.click()
             page.get_by_role("menuitem", name="Вийти").click()
             page.wait_for_url("**/login", timeout=5000)
             print("Successfully logged out!")
@@ -154,6 +168,17 @@ def run_tests():
             print("Admin landed on:", admin_page.url)
             admin_page.wait_for_selector('text=Товари за місяць', timeout=5000)
             print("Admin month view loaded")
+
+            # Dispatcher answers the desk's transport order
+            admin_page.goto("http://127.0.0.1:8888/admin/transport")
+            admin_page.wait_for_selector('article:has-text("Тестовий Т. Т.")', timeout=5000)
+            admin_page.locator('article:has-text("Тестовий Т. Т.") button:has-text("Прийняти")').click()
+            admin_page.fill('#status-note', "Авто виїде о 8:40")
+            admin_page.click('[role="dialog"] button:has-text("Застосувати")')
+            admin_page.wait_for_selector('article:has-text("Тестовий Т. Т.") >> text=Авто виїде о 8:40', timeout=5000)
+            print("Dispatcher replied to the transport order!")
+            admin_page.goto("http://127.0.0.1:8888/admin/reports")
+            admin_page.wait_for_load_state("networkidle")
 
             # Download XLSX test
             xlsx_link = admin_page.locator('a[href*="/admin/summary.xlsx"]')

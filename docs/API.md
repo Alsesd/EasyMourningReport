@@ -76,7 +76,13 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 
 | Method | Path | Permission | Purpose |
 |---|---|---|---|
-| GET | `/transport/status` | any `transport.orders.*` | Confirms the module is installed; orders are not implemented yet |
+| GET | `/transport/status` | any transport permission | `{ready, message}` |
+| GET | `/transport/orders` | create, view_all or manage | The day's orders (`date`, default today) or a range (`from`, `to`), chronological; `status`; staff may add `organisation_id`. A desk sees only its organisation |
+| GET | `/transport/orders/{id}` | same | One order; `events` (history) only for staff |
+| POST | `/transport/orders` | `transport.orders.create` (organisation member) | `{service_date, deceased, notes?, delivery?, carriers?}`; at least one part; signed with the submitting employee |
+| PUT | `/transport/orders/{id}` | `transport.orders.create` | Replace the content while the status is `submitted` (`409` after the reply) |
+| POST | `/transport/orders/{id}/cancel` | `transport.orders.create` | Cancel while `submitted` |
+| POST | `/transport/orders/{id}/status` | `transport.orders.manage` | `{status: accepted, in_progress, done or rejected; note?}`; `409` for a transition that is not allowed, `422` when rejecting without a note |
 
 ## Example requests
 

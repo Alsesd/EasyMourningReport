@@ -10,7 +10,7 @@ internal/
 ├── core/                  # the Module contract (permissions, audit actions, grants, seed, overview)
 ├── platform/              # accounts rules, principal and permissions, bootstrap (roles, first admin), passwords
 ├── reports/               # feature module: catalogue, price history, money, XLSX import/export, seed
-├── transport/             # scaffold and template for new modules
+├── transport/             # transport orders (also a template for new modules)
 ├── system/                # cloudflared supervisor and database health
 ├── update/                # self-update from GitHub Releases (check, verify, swap, restart)
 ├── registry/              # platform + installed modules (the only package that imports modules)
@@ -26,7 +26,7 @@ frontend/src/
 └── modules/
     ├── index.ts           # installedModules = [reportsModule, transportModule]
     ├── reports/           # module.tsx, api.ts, permissions.ts, i18n.ts, pages/, settings/, components/
-    └── transport/         # scaffold
+    └── transport/         # transport orders
 ```
 
 ## Module contract
@@ -89,9 +89,9 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 | `reports.review` | platform | Summary, report list/detail, lock/unlock, Excel |
 | `reports.catalog.manage` | platform | Products and prices |
 | `reports.settings.manage` | platform | «По розрахунку» per organisation |
-| `transport.orders.create` | organisation | Reserved: place transport orders |
-| `transport.orders.view_all` | platform | Reserved: see all orders |
-| `transport.orders.manage` | platform | Reserved: process orders |
+| `transport.orders.create` | organisation | Place transport orders, edit or cancel until the dispatcher replies |
+| `transport.orders.view_all` | platform | Read-only: see all orders and the history |
+| `transport.orders.manage` | platform | Handle orders: see all, read the history, set the reply status |
 
 ## Persistence and schema
 

@@ -12,7 +12,6 @@ import (
 	"legkyi/internal/core"
 	"legkyi/internal/platform"
 	"legkyi/internal/reports"
-	"legkyi/internal/transport"
 )
 
 var periodRE = regexp.MustCompile(`^\d{4}-(0[1-9]|1[0-2])$`)
@@ -149,11 +148,6 @@ type reportSettingsDTO struct {
 	ReportsCount       int    `json:"reports_count"`
 }
 
-type transportStatusDTO struct {
-	Ready   bool   `json:"ready"`
-	Message string `json:"message"`
-}
-
 func (a *App) mountReports(rt *Router) {
 	cm := []string{reports.CatalogManage}
 	rt.Handle("GET", "/admin/products", a.authed(cm, a.listProducts))
@@ -178,11 +172,6 @@ func (a *App) mountReports(rt *Router) {
 	rt.Handle("GET", "/reports/settings", a.authed(sm, a.listReportSettings))
 	rt.Handle("PUT", "/reports/settings/{oid}", a.authed(sm, a.updateReportSettings))
 
-	rt.Handle("GET", "/transport/status", a.authed([]string{transport.Create, transport.ViewAll, transport.Manage},
-		func(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-			writeJSON(w, http.StatusOK, transportStatusDTO{false, "Модуль замовлення транспорту ще в розробці."})
-			return nil
-		}))
 }
 
 // --- products ------------------------------------------------------------------------

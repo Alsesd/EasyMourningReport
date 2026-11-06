@@ -89,6 +89,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transport/orders": {
+        parameters: { query?: { date?: string; from?: string; to?: string; status?: string; organisation_id?: number }; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["TransportOrderDTO"][] } } } };
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["TransportOrderDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transport/orders/{oid}": {
+        parameters: { query?: never; header?: never; path: { oid: number }; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["TransportOrderDTO"] } } } };
+        put: { responses: { 200: { content: { "application/json": components["schemas"]["TransportOrderDTO"] } } } };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transport/orders/{oid}/cancel": {
+        parameters: { query?: never; header?: never; path: { oid: number }; cookie?: never };
+        get?: never;
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["TransportOrderDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transport/orders/{oid}/status": {
+        parameters: { query?: never; header?: never; path: { oid: number }; cookie?: never };
+        get?: never;
+        put?: never;
+        /** Body `{status: "accepted" | "in_progress" | "done" | "rejected", note?: string}`; rejecting needs a note */
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["TransportOrderDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     /** WebAuthn: bodies are `{challenge_id, public_key}` options and the signed ceremony result (hand-written, see platform/auth/passkeys.ts). */
     "/api/v1/auth/passkey/options": {
         parameters: { query?: never; header?: never; path?: never; cookie?: never };
@@ -1324,6 +1369,67 @@ export interface components {
             last_backup_at?: string | null;
             /** Backup Every Min */
             backup_every_min: number;
+        };
+        /** TransportDeliveryDTO: the transport of the deceased */
+        TransportDeliveryDTO: {
+            car_number: string;
+            /** HH:MM, 24-hour */
+            time: string;
+            destination: string;
+            stops: string[];
+        };
+        /** TransportCarriersDTO: the bearers' part */
+        TransportCarriersDTO: {
+            /** Number of men, 1-50 */
+            count: number;
+            /** HH:MM, 24-hour */
+            time: string;
+            /** Departure place */
+            from: string;
+            cemetery_number: string;
+            /** Transit stops (for the ceremony) */
+            stops: string[];
+        };
+        /** TransportEventDTO: one line of an order's history (staff only) */
+        TransportEventDTO: {
+            ts: string;
+            user_name: string;
+            kind: "created" | "edited" | "status";
+            status: string;
+            note: string;
+        };
+        /** TransportOrderDTO: one deceased; delivery and carriers of the same deceased share the order */
+        TransportOrderDTO: {
+            id: number;
+            organisation: components["schemas"]["OrganisationRefDTO"];
+            /** YYYY-MM-DD */
+            service_date: string;
+            deceased: string;
+            notes: string;
+            status: "submitted" | "accepted" | "in_progress" | "done" | "rejected" | "cancelled";
+            /** The dispatcher's reply shown to the desk */
+            reply_note: string;
+            delivery: components["schemas"]["TransportDeliveryDTO"] | null;
+            carriers: components["schemas"]["TransportCarriersDTO"] | null;
+            /** Earliest time of the order; the day list is ordered by it */
+            sort_time: string;
+            /** Employee who submitted it (full name, else login) */
+            submitted_by: string;
+            created_at: string;
+            updated_at: string;
+            /** The desk may still edit or cancel it */
+            can_edit: boolean;
+            /** Statuses the caller (dispatcher) may set now */
+            next_statuses: string[];
+            events: components["schemas"]["TransportEventDTO"][];
+        };
+        /** TransportOrderInputDTO */
+        TransportOrderInputDTO: {
+            service_date: string;
+            deceased: string;
+            notes: string;
+            delivery: components["schemas"]["TransportDeliveryDTO"] | null;
+            carriers: components["schemas"]["TransportCarriersDTO"] | null;
         };
         /** TransportStatusDTO */
         TransportStatusDTO: {

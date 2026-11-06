@@ -1,15 +1,45 @@
-# Transport module (scaffold)
+# Transport module
 
-**Backend:** `internal/transport/` · **Frontend:** `frontend/src/modules/transport/`
+**Backend:** `internal/transport/` (domain, SQL) and `internal/web/transport.go` (HTTP) · **Frontend:** `frontend/src/modules/transport/`
 
-Reserved for submitting and tracking transport orders. Today it registers its permissions, a `GET /api/v1/transport/status` endpoint, a «Транспорт» navigation item and a placeholder page, so it already appears in the role editor and navigation. It also serves as the template for new modules (see `docs/architecture.md` → *Adding a module*).
+Order desks (organisation employees) fill in the day's table of transport orders; dispatchers (platform staff) see every desk's orders in one chronological list, reply with a status and read the history.
 
-| Permission | Scope | Intended use |
+## What an order is
+
+One order per deceased, with two optional parts (at least one is required). Delivery and carriers of the same deceased live in the same order, so they are always listed together.
+
+| Part | Fields |
+|---|---|
+| Delivery | car number, time, final destination, optional transit stops |
+| Carriers («винос»: bearers) | number of men (1–50), time, departure place, transit stops (for the ceremony), cemetery number |
+| Order | service day (`YYYY-MM-DD`), deceased, note, organisation, **submitting employee** (id and a name snapshot: full name, else login) |
+
+The day list is ordered by the earliest time of each order (then by id). Times are 24-hour `HH:MM`.
+
+## Permissions
+
+| Permission | Scope | Use |
 |---|---|---|
-| `transport.orders.create` | organisation | Members place orders for their organisation and see their statuses |
-| `transport.orders.view_all` | platform | Staff see every organisation's orders |
-| `transport.orders.manage` | platform | Staff accept orders and move them through statuses |
+| `transport.orders.create` | organisation | Create orders for your organisation, edit or cancel them while they are still *Надіслано*, and see their status and the dispatcher's reply. Only your own organisation's orders are visible (others answer 404). |
+| `transport.orders.manage` | platform | Handle orders: see every organisation's orders and the history, and set the reply status (with a note shown to the desk). Required to change a status. |
+| `transport.orders.view_all` | platform | Read-only: see every organisation's orders and the history, no status changes. |
 
-Suggested next step: a `TransportOrder` table with organisation, requested date/time, pickup, destination and notes, plus a `TransportOrderStatusChange` history table (`new → accepted → in_progress → done | cancelled`). Organisation members list and create their own orders. Staff with `manage` change status, and each change writes an audit entry.
+A desk and a dispatcher are different kinds of users: organisation roles can only hold organisation-scope permissions, platform roles only platform-scope ones. No role grants `create` by default; assign it to the desks' role in the role editor.
 
-The public-tunnel controls that once lived in `frontend/src/modules/transport/api.ts` are in `frontend/src/platform/system/` (Cloudflare Tunnel only; Tailscale support was removed).
+## Statuses
+
+`submitted` (Надіслано) → `accepted` (Прийнято) → `in_progress` (Виконується) → `done` (Виконано). A dispatcher may also set `rejected` (Відхилено, a reason is required) from any open status. A desk may `cancel` (Скасовано) only while the order is `submitted`; once the dispatcher has replied, the desk can neither edit nor cancel. `done`, `rejected` and `cancelled` are final. Every change is stored in the order's history (who, when, status, note) and in the audit log.
+
+The desks' "notification" is the page itself: the list refreshes every 15 seconds and shows the status and the reply note.
+
+## API
+
+All under `/api/v1/transport`; see `docs/API.md`. `GET /orders` takes `date` (default today) or `from`/`to` (at most 400 days), plus `status` and, for staff, `organisation_id`.
+
+## Data
+
+Go-owned tables (`internal/store/schema.go`, `goOwned`): `transport_orders`, `transport_order_stops` (ordered, per part) and `transport_order_events` (the history). An organisation that has orders is archived instead of deleted.
+
+## Demo
+
+`DEMO=1` seeds two orders (one with both parts) for the demo shops and lets the demo `store` role place orders.

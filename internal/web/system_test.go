@@ -202,7 +202,7 @@ func TestOverviewByRole(t *testing.T) {
 		t.Fatalf("%v", admin)
 	}
 	mods := admin["modules"].([]any)
-	if len(mods) != 1 || mods[0].(map[string]any)["module"] != "reports" {
+	if len(mods) != 2 || mods[0].(map[string]any)["module"] != "reports" || mods[1].(map[string]any)["module"] != "transport" {
 		t.Fatalf("%v", mods)
 	}
 	stats := mods[0].(map[string]any)["stats"].([]any)

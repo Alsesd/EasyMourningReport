@@ -69,6 +69,7 @@ func New(d Deps) http.Handler {
 	app.mountAccounts(rt)
 	app.mountPasskeys(rt)
 	app.mountReports(rt)
+	app.mountTransport(rt)
 	app.mountSystem(rt)
 	srv := &Server{DB: d.Store, Assets: d.Assets, API: rt}
 	secure := func(r *http.Request) bool { return cookieSecure(d.CookieSecure, d.Trusted, r) }

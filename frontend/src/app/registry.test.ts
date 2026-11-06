@@ -31,7 +31,9 @@ describe("module registry", () => {
   it("builds navigation from permissions", () => {
     expect(navFor(["reports.submit"]).map((n) => n.id)).toEqual(["report"]);
     expect(navFor(["reports.review", "platform.audit.view"]).map((n) => n.id)).toEqual(["reports", "admin"]);
-    expect(navFor(["transport.orders.create", "org.users.manage"]).map((n) => n.id)).toEqual(["admin"]);
+    expect(navFor(["transport.orders.create", "org.users.manage"]).map((n) => n.id)).toEqual(["transport", "admin"]);
+    expect(navFor(["transport.orders.manage"]).map((n) => n.id)).toEqual(["transport"]);
+    expect(navFor(["reports.submit", "transport.orders.create"]).map((n) => n.id)).toEqual(["report", "transport"]);
     // A module's catalogue permission alone is enough to reach the hub.
     expect(navFor(["reports.catalog.manage"]).map((n) => n.id)).toEqual(["admin"]);
   });
@@ -40,6 +42,8 @@ describe("module registry", () => {
     expect(landingPathFor(session(["reports.review", "reports.submit"]))).toBe("/admin/reports");
     expect(landingPathFor(session(["reports.submit"], { id: 1, name: "Shop" }))).toBe("/report");
     expect(landingPathFor(session(["org.users.manage"], { id: 1, name: "Shop" }))).toBe("/admin/manage");
+    expect(landingPathFor(session(["transport.orders.create"], { id: 1, name: "Shop" }))).toBe("/admin/transport");
+    expect(landingPathFor(session(["transport.orders.manage"]))).toBe("/admin/transport");
     expect(landingPathFor(session([]))).toBe("/admin/home");
     expect(landingPathFor(null)).toBe("/login");
   });

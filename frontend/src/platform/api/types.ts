@@ -51,3 +51,9 @@ export type ReportSettingsDTO = Schemas["ReportSettingsDTO"];
 export type TransportStatusDTO = Schemas["TransportStatusDTO"];
 
 export type { paths };
+
+// Transport module
+export type TransportOrderDTO = Schemas["TransportOrderDTO"];
+export type TransportOrderInputDTO = Schemas["TransportOrderInputDTO"];
+export type TransportDeliveryDTO = Schemas["TransportDeliveryDTO"];
+export type TransportCarriersDTO = Schemas["TransportCarriersDTO"];
