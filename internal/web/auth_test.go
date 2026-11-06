@@ -73,39 +73,37 @@ func sessionCookie(w *httptest.ResponseRecorder) *http.Cookie {
 	return nil
 }
 
-func TestSignerRoundTripTamperExpiryForeign(t *testing.T) {
-	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	sg := Signer{Secret: []byte("k"), Now: func() time.Time { return now }}
-	v := sg.Sign(42)
-	if uid, ok := sg.Verify(v); !ok || uid != 42 {
+func TestSignerRoundTripTamperForeign(t *testing.T) {
+	sg := Signer{Secret: []byte("k")}
+	token, err := newToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := sg.Sign(token)
+	if got, ok := sg.Verify(v); !ok || got != token {
 		t.Fatal("roundtrip failed")
 	}
 	if _, ok := sg.Verify(v[:len(v)-1] + "0"); ok && !strings.HasSuffix(v, "0") {
 		t.Fatal("tampered signature accepted")
 	}
+	other := sg.Sign(strings.Repeat("A", 43)) // a well-formed token signed for another value
 	parts := strings.Split(v, ".")
-	forged := "eyJ1aWQiOjF9." + parts[1] + "." + parts[2] // payload swapped to uid 1
-	if _, ok := sg.Verify(forged); ok {
-		t.Fatal("forged payload accepted")
+	if _, ok := sg.Verify(strings.Split(other, ".")[0] + "." + parts[1]); ok {
+		t.Fatal("token swapped under an old signature accepted")
 	}
-	if _, ok := (Signer{Secret: []byte("other"), Now: sg.Now}).Verify(v); ok {
+	if _, ok := (Signer{Secret: []byte("other")}).Verify(v); ok {
 		t.Fatal("other secret accepted")
 	}
 	if _, ok := sg.Verify("eyJ1aWQiOjF9.1700000000.abcdef"); ok {
-		t.Fatal("itsdangerous-style cookie accepted")
+		t.Fatal("old-format cookie accepted")
+	}
+	if _, ok := sg.Verify(sg.Sign("short")); ok {
+		t.Fatal("malformed token accepted")
 	}
 	for _, junk := range []string{"", "null", "a.b", "...."} {
 		if _, ok := sg.Verify(junk); ok {
 			t.Fatalf("junk %q accepted", junk)
 		}
-	}
-	now = now.Add(7*24*time.Hour - time.Second)
-	if _, ok := sg.Verify(v); !ok {
-		t.Fatal("cookie must be valid just before 7 days")
-	}
-	now = now.Add(2 * time.Second)
-	if _, ok := sg.Verify(v); ok {
-		t.Fatal("expired cookie accepted")
 	}
 }
 
@@ -283,8 +281,8 @@ func TestAuditRowsText(t *testing.T) {
 	e.login("Ghost ", "x")
 	e.login("boss", "bad")
 	c := sessionCookie(e.login("boss", "boss-pass"))
-	e.do("PUT", "/api/v1/me/password", `{"password":"another-pass"}`, nil, c)
-	e.do("POST", "/api/v1/auth/logout", "", nil, c)
+	changed := e.do("PUT", "/api/v1/me/password", `{"password":"another-pass"}`, nil, c)
+	e.do("POST", "/api/v1/auth/logout", "", nil, sessionCookie(changed)) // the old cookie died with the password change
 	got := e.audit()
 	ts := "2026-11-06 10:00:00.000000"
 	want := []auditRow{

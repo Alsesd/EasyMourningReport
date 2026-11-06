@@ -20,6 +20,24 @@ var RequiredMigrations = []string{
 	"reports.0002_settings_table",
 }
 
+// goOwned is DDL for tables only the Go program uses. It is NOT part of schema/fresh.sql (which mirrors the
+// Python release so the equivalence tests can compare), is applied to every database with IF NOT EXISTS, and
+// is ignored by the Python release. user_sessions holds server-side sessions: only the SHA-256 of the random
+// token is stored, so a copy of the database or a backup never contains a usable credential.
+var goOwned = []string{
+	`CREATE TABLE IF NOT EXISTS user_sessions (
+		token_hash TEXT NOT NULL PRIMARY KEY,
+		user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+		created_at INTEGER NOT NULL,
+		expires_at INTEGER NOT NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_user_sessions_user ON user_sessions (user_id)`,
+	`CREATE INDEX IF NOT EXISTS ix_user_sessions_expires ON user_sessions (expires_at)`,
+}
+
+// GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
+var GoOwnedTables = []string{"user_sessions"}
+
 type object struct {
 	kind, name, table, sql string
 }
@@ -98,6 +116,11 @@ func (s *Store) EnsureSchema() error {
 			if _, err := tx.Exec(o.sql); err != nil {
 				return fmt.Errorf("create index %s: %w", o.name, err)
 			}
+		}
+	}
+	for _, ddl := range goOwned {
+		if _, err := tx.Exec(ddl); err != nil {
+			return fmt.Errorf("go-owned schema: %w", err)
 		}
 	}
 	if fresh {

@@ -378,6 +378,7 @@ func (a *App) deleteOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 		// Child rows are deleted explicitly: legacy-migrated databases may lack ON DELETE CASCADE.
 		for _, q := range []string{
 			"DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE organisation_id = ?)",
+			"DELETE FROM user_sessions WHERE user_id IN (SELECT id FROM users WHERE organisation_id = ?)",
 			"DELETE FROM users WHERE organisation_id = ?",
 			"DELETE FROM user_roles WHERE role_id IN (SELECT id FROM roles WHERE organisation_id = ?)",
 			"DELETE FROM role_permissions WHERE role_id IN (SELECT id FROM roles WHERE organisation_id = ?)",
@@ -686,6 +687,9 @@ func (a *App) updateUser(w http.ResponseWriter, r *http.Request, p *platform.Pri
 				notes = append(notes, "увімкнено")
 			} else {
 				notes = append(notes, "вимкнено")
+				if err := endUserSessions(tx, uid); err != nil { // a disabled account is signed out everywhere
+					return err
+				}
 			}
 		}
 		if !sameRoleSet(user.Roles, roles) {
@@ -790,6 +794,9 @@ func (a *App) resetUserPassword(w http.ResponseWriter, r *http.Request, p *platf
 		if _, err := tx.ExecContext(ctx, "UPDATE users SET password_hash = ? WHERE id = ?", hash, uid); err != nil {
 			return err
 		}
+		if err := endUserSessions(tx, uid); err != nil { // a reset signs the user out everywhere
+			return err
+		}
 		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено пароль користувача", login)
 	})
 	if err != nil {
@@ -822,6 +829,9 @@ func (a *App) deleteUser(w http.ResponseWriter, r *http.Request, p *platform.Pri
 		login = user.Login
 		// Role links are removed explicitly (this also fixes Python's 500 for users that hold roles).
 		if _, err := tx.ExecContext(ctx, "DELETE FROM user_roles WHERE user_id = ?", uid); err != nil {
+			return err
+		}
+		if err := endUserSessions(tx, uid); err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, "DELETE FROM users WHERE id = ?", uid); err != nil {

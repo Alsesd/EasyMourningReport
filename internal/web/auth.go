@@ -124,7 +124,15 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 	if err := a.audit(r, ip, user.Login, user.RoleLabel(), "вхід", ""); err != nil {
 		return err
 	}
-	SessionFrom(r).Set(user.ID)
+	var token string
+	if err := a.write(ctx, func(tx *sql.Tx) error {
+		var err error
+		token, err = startSession(tx, user.ID, a.now())
+		return err
+	}); err != nil {
+		return err
+	}
+	SessionFrom(r).Start(user.ID, token)
 	p, err := platform.PrincipalFor(ctx, a.Store.R, user, a.Registry.Codes)
 	if err != nil {
 		return err
@@ -142,6 +150,11 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) error {
 			if err := a.audit(r, a.Trusted.ClientIP(r), user.Login, user.RoleLabel(), "вихід", ""); err != nil {
 				return err
 			}
+		}
+	}
+	if s.Token != "" {
+		if err := a.write(r.Context(), func(tx *sql.Tx) error { return endSession(tx, s.Token) }); err != nil {
+			return err
 		}
 	}
 	s.Clear()
@@ -163,8 +176,17 @@ func (a *App) changeOwnPassword(w http.ResponseWriter, r *http.Request, p *platf
 		return err
 	}
 	ip := a.Trusted.ClientIP(r)
+	var token string
 	err = a.write(r.Context(), func(tx *sql.Tx) error {
 		if _, err := tx.Exec("UPDATE users SET password_hash = ? WHERE id = ?", hash, p.User.ID); err != nil {
+			return err
+		}
+		// Every device is signed out; this one gets a fresh session.
+		if err := endUserSessions(tx, p.User.ID); err != nil {
+			return err
+		}
+		var err error
+		if token, err = startSession(tx, p.User.ID, a.now()); err != nil {
 			return err
 		}
 		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено власний пароль", "")
@@ -172,6 +194,7 @@ func (a *App) changeOwnPassword(w http.ResponseWriter, r *http.Request, p *platf
 	if err != nil {
 		return err
 	}
+	SessionFrom(r).Start(p.User.ID, token)
 	writeJSON(w, http.StatusOK, messageDTO{"Ваш пароль змінено."})
 	return nil
 }

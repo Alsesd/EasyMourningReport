@@ -48,7 +48,8 @@ func loadSnapshot(t *testing.T, s *Store, name string) {
 func structure(t *testing.T, db *sql.DB) string {
 	t.Helper()
 	var tables []string
-	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+	// Tables owned by the Go program are not part of the Python shape being compared.
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('user_sessions') ORDER BY name")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -346,5 +347,32 @@ func TestConcurrentBackupsAreSerialised(t *testing.T) {
 	}
 	if len(b.List()) != n {
 		t.Fatalf("expected %d files, got %v", n, b.List())
+	}
+}
+
+func TestGoOwnedTablesAreCreatedAndIdempotent(t *testing.T) {
+	for _, name := range []string{"fresh", "migrated_very_old", "migrated_previous_release"} {
+		s := openTemp(t)
+		loadSnapshot(t, s, name)
+		for i := 0; i < 2; i++ { // the second start must change nothing
+			if err := s.EnsureSchema(); err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+		}
+		for _, tb := range GoOwnedTables {
+			var n int
+			if err := s.R.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", tb).Scan(&n); err != nil || n != 1 {
+				t.Fatalf("%s: table %s missing", name, tb)
+			}
+		}
+	}
+	g := openTemp(t)
+	if err := g.EnsureSchema(); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	g.R.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE name LIKE 'ix_user_sessions_%'").Scan(&n)
+	if n != 2 {
+		t.Fatalf("session indexes: %d", n)
 	}
 }
