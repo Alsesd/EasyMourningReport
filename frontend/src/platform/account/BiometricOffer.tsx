@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Fingerprint } from "lucide-react";
+import { useAuth } from "@/platform/auth/AuthContext";
 import { passkeyApi, passkeysSupported } from "@/platform/auth/passkeys";
 import { biometricChoice, setBiometricChoice, takeFreshPasswordLogin } from "@/platform/auth/biometricPref";
 import { ukPlatform as uk } from "@/platform/i18n";
@@ -9,12 +10,13 @@ import { Button } from "@/ui/Button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/Dialog";
 
 export function BiometricOffer() {
+  const { isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!takeFreshPasswordLogin() || !passkeysSupported() || biometricChoice() !== null) return;
+    if (!isAuthenticated || !takeFreshPasswordLogin() || !passkeysSupported() || biometricChoice() !== null) return;
     let alive = true;
     // A device that already holds a key for this account is asked nothing.
     passkeyApi
@@ -24,7 +26,7 @@ export function BiometricOffer() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const decline = () => {
     setBiometricChoice("declined");

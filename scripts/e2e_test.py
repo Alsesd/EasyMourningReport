@@ -83,6 +83,11 @@ def run_tests():
             page.wait_for_url("**/report", timeout=5000)
             print("Successfully navigated to:", page.url)
 
+            # The first password sign-in on a device offers biometric sign-in; decline it
+            page.get_by_role("dialog").get_by_role("button", name="Не зараз").click()
+            page.wait_for_selector('[role="dialog"]', state="detached", timeout=5000)
+            print("Biometric offer shown and declined")
+
             # Wait for report items to load
             page.wait_for_selector('text=Яблука, кг', timeout=5000)
             print("Store report loaded with products!")
@@ -169,6 +174,8 @@ def run_tests():
 
             admin_page.wait_for_url("**/admin/**", timeout=5000)
             print("Admin landed on:", admin_page.url)
+            admin_page.get_by_role("dialog").get_by_role("button", name="Не зараз").click()
+            admin_page.wait_for_selector('[role="dialog"]', state="detached", timeout=5000)
             admin_page.wait_for_selector('text=Товари за місяць', timeout=5000)
             print("Admin month view loaded")
 

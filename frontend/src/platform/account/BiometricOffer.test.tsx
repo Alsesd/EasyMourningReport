@@ -4,6 +4,7 @@ import { BiometricOffer } from "./BiometricOffer";
 import { passkeyApi } from "@/platform/auth/passkeys";
 import { biometricChoice, markFreshPasswordLogin, setBiometricChoice } from "@/platform/auth/biometricPref";
 
+vi.mock("@/platform/auth/AuthContext", () => ({ useAuth: () => ({ isAuthenticated: true }) }));
 vi.mock("@/platform/auth/passkeys", () => ({
   passkeysSupported: vi.fn(() => true),
   passkeyApi: { list: vi.fn(), register: vi.fn() },
