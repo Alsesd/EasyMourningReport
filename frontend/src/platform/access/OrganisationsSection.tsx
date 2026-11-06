@@ -7,14 +7,13 @@ import { accessApi, P } from "@/platform/access/api";
 import type { OrganisationDTO } from "@/platform/api/types";
 import { useModuleRegistry } from "@/platform/modules";
 import { ukPlatform as uk } from "@/platform/i18n";
-import { Card, CardContent, CardHeader, CardTitle } from "@/ui/Card";
 import { Button } from "@/ui/Button";
 import { Input } from "@/ui/Input";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { useConfirm } from "@/ui/ConfirmDialog";
-import { Archive, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Archive, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import type { AdminSectionProps } from "@/platform/modules";
-import { MIN_PASSWORD_LENGTH } from "@/platform/passwordPolicy";
+import { NewOrganisationForm, type CreateOutcome } from "./NewOrganisationForm";
 
 /** "Користувачів: 2, звітів: 5": record counts per module, named by the module's title. */
 function usageText(org: OrganisationDTO, titles: Record<string, string>): string {
@@ -80,9 +79,6 @@ export default function OrganisationsSection({ notify }: AdminSectionProps) {
   const queryClient = useQueryClient();
   const { ask, dialog } = useConfirm(uk.common.cancel);
   const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
-  const [firstLogin, setFirstLogin] = useState("");
-  const [firstPassword, setFirstPassword] = useState("");
 
   const { data: organisations = [], isLoading } = useQuery({
     queryKey: ["access", "organisations"],
@@ -91,22 +87,13 @@ export default function OrganisationsSection({ notify }: AdminSectionProps) {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["access"] });
   const onError = (err: Error) => notify(err.message, "err");
 
-  const create = useMutation({
-    mutationFn: () =>
-      accessApi.createOrganisation({
-        name,
-        first_user: firstLogin.trim() ? { login: firstLogin, password: firstPassword } : null,
-      }),
-    onSuccess: (org) => {
-      refresh();
-      setCreating(false);
-      setName("");
-      setFirstLogin("");
-      setFirstPassword("");
-      notify(`${uk.access.saved} ${org.name}`);
-    },
-    onError,
-  });
+  const created = (outcome: CreateOutcome) => {
+    refresh();
+    setCreating(false);
+    const { organisation, created: made, moved, failures } = outcome;
+    if (failures.length) notify(uk.access.organisationCreatedWithErrors(organisation.name, failures), "err");
+    else notify(uk.access.organisationCreated(organisation.name, made, moved));
+  };
   const remove = useMutation({
     mutationFn: (id: number) => accessApi.deleteOrganisation(id),
     onSuccess: (res) => {
@@ -132,60 +119,13 @@ export default function OrganisationsSection({ notify }: AdminSectionProps) {
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button className="min-h-[44px]" onClick={() => setCreating(!creating)}>
-          <Plus className="h-4 w-4 mr-1.5" />
+          {creating ? <X className="mr-1.5 h-4 w-4" aria-hidden="true" /> : <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />}
           {creating ? uk.common.cancel : uk.access.addOrganisation}
         </Button>
       </div>
 
       <AnimatedCollapse open={creating}>
-        {creating && (
-          <Card className="border-t-2 border-t-primary">
-            <CardHeader className="p-4 sm:p-5 border-b border-border">
-              <CardTitle className="text-base">{uk.access.newOrganisation}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-5">
-              <form
-                className="space-y-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (name.trim()) create.mutate();
-                }}
-              >
-                <div className="space-y-1.5">
-                  <label htmlFor="org-name" className="text-xs font-medium text-text-muted">{uk.access.organisationName}</label>
-                  <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} required className="h-11" />
-                </div>
-                {canCreateUsers && (
-                  <>
-                    <p className="text-xs text-text-muted">{uk.access.firstUserHint}</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5">
-                        <label htmlFor="org-first-login" className="text-xs font-medium text-text-muted">{uk.access.firstUserLogin}</label>
-                        <Input id="org-first-login" value={firstLogin} onChange={(e) => setFirstLogin(e.target.value)} maxLength={40} autoComplete="off" className="h-11" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="org-first-password" className="text-xs font-medium text-text-muted">{uk.access.firstUserPassword}</label>
-                        <Input
-                          id="org-first-password"
-                          type="password"
-                          value={firstPassword}
-                          onChange={(e) => setFirstPassword(e.target.value)}
-                          minLength={MIN_PASSWORD_LENGTH}
-                          required={Boolean(firstLogin.trim())}
-                          autoComplete="new-password"
-                          className="h-11"
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-                <Button type="submit" className="min-h-[44px]" disabled={create.isPending}>
-                  {create.isPending ? uk.common.loading : uk.access.addOrganisation}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        )}
+        {creating && <NewOrganisationForm canManageUsers={canCreateUsers} onDone={created} onCancel={() => setCreating(false)} />}
       </AnimatedCollapse>
 
       <div className="ledger">

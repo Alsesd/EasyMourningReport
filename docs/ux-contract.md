@@ -40,6 +40,8 @@
 
 - Workspace destinations come from the module registry and the user's permissions (e.g. Звіти, Транспорт, Адміністрування). Desktop uses a persistent sidebar with the account menu at its foot; mobile uses a fixed bottom navigation with safe-area padding and matching `aria-current` state, and the account menu in the header.
 - «Адміністрування» is one hub: an overview, then sections grouped as Доступ, Довідники модулів, Система, Активність. Modules add their own sections. One shared status message at the top of the section reports success or errors.
+- Hub navigation lives in ONE place per screen size: on desktop the sections are nested under «Адміністрування» in the side rail (no second menu column, so forms and tables get the width); on phones a single sticky picker names the current section and opens the grouped list (no horizontally scrolling tab row, where sections hide off-screen).
+- Creating an organisation never forces an employee: employees are an optional list (new accounts with login, password, role and a password generator, or existing accounts moved in) that can also be done later in «Користувачі».
 - The maker mark («A.» reveals «made by Alsesd») stays in the workspace rail or top bar, on the store report and on the login page, on every screen size.
 - The report detail route remains nested under Reports and has a clear return path to its parent list.
 - Report-period state belongs in the URL where existing pages already use query parameters; switching periods must preserve related filters.

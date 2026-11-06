@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AdminHubPage from "./AdminHubPage";
@@ -100,13 +100,9 @@ describe("AdminHubPage", () => {
     );
   }
 
-  it("groups every section an administrator may open, from the platform and modules", () => {
-    renderAt(admin, "/admin/manage");
-    const menu = screen.getByRole("navigation", { name: "Розділи адміністрування" });
-    const desktop = within(menu).getAllByText("Доступ")[0].parentElement!.parentElement!;
-    for (const label of ["Огляд", "Користувачі", "Організації", "Ролі", "Товари й ціни", "Звіти організацій", "Публічний доступ", "Резервні копії", "Журнал дій"]) {
-      expect(within(desktop).getByRole("link", { name: label })).toBeDefined();
-    }
+  it("names the current section on the phone picker", () => {
+    renderAt(admin, "/admin/manage/users");
+    expect(screen.getByRole("button", { name: "Розділи адміністрування: Користувачі" })).toBeDefined();
   });
 
   it("shows the overview with figures that link to their sections", async () => {
@@ -116,13 +112,6 @@ describe("AdminHubPage", () => {
     expect(screen.getByText("збережено копій: 12")).toBeDefined();
     expect(screen.getByText("42").closest("a")?.getAttribute("href")).toBe("/admin/manage/products");
     expect(screen.getByRole("link", { name: /Увесь журнал/ }).getAttribute("href")).toBe("/admin/manage/audit");
-  });
-
-  it("offers an organisation admin only the users section", async () => {
-    renderAt(orgAdmin, "/admin/manage");
-    const menu = screen.getByRole("navigation", { name: "Розділи адміністрування" });
-    const labels = new Set(within(menu).getAllByRole("link").map((l) => l.textContent));
-    expect([...labels]).toEqual(["Огляд", "Користувачі"]);
   });
 
   it("sends a forbidden section back to the overview", async () => {

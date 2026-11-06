@@ -6,6 +6,9 @@ import { MakerMark } from "@/ui/MakerMark";
 import { ukPlatform as uk } from "@/platform/i18n";
 import { navFor } from "@/app/registry";
 import { AccountMenu } from "@/platform/account/AccountMenu";
+import { HubRailNav } from "@/platform/admin/HubNav";
+import { HUB_PATH } from "@/platform/admin/sections";
+import { adminSectionsFor, useModuleRegistry } from "@/platform/modules";
 import { cn } from "@/ui/utils";
 
 /** The record book's monogram: the two initials of «Легкий звіт» in the book serif. */
@@ -25,6 +28,8 @@ export default function AdminLayout() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const period = searchParams.get("period");
+
+  const hubSections = adminSectionsFor(useModuleRegistry(), session?.permissions);
 
   // Navigation is composed from every installed module and filtered by the user's permissions.
   const navItems = navFor(session?.permissions).map((item) => ({
@@ -53,25 +58,27 @@ export default function AdminLayout() {
           </div>
         </div>
 
-        <nav aria-label={uk.nav.portalLabel} className="flex-1 space-y-0.5 px-3">
+        <nav aria-label={uk.nav.portalLabel} className="flex-1 space-y-0.5 overflow-y-auto px-3">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isItemActive(item.basePath);
             return (
-              <NavLink
-                key={item.id}
-                to={item.to}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex min-h-[44px] items-center gap-3 rounded-control px-3 text-[15px] transition-colors",
-                  active
-                    ? "bg-surface font-semibold text-text-main shadow-[inset_3px_0_0_var(--primary)]"
-                    : "text-text-muted hover:bg-surface/70 hover:text-text-main",
-                )}
-              >
-                <Icon className={cn("h-[18px] w-[18px] shrink-0", active && "text-primary")} strokeWidth={1.8} aria-hidden="true" />
-                <span className="flex-1">{item.label}</span>
-              </NavLink>
+              <div key={item.id}>
+                <NavLink
+                  to={item.to}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex min-h-[44px] items-center gap-3 rounded-control px-3 text-[15px] transition-colors",
+                    active
+                      ? "bg-surface font-semibold text-text-main shadow-[inset_3px_0_0_var(--primary)]"
+                      : "text-text-muted hover:bg-surface/70 hover:text-text-main",
+                  )}
+                >
+                  <Icon className={cn("h-[18px] w-[18px] shrink-0", active && "text-primary")} strokeWidth={1.8} aria-hidden="true" />
+                  <span className="flex-1">{item.label}</span>
+                </NavLink>
+                {item.basePath === HUB_PATH && active && hubSections.length > 0 && <HubRailNav sections={hubSections} />}
+              </div>
             );
           })}
         </nav>

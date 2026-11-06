@@ -2,6 +2,7 @@
  * Ukrainian strings and formatting helpers shared by the platform and every module.
  * Modules extend this dictionary with their own strings (see modules/reports/i18n.ts).
  */
+import { MIN_PASSWORD_LENGTH } from "@/platform/passwordPolicy";
 
 export const ukPlatform = {
   appTitle: "Легкий звіт",
@@ -173,9 +174,27 @@ export const ukPlatform = {
     addOrganisation: "Додати організацію",
     newOrganisation: "Нова організація",
     organisationName: "Назва організації",
-    firstUserHint: "Можна одразу створити перший обліковий запис із роллю «Магазин».",
-    firstUserLogin: "Логін першого користувача (необов'язково)",
-    firstUserPassword: "Пароль першого користувача",
+    createOrganisationButton: "Створити організацію",
+    employeesTitle: "Працівники",
+    employeesHint: "Необов'язково. Додайте тих, хто працюватиме в цій організації, або зробіть це пізніше в розділі «Користувачі».",
+    addEmployee: "Додати працівника",
+    removeEmployee: (who: string) => `Прибрати працівника ${who}`,
+    employeeRole: "Роль",
+    generatePassword: "Згенерувати пароль",
+    moveExisting: "Перенести наявних працівників",
+    moveExistingHint: "Обліковий запис переходить із поточної організації. Ролі, що діяли лише там, замінюються роллю за замовчуванням.",
+    noOtherEmployees: "В інших організаціях немає працівників.",
+    employeeLoginShort: "Логін працівника має містити щонайменше 2 символи.",
+    employeePasswordShort: `Пароль працівника має містити щонайменше ${MIN_PASSWORD_LENGTH} символів.`,
+    employeeDuplicate: (login: string) => `Логін «${login}» повторюється.`,
+    organisationCreated: (name: string, created: number, moved: number) => {
+      const parts: string[] = [];
+      if (created) parts.push(`додано працівників: ${created}`);
+      if (moved) parts.push(`перенесено: ${moved}`);
+      return `Організацію «${name}» створено${parts.length ? ` (${parts.join(", ")})` : ""}.`;
+    },
+    organisationCreatedWithErrors: (name: string, failures: string[]) =>
+      `Організацію «${name}» створено, але не все вдалося: ${failures.join("; ")}. Решту можна додати в розділі «Користувачі».`,
     usersCount: (n: number) => `Користувачів: ${n}`,
     archive: "В архів",
     restore: "Відновити",
