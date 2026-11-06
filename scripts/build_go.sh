@@ -13,6 +13,7 @@ CLOUDFLARED_VERSION="2026.10.7"
 SHA_WINDOWS="2493dbc168923bb3e59e5e7716f71deced92992eea9acd6e9d74f84ac7751343"
 SHA_LINUX="1f99fb518b83dec2ba8d870a7cc991d82a77e6196295a3d2754ba17ab9f91872"
 
+mkdir -p internal/tunnelbin/bin
 fetch() { # <release file> <local name> <sha256>
   local dest="internal/tunnelbin/bin/$2"
   if [ -f "$dest" ] && [ "$(sha256sum "$dest" | cut -d' ' -f1)" = "$3" ]; then return; fi
