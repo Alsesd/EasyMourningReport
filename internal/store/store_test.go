@@ -376,3 +376,25 @@ func TestGoOwnedTablesAreCreatedAndIdempotent(t *testing.T) {
 		t.Fatalf("session indexes: %d", n)
 	}
 }
+
+func TestOpenRefusesAnUnknownJournalMode(t *testing.T) {
+	if _, err := Open(filepath.Join(t.TempDir(), "x.db"), "fancy"); err == nil {
+		t.Fatal("an invalid journal mode must fail")
+	}
+}
+
+func TestCheckpointAndPing(t *testing.T) {
+	for _, mode := range []string{"wal", "delete"} {
+		s, err := Open(filepath.Join(t.TempDir(), "x.db"), mode)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Ping(); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Checkpoint(); err != nil {
+			t.Fatalf("%s: %v", mode, err)
+		}
+		s.Close()
+	}
+}
