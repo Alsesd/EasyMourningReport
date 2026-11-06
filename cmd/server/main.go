@@ -129,7 +129,7 @@ func seed(st *store.Store) error {
 		return err
 	}
 	defer tx.Rollback()
-	if err := platform.Seed(tx, registry.Installed().DefaultGrants(), os.Getenv, os.Stdout, time.Now()); err != nil {
+	if err := platform.Seed(tx, registry.Installed().DefaultGrants(), os.Getenv, os.Stdout, time.Now(), registry.Installed().Seeds()...); err != nil {
 		return err
 	}
 	return tx.Commit()

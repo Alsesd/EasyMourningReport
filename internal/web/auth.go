@@ -13,8 +13,8 @@ import (
 
 func normLogin(raw string) string { return strings.ToLower(strings.TrimSpace(raw)) }
 
-// currentPeriod is the server's local calendar month, YYYY-MM.
-func currentPeriod() string { return time.Now().Format("2006-01") }
+// currentPeriod is the server's local calendar month, YYYY-MM (tests pin it via Deps.Now).
+func (a *App) currentPeriod() string { return a.now().In(time.Local).Format("2006-01") }
 
 type organisationRef struct {
 	ID   int64  `json:"id"`
@@ -41,7 +41,7 @@ func (a *App) sessionDTO(p *platform.Principal) sessionDTO {
 	u := p.User
 	d := sessionDTO{
 		UserID: u.ID, Login: u.Login, FullName: u.FullName,
-		Roles: []string{}, Permissions: []string{}, Modules: a.Registry.Names(), Period: currentPeriod(),
+		Roles: []string{}, Permissions: []string{}, Modules: a.Registry.Names(), Period: a.currentPeriod(),
 	}
 	if u.Org != nil {
 		d.Organisation = &organisationRef{u.Org.ID, u.Org.Name}

@@ -86,7 +86,7 @@ func normalise(v any, problems *[]string) any {
 		}
 		return out
 	case string:
-		if t == currentPeriod() {
+		if t == time.Now().Format("2006-01") {
 			return "<current-period>"
 		}
 	}

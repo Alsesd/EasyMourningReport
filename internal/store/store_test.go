@@ -314,3 +314,37 @@ func TestBackupNameFormat(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestConcurrentBackupsAreSerialised(t *testing.T) {
+	s := openTemp(t)
+	s.EnsureSchema()
+	b := newBackups(t, s, 50)
+	b.Now = func() time.Time { return time.Date(2026, 1, 2, 3, 4, 5, 0, time.Local) }
+	const n = 5
+	paths := make(chan string, n)
+	errs := make(chan error, n)
+	for i := 0; i < n; i++ {
+		go func() {
+			p, err := b.Run("x")
+			paths <- p
+			errs <- err
+		}()
+	}
+	seen := map[string]bool{}
+	for i := 0; i < n; i++ {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
+		}
+		p := <-paths
+		if p == "" || seen[p] {
+			t.Fatalf("duplicate or empty backup path %q", p)
+		}
+		seen[p] = true
+		if v, err := verifyCopy(p); err != nil || v != "ok" {
+			t.Fatalf("%s: %v %s", p, err, v)
+		}
+	}
+	if len(b.List()) != n {
+		t.Fatalf("expected %d files, got %v", n, b.List())
+	}
+}

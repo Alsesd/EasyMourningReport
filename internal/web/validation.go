@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"legkyi/internal/platform"
 	"net/http"
@@ -12,9 +13,9 @@ import (
 
 // FieldError is one entry of the 422 "errors" list (Pydantic's shape).
 type FieldError struct {
-	Loc  []string `json:"loc"`
-	Msg  string   `json:"msg"`
-	Type string   `json:"type"`
+	Loc  []any  `json:"loc"`
+	Msg  string `json:"msg"`
+	Type string `json:"type"`
 }
 
 type validationError struct{ errs []FieldError }
@@ -25,28 +26,37 @@ func (validationError) Error() string { return "validation failed" }
 type Body struct {
 	fields map[string]json.RawMessage
 	errs   []FieldError
-	parent *Body
-	prefix string
+	root   *Body // owner of errs (nil on the root itself)
+	base   []any // location prefix of this object, e.g. ["body", "quantities", 0]
 }
 
 // ReadBody decodes the request body as a JSON object. Unknown fields are ignored (Pydantic's default).
 func ReadBody(r *http.Request) (*Body, error) {
 	raw, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, 8<<20))
 	if err != nil {
-		return nil, validationError{[]FieldError{{[]string{"body"}, "Unable to read the request body", "json_invalid"}}}
+		return nil, validationError{[]FieldError{{[]any{"body"}, "Unable to read the request body", "json_invalid"}}}
 	}
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &m); err != nil || m == nil {
 		if len(raw) == 0 {
-			return nil, validationError{[]FieldError{{[]string{"body"}, "Field required", "missing"}}}
+			return nil, validationError{[]FieldError{{[]any{"body"}, "Field required", "missing"}}}
 		}
-		return nil, validationError{[]FieldError{{[]string{"body"}, "Input should be a valid dictionary or object to extract fields from", "model_attributes_type"}}}
+		return nil, validationError{[]FieldError{{[]any{"body"}, "Input should be a valid dictionary or object to extract fields from", "model_attributes_type"}}}
 	}
-	return &Body{fields: m}, nil
+	return &Body{fields: m, base: []any{"body"}}, nil
 }
 
 func (b *Body) fail(name, msg, typ string) {
-	b.errs = append(b.errs, FieldError{[]string{"body", name}, msg, typ})
+	r := b
+	if b.root != nil {
+		r = b.root
+	}
+	loc := make([]any, 0, len(b.base)+1)
+	for _, p := range b.base {
+		loc = append(loc, fmt.Sprint(p))
+	}
+	loc = append(loc, name)
+	r.errs = append(r.errs, FieldError{loc, msg, typ})
 }
 
 // String reads a required string field with a length range in characters (max 0 = unbounded).
@@ -225,7 +235,7 @@ func (b *Body) StringList(name string, max int) []string {
 // Literal reads a required string that must be one of the allowed values.
 func (b *Body) Literal(name string, allowed ...string) string {
 	s := b.String(name, 0, 0)
-	if s == "" && len(b.errs) > 0 && b.errs[len(b.errs)-1].Loc[len(b.errs[len(b.errs)-1].Loc)-1] == name {
+	if _, ok := b.fields[name]; !ok {
 		return ""
 	}
 	for _, a := range allowed {
@@ -245,7 +255,18 @@ func (b *Body) Literal(name string, allowed ...string) string {
 	return ""
 }
 
-// Object reads an optional nested object as its own Body (error locations are prefixed).
+func (b *Body) rootBody() *Body {
+	if b.root != nil {
+		return b.root
+	}
+	return b
+}
+
+func (b *Body) child(m map[string]json.RawMessage, elem ...any) *Body {
+	return &Body{fields: m, root: b.rootBody(), base: append(append([]any{}, b.base...), elem...)}
+}
+
+// Object reads an optional nested object; its errors are reported at the full location.
 func (b *Body) Object(name string) *Body {
 	raw, ok := b.has(name)
 	if !ok {
@@ -256,18 +277,94 @@ func (b *Body) Object(name string) *Body {
 		b.fail(name, "Input should be a valid dictionary or object to extract fields from", "model_attributes_type")
 		return nil
 	}
-	return &Body{fields: m, parent: b, prefix: name}
+	return b.child(m, name)
 }
 
-// Merge copies a child's errors into the parent (call after reading the child's fields).
-func (b *Body) Merge(child *Body) {
-	if child == nil {
-		return
+// ObjectList reads an optional list of objects (at most max items).
+func (b *Body) ObjectList(name string, max int) []*Body {
+	raw, ok := b.has(name)
+	if !ok {
+		return nil
 	}
-	for _, e := range child.errs {
-		loc := append([]string{"body", child.prefix}, e.Loc[1:]...)
-		b.errs = append(b.errs, FieldError{loc, e.Msg, e.Type})
+	var items []json.RawMessage
+	if json.Unmarshal(raw, &items) != nil {
+		b.fail(name, "Input should be a valid list", "list_type")
+		return nil
 	}
+	if max > 0 && len(items) > max {
+		b.fail(name, "List should have at most "+itoa(max)+" items after validation, not "+itoa(len(items)), "too_long")
+		return nil
+	}
+	out := make([]*Body, len(items))
+	for i, it := range items {
+		var m map[string]json.RawMessage
+		if json.Unmarshal(it, &m) != nil || m == nil {
+			out[i] = b.child(map[string]json.RawMessage{}, name, i)
+			out[i].fail("", "Input should be a valid dictionary or object to extract fields from", "model_attributes_type")
+			out[i].errsTrimLast()
+			continue
+		}
+		out[i] = b.child(m, name, i)
+	}
+	return out
+}
+
+// errsTrimLast drops the trailing empty-name element of the last error's location.
+func (b *Body) errsTrimLast() {
+	r := b.rootBody()
+	e := &r.errs[len(r.errs)-1]
+	e.Loc = e.Loc[:len(e.Loc)-1]
+}
+
+// Int reads a required integer with a lower bound; exclusive makes the bound "greater than".
+func (b *Body) Int(name string, min int64, exclusive bool) int64 {
+	raw, ok := b.fields[name]
+	if !ok {
+		b.fail(name, "Field required", "missing")
+		return 0
+	}
+	var n int64
+	if json.Unmarshal(raw, &n) != nil {
+		b.fail(name, "Input should be a valid integer", "int_type")
+		return 0
+	}
+	if exclusive && n <= min {
+		b.fail(name, "Input should be greater than "+itoa(int(min)), "greater_than")
+	} else if !exclusive && n < min {
+		b.fail(name, "Input should be greater than or equal to "+itoa(int(min)), "greater_than_equal")
+	}
+	return n
+}
+
+// OptIntMin reads an optional integer (nil when absent or null) with an inclusive lower bound.
+func (b *Body) OptIntMin(name string, min int64) *int64 {
+	n := b.OptInt(name)
+	if n != nil && *n < min {
+		b.fail(name, "Input should be greater than or equal to "+itoa(int(min)), "greater_than_equal")
+	}
+	return n
+}
+
+// Bool reads a required boolean.
+func (b *Body) Bool(name string) bool {
+	raw, ok := b.fields[name]
+	if !ok {
+		b.fail(name, "Field required", "missing")
+		return false
+	}
+	var v bool
+	if json.Unmarshal(raw, &v) != nil {
+		b.fail(name, "Input should be a valid boolean", "bool_type")
+	}
+	return v
+}
+
+// OptLiteral reads an optional literal string (def when absent).
+func (b *Body) OptLiteral(name, def string, allowed ...string) string {
+	if _, ok := b.has(name); !ok {
+		return def
+	}
+	return b.Literal(name, allowed...)
 }
 
 // --- query and path parameters ----------------------------------------------------
@@ -280,7 +377,7 @@ type Params struct {
 func Query(r *http.Request) *Params { return &Params{r: r} }
 
 func (p *Params) fail(kind, name, msg, typ string) {
-	p.errs = append(p.errs, FieldError{[]string{kind, name}, msg, typ})
+	p.errs = append(p.errs, FieldError{[]any{kind, name}, msg, typ})
 }
 
 // OptInt reads an optional integer query parameter.

@@ -65,3 +65,17 @@ The locked Starlette writes the session cookie only when the session changes (lo
 - Deletes remove child rows explicitly (`user_roles`, `role_permissions`, `report_settings`) and are tested on all three schemas.
 - `core.Module.OrganisationUsage` decides archive-vs-delete; the reports module reports its report counts.
 - The optional SPA click-through (needs Node build) is deferred to Slice 7.
+
+## Slice 4 outcome
+- Every non-XLSX step of scenario 02 passes on all three schemas. The ledger holds only the XLSX steps:
+  `02_reports_catalog#38` (summary.xlsx) and `#55` (product import); both belong to Slice 5.
+- Package layout rule: domain code (money, pricing, repo, seed) lives in `internal/reports` and imports only
+  `core`/`platform`; HTTP handlers and DTOs live in `internal/web/reports.go`.
+- Money parsing (`ToCents`) and pricing are tested against Python-generated golden files
+  (`testdata/reports/gen_golden.py`).
+- `core.Module.Seed` runs inside the first-run transaction when `DEMO` is set (products, `store1`/`store2`).
+- Validation error `loc` parts are strings, as in Python (`str(part)`).
+- Intentional differences: integer fields accept integral floats (R13/R23); `to_cents("1e999999")` returns a 422
+  form error instead of Python's Overflow 500.
+- Tests added: 30-goroutine concurrent save/read under `-race`, before-delete backup contains the deleted row,
+  store scope isolation, Ukrainian (є/і/ї/ґ) settings ordering.

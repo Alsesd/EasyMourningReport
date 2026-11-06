@@ -57,6 +57,7 @@ func New(d Deps) http.Handler {
 	rt := &Router{}
 	app.mountPlatform(rt)
 	app.mountAccounts(rt)
+	app.mountReports(rt)
 	srv := &Server{DB: d.Store, Assets: d.Assets, API: rt}
 	return sessionMiddleware(Signer{Secret: d.Secret, Now: d.Now}, d.CookieSecure, sameOriginGuard(srv))
 }

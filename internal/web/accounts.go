@@ -201,7 +201,6 @@ func (a *App) createOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 	var fuLogin, fuPass string
 	if fu != nil {
 		fuLogin, fuPass = fu.String("login", 2, 40), fu.String("password", 6, 256)
-		body.Merge(fu)
 	}
 	if err := body.Err(); err != nil {
 		return err

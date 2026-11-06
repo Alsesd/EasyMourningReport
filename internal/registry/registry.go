@@ -4,11 +4,13 @@ package registry
 
 import (
 	"context"
+	"database/sql"
 	"legkyi/internal/core"
 	"legkyi/internal/platform"
 	"legkyi/internal/reports"
 	"legkyi/internal/transport"
 	"sort"
+	"time"
 )
 
 type Registry struct{ Modules []core.Module }
@@ -102,4 +104,15 @@ func (r *Registry) OrganisationUsage(ctx context.Context, q core.Querier) (map[i
 		}
 	}
 	return out, nil
+}
+
+// Seeds returns the demo-data hooks of the installed modules.
+func (r *Registry) Seeds() []func(context.Context, *sql.Tx, time.Time) error {
+	var out []func(context.Context, *sql.Tx, time.Time) error
+	for _, m := range r.Modules {
+		if m.Seed != nil {
+			out = append(out, m.Seed)
+		}
+	}
+	return out
 }

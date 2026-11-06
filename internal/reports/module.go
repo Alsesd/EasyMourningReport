@@ -1,4 +1,3 @@
-// Package reports is the monthly-reports feature module.
 package reports
 
 import "legkyi/internal/core"
@@ -29,5 +28,6 @@ var Module = core.Module{
 		"архівовано товар", "відновлено товар", "видалено товар", "змінено налаштування звітів",
 	},
 	DefaultGrants:     map[string][]string{"store": {Submit}},
+	Seed:              SeedDemo,
 	OrganisationUsage: UsagePerOrganisation,
 }

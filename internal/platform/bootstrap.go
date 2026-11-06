@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
@@ -78,9 +79,9 @@ func CreateUser(tx *sql.Tx, login, passwordHash string, orgID *int64, now time.T
 }
 
 // Seed ensures the built-in roles exist and, on an empty users table, creates the first admin.
-// The password banner goes to out only when an admin is created. DEMO=1 data belongs to the
-// reports module and is not seeded yet.
-func Seed(tx *sql.Tx, grants map[string][]string, getenv func(string) string, out io.Writer, now time.Time) error {
+// The password banner goes to out only when an admin is created. With DEMO set, the module
+// demo hooks run in the same transaction.
+func Seed(tx *sql.Tx, grants map[string][]string, getenv func(string) string, out io.Writer, now time.Time, demo ...func(context.Context, *sql.Tx, time.Time) error) error {
 	roleIDs, err := EnsureBuiltInRoles(tx, grants)
 	if err != nil {
 		return err
@@ -106,6 +107,13 @@ func Seed(tx *sql.Tx, grants map[string][]string, getenv func(string) string, ou
 	}
 	if _, err := CreateUser(tx, "admin", hash, nil, now, roleIDs["platform_admin"]); err != nil {
 		return err
+	}
+	if getenv("DEMO") != "" {
+		for _, seed := range demo {
+			if err := seed(context.Background(), tx, now); err != nil {
+				return err
+			}
+		}
 	}
 	fmt.Fprintf(out, "\n*** ПЕРШИЙ ЗАПУСК: логін 'admin', пароль '%s'. Змініть його на сторінці «Налаштування». ***\n\n", pw)
 	return nil

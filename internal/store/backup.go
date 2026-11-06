@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -19,6 +20,8 @@ type Backups struct {
 	Dir   string
 	Keep  int
 	Now   func() time.Time // injectable clock (local time, as in Python)
+
+	mu sync.Mutex // Run is called by the loop, shutdown and request handlers
 }
 
 func (b *Backups) now() time.Time {
@@ -49,6 +52,8 @@ func (b *Backups) lastChange() time.Time {
 // Run takes a backup. Without a tag it is skipped (returns "") when nothing changed since the
 // newest backup. A copy failing quick_check is deleted and an error returned.
 func (b *Backups) Run(tag string) (string, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if _, err := os.Stat(b.Store.Path); err != nil {
 		return "", nil
 	}

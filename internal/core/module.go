@@ -5,6 +5,7 @@ package core
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 // Querier is satisfied by *sql.DB, *sql.Tx and *sql.Conn.
@@ -34,5 +35,7 @@ type Module struct {
 	DefaultGrants map[string][]string // built-in role key -> permission codes
 	// OrganisationUsage counts the records the module holds per organisation id. An organisation
 	// with records is archived instead of deleted.
+	// Seed adds demo data (DEMO=1 on an empty database), inside the first-run transaction.
+	Seed              func(ctx context.Context, tx *sql.Tx, now time.Time) error
 	OrganisationUsage func(ctx context.Context, q Querier) (map[int64]int, error)
 }
