@@ -1,30 +1,19 @@
 package web
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"html"
 	"net/http"
 	"strings"
+
+	"legkyi/internal/core"
 )
 
 // isAPIPath mirrors core/http_errors.py _is_api_request.
 func isAPIPath(p string) bool { return p == "/api/v1" || strings.HasPrefix(p, "/api/v1/") }
 
 // writeJSON writes a JSON body with Starlette-compatible compact separators.
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false) // Starlette does not escape <>&
-	if err := enc.Encode(v); err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_, _ = w.Write(bytes.TrimRight(buf.Bytes(), "\n"))
-}
+func writeJSON(w http.ResponseWriter, status int, v any) { core.WriteJSON(w, status, v) }
 
 var statusText = map[int]string{
 	404: "Not Found",

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"legkyi/internal/core"
 	"legkyi/internal/platform"
 	"legkyi/internal/store"
 	"legkyi/internal/system"
@@ -31,13 +32,7 @@ type healthDTO struct {
 }
 
 // servedTimeOf renders a time as RFC3339 UTC with Z, with microseconds only when non-zero (Pydantic).
-func servedTimeOf(t time.Time) string {
-	t = t.UTC()
-	if t.Nanosecond() == 0 {
-		return t.Format("2006-01-02T15:04:05Z")
-	}
-	return t.Format("2006-01-02T15:04:05.000000Z")
-}
+func servedTimeOf(t time.Time) string { return core.ServedTime(t) }
 
 func (a *App) healthDTO() healthDTO {
 	h := system.ReadHealth(a.Store, a.Backups, a.BackupEveryMin)

@@ -47,10 +47,12 @@ type Notifier interface {
 	Notify(userIDs []int64, kind, title, body, link, dedupe string) error
 }
 
-// Module is everything the platform needs to know about a feature module. Routes are
-// registered separately (web.Mount), so this stays free of HTTP types.
+// Module is everything the platform needs to know about a feature module.
 type Module struct {
-	Name, Title   string
+	Name, Title string
+	// Routes returns the module's /api/v1 endpoints. The shell registers each behind the permission check its
+	// Route declares, so a module never registers an unprotected route (see http.go).
+	Routes        func(s Services) []Route
 	Permissions   []Permission
 	AuditActions  []string
 	DefaultGrants map[string][]string // built-in role key -> permission codes

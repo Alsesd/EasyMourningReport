@@ -72,34 +72,15 @@ func TestPackagesImportOnlyWhatTheirLayerAllows(t *testing.T) {
 	}
 }
 
-// KNOWN DEBT: the HTTP handlers of the two modules still live in internal/web (web/reports.go, web/transport.go) and
-// therefore import the module packages. Nothing new may join them: new module logic goes into the module package,
-// and the shell reaches it through core.Module hooks (see Module.DailyReminder, Module.Seed). Moving the handlers
-// into the modules is tracked in the memory notes.
-func TestWebDoesNotGrowNewModuleImports(t *testing.T) {
-	known := map[string][]string{
-		"reports":   {"reports.go", "reports_xlsx.go"},
-		"transport": {"transport.go"},
-	}
+// The shell never imports a feature module: a module's HTTP handlers live in the module and reach the shell through
+// core (Module.Routes, core.Services, core.Caller). Only registry and cmd/server list the modules.
+func TestWebImportsNoModule(t *testing.T) {
 	imp := importsOf(t, "web")
-	for _, mod := range []string{"reports", "transport"} {
-		got := imp[mod]
-		sort.Strings(got)
-		for _, f := range got {
-			ok := false
-			for _, k := range known[mod] {
-				ok = ok || k == f
-			}
-			if !ok {
-				t.Errorf("internal/web/%s imports internal/%s: new slice logic belongs in the module (reach it through core)", f, mod)
-			}
-		}
-	}
 	for _, name := range keys(imp) {
 		switch name {
-		case "core", "platform", "registry", "store", "system", "update", "reports", "transport":
+		case "core", "platform", "registry", "store", "system", "update":
 		default:
-			t.Errorf("internal/web imports unexpected internal/%s", name)
+			t.Errorf("internal/web imports internal/%s (%v): reach a module through core.Module hooks, never by import", name, imp[name])
 		}
 	}
 	if _, err := os.Stat("../web"); err != nil {

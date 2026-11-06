@@ -66,13 +66,13 @@ func (a *App) savePushSubscription(w http.ResponseWriter, r *http.Request, p *pl
 		sub.P256dh = keys.String("p256dh", 1, 200)
 		sub.Auth = keys.String("auth", 1, 100)
 	} else {
-		body.fail("keys", "Field required", "missing")
+		body.Fail("keys", "Field required", "missing")
 	}
 	if err := body.Err(); err != nil {
 		return err
 	}
 	sub.P256dh, sub.Auth = strings.TrimRight(sub.P256dh, "="), strings.TrimRight(sub.Auth, "=") // stored unpadded
-	bad := FormError{"Некоректна підписка на сповіщення."}
+	bad := FormError{Message: "Некоректна підписка на сповіщення."}
 	u, perr := url.Parse(endpoint)
 	if perr != nil || a.pushAllow()(u) != nil {
 		return bad

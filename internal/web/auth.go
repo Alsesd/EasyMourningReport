@@ -181,7 +181,7 @@ func (a *App) changeOwnPassword(w http.ResponseWriter, r *http.Request, p *platf
 		return err
 	}
 	if problem := platform.PasswordProblem(pw); problem != "" {
-		return FormError{problem}
+		return FormError{Message: problem}
 	}
 	hash, err := platform.HashPassword(pw, nil)
 	if err != nil {

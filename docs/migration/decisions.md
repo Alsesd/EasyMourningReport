@@ -70,7 +70,7 @@ The locked Starlette writes the session cookie only when the session changes (lo
 - Every non-XLSX step of scenario 02 passes on all three schemas. The ledger holds only the XLSX steps:
   `02_reports_catalog#38` (summary.xlsx) and `#55` (product import); both belong to Slice 5.
 - Package layout rule: domain code (money, pricing, repo, seed) lives in `internal/reports` and imports only
-  `core`/`platform`; HTTP handlers and DTOs live in `internal/web/reports.go`.
+  `core`/`platform`; HTTP handlers and DTOs live in `internal/reports/http.go` (moved from `internal/web` when `core.Module.Routes` was introduced).
 - Money parsing (`ToCents`) and pricing are tested against Python-generated golden files
   (`testdata/reports/gen_golden.py`).
 - `core.Module.Seed` runs inside the first-run transaction when `DEMO` is set (products, `store1`/`store2`).

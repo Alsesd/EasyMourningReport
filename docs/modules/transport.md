@@ -1,6 +1,6 @@
 # Transport module
 
-**Backend:** `internal/transport/` (domain, SQL) and `internal/web/transport.go` (HTTP) · **Frontend:** `frontend/src/modules/transport/`
+**Backend:** `internal/transport/` (domain, SQL, HTTP handlers in `http.go`) · **Frontend:** `frontend/src/modules/transport/`
 
 Order desks (organisation employees) fill in the day's table of transport orders; dispatchers (platform staff) see every desk's orders in one chronological list, reply with a status and read the history.
 

@@ -3,8 +3,9 @@ package platform
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
+
+	"legkyi/internal/core"
 )
 
 // Notification is one in-app message for one user.
@@ -121,12 +122,4 @@ func PruneNotifications(tx *sql.Tx, now time.Time, readKeep, allKeep time.Durati
 }
 
 // JoinNames is a small helper for notification texts.
-func JoinNames(parts ...string) string {
-	var out []string
-	for _, p := range parts {
-		if strings.TrimSpace(p) != "" {
-			out = append(out, strings.TrimSpace(p))
-		}
-	}
-	return strings.Join(out, " · ")
-}
+func JoinNames(parts ...string) string { return core.JoinNames(parts...) }

@@ -43,7 +43,7 @@ frontend/src/
 | `Seed` | Demo data for `DEMO=1` on an empty database |
 | `Overview` | Figures for the «Адміністрування» overview, filtered by the caller's permissions |
 
-Routes are registered in `internal/web` (`rt.Handle(method, pattern, a.authed(codes, handler))`), and the module is listed in `internal/registry/registry.go`.
+A module lists its endpoints in `core.Module.Routes` (`internal/<module>/http.go`: `core.Route{Method, Path, Codes, Member, Handler}`); `internal/web/modules.go` registers each one behind `a.authed(codes, ...)` / `a.member(codes, ...)`, so a module cannot add an unprotected route. Handlers receive a `core.Caller` and `core.Services` (the shell builds both). The module is listed in `internal/registry/registry.go`.
 
 **Frontend** (`src/platform/modules.ts`). A module exports an `AppModule` from `module.tsx` with:
 
@@ -62,7 +62,7 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 
 ### Adding a module, e.g. transport orders
 
-1. Backend: copy `internal/transport` to a new package, declare the permissions and `core.Module`, add the tables to `internal/store/schema/fresh.sql` and an idempotent create step in `internal/store/schema.go`, write repo functions and handlers in `internal/web/` with `a.authed(...)` / `a.member(...)`. Scope organisation data with the principal's organisation. Add tests, and list the module in `internal/registry/registry.go`.
+1. Backend: copy `internal/transport` to a new package, declare the permissions and `core.Module`, add the tables to `internal/store/schema/fresh.sql` and an idempotent create step in `internal/store/schema.go`, write repo functions and HTTP handlers in the module package and list them in `Module.Routes` (`Codes`, `Member`). Scope organisation data with the principal's organisation. Add tests, and list the module in `internal/registry/registry.go`.
 2. Frontend: add pages under `src/modules/<name>/pages/` and list them in `module.tsx` and `src/modules/index.ts`. Mirror the permission codes in `permissions.ts`.
 3. Update `src/platform/api/schema.d.ts` and `types.ts` by hand, and `docs/API.md`.
 4. Grant the new permissions to roles in «Адміністрування → Ролі». Optionally set `DefaultGrants` for built-in roles.

@@ -1,6 +1,6 @@
 # Reports module
 
-**Backend:** `internal/reports/`, `internal/web/reports*.go` · **Frontend:** `frontend/src/modules/reports/`
+**Backend:** `internal/reports/` (domain, SQL, HTTP handlers `http*.go`) · **Frontend:** `frontend/src/modules/reports/`
 
 Monthly store reports: product catalogue with price history, report entry by organisation members, review, combined summary with Excel export, and per-organisation report settings.
 
@@ -15,7 +15,7 @@ Monthly store reports: product catalogue with price history, report entry by org
 | `xlsx_import.go`, `xlsx_export.go` | Product import and summary export |
 | `seed.go`, `overview.go`, `usage.go` | Demo data, overview figures, organisation usage |
 | `submissions.go` | The report's signature (who submitted or locked it), in the Go-owned side table `report_submissions` |
-| `internal/web/reports.go`, `reports_xlsx.go` | REST endpoints (see `docs/API.md`) |
+| `http.go`, `http_xlsx.go` | REST endpoints, listed in `Module.Routes` (see `docs/API.md`) |
 
 A report belongs to an organisation (`reports.store_id` → `organisations.id`; the column keeps its historic name). Members with `reports.submit` only ever reach their own organisation's report.
 

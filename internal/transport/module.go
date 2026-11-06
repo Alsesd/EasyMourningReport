@@ -34,6 +34,7 @@ var Module = core.Module{
 	OrganisationUsage: usage,
 	Seed:              seed,
 	DailyReminder:     remindMissingOrders,
+	Routes:            routes,
 	Overview:          overview,
 }
 
