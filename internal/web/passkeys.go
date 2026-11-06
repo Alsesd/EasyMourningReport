@@ -32,14 +32,19 @@ const (
 	maxPasskeysPerUser = 10
 	challengeTTL       = 5 * time.Minute
 	maxChallenges      = 2000
-	passkeyLimiterKey  = "\x00passkey"
+	maxChallengesPerIP = 20
 )
+
+// passkeyLimiterKey puts the failures of one address in their own buckets (the limiter's "login" slot is
+// shared by every address, so a constant would let one client lock the others out).
+func passkeyLimiterKey(ip string) string { return "\x00passkey\x00" + ip }
 
 var errPasskey = errors.New("passkey")
 
 type pendingChallenge struct {
 	kind      string // "register" | "login"
 	uid       int64
+	ip        string
 	challenge []byte
 	expires   time.Time
 }
@@ -50,7 +55,7 @@ type challenges struct {
 	m  map[string]pendingChallenge
 }
 
-func (c *challenges) issue(kind string, uid int64, now time.Time) (id string, challenge []byte, err error) {
+func (c *challenges) issue(kind string, uid int64, ip string, now time.Time) (id string, challenge []byte, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.m == nil {
@@ -61,7 +66,13 @@ func (c *challenges) issue(kind string, uid int64, now time.Time) (id string, ch
 			delete(c.m, k)
 		}
 	}
-	if len(c.m) >= maxChallenges {
+	perIP := 0
+	for _, v := range c.m {
+		if v.ip == ip {
+			perIP++
+		}
+	}
+	if len(c.m) >= maxChallenges || perIP >= maxChallengesPerIP {
 		return "", nil, HTTPError{Status: 429, Detail: "Забагато запитів. Спробуйте за хвилину."}
 	}
 	challenge = make([]byte, 32)
@@ -71,7 +82,7 @@ func (c *challenges) issue(kind string, uid int64, now time.Time) (id string, ch
 	if id, err = newToken(); err != nil {
 		return "", nil, err
 	}
-	c.m[id] = pendingChallenge{kind, uid, challenge, now.Add(challengeTTL)}
+	c.m[id] = pendingChallenge{kind, uid, ip, challenge, now.Add(challengeTTL)}
 	return id, challenge, nil
 }
 
@@ -278,7 +289,7 @@ func (a *App) passkeyRegisterOptions(w http.ResponseWriter, r *http.Request, p *
 	if err != nil {
 		return err
 	}
-	id, challenge, err := a.challenges.issue("register", p.User.ID, a.now())
+	id, challenge, err := a.challenges.issue("register", p.User.ID, a.Trusted.ClientIP(r), a.now())
 	if err != nil {
 		return err
 	}
@@ -420,11 +431,11 @@ func (a *App) passkeyLoginOptions(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return err
 	}
-	if wait := a.Limiter.RetryAfter(a.Trusted.ClientIP(r), passkeyLimiterKey); wait > 0 {
+	if wait := a.Limiter.RetryAfter(a.Trusted.ClientIP(r), passkeyLimiterKey(a.Trusted.ClientIP(r))); wait > 0 {
 		return HTTPError{Status: 429, Detail: "Забагато невдалих спроб. Спробуйте пізніше.",
 			Headers: map[string]string{"Retry-After": strconv.Itoa(wait), "Cache-Control": "no-store"}}
 	}
-	id, challenge, err := a.challenges.issue("login", 0, a.now())
+	id, challenge, err := a.challenges.issue("login", 0, a.Trusted.ClientIP(r), a.now())
 	if err != nil {
 		return err
 	}
@@ -455,12 +466,12 @@ func (a *App) passkeyLogin(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	ip := a.Trusted.ClientIP(r)
-	if wait := a.Limiter.RetryAfter(ip, passkeyLimiterKey); wait > 0 {
+	if wait := a.Limiter.RetryAfter(ip, passkeyLimiterKey(ip)); wait > 0 {
 		return HTTPError{Status: 429, Detail: "Забагато невдалих спроб. Спробуйте пізніше.",
 			Headers: map[string]string{"Retry-After": strconv.Itoa(wait), "Cache-Control": "no-store"}}
 	}
 	fail := func(login, role, why string) error {
-		a.Limiter.RecordFailure(ip, passkeyLimiterKey)
+		a.Limiter.RecordFailure(ip, passkeyLimiterKey(ip))
 		if login == "" {
 			login = "?"
 		}
@@ -518,7 +529,7 @@ func (a *App) passkeyLogin(w http.ResponseWriter, r *http.Request) error {
 		}
 		return HTTPError{Status: 403, Detail: "Цей обліковий запис вимкнено. Зверніться до адміністратора."}
 	}
-	a.Limiter.Clear(ip, passkeyLimiterKey)
+	a.Limiter.Clear(ip, passkeyLimiterKey(ip))
 	var token, device string
 	if err := a.write(r.Context(), func(tx *sql.Tx) error {
 		if _, err := tx.Exec("UPDATE passkeys SET sign_count = ?, last_used_at = ? WHERE id = ?", ad.signCount, a.now().Unix(), pkID); err != nil {

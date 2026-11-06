@@ -106,8 +106,13 @@ func sessionMiddleware(sg Signer, secure func(*http.Request) bool, hooks Session
 			token, ok := sg.Verify(c.Value)
 			if !ok {
 				if c.Value != "null" && c.Value != "" {
-					drop(w) // a value this server never signed
-					return
+					if isAPIPath(r.URL.Path) {
+						drop(w) // a value this server never signed
+						return
+					}
+					// A page load must still work (another app on this host name, or a changed SECRET_KEY, can
+					// leave such a cookie behind): serve it signed out and expire the stale cookies.
+					s.modified, s.hadData = true, true
 				}
 			} else if uid, ok := hooks.Lookup(r.Context(), token); ok {
 				presented := ""

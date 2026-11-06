@@ -252,3 +252,82 @@ func TestCBORRejectsJunk(t *testing.T) {
 		}
 	}
 }
+
+func TestDeletedUsersPasskeyCannotSignInAsSomeoneElse(t *testing.T) {
+	e := newEnv(t, nil)
+	seedBoss(t, e.st, "second", "second-pass")
+	boss := sessionCookie(e.login("boss", "boss-pass"))
+	second := sessionCookie(e.login("second", "second-pass"))
+	a := newAuthenticator(t)
+	if w := e.registerPasskey(t, a, second, okFlag|flagAT); w.Code != 200 {
+		t.Fatal(w.Code, w.Body)
+	}
+	id := e.userID("second")
+	if w := e.do("DELETE", "/api/v1/users/"+itoa(int(id)), "", map[string]string{"Origin": origin}, boss); w.Code != 200 {
+		t.Fatalf("delete user: %d %s", w.Code, w.Body)
+	}
+	var n int
+	e.st.R.QueryRow("SELECT COUNT(*) FROM passkeys").Scan(&n)
+	if n != 0 {
+		t.Fatalf("the deleted user's passkey must be gone, %d left", n)
+	}
+	if w := e.passkeyLogin(t, a, okFlag, 1); w.Code != 401 {
+		t.Fatalf("sign-in with a deleted user's passkey: %d", w.Code)
+	}
+}
+
+func TestPasskeyFailuresOfOneAddressDoNotLockOthers(t *testing.T) {
+	e := newEnv(t, nil)
+	attacker := func(ip string) {
+		for i := 0; i < rlPair; i++ {
+			id, ch := decodeOptions(t, e.doFrom(ip, "POST", "/api/v1/auth/passkey/options", "{}"))
+			body := newAuthenticator(t).assert(rp, origin, ch, okFlag, 1)
+			body["challenge_id"] = id
+			b, _ := json.Marshal(body)
+			e.doFrom(ip, "POST", "/api/v1/auth/passkey", string(b))
+		}
+	}
+	attacker("203.0.113.9:1")
+	if w := e.doFrom("203.0.113.9:1", "POST", "/api/v1/auth/passkey/options", "{}"); w.Code != 429 {
+		t.Fatalf("the noisy address must be throttled: %d", w.Code)
+	}
+	if w := e.doFrom("198.51.100.7:1", "POST", "/api/v1/auth/passkey/options", "{}"); w.Code != 200 {
+		t.Fatalf("another address must be unaffected: %d", w.Code)
+	}
+}
+
+func TestChallengesPerAddressAreCapped(t *testing.T) {
+	e := newEnv(t, nil)
+	for i := 0; i < maxChallengesPerIP; i++ {
+		if w := e.doFrom("203.0.113.9:1", "POST", "/api/v1/auth/passkey/options", "{}"); w.Code != 200 {
+			t.Fatalf("challenge %d: %d", i, w.Code)
+		}
+	}
+	if w := e.doFrom("203.0.113.9:1", "POST", "/api/v1/auth/passkey/options", "{}"); w.Code != 429 {
+		t.Fatalf("over the cap: %d", w.Code)
+	}
+	if w := e.doFrom("198.51.100.7:1", "POST", "/api/v1/auth/passkey/options", "{}"); w.Code != 200 {
+		t.Fatalf("others still get challenges: %d", w.Code)
+	}
+}
+
+func TestStaleCookieOnAPageLoadIsClearedNotDropped(t *testing.T) {
+	e := newEnv(t, nil)
+	stale := &http.Cookie{Name: "session", Value: "from-another-app.or-old-secret"}
+	if !e.dropped("GET", "/api/v1/session", stale) {
+		t.Fatal("API calls with a cookie we never signed get no answer")
+	}
+	w := e.do("GET", "/", "", nil, stale)
+	if w.Code != 200 {
+		t.Fatalf("the page must still load: %d", w.Code)
+	}
+	cleared := false
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "session" && c.MaxAge < 0 {
+			cleared = true
+		}
+	}
+	if !cleared {
+		t.Fatal("the stale cookie must be expired so sign-in works afterwards")
+	}
+}

@@ -56,6 +56,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    /** WebAuthn: bodies are `{challenge_id, public_key}` options and the signed ceremony result (hand-written, see platform/auth/passkeys.ts). */
+    "/api/v1/auth/passkey/options": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": { challenge_id: string; public_key: Record<string, unknown> } } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkey": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["SessionDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/passkeys": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["PasskeyDTO"][] } } } };
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["MessageDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/passkeys/options": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": { challenge_id: string; public_key: Record<string, unknown> } } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/passkeys/{pid}": {
+        parameters: { query?: never; header?: never; path: { pid: number }; cookie?: never };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: { responses: { 200: { content: { "application/json": components["schemas"]["MessageDTO"] } } } };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/password": {
         parameters: {
             query?: never;

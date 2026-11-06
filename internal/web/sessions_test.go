@@ -59,6 +59,9 @@ func TestAdminPasswordResetAndDisableSignTheUserOut(t *testing.T) {
 	boss := sessionCookie(e.login("boss", "boss-pass"))
 	second := sessionCookie(e.login("second", "second-pass"))
 	id := e.userID("second")
+	if w := e.registerPasskey(t, newAuthenticator(t), second, okFlag|flagAT); w.Code != 200 {
+		t.Fatal(w.Code, w.Body)
+	}
 
 	reset := e.do("PUT", fmt.Sprintf("/api/v1/users/%d/password", id), `{"password":"brand-new-pass"}`, nil, boss)
 	if reset.Code != 200 {
@@ -66,6 +69,12 @@ func TestAdminPasswordResetAndDisableSignTheUserOut(t *testing.T) {
 	}
 	if e.status(second) != 401 {
 		t.Fatal("a reset must sign the user out everywhere")
+	}
+
+	var left int
+	e.st.R.QueryRow("SELECT COUNT(*) FROM passkeys WHERE user_id = ?", id).Scan(&left)
+	if left != 0 {
+		t.Fatal("a reset must remove the user's passkeys")
 	}
 
 	again := sessionCookie(e.login("second", "brand-new-pass"))

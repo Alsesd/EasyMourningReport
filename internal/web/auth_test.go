@@ -85,6 +85,18 @@ func rememberDevice(session string, w *httptest.ResponseRecorder) {
 	}
 }
 
+// doFrom is do with another client address (the limiter and challenge caps are per address).
+func (e *env) doFrom(addr, method, path, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req.Host, req.RemoteAddr = "testserver", addr
+	if method != "GET" {
+		req.Header.Set("Origin", "https://testserver")
+	}
+	w := httptest.NewRecorder()
+	e.h.ServeHTTP(w, req)
+	return w
+}
+
 func (e *env) login(login, pw string) *httptest.ResponseRecorder {
 	b, _ := json.Marshal(map[string]string{"login": login, "password": pw})
 	return e.do("POST", "/api/v1/auth/login", string(b), nil)

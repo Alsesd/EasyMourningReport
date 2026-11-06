@@ -797,6 +797,10 @@ func (a *App) resetUserPassword(w http.ResponseWriter, r *http.Request, p *platf
 		if err := endUserSessions(tx, uid); err != nil { // a reset signs the user out everywhere
 			return err
 		}
+		// Passkeys go too: one registered from a hijacked session must not survive the reset.
+		if _, err := tx.ExecContext(ctx, "DELETE FROM passkeys WHERE user_id = ?", uid); err != nil {
+			return err
+		}
 		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено пароль користувача", login)
 	})
 	if err != nil {
