@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Go build of the application (the Python image is deploy/Dockerfile). Build it under its own tag:
-#   docker build -f deploy/Dockerfile.go -t easymourningreport:go .
+#   docker build -f deploy/go.Dockerfile -t easymourningreport:go .
 # Stage 1: Build client SPA
 FROM node:22-alpine AS frontend-builder
 

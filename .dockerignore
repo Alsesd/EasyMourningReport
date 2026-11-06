@@ -62,5 +62,5 @@ Thumbs.db
 # GitHub / CI metadata
 .github
 
-# Go build output copied in by scripts/go_assets.sh (the Dockerfile.go build recreates it)
+# Go build output copied in by scripts/go_assets.sh (the go.Dockerfile build recreates it)
 internal/assets/dist/static

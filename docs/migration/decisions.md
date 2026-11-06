@@ -124,7 +124,7 @@ The locked Starlette writes the session cookie only when the session changes (lo
   (no `DEMO=1`: the demo logins are `store1/store1`).
 
 ## Slice 7 outcome (packaging)
-- `deploy/Dockerfile.go` (Node build → `golang:1.26-bookworm` static build → `debian:bookworm-slim` + curl +
+- `deploy/go.Dockerfile` (Node build → `golang:1.26-bookworm` static build → `debian:bookworm-slim` + curl +
   cloudflared; same ENV, mounts, 777 dirs, `/healthz` check, root user). **The production `deploy/Dockerfile`,
   `deploy/compose.yaml` and `compose.yaml` are unchanged**: swapping them is the cut-over (Slice 8). Build it as
   `easymourningreport:go`, never `:local`.

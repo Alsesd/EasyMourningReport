@@ -4,6 +4,7 @@
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 dest="$root/internal/assets/dist"
+mkdir -p "$dest"
 find "$dest" -mindepth 1 ! -name .gitkeep -delete
 mkdir -p "$dest/static"
 cp -R "$root/backend/app/static/." "$dest/static/"
