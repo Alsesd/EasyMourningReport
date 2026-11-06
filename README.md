@@ -87,7 +87,7 @@ Notes: the file is not code-signed, so Windows SmartScreen may warn on first sta
 
 ## Upgrading from earlier releases
 
-The Go server opens existing databases from the Python releases unchanged (same file, same schema, same password hashes). It does **not** carry the old upgrade code: a database must already have been started once by the last Python release (commit `92564ef`, which migrated the single-admin layout to organisations and roles). Otherwise start-up stops with a message saying so. Everyone has to sign in once more after the switch because the session cookie format changed.
+The Go server opens existing databases from the Python releases unchanged (same file, same schema, same password hashes). It does **not** carry the old upgrade code: a database must already have been started once by the last Python release (commit `92564ef`, which migrated the single-admin layout to organisations and roles). Otherwise start-up stops with a message saying so. Everyone has to sign in once more after the switch because the session mechanism changed. **Rolling back to the Python release means restoring the backup taken before the switch**: passwords upgraded by Go (on sign-in) use a newer hash format the Python release cannot read.
 
 ## Public access (Cloudflare Tunnel)
 

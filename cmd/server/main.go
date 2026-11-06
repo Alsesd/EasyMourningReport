@@ -58,6 +58,7 @@ func run() error {
 	if os.Getenv("LEGKYI_DATA_DIR") == "" && cfg.DataDir != appDir {
 		log.Printf("WARNING: %s is not writable, so data (database, backups, secret) is kept in %s instead. Move the program to a writable folder to keep everything next to it.", appDir, cfg.DataDir)
 	}
+	restrictFiles(cfg.DataDir, cfg.BackupsDir)
 	journal := config.JournalMode(cfg.JournalWant, cfg.DataDir, runtime.GOOS, "/proc/mounts")
 	if err := os.MkdirAll(cfg.BackupsDir, 0o755); err != nil {
 		log.Printf("[STORAGE WARNING] backups directory %s: %v", cfg.BackupsDir, err)

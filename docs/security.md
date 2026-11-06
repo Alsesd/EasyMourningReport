@@ -10,21 +10,26 @@ Last reviewed: 2026-11-06 (dependency scans, code review of the web layer, live 
 
 ## What is in place
 
-- **Sessions:** HMAC-SHA256 signed cookie, constant-time compare, expiry inside the signed payload, `HttpOnly`, `SameSite=Lax`; `Secure` is set when `COOKIE_SECURE=1` or when the request reached the local cloudflared over https (`X-Forwarded-Proto` or `Cf-Visitor`).
+- **Sessions (server-side):** the cookie carries a random 32-byte token signed with HMAC-SHA256; the server keeps only the SHA-256 of the token in `user_sessions` (so a database copy or backup holds no usable credential). Logging out, changing your own password, an administrator resetting a password, and disabling or deleting an account end the sessions immediately; sessions survive an app restart and expire after 7 days. Cookie flags: `HttpOnly`, `SameSite=Lax`, and `Secure` when `COOKIE_SECURE=1` or when the request reached the local cloudflared over https.
 - **CSRF:** every non-GET request must carry a same-origin `Origin` or `Referer`.
-- **Sign-in:** per login+IP, per IP and per login limits (in memory); the password is checked before account state is revealed; an unknown login costs the same time as a wrong password.
+- **Sign-in:** per login+IP, per IP and per login limits (in memory); the password is checked before account state is revealed; an unknown login costs the same time as a wrong password (a short window remains for accounts whose password has not yet been upgraded, see below).
 - **Client address:** the forwarded header is honoured only from the local cloudflared, and the right-most untrusted hop is used, so a client cannot spoof it behind Cloudflare.
-- **Passwords:** PBKDF2-HMAC-SHA256, 200,000 iterations, random salt.
-- **Headers:** a Content-Security-Policy (scripts only from the app's own files, no framing), `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`.
+- **Passwords:** PBKDF2-HMAC-SHA256, 600,000 iterations, random salt, self-describing format (`pbkdf2_sha256$600000$salt$hash`). Hashes from earlier releases (200,000 iterations) still verify and are rewritten when that user next signs in successfully. New passwords need at least 10 characters. Expect roughly a second per sign-in on a phone.
+- **Headers:** Content-Security-Policy (scripts only from the app's own files, no framing), `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, and `Strict-Transport-Security` (180 days, no subdomains, no preload) on requests that arrived over https through the tunnel.
 - **Limits:** JSON bodies 8 MB, Excel upload capped, read/idle/header limits on the server (no write timeout so backup downloads can stream).
 - **Data access:** every API route goes through a permission check; organisation-scoped handlers resolve records through the caller's organisation (other organisations' records answer 404). SQL is parameterised; the only concatenated clauses are fixed strings.
+- **Files:** on Linux/macOS/Android the program runs with umask 077 and tightens the database, WAL files, secret, backups and tunnel folder to owner-only at start. On Windows access is governed by NTFS permissions: keep the program's folder in a location only the service account and administrators can read (for example remove "Users" from its ACL).
 - **Tunnel token:** passed to cloudflared through its environment (not the command line) and stored with mode 0600.
-- **Release workflow:** the tag input goes through an environment variable and is validated.
+- **Release workflow:** the tag input goes through an environment variable and is validated; the exe can be signed when the repository has the secrets `WINDOWS_CERT_PFX` and `WINDOWS_CERT_PASSWORD` (this step has not been exercised yet).
+
+## Rolling back to the Python release
+
+Accounts whose password hash was upgraded cannot sign in to the Python release (it only knows the old format), and the `user_sessions` table is ignored by it. A rollback therefore means restoring the backup taken before switching to Go.
 
 ## Known limitations
 
-- Sessions are stateless: logging out or changing a password does not invalidate cookies already issued (they expire after 7 days). Rotating `secret.key` signs everyone out.
-- PBKDF2 at 200,000 iterations is below current OWASP guidance (600,000 for SHA-256). Raising it needs a format marker and upgrade-on-login so existing hashes keep working.
-- The sign-in limiter is in memory and resets on restart.
-- The exe is not code-signed (SmartScreen warning). Anyone who can read the program's folder can read `reports.db`, `secret.key` and the saved tunnel token; protect that folder with normal file permissions.
-- `style-src` allows inline styles because the UI sets style attributes.
+- The sign-in limiter is in memory and resets when the app restarts; only someone with host access can restart it, and they already hold the database.
+- Until every account has signed in once after the upgrade, a sign-in for an account on an old hash takes less time than one on the new hash, and an unknown login takes the new-hash time.
+- The exe is unsigned unless you add a certificate (SmartScreen warning). Anyone who can read the program's folder can read `reports.db`, `secret.key` and the saved tunnel token.
+- `style-src` allows inline styles because the UI sets style attributes; scripts are strictly limited to the app's own files.
+- No password complexity rules beyond length, and no two-factor sign-in.

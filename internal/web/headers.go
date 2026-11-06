@@ -14,7 +14,7 @@ const contentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 
 
 // securityHeaders adds the response headers that keep the app out of frames, stop MIME sniffing and
 // stop scripts from anywhere but its own files.
-func securityHeaders(next http.Handler) http.Handler {
+func securityHeaders(trusted *TrustedHosts, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("Content-Security-Policy", contentSecurityPolicy)
@@ -22,6 +22,9 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		if cookieSecure(false, trusted, r) { // only when the request really came over https (via the tunnel)
+			h.Set("Strict-Transport-Security", "max-age=15552000") // 180 days, no subdomains, no preload
+		}
 		next.ServeHTTP(w, r)
 	})
 }

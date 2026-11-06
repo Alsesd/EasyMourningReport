@@ -32,6 +32,8 @@ jobs:
   build:
     name: Build and test
     runs-on: ubuntu-latest
+    env:
+      SIGN_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
     steps:
       - uses: actions/checkout@v4
 
@@ -73,6 +75,21 @@ jobs:
 
       - name: Build exe and Linux binary (cloudflared bundled)
         run: SKIP_FRONTEND=1 bash scripts/build_go.sh
+
+      # Optional code signing (untested): runs only when the repository has the secrets WINDOWS_CERT_PFX (base64 of a
+      # .pfx) and WINDOWS_CERT_PASSWORD. Without them the exe stays unsigned (SmartScreen may warn).
+      - name: Sign legkyi.exe (only if a certificate secret exists)
+        if: env.SIGN_PFX != ''
+        env:
+          SIGN_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          SIGN_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osslsigncode
+          printf '%s' "$SIGN_PFX" | base64 -d > cert.pfx
+          osslsigncode sign -pkcs12 cert.pfx -pass "$SIGN_PASSWORD" -n "Легкий звіт" \
+            -t http://timestamp.digicert.com -in dist/legkyi.exe -out dist/legkyi-signed.exe
+          mv dist/legkyi-signed.exe dist/legkyi.exe
+          rm -f cert.pfx
 
       - name: Bundled build tests
         run: go test -tags bundle ./internal/tunnelbin

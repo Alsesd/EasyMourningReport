@@ -10,7 +10,7 @@ import (
 )
 
 func TestSecurityHeadersOnEveryResponse(t *testing.T) {
-	h := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) }))
+	h := securityHeaders(ParseTrustedHosts("127.0.0.1"), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) }))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest("GET", "/anything", nil))
 	for k, want := range map[string]string{
@@ -77,5 +77,25 @@ func TestUnknownLoginCostsAsMuchAsAWrongPassword(t *testing.T) {
 	dummy := time.Since(start)
 	if dummy < known/3 {
 		t.Fatalf("dummy check (%v) is far cheaper than a real one (%v): usernames would be distinguishable", dummy, known)
+	}
+}
+
+func TestHSTSOnlyOverHTTPSFromTheTrustedProxy(t *testing.T) {
+	h := securityHeaders(ParseTrustedHosts("127.0.0.1"), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	get := func(remote, proto string) string {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.RemoteAddr = remote
+		if proto != "" {
+			r.Header.Set("X-Forwarded-Proto", proto)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, r)
+		return rec.Header().Get("Strict-Transport-Security")
+	}
+	if get("127.0.0.1:1", "https") == "" {
+		t.Error("HSTS expected over https via the tunnel")
+	}
+	if get("127.0.0.1:1", "") != "" || get("203.0.113.5:1", "https") != "" {
+		t.Error("no HSTS on plain http or from an untrusted peer")
 	}
 }
