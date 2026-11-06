@@ -79,3 +79,7 @@ The locked Starlette writes the session cookie only when the session changes (lo
   form error instead of Python's Overflow 500.
 - Tests added: 30-goroutine concurrent save/read under `-race`, before-delete backup contains the deleted row,
   store scope isolation, Ukrainian (є/і/ї/ґ) settings ordering.
+- Slice 4 smoke test (curl against the real Go binary, SPA build embedded, `DEMO=1`, throwaway `LEGKYI_DATA_DIR`):
+  DEMO seed created store1/store2, login, store report save+submit, admin list/detail/summary/settings/products
+  and transport status all returned 200 with the expected data.
+  Browser e2e (`scripts/e2e_test.py` spawns the Python server and needs chromium) is deferred to Slice 7.
