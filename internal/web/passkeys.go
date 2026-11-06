@@ -522,7 +522,7 @@ func (a *App) passkeyLogin(w http.ResponseWriter, r *http.Request) error {
 	if !user.CanSignIn() {
 		reason := "обліковий запис вимкнено"
 		if user.Active {
-			reason = "організація в архіві"
+			reason = "підрозділ в архіві"
 		}
 		if err := a.audit(r, ip, user.Login, user.RoleLabel(), "невдалий вхід", reason); err != nil {
 			return err

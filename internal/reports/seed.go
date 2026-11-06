@@ -42,7 +42,7 @@ func SeedDemo(ctx context.Context, tx *sql.Tx, now time.Time) error {
 		return err
 	}
 	for n := 1; n <= 2; n++ {
-		res, err := tx.ExecContext(ctx, "INSERT INTO organisations (name, archived) VALUES (?, 0)", fmt.Sprintf("Магазин %d", n))
+		res, err := tx.ExecContext(ctx, "INSERT INTO organisations (name, archived) VALUES (?, 0)", fmt.Sprintf("Підрозділ %d", n))
 		if err != nil {
 			return err
 		}

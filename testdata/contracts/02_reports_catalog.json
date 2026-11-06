@@ -655,7 +655,7 @@
             "name": "Shop A"
           },
           "roles": [
-            "Магазин"
+            "Підрозділ"
           ],
           "permissions": [
             "reports.submit"
@@ -2039,7 +2039,7 @@
       "expect": {
         "status": 404,
         "json": {
-          "detail": "Організацію не знайдено."
+          "detail": "Підрозділ не знайдено."
         }
       }
     },
@@ -2731,7 +2731,7 @@
             "id": 19,
             "ts": "<time>",
             "login": "clerk",
-            "role": "Магазин",
+            "role": "Підрозділ",
             "action": "збережено звіт",
             "detail": "Shop A · 2026-11",
             "ip": "testclient"
@@ -2749,7 +2749,7 @@
             "id": 17,
             "ts": "<time>",
             "login": "clerk",
-            "role": "Магазин",
+            "role": "Підрозділ",
             "action": "збережено звіт",
             "detail": "Shop A · 2026-11",
             "ip": "testclient"
@@ -2767,7 +2767,7 @@
             "id": 15,
             "ts": "<time>",
             "login": "clerk",
-            "role": "Магазин",
+            "role": "Підрозділ",
             "action": "надіслано звіт",
             "detail": "Shop A · 2026-11",
             "ip": "testclient"
@@ -2776,7 +2776,7 @@
             "id": 14,
             "ts": "<time>",
             "login": "clerk",
-            "role": "Магазин",
+            "role": "Підрозділ",
             "action": "збережено звіт",
             "detail": "Shop A · 2026-11",
             "ip": "testclient"
@@ -2785,7 +2785,7 @@
             "id": 13,
             "ts": "<time>",
             "login": "clerk",
-            "role": "Магазин",
+            "role": "Підрозділ",
             "action": "вхід",
             "detail": "",
             "ip": "testclient"
@@ -2876,7 +2876,7 @@
             "ts": "<time>",
             "login": "boss",
             "role": "Адміністратор",
-            "action": "додано організацію",
+            "action": "додано підрозділ",
             "detail": "Shop B · логін clerk_b",
             "ip": "testclient"
           },
@@ -2885,7 +2885,7 @@
             "ts": "<time>",
             "login": "boss",
             "role": "Адміністратор",
-            "action": "додано організацію",
+            "action": "додано підрозділ",
             "detail": "Shop A · логін clerk",
             "ip": "testclient"
           },

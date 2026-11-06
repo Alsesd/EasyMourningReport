@@ -86,7 +86,7 @@ describe("TransportPage", () => {
     expect(within(card).getByText(/Філія А/)).toBeDefined();
     expect(within(card).queryByRole("button", { name: /Скасувати замовлення/ })).toBeNull();
     fireEvent.click(within(card).getByRole("button", { name: "Прийняти" }));
-    fireEvent.change(await screen.findByLabelText(/Відповідь для філії/), { target: { value: "Виїде о 8:40" } });
+    fireEvent.change(await screen.findByLabelText(/Відповідь підрозділу/), { target: { value: "Виїде о 8:40" } });
     fireEvent.click(screen.getByRole("button", { name: "Застосувати" }));
     await waitFor(() => expect(setStatus).toHaveBeenCalledWith(1, "accepted", "Виїде о 8:40"));
   });

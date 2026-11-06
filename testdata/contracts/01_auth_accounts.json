@@ -189,8 +189,8 @@
         "json": [
           {
             "code": "platform.organisations.manage",
-            "label": "Керування організаціями",
-            "description": "Створювати, перейменовувати, архівувати й видаляти організації.",
+            "label": "Керування підрозділами",
+            "description": "Створювати, перейменовувати, архівувати й видаляти підрозділи.",
             "scope": "platform",
             "module": "platform",
             "module_title": "Платформа"
@@ -198,7 +198,7 @@
           {
             "code": "platform.users.manage",
             "label": "Керування всіма користувачами",
-            "description": "Створювати облікові записи в будь-якій організації й призначати ролі.",
+            "description": "Створювати облікові записи в будь-якому підрозділі й призначати ролі.",
             "scope": "platform",
             "module": "platform",
             "module_title": "Платформа"
@@ -229,8 +229,8 @@
           },
           {
             "code": "org.users.manage",
-            "label": "Користувачі своєї організації",
-            "description": "Додавати й вимикати облікові записи своєї організації та призначати їм ролі.",
+            "label": "Користувачі свого підрозділу",
+            "description": "Додавати й вимикати облікові записи свого підрозділу та призначати їм ролі.",
             "scope": "organisation",
             "module": "platform",
             "module_title": "Платформа"
@@ -238,7 +238,7 @@
           {
             "code": "reports.submit",
             "label": "Заповнення звіту",
-            "description": "Заповнювати й надсилати щомісячний звіт своєї організації.",
+            "description": "Заповнювати й надсилати щомісячний звіт свого підрозділу.",
             "scope": "organisation",
             "module": "reports",
             "module_title": "Звіти"
@@ -246,7 +246,7 @@
           {
             "code": "reports.review",
             "label": "Перегляд звітів",
-            "description": "Бачити звіти всіх організацій і зведення, вивантажувати Excel, блокувати й розблоковувати звіти.",
+            "description": "Бачити звіти всіх підрозділів і зведення, вивантажувати Excel, блокувати й розблоковувати звіти.",
             "scope": "platform",
             "module": "reports",
             "module_title": "Звіти"
@@ -261,8 +261,8 @@
           },
           {
             "code": "reports.settings.manage",
-            "label": "Налаштування звітів організацій",
-            "description": "Вмикати режим «По розрахунку» для окремих організацій.",
+            "label": "Налаштування звітів підрозділів",
+            "description": "Вмикати режим «По розрахунку» для окремих підрозділів.",
             "scope": "platform",
             "module": "reports",
             "module_title": "Звіти"
@@ -270,7 +270,7 @@
           {
             "code": "transport.orders.create",
             "label": "Замовлення транспорту",
-            "description": "Створювати замовлення транспорту від імені своєї організації й бачити їхній статус.",
+            "description": "Створювати замовлення транспорту від імені свого підрозділу й бачити їхній статус.",
             "scope": "organisation",
             "module": "transport",
             "module_title": "Транспорт"
@@ -278,7 +278,7 @@
           {
             "code": "transport.orders.view_all",
             "label": "Перегляд усіх замовлень транспорту",
-            "description": "Лише перегляд: замовлення транспорту всіх організацій та їхня історія.",
+            "description": "Лише перегляд: замовлення транспорту всіх підрозділів та їхня історія.",
             "scope": "platform",
             "module": "transport",
             "module_title": "Транспорт"
@@ -286,7 +286,7 @@
           {
             "code": "transport.orders.manage",
             "label": "Обробка замовлень транспорту",
-            "description": "Обробка замовлень: бачити замовлення всіх організацій та їхню історію, відповідати на замовлення й змінювати статус.",
+            "description": "Обробка замовлень: бачити замовлення всіх підрозділів та їхню історію, відповідати на замовлення й змінювати статус.",
             "scope": "platform",
             "module": "transport",
             "module_title": "Транспорт"
@@ -328,7 +328,7 @@
           {
             "id": 2,
             "key": "org_admin",
-            "name": "Адміністратор організації",
+            "name": "Адміністратор підрозділу",
             "scope": "organisation",
             "organisation_id": null,
             "organisation_name": null,
@@ -344,7 +344,7 @@
           {
             "id": 3,
             "key": "store",
-            "name": "Магазин",
+            "name": "Підрозділ",
             "scope": "organisation",
             "organisation_id": null,
             "organisation_name": null,
@@ -395,7 +395,7 @@
       "expect": {
         "status": 422,
         "json": {
-          "detail": "Організація з назвою «Shop A» уже існує",
+          "detail": "Підрозділ з назвою «Shop A» уже існує",
           "code": "validation_error"
         }
       }
@@ -411,7 +411,7 @@
       "expect": {
         "status": 422,
         "json": {
-          "detail": "Назва організації не може бути порожньою",
+          "detail": "Назва підрозділу не може бути порожньою",
           "code": "validation_error"
         }
       }
@@ -493,7 +493,7 @@
       "expect": {
         "status": 404,
         "json": {
-          "detail": "Організацію не знайдено."
+          "detail": "Підрозділ не знайдено."
         }
       }
     },
@@ -542,7 +542,7 @@
             "name": "Shop A"
           },
           "roles": [
-            "Магазин"
+            "Підрозділ"
           ],
           "permissions": [
             "reports.submit"
@@ -572,7 +572,7 @@
             "name": "Shop A"
           },
           "roles": [
-            "Магазин"
+            "Підрозділ"
           ],
           "permissions": [
             "reports.submit"
@@ -698,7 +698,7 @@
             "name": "Shop A"
           },
           "roles": [
-            "Магазин"
+            "Підрозділ"
           ],
           "permissions": [
             "reports.submit"
@@ -744,7 +744,7 @@
             2
           ],
           "role_names": [
-            "Адміністратор організації"
+            "Адміністратор підрозділу"
           ]
         }
       }
@@ -862,7 +862,7 @@
             "name": "Shop A"
           },
           "roles": [
-            "Адміністратор організації"
+            "Адміністратор підрозділу"
           ],
           "permissions": [
             "org.users.manage",
@@ -899,7 +899,7 @@
               3
             ],
             "role_names": [
-              "Магазин"
+              "Підрозділ"
             ]
           },
           {
@@ -915,7 +915,7 @@
               2
             ],
             "role_names": [
-              "Адміністратор організації"
+              "Адміністратор підрозділу"
             ]
           }
         ]
@@ -942,7 +942,7 @@
               3
             ],
             "role_names": [
-              "Магазин"
+              "Підрозділ"
             ]
           },
           {
@@ -958,7 +958,7 @@
               2
             ],
             "role_names": [
-              "Адміністратор організації"
+              "Адміністратор підрозділу"
             ]
           }
         ]
@@ -995,7 +995,7 @@
             3
           ],
           "role_names": [
-            "Магазин"
+            "Підрозділ"
           ]
         }
       }
@@ -1028,7 +1028,7 @@
             3
           ],
           "role_names": [
-            "Магазин"
+            "Підрозділ"
           ]
         }
       }
@@ -1065,7 +1065,7 @@
           {
             "id": 2,
             "key": "org_admin",
-            "name": "Адміністратор організації",
+            "name": "Адміністратор підрозділу",
             "scope": "organisation",
             "organisation_id": null,
             "organisation_name": null,
@@ -1081,7 +1081,7 @@
           {
             "id": 3,
             "key": "store",
-            "name": "Магазин",
+            "name": "Підрозділ",
             "scope": "organisation",
             "organisation_id": null,
             "organisation_name": null,
@@ -1462,7 +1462,7 @@
             "id": 15,
             "ts": "<time>",
             "login": "manager",
-            "role": "Адміністратор організації",
+            "role": "Адміністратор підрозділу",
             "action": "змінено пароль користувача",
             "detail": "clerk2",
             "ip": "testclient"
@@ -1471,25 +1471,25 @@
             "id": 14,
             "ts": "<time>",
             "login": "manager",
-            "role": "Адміністратор організації",
+            "role": "Адміністратор підрозділу",
             "action": "додано користувача",
-            "detail": "intruder · Shop A · Магазин",
+            "detail": "intruder · Shop A · Підрозділ",
             "ip": "testclient"
           },
           {
             "id": 13,
             "ts": "<time>",
             "login": "manager",
-            "role": "Адміністратор організації",
+            "role": "Адміністратор підрозділу",
             "action": "додано користувача",
-            "detail": "clerk2 · Shop A · Магазин",
+            "detail": "clerk2 · Shop A · Підрозділ",
             "ip": "testclient"
           },
           {
             "id": 12,
             "ts": "<time>",
             "login": "manager",
-            "role": "Адміністратор організації",
+            "role": "Адміністратор підрозділу",
             "action": "вхід",
             "detail": "",
             "ip": "testclient"
@@ -1500,14 +1500,14 @@
             "login": "boss",
             "role": "Адміністратор",
             "action": "додано користувача",
-            "detail": "manager · Shop A · Адміністратор організації",
+            "detail": "manager · Shop A · Адміністратор підрозділу",
             "ip": "testclient"
           },
           {
             "id": 10,
             "ts": "<time>",
             "login": "clerk",
-            "role": "Магазин",
+            "role": "Підрозділ",
             "action": "вхід",
             "detail": "",
             "ip": "testclient"
@@ -1525,7 +1525,7 @@
             "id": 8,
             "ts": "<time>",
             "login": "clerk",
-            "role": "Магазин",
+            "role": "Підрозділ",
             "action": "змінено власний пароль",
             "detail": "",
             "ip": "testclient"
@@ -1534,7 +1534,7 @@
             "id": 7,
             "ts": "<time>",
             "login": "clerk",
-            "role": "Магазин",
+            "role": "Підрозділ",
             "action": "вхід",
             "detail": "",
             "ip": "testclient"
@@ -1544,7 +1544,7 @@
             "ts": "<time>",
             "login": "boss",
             "role": "Адміністратор",
-            "action": "змінено організацію",
+            "action": "змінено підрозділ",
             "detail": "«Shop B» → «Shop Beta»",
             "ip": "testclient"
           },
@@ -1553,7 +1553,7 @@
             "ts": "<time>",
             "login": "boss",
             "role": "Адміністратор",
-            "action": "додано організацію",
+            "action": "додано підрозділ",
             "detail": "Shop B",
             "ip": "testclient"
           },
@@ -1562,7 +1562,7 @@
             "ts": "<time>",
             "login": "boss",
             "role": "Адміністратор",
-            "action": "додано організацію",
+            "action": "додано підрозділ",
             "detail": "Shop A · логін clerk",
             "ip": "testclient"
           },
@@ -1608,11 +1608,11 @@
           "невдалий вхід",
           "вихід",
           "змінено власний пароль",
-          "додано організацію",
-          "змінено організацію",
-          "архівовано організацію",
-          "відновлено організацію",
-          "видалено організацію",
+          "додано підрозділ",
+          "змінено підрозділ",
+          "архівовано підрозділ",
+          "відновлено підрозділ",
+          "видалено підрозділ",
           "додано користувача",
           "змінено користувача",
           "змінено пароль користувача",
@@ -1733,7 +1733,7 @@
           "id": 1,
           "archived": false,
           "deleted": true,
-          "message": "Організацію «Shop A» остаточно видалено."
+          "message": "Підрозділ «Shop A» остаточно видалено."
         }
       }
     },
@@ -1745,7 +1745,7 @@
       "expect": {
         "status": 404,
         "json": {
-          "detail": "Організацію не знайдено."
+          "detail": "Підрозділ не знайдено."
         }
       }
     },
@@ -1760,7 +1760,7 @@
           "id": 2,
           "archived": false,
           "deleted": true,
-          "message": "Організацію «Shop Beta» остаточно видалено."
+          "message": "Підрозділ «Shop Beta» остаточно видалено."
         }
       }
     },
@@ -1859,7 +1859,7 @@
             "ts": "<time>",
             "login": "boss",
             "role": "Адміністратор",
-            "action": "видалено організацію",
+            "action": "видалено підрозділ",
             "detail": "Shop Beta",
             "ip": "testclient"
           },
@@ -1868,7 +1868,7 @@
             "ts": "<time>",
             "login": "boss",
             "role": "Адміністратор",
-            "action": "видалено організацію",
+            "action": "видалено підрозділ",
             "detail": "Shop A",
             "ip": "testclient"
           },
@@ -1930,7 +1930,7 @@
             "id": 15,
             "ts": "<time>",
             "login": "manager",
-            "role": "Адміністратор організації",
+            "role": "Адміністратор підрозділу",
             "action": "змінено пароль користувача",
             "detail": "clerk2",
             "ip": "testclient"
@@ -1939,25 +1939,25 @@
             "id": 14,
             "ts": "<time>",
             "login": "manager",
-            "role": "Адміністратор організації",
+            "role": "Адміністратор підрозділу",
             "action": "додано користувача",
-            "detail": "intruder · Shop A · Магазин",
+            "detail": "intruder · Shop A · Підрозділ",
             "ip": "testclient"
           },
           {
             "id": 13,
             "ts": "<time>",
             "login": "manager",
-            "role": "Адміністратор організації",
+            "role": "Адміністратор підрозділу",
             "action": "додано користувача",
-            "detail": "clerk2 · Shop A · Магазин",
+            "detail": "clerk2 · Shop A · Підрозділ",
             "ip": "testclient"
           },
           {
             "id": 12,
             "ts": "<time>",
             "login": "manager",
-            "role": "Адміністратор організації",
+            "role": "Адміністратор підрозділу",
             "action": "вхід",
             "detail": "",
             "ip": "testclient"
@@ -1968,14 +1968,14 @@
             "login": "boss",
             "role": "Адміністратор",
             "action": "додано користувача",
-            "detail": "manager · Shop A · Адміністратор організації",
+            "detail": "manager · Shop A · Адміністратор підрозділу",
             "ip": "testclient"
           },
           {
             "id": 10,
             "ts": "<time>",
             "login": "clerk",
-            "role": "Магазин",
+            "role": "Підрозділ",
             "action": "вхід",
             "detail": "",
             "ip": "testclient"
@@ -1993,7 +1993,7 @@
             "id": 8,
             "ts": "<time>",
             "login": "clerk",
-            "role": "Магазин",
+            "role": "Підрозділ",
             "action": "змінено власний пароль",
             "detail": "",
             "ip": "testclient"
@@ -2002,7 +2002,7 @@
             "id": 7,
             "ts": "<time>",
             "login": "clerk",
-            "role": "Магазин",
+            "role": "Підрозділ",
             "action": "вхід",
             "detail": "",
             "ip": "testclient"
@@ -2012,7 +2012,7 @@
             "ts": "<time>",
             "login": "boss",
             "role": "Адміністратор",
-            "action": "змінено організацію",
+            "action": "змінено підрозділ",
             "detail": "«Shop B» → «Shop Beta»",
             "ip": "testclient"
           },
@@ -2021,7 +2021,7 @@
             "ts": "<time>",
             "login": "boss",
             "role": "Адміністратор",
-            "action": "додано організацію",
+            "action": "додано підрозділ",
             "detail": "Shop B",
             "ip": "testclient"
           },
@@ -2030,7 +2030,7 @@
             "ts": "<time>",
             "login": "boss",
             "role": "Адміністратор",
-            "action": "додано організацію",
+            "action": "додано підрозділ",
             "detail": "Shop A · логін clerk",
             "ip": "testclient"
           },

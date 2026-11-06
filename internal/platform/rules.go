@@ -135,7 +135,7 @@ func ResolveTargetOrganisation(ctx context.Context, q Querier, p *Principal, org
 		return nil, err
 	}
 	if o == nil {
-		return nil, notFound("Організацію не знайдено.")
+		return nil, notFound("Підрозділ не знайдено.")
 	}
 	return o, nil
 }
@@ -284,7 +284,7 @@ func CheckUniqueOrganisation(ctx context.Context, q Querier, name string, exclud
 			return err
 		}
 		if id != excludeID && SameName(n, name) {
-			msg := fmt.Sprintf("Організація з назвою «%s» уже існує", n)
+			msg := fmt.Sprintf("Підрозділ з назвою «%s» уже існує", n)
 			if arch != 0 {
 				msg += " (в архіві)"
 			}

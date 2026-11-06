@@ -188,7 +188,7 @@ func TestOverviewByRole(t *testing.T) {
 	tx, _ := e.st.W.Begin()
 	roles, _ := platform.EnsureBuiltInRoles(tx, nil)
 	var org int64
-	tx.QueryRow("SELECT id FROM organisations WHERE name = 'Магазин 1'").Scan(&org)
+	tx.QueryRow("SELECT id FROM organisations WHERE name = 'Підрозділ 1'").Scan(&org)
 	h, _ := platform.HashPassword("pw", nil)
 	platform.CreateUser(tx, "manager", h, &org, e.now, roles["org_admin"])
 	tx.Commit()

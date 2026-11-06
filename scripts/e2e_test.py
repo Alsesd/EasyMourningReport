@@ -90,7 +90,7 @@ def run_tests():
             # Verify store name
             header_text = page.inner_text("header")
             print("Header store name:", header_text)
-            assert "Магазин 1" in header_text
+            assert "Підрозділ 1" in header_text
 
             # Test quantity stepper (+ button)
             plus_buttons = page.locator('button[aria-label^="Збільшити кількість"]').all()
@@ -198,14 +198,14 @@ def run_tests():
             # Navigate to Reports
             admin_page.click('a:visible:has-text("Звіти")')
             admin_page.wait_for_url("**/admin/reports**", timeout=5000)
-            admin_page.wait_for_selector('text=Магазин 1', timeout=5000)
+            admin_page.wait_for_selector('text=Підрозділ 1', timeout=5000)
             print("Navigated to Reports list, store 1 card visible")
 
             # Check store1 report card and click into detail
-            report_card = admin_page.locator('a:has-text("Магазин 1")').first
+            report_card = admin_page.locator('a:has-text("Підрозділ 1")').first
             report_card.click()
             admin_page.wait_for_url("**/admin/reports/**", timeout=5000)
-            admin_page.wait_for_selector('text=Магазин 1', timeout=5000)
+            admin_page.wait_for_selector('text=Підрозділ 1', timeout=5000)
             print("Navigated to Report Detail:", admin_page.url)
             admin_page.wait_for_selector('text=Надіслав(ла): store1', timeout=5000)
             print("Admin sees who submitted the report!")

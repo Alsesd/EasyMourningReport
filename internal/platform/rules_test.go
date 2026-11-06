@@ -167,7 +167,7 @@ func TestAssignableRolesEscalationGuards(t *testing.T) {
 	f.role("Staff", "platform", nil, AuditView)
 
 	got, _ := testRules.AssignableRoles(f.ctx, f.tx, boss, ptr(f.orgA))
-	if names(got) != "A only,Limited manager,Reports clerk,Магазин,Адміністратор організації" && !sameSet(names(got), "A only,Limited manager,Reports clerk,Магазин,Адміністратор організації") {
+	if names(got) != "A only,Limited manager,Reports clerk,Підрозділ,Адміністратор підрозділу" && !sameSet(names(got), "A only,Limited manager,Reports clerk,Підрозділ,Адміністратор підрозділу") {
 		t.Fatalf("platform manager, org A: %s", names(got))
 	}
 	for _, r := range got {
@@ -185,7 +185,7 @@ func TestAssignableRolesEscalationGuards(t *testing.T) {
 		t.Fatalf("limited manager may assign: %s", names(got))
 	}
 	got, _ = testRules.AssignableRoles(f.ctx, f.tx, mgrFull, ptr(f.orgA))
-	if !sameSet(names(got), "A only,Limited manager,Reports clerk,Магазин,Адміністратор організації") {
+	if !sameSet(names(got), "A only,Limited manager,Reports clerk,Підрозділ,Адміністратор підрозділу") {
 		t.Fatalf("org admin may assign: %s", names(got))
 	}
 	if _, err := testRules.ResolveRoles(f.ctx, f.tx, mgrLimited, ptr(f.orgA), []int64{reportsRole}); ruleStatus(err) != 0 {

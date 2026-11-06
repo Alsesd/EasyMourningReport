@@ -379,7 +379,7 @@ func TestDisabledAccountsAndArchivedOrganisations(t *testing.T) {
 	}
 	e.login("clerk", "pw")
 	rows := e.audit()
-	if last := rows[len(rows)-1]; last.detail != "обліковий запис вимкнено" || last.role != "Магазин" || last.login != "clerk" {
+	if last := rows[len(rows)-1]; last.detail != "обліковий запис вимкнено" || last.role != "Підрозділ" || last.login != "clerk" {
 		t.Fatalf("%+v", last)
 	}
 	// A rolled-back write must not leave an audit row behind.

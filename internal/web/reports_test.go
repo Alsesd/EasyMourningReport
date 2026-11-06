@@ -79,10 +79,10 @@ func TestStoreScope(t *testing.T) {
 	seedDemo(t, e)
 	s1, s2 := e.as("store1", "Store1-demo"), e.as("store2", "Store2-demo")
 	s1.json("PUT", "/api/v1/store/reports/2026-11", `{"action":"draft","quantities":[{"product_id":1,"price_cents":250,"quantity":3}]}`, 200)
-	if r := s2.json("GET", "/api/v1/store/reports/2026-11", "", 200); r["status"] != "new" || r["store_name"] != "Магазин 2" {
+	if r := s2.json("GET", "/api/v1/store/reports/2026-11", "", 200); r["status"] != "new" || r["store_name"] != "Підрозділ 2" {
 		t.Fatalf("store2 sees %v", r)
 	}
-	if n := count(e, "SELECT COUNT(*) FROM reports r JOIN organisations o ON o.id = r.store_id WHERE o.name = 'Магазин 2'"); n != 0 {
+	if n := count(e, "SELECT COUNT(*) FROM reports r JOIN organisations o ON o.id = r.store_id WHERE o.name = 'Підрозділ 2'"); n != 0 {
 		t.Fatalf("store2 has %d reports", n)
 	}
 	for _, p := range []string{"/api/v1/admin/reports", "/api/v1/admin/reports/1", "/api/v1/admin/summary?period=2026-11", "/api/v1/admin/products"} {

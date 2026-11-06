@@ -82,12 +82,12 @@ export const uk = {
 
   month: {
     crumb: "Звіти",
-    storesTitle: "Магазини",
-    storesDescription: "Стан звіту кожного магазину за місяць. Відкрийте рядок, щоб переглянути звіт.",
+    storesTitle: "Підрозділи",
+    storesDescription: "Стан звіту кожного підрозділу за місяць. Відкрийте рядок, щоб переглянути звіт.",
     productsTitle: "Товари за місяць",
-    productsDescription: "Кількість за товарами й магазинами, як у файлі Excel.",
+    productsDescription: "Кількість за товарами й підрозділами, як у файлі Excel.",
     submittedOf: (sent: number, total: number) => `Надіслано ${sent} з ${total}`,
-    notReported: (n: number) => (n === 0 ? "усі магазини звітували" : `без звіту: ${n}`),
+    notReported: (n: number) => (n === 0 ? "усі підрозділи звітували" : `без звіту: ${n}`),
     monthTotal: "Разом за місяць",
     positions: (n: number) => {
       const mod10 = n % 10;
@@ -101,7 +101,7 @@ export const uk = {
     loadingSummary: "Формую зведення…",
     loadError: "Не вдалося завантажити звіти.",
     retry: "Повторити",
-    byStore: "За магазинами",
+    byStore: "За підрозділами",
     allReports: "Усі звіти",
   },
 
@@ -121,14 +121,14 @@ export const uk = {
   },
 
   reports: {
-    title: "Звіти магазинів",
+    title: "Звіти підрозділів",
     noReports: "Немає звітів за обраний період",
     unlockReport: "Розблокувати звіт",
     lockReport: "Заблокувати звіт",
     unlockConfirmTitle: "Розблокувати звіт?",
-    unlockConfirmMessage: "Магазин знову зможе редагувати та зберігати звіт.",
+    unlockConfirmMessage: "Підрозділ знову зможе редагувати та зберігати звіт.",
     lockConfirmTitle: "Заблокувати звіт?",
-    lockConfirmMessage: "Звіт стане доступним лише для читання для магазину.",
+    lockConfirmMessage: "Звіт стане доступним лише для читання для підрозділу.",
   },
 
   settings: {
@@ -136,18 +136,18 @@ export const uk = {
     tabs: {
       products: "Товари й ціни",
       productsDescription: "Каталог для звітів, історія цін, імпорт з Excel.",
-      reportSettings: "Звіти організацій",
-      reportSettingsDescription: "Режим «По розрахунку» для окремих організацій.",
+      reportSettings: "Звіти підрозділів",
+      reportSettingsDescription: "Режим «По розрахунку» для окремих підрозділів.",
     },
     reportSettings: {
       title: "Режим «По розрахунку»",
       description:
-        "Для увімкнених організацій у звіті з'являється окрема кількість «по розрахунку». Вона не впливає на суми.",
+        "Для увімкнених підрозділів у звіті з'являється окрема кількість «по розрахунку». Вона не впливає на суми.",
       reportsCount: (n: number) => `Звітів: ${n}`,
       enabled: "Увімкнено",
       disabled: "Вимкнено",
       updated: "Налаштування звітів збережено.",
-      empty: "Організацій ще немає.",
+      empty: "Підрозділів ще немає.",
     },
   },
 };

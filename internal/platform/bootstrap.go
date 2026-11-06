@@ -16,8 +16,8 @@ type builtIn struct{ Key, Name, Scope string }
 
 var BuiltInRoles = []builtIn{
 	{"platform_admin", "Адміністратор", "platform"},
-	{"org_admin", "Адміністратор організації", "organisation"},
-	{"store", "Магазин", "organisation"},
+	{"org_admin", "Адміністратор підрозділу", "organisation"},
+	{"store", "Підрозділ", "organisation"},
 }
 
 // SQLTimeFormat is the naive-UTC text format SQLAlchemy writes for DATETIME columns.

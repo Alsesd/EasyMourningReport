@@ -76,7 +76,7 @@ describe("UsersSection", () => {
     expect(await screen.findByText("clerk")).toBeDefined();
     expect(screen.getByText("Вимкнено")).toBeDefined();
     // No organisation picker: the server always uses the manager's own organisation.
-    expect(screen.queryByLabelText("Організація")).toBeNull();
+    expect(screen.queryByLabelText("Підрозділ")).toBeNull();
   });
 
   it("creates a user with the chosen role", async () => {
@@ -104,6 +104,6 @@ describe("UsersSection", () => {
 
   it("lets a platform admin pick the organisation", async () => {
     renderPage(platformAdmin);
-    expect(await screen.findByLabelText("Організація")).toBeDefined();
+    expect(await screen.findByLabelText("Підрозділ")).toBeDefined();
   });
 });

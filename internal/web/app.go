@@ -146,7 +146,7 @@ func (a *App) authed(codes []string, h authedHandler) http.HandlerFunc {
 func (a *App) member(codes []string, h authedHandler) http.HandlerFunc {
 	return a.authed(codes, func(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
 		if p.User.Org == nil {
-			return HTTPError{Status: 403, Detail: "Лише для користувачів організацій."}
+			return HTTPError{Status: 403, Detail: "Лише для працівників підрозділів."}
 		}
 		return h(w, r, p)
 	})

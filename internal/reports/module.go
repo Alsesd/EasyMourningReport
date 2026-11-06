@@ -14,13 +14,13 @@ var Module = core.Module{
 	Title: "Звіти",
 	Permissions: []core.Permission{
 		{Code: Submit, Label: "Заповнення звіту", Scope: "organisation",
-			Description: "Заповнювати й надсилати щомісячний звіт своєї організації."},
+			Description: "Заповнювати й надсилати щомісячний звіт свого підрозділу."},
 		{Code: Review, Label: "Перегляд звітів", Scope: "platform",
-			Description: "Бачити звіти всіх організацій і зведення, вивантажувати Excel, блокувати й розблоковувати звіти."},
+			Description: "Бачити звіти всіх підрозділів і зведення, вивантажувати Excel, блокувати й розблоковувати звіти."},
 		{Code: CatalogManage, Label: "Товари й ціни", Scope: "platform",
 			Description: "Додавати товари, змінювати ціни, імпортувати з Excel."},
-		{Code: SettingsManage, Label: "Налаштування звітів організацій", Scope: "platform",
-			Description: "Вмикати режим «По розрахунку» для окремих організацій."},
+		{Code: SettingsManage, Label: "Налаштування звітів підрозділів", Scope: "platform",
+			Description: "Вмикати режим «По розрахунку» для окремих підрозділів."},
 	},
 	AuditActions: []string{
 		"збережено звіт", "надіслано звіт", "заблоковано звіт", "розблоковано звіт",

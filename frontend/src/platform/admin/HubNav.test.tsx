@@ -27,7 +27,7 @@ describe("HubRailNav", () => {
   it("lists every section an administrator may open, grouped", () => {
     renderRail(adminPermissions);
     const menu = screen.getByRole("navigation", { name: "Розділи адміністрування" });
-    for (const label of ["Огляд", "Користувачі", "Організації", "Ролі", "Товари й ціни", "Звіти організацій", "Публічний доступ", "Резервні копії", "Журнал дій"]) {
+    for (const label of ["Огляд", "Користувачі", "Підрозділи", "Ролі", "Товари й ціни", "Звіти підрозділів", "Публічний доступ", "Резервні копії", "Журнал дій"]) {
       expect(within(menu).getByRole("link", { name: label })).toBeDefined();
     }
     for (const group of ["Доступ", "Система", "Активність"]) expect(within(menu).getByText(group)).toBeDefined();

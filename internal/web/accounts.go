@@ -218,7 +218,7 @@ func (a *App) createOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 	var newID int64
 	err = a.write(r.Context(), func(tx *sql.Tx) error {
 		ctx := r.Context()
-		name, err := platform.CleanName(rawName, "Назва організації")
+		name, err := platform.CleanName(rawName, "Назва підрозділу")
 		if err != nil {
 			return err
 		}
@@ -227,7 +227,7 @@ func (a *App) createOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 		}
 		res, err := tx.ExecContext(ctx, "INSERT INTO organisations (name, archived) VALUES (?, 0)", name)
 		if err != nil {
-			return uniqueConflict(err, "Організація з такою назвою або логін уже існує.")
+			return uniqueConflict(err, "Підрозділ з такою назвою або логін уже існує.")
 		}
 		newID, _ = res.LastInsertId()
 		detail := name
@@ -247,11 +247,11 @@ func (a *App) createOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 				return err
 			}
 			if _, err := platform.CreateUser(tx, login, hash, &newID, a.now(), storeRole); err != nil {
-				return uniqueConflict(err, "Організація з такою назвою або логін уже існує.")
+				return uniqueConflict(err, "Підрозділ з такою назвою або логін уже існує.")
 			}
 			detail += " · логін " + login
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "додано організацію", detail)
+		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "додано підрозділ", detail)
 	})
 	if err != nil {
 		return err
@@ -278,7 +278,7 @@ func orgOr404(ctx context.Context, q core.Querier, id int64) (*platform.Organisa
 		return nil, err
 	}
 	if o == nil {
-		return nil, HTTPError{Status: 404, Detail: "Організацію не знайдено."}
+		return nil, HTTPError{Status: 404, Detail: "Підрозділ не знайдено."}
 	}
 	return o, nil
 }
@@ -304,7 +304,7 @@ func (a *App) updateOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 		if err != nil {
 			return err
 		}
-		name, err := platform.CleanName(rawName, "Назва організації")
+		name, err := platform.CleanName(rawName, "Назва підрозділу")
 		if err != nil {
 			return err
 		}
@@ -312,11 +312,11 @@ func (a *App) updateOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 			return err
 		}
 		if org.Name != name {
-			if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено організацію", "«"+org.Name+"» → «"+name+"»"); err != nil {
+			if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено підрозділ", "«"+org.Name+"» → «"+name+"»"); err != nil {
 				return err
 			}
 			if _, err := tx.ExecContext(ctx, "UPDATE organisations SET name = ? WHERE id = ?", name, oid); err != nil {
-				return uniqueConflict(err, "Організація з такою назвою вже існує.")
+				return uniqueConflict(err, "Підрозділ з такою назвою вже існує.")
 			}
 		}
 		return nil
@@ -372,7 +372,7 @@ func (a *App) deleteOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 			if _, err := tx.ExecContext(ctx, "UPDATE organisations SET archived = 1 WHERE id = ?", oid); err != nil {
 				return err
 			}
-			if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "архівовано організацію", org.Name+" · "+strings.Join(parts, ", ")); err != nil {
+			if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "архівовано підрозділ", org.Name+" · "+strings.Join(parts, ", ")); err != nil {
 				return err
 			}
 			out = mutationDTO{ID: oid, Archived: true, Message: "«" + org.Name + "» переміщено в архів. Дані збережено."}
@@ -393,10 +393,10 @@ func (a *App) deleteOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 				return err
 			}
 		}
-		if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "видалено організацію", org.Name); err != nil {
+		if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "видалено підрозділ", org.Name); err != nil {
 			return err
 		}
-		out = mutationDTO{ID: oid, Deleted: true, Message: "Організацію «" + org.Name + "» остаточно видалено."}
+		out = mutationDTO{ID: oid, Deleted: true, Message: "Підрозділ «" + org.Name + "» остаточно видалено."}
 		return nil
 	})
 	if err != nil {
@@ -421,7 +421,7 @@ func (a *App) restoreOrganisation(w http.ResponseWriter, r *http.Request, p *pla
 		if _, err := tx.ExecContext(r.Context(), "UPDATE organisations SET archived = 0 WHERE id = ?", oid); err != nil {
 			return err
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "відновлено організацію", org.Name)
+		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "відновлено підрозділ", org.Name)
 	})
 	if err != nil {
 		return err
@@ -686,7 +686,7 @@ func (a *App) updateUser(w http.ResponseWriter, r *http.Request, p *platform.Pri
 			notes = append(notes, "змінено ім'я")
 		}
 		if !sameOrgID(user.Org, newOrg) {
-			notes = append(notes, "організація → "+orgLabel)
+			notes = append(notes, "підрозділ → "+orgLabel)
 		}
 		if user.Active != active {
 			if active {
@@ -1070,7 +1070,7 @@ func (a *App) updateRole(w http.ResponseWriter, r *http.Request, p *platform.Pri
 			return err
 		}
 		if scope != role.Scope {
-			return platform.RuleError{Msg: "Тип ролі (платформа чи організація) змінити не можна."}
+			return platform.RuleError{Msg: "Тип ролі (для платформи чи для підрозділу) змінити не можна."}
 		}
 		name, err := platform.CleanName(rawName, "Назва ролі")
 		if err != nil {
@@ -1095,7 +1095,7 @@ func (a *App) updateRole(w http.ResponseWriter, r *http.Request, p *platform.Pri
 				return err
 			}
 			if elsewhere > 0 {
-				return platform.RuleError{Msg: "Роль призначено користувачам інших організацій; спершу зніміть її з них."}
+				return platform.RuleError{Msg: "Роль призначено користувачам інших підрозділів; спершу зніміть її з них."}
 			}
 		}
 		if err := platform.CheckRoleName(ctx, tx, name, oid, rid); err != nil {

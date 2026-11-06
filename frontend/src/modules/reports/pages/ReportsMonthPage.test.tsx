@@ -54,7 +54,7 @@ describe("ReportsMonthPage", () => {
 
   it("lists every store with its state and links to existing reports", async () => {
     renderPage();
-    const stores = screen.getByRole("region", { name: "Магазини" });
+    const stores = screen.getByRole("region", { name: "Підрозділи" });
     await within(stores).findAllByText("Магазин Центр");
     expect(within(stores).getAllByText("Чернетка").length).toBeGreaterThan(0);
     expect(within(stores).getAllByText("Немає звіту").length).toBeGreaterThan(0);

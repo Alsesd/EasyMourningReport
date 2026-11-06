@@ -60,8 +60,8 @@ describe("NewOrganisationForm", () => {
     renderForm();
     expect(screen.getByText(/Необов'язково/)).toBeDefined();
     expect(screen.queryByLabelText("Логін")).toBeNull(); // no employee row is forced on the user
-    await userEvent.type(screen.getByLabelText("Назва організації"), "Філія Північ");
-    fireEvent.click(screen.getByRole("button", { name: "Створити організацію" }));
+    await userEvent.type(screen.getByLabelText("Назва підрозділу"), "Філія Північ");
+    fireEvent.click(screen.getByRole("button", { name: "Створити підрозділ" }));
     await waitFor(() => expect(done).toHaveBeenCalled());
     expect(posts("/api/v1/organisations")[0].body).toEqual({ name: "Філія Північ", first_user: null });
     expect(posts("/api/v1/users")).toHaveLength(0);
@@ -70,7 +70,7 @@ describe("NewOrganisationForm", () => {
 
   it("creates several employees with their roles after the organisation", async () => {
     renderForm();
-    await userEvent.type(screen.getByLabelText("Назва організації"), "Філія Південь");
+    await userEvent.type(screen.getByLabelText("Назва підрозділу"), "Філія Південь");
     fireEvent.click(screen.getByRole("button", { name: "Додати працівника" }));
     fireEvent.click(screen.getByRole("button", { name: "Додати працівника" }));
     const logins = await screen.findAllByLabelText("Логін");
@@ -81,7 +81,7 @@ describe("NewOrganisationForm", () => {
     await userEvent.type(passwords[1], "Long-enough-2");
     await waitFor(() => expect((screen.getAllByLabelText("Роль")[0] as HTMLSelectElement).options.length).toBe(2)); // only shared organisation roles
     fireEvent.change(screen.getAllByLabelText("Роль")[1], { target: { value: "2" } });
-    fireEvent.click(screen.getByRole("button", { name: "Створити організацію" }));
+    fireEvent.click(screen.getByRole("button", { name: "Створити підрозділ" }));
     await waitFor(() => expect(done).toHaveBeenCalled());
     const users = posts("/api/v1/users").map((c) => c.body);
     expect(users).toEqual([
@@ -93,9 +93,9 @@ describe("NewOrganisationForm", () => {
 
   it("ignores blank rows and refuses short passwords before calling the server", async () => {
     renderForm();
-    await userEvent.type(screen.getByLabelText("Назва організації"), "Філія");
+    await userEvent.type(screen.getByLabelText("Назва підрозділу"), "Філія");
     fireEvent.click(screen.getByRole("button", { name: "Додати працівника" }));
-    fireEvent.click(screen.getByRole("button", { name: "Створити організацію" })); // blank row: fine
+    fireEvent.click(screen.getByRole("button", { name: "Створити підрозділ" })); // blank row: fine
     await waitFor(() => expect(done).toHaveBeenCalledTimes(1));
 
     done.mockClear();
@@ -103,7 +103,7 @@ describe("NewOrganisationForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Додати працівника" }));
     await userEvent.type((await screen.findAllByLabelText("Логін")).at(-1)!, "ivan");
     await userEvent.type(screen.getAllByLabelText("Пароль").at(-1)!, "short");
-    fireEvent.click(screen.getByRole("button", { name: "Створити організацію" }));
+    fireEvent.click(screen.getByRole("button", { name: "Створити підрозділ" }));
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("щонайменше 8 символів"));
     expect(posts("/api/v1/organisations")).toHaveLength(0);
   });
@@ -111,11 +111,11 @@ describe("NewOrganisationForm", () => {
   it("keeps the organisation and reports the employee that could not be created", async () => {
     failUserCreate = "taken";
     renderForm();
-    await userEvent.type(screen.getByLabelText("Назва організації"), "Філія Захід");
+    await userEvent.type(screen.getByLabelText("Назва підрозділу"), "Філія Захід");
     fireEvent.click(screen.getByRole("button", { name: "Додати працівника" }));
     await userEvent.type((await screen.findAllByLabelText("Логін"))[0], "taken");
     await userEvent.type(screen.getAllByLabelText("Пароль")[0], "Long-enough-1");
-    fireEvent.click(screen.getByRole("button", { name: "Створити організацію" }));
+    fireEvent.click(screen.getByRole("button", { name: "Створити підрозділ" }));
     await waitFor(() => expect(done).toHaveBeenCalled());
     expect(done.mock.calls[0][0].failures).toEqual(["taken: Логін зайнятий."]);
     expect(done.mock.calls[0][0].organisation.id).toBe(20);
@@ -141,12 +141,12 @@ describe("NewOrganisationForm", () => {
 
   it("moves selected existing employees into the new organisation, keeping only roles that can follow", async () => {
     renderForm();
-    await userEvent.type(screen.getByLabelText("Назва організації"), "Нова філія");
+    await userEvent.type(screen.getByLabelText("Назва підрозділу"), "Нова філія");
     fireEvent.click(screen.getByRole("button", { name: "Перенести наявних працівників" }));
     expect(await screen.findByText("olena")).toBeDefined();
     expect(screen.queryByText("boss")).toBeNull(); // platform staff are not offered
     fireEvent.click(screen.getByRole("checkbox"));
-    fireEvent.click(screen.getByRole("button", { name: "Створити організацію" }));
+    fireEvent.click(screen.getByRole("button", { name: "Створити підрозділ" }));
     await waitFor(() => expect(done).toHaveBeenCalled());
     const put = calls.find((c) => c.method === "PUT")!;
     expect(put.url).toMatch(/\/api\/v1\/users\/5$/);
