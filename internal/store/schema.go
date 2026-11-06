@@ -135,7 +135,7 @@ func checkMigrationIDs(tx *sql.Tx, tables map[string]bool) error {
 	}
 	if len(missing) > 0 {
 		sort.Strings(missing)
-		return fmt.Errorf("database is missing migrations %s: start the last Python release once to upgrade it, then retry",
+		return fmt.Errorf("database is missing migrations %s: start the last Python release (git commit 92564ef or earlier) once to upgrade it, then retry",
 			strings.Join(missing, ", "))
 	}
 	return nil

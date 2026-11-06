@@ -1,5 +1,4 @@
-// Package config resolves paths and environment settings exactly like
-// backend/app/core/paths.py, db/session.py and db/backup.py.
+// Package config resolves data and backup paths and environment settings.
 package config
 
 import (

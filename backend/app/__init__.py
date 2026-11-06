@@ -1,1 +1,0 @@
-"""EasyMourningReport application package."""

@@ -46,7 +46,7 @@ export const accessApi = {
     api.get<AuditLogDTO[]>("/api/v1/admin/logs", { params }),
 };
 
-/** Permission codes owned by the platform (mirrors backend app/platform/accounts/permissions.py). */
+/** Permission codes owned by the platform (mirrors internal/platform/module.go). */
 export const P = {
   organisationsManage: "platform.organisations.manage",
   usersManage: "platform.users.manage",

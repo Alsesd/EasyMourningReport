@@ -3,30 +3,17 @@ reports.db
 backups/
 secret.key
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache/
-.coverage
-htmlcov/
-.venv/
-build/
+# Build output
 dist/
-*.spec
-*.egg-info/
-
-# uv
-.uv/
+bin/
 
 # Nix / direnv
 .direnv/
 .envrc
 result
 
-# Frontend (build output is written into the backend package)
-backend/app/static/app/
+# Frontend (the Vite build is embedded into the Go binary)
+internal/assets/static/app/
 frontend/node_modules/
 frontend/dist/
 .agents/
@@ -51,8 +38,3 @@ Thumbs.db
 
 # Claude Code (personal overrides)
 .claude/settings.local.json
-
-# Go: embedded copy of the static files and SPA (see scripts/go_assets.sh), built binaries
-/internal/assets/dist/*
-!/internal/assets/dist/.gitkeep
-/bin/

@@ -1,5 +1,4 @@
 // Package core holds the contracts shared by the platform and the feature modules
-// (the Go form of backend/app/core/modules.py).
 package core
 
 import (

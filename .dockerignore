@@ -2,16 +2,6 @@
 .git
 .gitignore
 
-# Python virtual environments and caches
-.venv
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache
-.coverage
-htmlcov
-
 # Nix / direnv
 .direnv
 .envrc
@@ -19,20 +9,14 @@ flake.nix
 flake.lock
 result
 
-# Tests
-tests
-backend/app/tests
-
 # Documentation
 *.md
 docs
 
 # Build artifacts
-backend/app/static/app/
+internal/assets/static/app/
 build
 dist
-*.spec
-*.egg-info
 frontend/node_modules
 frontend/dist
 .agents
@@ -44,7 +28,6 @@ frontend/dist
 # Local env & data
 app_storage/
 .env
-.uv/
 
 backups
 data
@@ -62,5 +45,3 @@ Thumbs.db
 # GitHub / CI metadata
 .github
 
-# Go build output copied in by scripts/go_assets.sh (the go.Dockerfile build recreates it)
-internal/assets/dist/static

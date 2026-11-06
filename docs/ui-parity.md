@@ -45,13 +45,13 @@ This document records the current browser behavior and points to the code that o
 
 | Behavior | Current implementation |
 |---|---|
-| JSON API and authentication endpoints | `backend/app/platform/*/routes.py`, `backend/app/modules/*/routes.py`, composed in `backend/app/routes/__init__.py` |
-| REST API error envelopes and minimal non-API error page | `backend/app/core/http_errors.py` |
-| Offline page, PWA endpoints and `/healthz` | `backend/app/routes/pwa.py`, `backend/app/static/offline.html` |
-| Last-resort SPA routing after API/PWA routes | `backend/app/routes/fallback.py` |
+| JSON API and authentication endpoints | `internal/web/*.go` (routes registered per area, e.g. `accounts.go`, `reports.go`), mounted by `internal/web/server.go` |
+| REST API error envelopes and minimal non-API error page | `internal/web/errors.go` |
+| Offline page, PWA endpoints and `/healthz` | `internal/web/server.go`, `internal/assets/static/` |
+| Last-resort SPA routing after API/PWA routes | `internal/web/server.go` |
 | Browser styles and theme tokens | `frontend/src/app/index.css`, `frontend/tailwind.config.js` |
-| Generated OpenAPI types | `frontend/src/platform/api/schema.d.ts`, regenerated with `npm run gen:api` from `frontend/` |
+| API types | `frontend/src/platform/api/schema.d.ts` (maintained by hand since the Go port) |
 
 ## Release verification
 
-Run the backend suite from the repository root with `uv run --locked pytest`. Run frontend lint, type checking, tests, and production build from `frontend/` with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`. Run the browser check with `uv run --with playwright python scripts/e2e_test.py` (set `CHROMIUM_PATH` to reuse an installed Chromium).
+Run `go vet ./cmd/... ./internal/... && go test ./cmd/... ./internal/...` from the repository root. Run frontend lint, type checking, tests, and production build from `frontend/` with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`. Run the browser check with `go build -o dist/legkyi ./cmd/server && uv run scripts/e2e_test.py` (set `CHROMIUM_PATH` to reuse an installed Chromium).

@@ -14,7 +14,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Backups ports backend/app/db/backup.py: consistent copy, verified, retention by name.
+// Backups makes a consistent copy, verified, retention by name.
 type Backups struct {
 	Store *Store
 	Dir   string

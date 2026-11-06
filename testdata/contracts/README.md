@@ -1,8 +1,9 @@
 # HTTP contract scenarios
 
 Language-neutral characterization of the REST API (see `docs/migration/api-contracts.md`).
-The Python suite (`backend/app/tests/test_contracts.py`) replays them with `TestClient`; the Go port
-will replay the same files with `httptest`.
+These files were recorded from the Python implementation (commit `92564ef`, `backend/app/tests/test_contracts.py`)
+and are now frozen. `internal/web/contract_test.go` replays them with `httptest`. The Python generators (`gen_golden.py`,
+`gen_xlsx_golden.py` in `testdata/reports/`) were removed with the Python backend; edit the fixtures by hand only for intended behaviour changes.
 
 A scenario is a JSON file:
 

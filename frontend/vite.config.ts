@@ -3,7 +3,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 
-// The backend serves the production bundle from /static/app/; the dev server serves the app at /
+// The Go binary serves the production bundle from /static/app/; the dev server serves the app at /
 // and forwards only backend-owned paths. BACKEND_URL points the proxy at another backend port.
 const backend = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
 // Keep the Host header: the backend's same-origin guard compares it with the browser's Origin.
@@ -18,7 +18,7 @@ export default defineConfig(({ command }) => ({
     },
   },
   build: {
-    outDir: "../backend/app/static/app",
+    outDir: "../internal/assets/static/app",
     emptyOutDir: true,
     rollupOptions: {
       output: {

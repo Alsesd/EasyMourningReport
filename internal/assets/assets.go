@@ -1,7 +1,8 @@
 // Package assets embeds the static files and the compiled SPA.
 //
-// dist/ is filled by scripts/go_assets.sh: dist/static is a copy of backend/app/static
-// (PWA files, icons, and the Vite build in static/app). Only dist/.gitkeep is committed.
+// static/ holds the hand-maintained PWA files (manifest, service worker, icons, offline page).
+// static/app/ is the Vite build (`npm run build` in frontend/); it is gitignored and must exist
+// before `go build` for the binary to serve the UI.
 package assets
 
 import (
@@ -9,14 +10,10 @@ import (
 	"io/fs"
 )
 
-//go:embed all:dist
+//go:embed all:static
 var embedded embed.FS
 
-// FS returns the embedded tree rooted at dist (so it contains "static/...").
+// FS returns the embedded tree; paths look like "static/manifest.webmanifest".
 func FS() fs.FS {
-	sub, err := fs.Sub(embedded, "dist")
-	if err != nil {
-		panic(err)
-	}
-	return sub
+	return embedded
 }

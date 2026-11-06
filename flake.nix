@@ -23,8 +23,7 @@
         export PORT="''${PORT:-8000}"
         echo "Serving locally on http://localhost:$PORT"
         echo "To expose publicly via Cloudflare Tunnel, run 'tunnel' in another terminal."
-        cd backend
-        exec uv run --project .. python -m app "$@"
+        exec go run ./cmd/server "$@"
       '';
 
       tunnel = pkgs.writeShellScriptBin "tunnel" ''
@@ -35,8 +34,7 @@
     in {
       default = pkgs.mkShell {
         packages = [
-          pkgs.python311
-          pkgs.uv
+          pkgs.go
           pkgs.nodejs_22
           pkgs.cloudflared
           pkgs.git
@@ -45,25 +43,11 @@
         ];
 
         shellHook = ''
-          echo "EasyMourningReport development shell (uv + Cloudflare Tunnel)"
-
-          # Create the migration lock only on first setup; afterward keep it authoritative.
-          if [ ! -f uv.lock ]; then
-            uv lock
-          fi
-          uv sync --locked
-
-          test() {
-            if [ "$#" -eq 0 ]; then
-              uv run --locked pytest --cov=app --cov-branch --cov-report=term-missing --cov-fail-under=95
-            else
-              uv run --locked pytest "$@"
-            fi
-          }
-
-          echo "Start server:     serve (or serve --reload)"
+          echo "EasyMourningReport development shell (Go + Cloudflare Tunnel)"
+          echo "Build the UI first: (cd frontend && npm ci && npm run build)"
+          echo "Start server:     serve"
           echo "Expose publicly:  tunnel"
-          echo "Run test suite:   test"
+          echo "Run tests:        go test ./cmd/... ./internal/..."
         '';
       };
     });

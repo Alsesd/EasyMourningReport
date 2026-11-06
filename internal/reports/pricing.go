@@ -1,5 +1,5 @@
 // Package reports is the monthly-reports feature module. This file holds the price-history
-// rules (pure functions), ported from backend/app/modules/reports/pricing.py.
+// rules (pure functions).
 package reports
 
 import (

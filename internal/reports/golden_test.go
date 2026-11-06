@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Golden files come from testdata/reports/gen_golden.py (the Python implementation).
+// Golden files are frozen output of the original Python implementation (see testdata/contracts/README.md).
 
 func load(t *testing.T, name string, v any) {
 	t.Helper()

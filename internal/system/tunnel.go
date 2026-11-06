@@ -1,5 +1,5 @@
 // Package system runs the parts of the server that live outside the database: the Cloudflare
-// Tunnel child process and the health report (backend/app/platform/system).
+// Tunnel child process and the health report.
 package system
 
 import (

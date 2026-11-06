@@ -1,5 +1,14 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["playwright"]
+# ///
+"""Browser smoke test: drives the real app (store clerk on mobile, admin on desktop).
+
+Usage:  go build -o dist/legkyi ./cmd/server   (after `npm run build` in frontend/)
+        CHROMIUM_PATH=/opt/pw-browsers/chromium uv run scripts/e2e_test.py
+LEGKYI_E2E_BINARY overrides the binary path (default dist/legkyi).
+"""
 import os
-import sys
 import time
 import shutil
 import subprocess
@@ -13,8 +22,6 @@ def run_tests():
 
     env = os.environ.copy()
     env["LEGKYI_DATA_DIR"] = test_dir
-    backend_path = str(Path(__file__).resolve().parents[1] / "backend")
-    env["PYTHONPATH"] = backend_path + os.pathsep + env.get("PYTHONPATH", "")
     env["ADMIN_PASSWORD"] = "admin123"
     env["DEMO"] = "1"
     env["COOKIE_SECURE"] = "0"
@@ -22,14 +29,12 @@ def run_tests():
     env["PORT"] = "8888"
     env["TUNNEL_ENABLED"] = "0"  # The app's optional .env loader must not enable a real tunnel in tests.
 
-    # LEGKYI_E2E_BINARY runs the Go build instead of the Python app. It runs in the throwaway folder so a
-    # repository .env cannot point its data or backups at the real ones.
-    go_binary = os.getenv("LEGKYI_E2E_BINARY")
-    if go_binary:
-        env["LEGKYI_BACKUPS_DIR"] = os.path.join(test_dir, "backups")
-        command, workdir = [os.path.abspath(go_binary)], test_dir
-    else:
-        command, workdir = [sys.executable, "-m", "app"], backend_path
+    # The binary runs in the throwaway folder so a repository .env cannot point its data or backups
+    # at the real ones.
+    root = Path(__file__).resolve().parents[1]
+    go_binary = os.getenv("LEGKYI_E2E_BINARY") or str(root / "dist" / "legkyi")
+    env["LEGKYI_BACKUPS_DIR"] = os.path.join(test_dir, "backups")
+    command, workdir = [os.path.abspath(go_binary)], test_dir
     server_process = subprocess.Popen(
         command,
         cwd=workdir,

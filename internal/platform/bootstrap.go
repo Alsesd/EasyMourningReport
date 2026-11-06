@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"time"
 )
 
-// Built-in roles (backend/app/platform/accounts/permissions.py). platform_admin and org_admin
+// Built-in roles. platform_admin and org_admin
 // hold every permission of their scope implicitly; "store" gets the modules' default grants.
 type builtIn struct{ Key, Name, Scope string }
 
@@ -108,7 +109,7 @@ func Seed(tx *sql.Tx, grants map[string][]string, getenv func(string) string, ou
 	if _, err := CreateUser(tx, "admin", hash, nil, now, roleIDs["platform_admin"]); err != nil {
 		return err
 	}
-	if getenv("DEMO") != "" {
+	if demoEnabled(getenv("DEMO")) {
 		for _, seed := range demo {
 			if err := seed(context.Background(), tx, now); err != nil {
 				return err
@@ -117,4 +118,13 @@ func Seed(tx *sql.Tx, grants map[string][]string, getenv func(string) string, ou
 	}
 	fmt.Fprintf(out, "\n*** ПЕРШИЙ ЗАПУСК: логін 'admin', пароль '%s'. Змініть його на сторінці «Налаштування». ***\n\n", pw)
 	return nil
+}
+
+// demoEnabled: DEMO is off when empty or an explicit "0/false/no/off" (compose passes DEMO=0 by default).
+func demoEnabled(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "", "0", "false", "no", "off":
+		return false
+	}
+	return true
 }

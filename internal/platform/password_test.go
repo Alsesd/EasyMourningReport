@@ -9,7 +9,7 @@ import (
 )
 
 // testdata/passwords/python_hashes.json was produced with plain hashlib.pbkdf2_hmac
-// (the algorithm of backend/app/core/security.py hash_pw), not by this code.
+// (the algorithm of the original Python release), not by this code.
 func TestPythonHashesVerifyInGo(t *testing.T) {
 	raw, err := os.ReadFile("../../testdata/passwords/python_hashes.json")
 	if err != nil {
@@ -49,6 +49,14 @@ func TestHashFormatAndMalformed(t *testing.T) {
 	for _, bad := range []string{"", "nodollar", "zz$abc", "$"} {
 		if CheckPassword("x", bad) {
 			t.Errorf("malformed %q verified", bad)
+		}
+	}
+}
+
+func TestDemoEnabled(t *testing.T) {
+	for v, want := range map[string]bool{"": false, "0": false, "false": false, " Off ": false, "1": true, "true": true, "yes": true} {
+		if got := demoEnabled(v); got != want {
+			t.Errorf("demoEnabled(%q) = %v, want %v", v, got, want)
 		}
 	}
 }

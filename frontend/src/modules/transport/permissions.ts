@@ -1,4 +1,4 @@
-/** Permission codes of the transport module (mirrors backend app/modules/transport/permissions.py). */
+/** Permission codes of the transport module (mirrors internal/transport/module.go). */
 export const TP = {
   create: "transport.orders.create",
   viewAll: "transport.orders.view_all",

@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1.7
+# One static Go binary with the SPA embedded, plus cloudflared. Normally built via `docker compose`.
 # Stage 1: Build client SPA
 FROM node:22-alpine AS frontend-builder
 
@@ -10,22 +11,22 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Build Python environment & resolve production packages
-FROM python:3.11-slim AS python-builder
+# Stage 2: Build one static binary with the SPA and PWA files embedded
+FROM golang:1.26-bookworm AS go-builder
 
-WORKDIR /app
+WORKDIR /src
 
-COPY --from=ghcr.io/astral-sh/uv:0.10.0 /uv /uvx /bin/
+COPY go.mod go.sum ./
+RUN go mod download
 
-ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+COPY cmd/ cmd/
+COPY internal/ internal/
+COPY --from=frontend-builder /app/internal/assets/static/app/ internal/assets/static/app/
 
-COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --no-install-project
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/legkyi ./cmd/server
 
 # Stage 3: Minimal production runtime
-FROM python:3.11-slim AS runtime
+FROM debian:bookworm-slim AS runtime
 
 WORKDIR /app
 
@@ -38,24 +39,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # cloudflared is started and supervised by the app itself (Адміністрування → Система)
 COPY --from=cloudflare/cloudflared:latest /usr/local/bin/cloudflared /usr/local/bin/cloudflared
 
-# Copy production virtualenv built with prefix /app/.venv
-COPY --from=python-builder /app/.venv /app/.venv
+COPY --from=go-builder /out/legkyi /app/legkyi
 
-# Copy runtime code, application entry point, and built SPA assets
-COPY backend/app/ /app/app/
-COPY --from=frontend-builder /app/backend/app/static/app/ /app/app/static/app/
-
-# Create persistent storage directories with permissive defaults for Windows bind mounts
+# Persistent storage directories with permissive defaults for Windows bind mounts
 RUN mkdir -p /app/data /app/backups && chmod 777 /app/data /app/backups
 
-# Declare persistent storage volumes for host device persistence
 VOLUME ["/app/data", "/app/backups"]
 
-ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONIOENCODING=utf-8 \
-    LEGKYI_DATA_DIR=/app/data \
+ENV LEGKYI_DATA_DIR=/app/data \
     LEGKYI_BACKUPS_DIR=/app/backups \
     HOST=0.0.0.0 \
     PORT=8000
@@ -66,5 +57,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=20s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -fsS "http://127.0.0.1:8000/healthz" || exit 1
 
-# Single entry point: migrations, backups, tunnel and the web server
-CMD ["python", "-m", "app"]
+# Single entry point: schema, backups, tunnel and the web server
+CMD ["/app/legkyi"]

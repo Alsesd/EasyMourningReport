@@ -1,4 +1,4 @@
-// Command server is the Go port of `python -m app`.
+// Command server is the application entry point: schema, backups, tunnel and the web server.
 package main
 
 import (
@@ -60,7 +60,7 @@ func run() error {
 	}
 	defer st.Close()
 
-	// Same order as lifecycle.py: integrity check (log only), schema, roles + first admin, backup, loop.
+	// integrity check (log only), schema, roles + first admin, backup, loop.
 	if verdict, err := st.IntegrityCheck(); err != nil || verdict != "ok" {
 		log.Printf("DATABASE INTEGRITY CHECK FAILED: %v %s. Restore the newest backup from the backups folder.", err, verdict)
 	}
@@ -111,7 +111,7 @@ func run() error {
 	case <-ctx.Done():
 	case serveErr = <-errc:
 	}
-	// Shutdown order (as lifecycle.py): HTTP, tunnel, loop, checkpoint, final backup.
+	// Shutdown order: HTTP, tunnel, loop, checkpoint, final backup.
 	// Windows gives a closing console about 5 s and Docker 10 s: finish in-flight requests quickly so the
 	// checkpoint and the final backup still run.
 	sctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

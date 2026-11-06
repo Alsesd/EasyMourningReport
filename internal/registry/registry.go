@@ -1,4 +1,4 @@
-// Package registry lists the installed modules, platform first (backend/app/platform/registry.py).
+// Package registry lists the installed modules, platform first.
 // Only this package and cmd/server may import the module packages.
 package registry
 

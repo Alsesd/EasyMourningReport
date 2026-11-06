@@ -14,7 +14,7 @@
 | API access and error contracts | [`docs/API.md`](docs/API.md) | API contract |
 | Route map and behavior owners | [`docs/ui-parity.md`](docs/ui-parity.md) | Implementation map |
 | Product-specific report and price rules | [`docs/DESIGN.md`](docs/DESIGN.md) | Maintained product UX notes |
-| Permission enforcement | `backend/app/platform/accounts/access.py`, `frontend/src/app/routing/ProtectedRoute.tsx` | Runtime enforcement evidence |
+| Permission enforcement | `internal/web/session.go`, `internal/platform/principal.go`, `frontend/src/app/routing/ProtectedRoute.tsx` | Runtime enforcement evidence |
 
 ## Visual contract
 

@@ -13,7 +13,7 @@ import (
 const pbkdf2Iterations = 200_000
 
 // HashPassword returns "salthex$hashhex" (16-byte salt, PBKDF2-HMAC-SHA256, 200k iterations),
-// identical to backend/app/core/security.py hash_pw. A nil salt generates a random one.
+// the PBKDF2 format of the original Python release (existing hashes keep working). A nil salt generates a random one.
 func HashPassword(pw string, salt []byte) (string, error) {
 	if salt == nil {
 		salt = make([]byte, 16)

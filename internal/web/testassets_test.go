@@ -7,10 +7,10 @@ import (
 	"testing/fstest"
 )
 
-// testAssets mirrors the embedded tree without depending on the gitignored internal/assets/dist:
-// the real hand-maintained files of backend/app/static (PWA files, icons) plus a stub SPA index.
+// testAssets mirrors the embedded tree without depending on the gitignored Vite build:
+// the real hand-maintained files of internal/assets/static (PWA files, icons) plus a stub SPA index.
 func testAssets() fs.FS {
-	root := "../../backend/app/static"
+	root := "../assets/static"
 	m := fstest.MapFS{"static/app/index.html": {Data: []byte("<!doctype html><title>spa</title>")}}
 	entries, err := os.ReadDir(root)
 	if err != nil {
