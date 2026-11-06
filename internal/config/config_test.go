@@ -98,3 +98,32 @@ func TestLoadEnvFileDoesNotOverride(t *testing.T) {
 		t.Fatal("missing file must be fine")
 	}
 }
+
+func TestLoadEnvFileWindowsEncodings(t *testing.T) {
+	utf16le := func(s string) []byte {
+		out := []byte{0xFF, 0xFE}
+		for _, r := range s {
+			out = append(out, byte(r), byte(r>>8))
+		}
+		return out
+	}
+	const body = "# comment\r\nTUNNEL_TOKEN=eyJhIjoiYg==\r\nexport PORT=\"9000\"\r\nADMIN_PASSWORD=пароль\r\n"
+	cases := map[string][]byte{
+		"plain crlf": []byte(body),
+		"utf8 bom":   append([]byte{0xEF, 0xBB, 0xBF}, body...),
+		"utf16le":    utf16le(body),
+	}
+	for name, data := range cases {
+		path := filepath.Join(t.TempDir(), ".env")
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		got := map[string]string{}
+		if err := LoadEnvFile(path, func(string) (string, bool) { return "", false }, func(k, v string) { got[k] = v }); err != nil {
+			t.Fatal(err)
+		}
+		if got["TUNNEL_TOKEN"] != "eyJhIjoiYg==" || got["PORT"] != "9000" || got["ADMIN_PASSWORD"] != "пароль" || len(got) != 3 {
+			t.Errorf("%s: %q", name, got)
+		}
+	}
+}

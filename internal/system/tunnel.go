@@ -5,6 +5,7 @@ package system
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -30,11 +31,17 @@ type TunnelStatus struct {
 // Tunnel supervises one cloudflared child process. State lives in Root: tunnel/token (0600),
 // tunnel/cloudflared.log and the .tunnel-enabled marker that restarts it with the app.
 type Tunnel struct {
-	Root        string
-	Getenv      func(string) string
-	LookPath    func(string) (string, error)
-	MetricsAddr string // cloudflared's local metrics endpoint
-	Port        string // the port the app listens on, for quick tunnels
+	Root     string
+	Getenv   func(string) string
+	LookPath func(string) (string, error)
+	// Bundled extracts the cloudflared that is embedded in the executable into the given folder and
+	// returns its path (nil when the build does not contain one).
+	Bundled func(dir string) (string, error)
+	// EnableByDefault turns the tunnel on once at the first start (bundled single-file builds), after
+	// which the saved preference and the admin page decide. TUNNEL_ENABLED=0 still wins.
+	EnableByDefault bool
+	MetricsAddr     string // cloudflared's local metrics endpoint
+	Port            string // the port the app listens on, for quick tunnels
 
 	mu   sync.Mutex
 	proc *child
@@ -118,13 +125,21 @@ func (t *Tunnel) saveToken(token string) error {
 	return nil
 }
 
-// binary: a set CLOUDFLARED_PATH must point at a file; there is no fallback to PATH then.
+// binary: a set CLOUDFLARED_PATH must point at a file (no fallback then); otherwise the bundled
+// copy, then cloudflared from PATH.
 func (t *Tunnel) binary() string {
 	if override := strings.TrimSpace(t.env("CLOUDFLARED_PATH")); override != "" {
 		if fileExists(override) {
 			return override
 		}
 		return ""
+	}
+	if t.Bundled != nil {
+		p, err := t.Bundled(t.stateDir())
+		if err == nil {
+			return p
+		}
+		log.Printf("bundled cloudflared could not be extracted: %v", err)
 	}
 	look := t.LookPath
 	if look == nil {
@@ -295,6 +310,7 @@ func (t *Tunnel) Start(token string, autostart bool) TunnelStatus {
 		t.mu.Unlock()
 		return t.failed("Не вдалося запустити cloudflared: " + err.Error())
 	}
+	bindToLifetime(cmd) // Windows: cloudflared dies with the app even if the app is killed
 	c := &child{cmd: cmd, log: logFile, done: make(chan struct{})}
 	go func() {
 		_ = cmd.Wait()
@@ -326,6 +342,7 @@ func (t *Tunnel) Stop() TunnelStatus {
 // StartIfEnabled is the startup rule: TUNNEL_ENABLED=0 wins, then TUNNEL_ENABLED=1 or TUNNEL_TOKEN,
 // then the saved preference.
 func (t *Tunnel) StartIfEnabled() *TunnelStatus {
+	t.applyDefault()
 	switch strings.ToLower(strings.TrimSpace(t.env("TUNNEL_ENABLED"))) {
 	case "0", "false", "no", "off":
 		return nil
@@ -337,6 +354,24 @@ func (t *Tunnel) StartIfEnabled() *TunnelStatus {
 	}
 	s := t.Start("", true)
 	return &s
+}
+
+// applyDefault writes the autostart marker once on the very first start of a bundled build, unless
+// TUNNEL_ENABLED turns the tunnel off. A sentinel keeps it from overriding the admin's later choice.
+func (t *Tunnel) applyDefault() {
+	if !t.EnableByDefault {
+		return
+	}
+	sentinel := filepath.Join(t.Root, ".tunnel-default-applied")
+	if fileExists(sentinel) {
+		return
+	}
+	switch strings.ToLower(strings.TrimSpace(t.env("TUNNEL_ENABLED"))) {
+	case "0", "false", "no", "off":
+		return // not recorded: removing the setting later still gives the default once
+	}
+	t.writeAutostart(true)
+	_ = os.WriteFile(sentinel, []byte("1"), 0o644)
 }
 
 // Shutdown stops the child; call it before the final backup.

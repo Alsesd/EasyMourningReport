@@ -53,7 +53,35 @@ npm test -- --run
 npm run build
 ```
 
-Release binaries for Linux and Windows (data next to the `.exe`): `bash scripts/build_go.sh` writes `dist/legkyi` and `dist/legkyi.exe`.
+## Single-file Windows program
+
+`bash scripts/build_go.sh` (needs Go, Node and curl; works from Linux or macOS) writes `dist/legkyi.exe` (Windows) and `dist/legkyi` (Linux). Each is **one file** that contains the web UI, the PWA files and `cloudflared` (a pinned release, downloaded once and checked by SHA-256, Apache-2.0, see `dist/NOTICE.txt`).
+
+Copy `legkyi.exe` to any writable folder and start it. It creates everything **in that same folder**:
+
+| File | What |
+|---|---|
+| `.env` | optional settings, you create it (see below) |
+| `reports.db` (+ `-wal`, `-shm`) | the database |
+| `secret.key` | session signing key (keep it; deleting it signs everyone out) |
+| `backups/` | verified database backups (every `BACKUP_EVERY_MIN`, at start and at exit) |
+| `tunnel/` | the extracted `cloudflared-<version>.exe`, `cloudflared.log`, and a token saved from the admin page |
+| `.tunnel-enabled`, `.tunnel-default-applied` | tunnel autostart markers |
+
+On start it opens the database, takes a backup, starts the web server on `http://127.0.0.1:8000` and starts the Cloudflare Tunnel. **The first start prints the administrator login and password in the console window once** (set `ADMIN_PASSWORD` in `.env` to choose it). Close the window or press Ctrl+C to stop: the tunnel is stopped, a final backup is taken. If the program cannot start (for example the port is busy) the window waits for Enter so the message can be read.
+
+`.env` next to the exe (Notepad is fine: UTF-8, UTF-8 with BOM, UTF-16 and Windows line endings are all read):
+
+```env
+ADMIN_PASSWORD=choose-a-password
+TUNNEL_TOKEN=eyJ...            # your Cloudflare named-tunnel token: a stable public address
+PUBLIC_URL=https://zvit.example.com
+PORT=8000
+```
+
+Without `TUNNEL_TOKEN` the program opens a temporary Quick Tunnel and prints its `trycloudflare.com` address when ready (it changes on every start). With `TUNNEL_TOKEN` it runs your named tunnel; variables already set in the Windows environment win over `.env`. `TUNNEL_ENABLED=0` keeps the tunnel off; after the first start the on/off choice in **Адміністрування → Система** is remembered. `cloudflared` always stops with the program, even when it is killed from Task Manager (Windows job object).
+
+Notes: the file is not code-signed, so Windows SmartScreen may warn on first start («More info → Run anyway») and some antivirus tools inspect the unpacked `cloudflared`. Put the program in a folder you can write to (not `C:\Program Files`); otherwise data goes to `%LOCALAPPDATA%\LegkyiZvit` and a warning is printed.
 
 ## Upgrading from earlier releases
 

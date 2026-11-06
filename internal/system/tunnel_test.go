@@ -300,3 +300,46 @@ func TestConcurrentStatusStartStop(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestBundledDefaultEnablesOnceAndRespectsLaterChoice(t *testing.T) {
+	f := newFixture(t)
+	f.tun.EnableByDefault = true
+	f.tun.StartIfEnabled() // fails to find a binary, but records the default
+	if !f.tun.Status().Autostart {
+		t.Fatal("first start of a bundled build must turn autostart on")
+	}
+	f.tun.SetAutostart(false) // the admin switches it off
+	f.tun.StartIfEnabled()
+	if f.tun.Status().Autostart {
+		t.Fatal("the default must not override a later choice")
+	}
+}
+
+func TestBundledDefaultHonoursTunnelEnabledOff(t *testing.T) {
+	f := newFixture(t)
+	f.tun.EnableByDefault = true
+	f.env["TUNNEL_ENABLED"] = "0"
+	if f.tun.StartIfEnabled() != nil || f.tun.Status().Autostart {
+		t.Fatal("TUNNEL_ENABLED=0 must keep the tunnel off")
+	}
+}
+
+func TestNoDefaultWithoutBundle(t *testing.T) {
+	f := newFixture(t)
+	if f.tun.StartIfEnabled() != nil || f.tun.Status().Autostart {
+		t.Fatal("non-bundled builds keep the tunnel off until enabled")
+	}
+}
+
+func TestBundledBinaryComesBeforePath(t *testing.T) {
+	f := newFixture(t)
+	f.tun.LookPath = func(string) (string, error) { return "/from/path", nil }
+	f.tun.Bundled = func(dir string) (string, error) { return filepath.Join(dir, "bundled"), nil }
+	if got := f.tun.binary(); got != filepath.Join(f.root, "tunnel", "bundled") {
+		t.Fatalf("got %q", got)
+	}
+	f.env["CLOUDFLARED_PATH"] = filepath.Join(f.root, "missing") // an explicit setting still wins, with no fallback
+	if got := f.tun.binary(); got != "" {
+		t.Fatalf("got %q", got)
+	}
+}

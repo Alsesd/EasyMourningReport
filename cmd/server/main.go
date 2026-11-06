@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -21,12 +22,18 @@ import (
 	"legkyi/internal/registry"
 	"legkyi/internal/store"
 	"legkyi/internal/system"
+	"legkyi/internal/tunnelbin"
 	"legkyi/internal/web"
 )
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("fatal: %v", err)
+		log.Printf("fatal: %v", err)
+		if runtime.GOOS == "windows" { // keep a double-clicked console window readable
+			fmt.Print("\nНатисніть Enter, щоб закрити це вікно...")
+			_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+		}
+		os.Exit(1)
 	}
 }
 
@@ -36,9 +43,10 @@ func run() error {
 		return err
 	}
 	appDir := filepath.Dir(exe)
-	// Optional .env next to the exe or in the working directory; exported variables win.
+	// Optional .env: the one next to the exe first, then the working directory. Exported variables win,
+	// and the first file to define a key wins over later ones.
 	cwd, _ := os.Getwd()
-	for _, dir := range []string{cwd, appDir} {
+	for _, dir := range []string{appDir, cwd} {
 		if err := config.LoadEnvFile(filepath.Join(dir, ".env"), os.LookupEnv, func(k, v string) { os.Setenv(k, v) }); err != nil {
 			log.Printf("warning: reading .env: %v", err)
 		}
@@ -46,6 +54,9 @@ func run() error {
 	cfg, err := config.Load(os.Getenv, appDir)
 	if err != nil {
 		return err
+	}
+	if os.Getenv("LEGKYI_DATA_DIR") == "" && cfg.DataDir != appDir {
+		log.Printf("WARNING: %s is not writable, so data (database, backups, secret) is kept in %s instead. Move the program to a writable folder to keep everything next to it.", appDir, cfg.DataDir)
 	}
 	journal := config.JournalMode(cfg.JournalWant, cfg.DataDir, runtime.GOOS, "/proc/mounts")
 	if err := os.MkdirAll(cfg.BackupsDir, 0o755); err != nil {
@@ -87,9 +98,16 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	tun := &system.Tunnel{Root: cfg.DataDir, Port: cfg.Port}
-	if started := tun.StartIfEnabled(); started != nil && started.State == "error" {
-		log.Printf("tunnel did not start: %s", started.Error)
+	tun := &system.Tunnel{Root: cfg.DataDir, Port: cfg.Port, EnableByDefault: tunnelbin.Bundled}
+	if tunnelbin.Bundled {
+		tun.Bundled = tunnelbin.Extract
+	}
+	if started := tun.StartIfEnabled(); started != nil {
+		if started.State == "error" {
+			log.Printf("tunnel did not start: %s", started.Error)
+		} else {
+			go announceTunnel(ctx, tun)
+		}
 	}
 	handler := web.New(web.Deps{
 		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret, Backups: backups,
@@ -164,4 +182,25 @@ func orEnv(k, d string) string {
 		return v
 	}
 	return d
+}
+
+// announceTunnel prints the public address once the tunnel is up (up to about 90 s).
+func announceTunnel(ctx context.Context, tun *system.Tunnel) {
+	for i := 0; i < 90; i++ {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+		}
+		st := tun.Status()
+		if st.State == "error" {
+			log.Printf("tunnel error: %s", st.Error)
+			return
+		}
+		if st.State == "running" && st.PublicURL != "" {
+			fmt.Printf("\nПублічна адреса: %s\n\n", st.PublicURL)
+			return
+		}
+	}
+	log.Printf("tunnel is still starting; see Адміністрування → Система")
 }

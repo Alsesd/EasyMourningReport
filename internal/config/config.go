@@ -2,7 +2,6 @@
 package config
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"unicode/utf16"
 )
 
 const AppName = "LegkyiZvit"
@@ -187,28 +187,52 @@ func JournalMode(want, folder, goos, mountsFile string) string {
 	return "wal"
 }
 
-// LoadEnvFile loads KEY=VALUE lines without overriding exported variables.
+// LoadEnvFile loads KEY=VALUE lines without overriding exported variables. It accepts what Windows
+// editors produce: UTF-8 with a BOM, UTF-16 (PowerShell's `>`), CRLF line endings, `export ` prefixes.
 func LoadEnvFile(path string, lookup func(string) (string, bool), set func(k, v string)) error {
-	f, err := os.Open(path)
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 		return err
 	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
+	for _, line := range strings.Split(decodeText(raw), "\n") {
+		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
 			continue
 		}
 		k, v, _ := strings.Cut(line, "=")
-		k = strings.TrimSpace(k)
+		k = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(k), "export "))
 		v = strings.Trim(strings.TrimSpace(v), "\"'")
 		if _, ok := lookup(k); k != "" && !ok {
 			set(k, v)
 		}
 	}
-	return sc.Err()
+	return nil
+}
+
+// decodeText turns file bytes into a string: strips a UTF-8 BOM and decodes UTF-16 (LE/BE with BOM).
+func decodeText(b []byte) string {
+	switch {
+	case len(b) >= 2 && b[0] == 0xFF && b[1] == 0xFE:
+		return decodeUTF16(b[2:], false)
+	case len(b) >= 2 && b[0] == 0xFE && b[1] == 0xFF:
+		return decodeUTF16(b[2:], true)
+	case len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF:
+		return string(b[3:])
+	}
+	return string(b)
+}
+
+func decodeUTF16(b []byte, bigEndian bool) string {
+	u := make([]uint16, 0, len(b)/2)
+	for i := 0; i+1 < len(b); i += 2 {
+		if bigEndian {
+			u = append(u, uint16(b[i])<<8|uint16(b[i+1]))
+		} else {
+			u = append(u, uint16(b[i+1])<<8|uint16(b[i]))
+		}
+	}
+	return string(utf16.Decode(u))
 }
