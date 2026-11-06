@@ -80,7 +80,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	loginRaw := body.String("login", 1, 100)
-	password := body.String("password", 1, 256)
+	password := body.String("password", 1, 256) // sign-in accepts any existing password
 	if err := body.Err(); err != nil {
 		return err
 	}
@@ -127,6 +127,15 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 	var token string
 	if err := a.write(ctx, func(tx *sql.Tx) error {
 		var err error
+		if platform.NeedsRehash(user.PasswordHash) { // upgrade an old hash now that the password is known
+			upgraded, err := platform.HashPassword(password, nil)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec("UPDATE users SET password_hash = ? WHERE id = ?", upgraded, user.ID); err != nil {
+				return err
+			}
+		}
 		token, err = startSession(tx, user.ID, a.now())
 		return err
 	}); err != nil {
@@ -167,7 +176,7 @@ func (a *App) changeOwnPassword(w http.ResponseWriter, r *http.Request, p *platf
 	if err != nil {
 		return err
 	}
-	pw := body.String("password", 6, 256)
+	pw := body.String("password", platform.MinPasswordLength, 256)
 	if err := body.Err(); err != nil {
 		return err
 	}

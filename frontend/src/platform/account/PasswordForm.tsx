@@ -7,6 +7,7 @@ import { ukPlatform as uk } from "@/platform/i18n";
 import { Button } from "@/ui/Button";
 import { Input } from "@/ui/Input";
 import { Notice, type NoticeMessage } from "@/ui/Notice";
+import { MIN_PASSWORD_LENGTH } from "@/platform/passwordPolicy";
 
 export function PasswordForm({ onDone }: { onDone?: () => void }) {
   const [password, setPassword] = useState("");
@@ -25,7 +26,7 @@ export function PasswordForm({ onDone }: { onDone?: () => void }) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (password.length >= 6) change.mutate(password);
+        if (password.length >= MIN_PASSWORD_LENGTH) change.mutate(password);
       }}
       className="space-y-4"
     >
@@ -42,13 +43,13 @@ export function PasswordForm({ onDone }: { onDone?: () => void }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder={uk.account.placeholder}
-          minLength={6}
+          minLength={MIN_PASSWORD_LENGTH}
           required
           className="h-11"
         />
         <span className="text-xs text-text-muted">{uk.account.minChars}</span>
       </div>
-      <Button type="submit" className="min-h-[44px]" disabled={password.length < 6 || change.isPending}>
+      <Button type="submit" className="min-h-[44px]" disabled={password.length < MIN_PASSWORD_LENGTH || change.isPending}>
         {change.isPending ? uk.common.loading : uk.account.changeButton}
       </Button>
     </form>

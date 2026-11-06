@@ -640,7 +640,7 @@
                 "body",
                 "password"
               ],
-              "msg": "String should have at least 6 characters",
+              "msg": "String should have at least 10 characters",
               "type": "string_too_short"
             }
           ]
@@ -814,7 +814,7 @@
                 "body",
                 "password"
               ],
-              "msg": "String should have at least 6 characters",
+              "msg": "String should have at least 10 characters",
               "type": "string_too_short"
             }
           ]

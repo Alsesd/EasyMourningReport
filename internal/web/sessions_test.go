@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"legkyi/internal/platform"
 	"legkyi/internal/registry"
 )
 
@@ -126,5 +127,44 @@ func TestOnlyAHashOfTheTokenIsStored(t *testing.T) {
 	}
 	if stored == token || stored != hashToken(token) || len(stored) != 64 {
 		t.Fatalf("the database must hold only the SHA-256 of the token, got %q", stored)
+	}
+}
+
+func TestLegacyHashIsUpgradedOnSuccessfulLoginOnly(t *testing.T) {
+	e := newEnv(t, nil)
+	legacy, err := platform.LegacyHashPassword("boss-pass", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.st.W.Exec("UPDATE users SET password_hash = ? WHERE login = 'boss'", legacy); err != nil {
+		t.Fatal(err)
+	}
+	stored := func() string {
+		var h string
+		e.st.R.QueryRow("SELECT password_hash FROM users WHERE login = 'boss'").Scan(&h)
+		return h
+	}
+	if e.login("boss", "wrong-password").Code != 401 || stored() != legacy {
+		t.Fatal("a failed login must not touch the stored hash")
+	}
+	if e.login("boss", "boss-pass").Code != 200 {
+		t.Fatal("a legacy hash must still sign in")
+	}
+	if h := stored(); h == legacy || !strings.HasPrefix(h, "pbkdf2_sha256$600000$") {
+		t.Fatalf("hash was not upgraded: %q", h)
+	}
+	if e.login("boss", "boss-pass").Code != 200 {
+		t.Fatal("the upgraded hash must verify")
+	}
+}
+
+func TestNewPasswordsNeedTenCharacters(t *testing.T) {
+	e := newEnv(t, nil)
+	c := sessionCookie(e.login("boss", "boss-pass"))
+	if w := e.do("PUT", "/api/v1/me/password", `{"password":"123456789"}`, nil, c); w.Code != 422 {
+		t.Fatalf("9 characters: %d", w.Code)
+	}
+	if w := e.do("PUT", "/api/v1/me/password", `{"password":"1234567890"}`, nil, c); w.Code != 200 {
+		t.Fatalf("10 characters: %d", w.Code)
 	}
 }

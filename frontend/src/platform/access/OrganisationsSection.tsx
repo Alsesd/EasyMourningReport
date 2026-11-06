@@ -14,6 +14,7 @@ import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { useConfirm } from "@/ui/ConfirmDialog";
 import { Archive, Plus, RotateCcw, Trash2 } from "lucide-react";
 import type { AdminSectionProps } from "@/platform/modules";
+import { MIN_PASSWORD_LENGTH } from "@/platform/passwordPolicy";
 
 /** "Користувачів: 2, звітів: 5": record counts per module, named by the module's title. */
 function usageText(org: OrganisationDTO, titles: Record<string, string>): string {
@@ -169,7 +170,7 @@ export default function OrganisationsSection({ notify }: AdminSectionProps) {
                           type="password"
                           value={firstPassword}
                           onChange={(e) => setFirstPassword(e.target.value)}
-                          minLength={6}
+                          minLength={MIN_PASSWORD_LENGTH}
                           required={Boolean(firstLogin.trim())}
                           autoComplete="new-password"
                           className="h-11"

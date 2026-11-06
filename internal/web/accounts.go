@@ -200,7 +200,7 @@ func (a *App) createOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 	fu := body.Object("first_user")
 	var fuLogin, fuPass string
 	if fu != nil {
-		fuLogin, fuPass = fu.String("login", 2, 40), fu.String("password", 6, 256)
+		fuLogin, fuPass = fu.String("login", 2, 40), fu.String("password", platform.MinPasswordLength, 256)
 	}
 	if err := body.Err(); err != nil {
 		return err
@@ -534,7 +534,7 @@ func (a *App) createUser(w http.ResponseWriter, r *http.Request, p *platform.Pri
 		return err
 	}
 	rawLogin := body.String("login", 2, 40)
-	password := body.String("password", 6, 256)
+	password := body.String("password", platform.MinPasswordLength, 256)
 	fullName := body.OptString("full_name", "", 100)
 	orgID := body.OptInt("organisation_id")
 	roleIDs := body.IntList("role_ids", 50)
@@ -771,7 +771,7 @@ func (a *App) resetUserPassword(w http.ResponseWriter, r *http.Request, p *platf
 	if err != nil {
 		return err
 	}
-	pw := body.String("password", 6, 256)
+	pw := body.String("password", platform.MinPasswordLength, 256)
 	if err := body.Err(); err != nil {
 		return err
 	}
