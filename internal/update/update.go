@@ -94,6 +94,7 @@ type Updater struct {
 	AllowHTTP bool
 
 	mu      sync.Mutex
+	sameTag string // a release whose file is byte-for-byte the running program (re-tagged after it was built)
 	latest  release
 	state   string
 	checked time.Time
@@ -183,7 +184,7 @@ func (u *Updater) get(ctx context.Context, rawURL string, limit int64) (*http.Re
 // newer: the release is not the running one and was published after this build was made. Tags are free text
 // ("Soup.V6", "auto-12"), so they are never compared with each other.
 func (u *Updater) newer(r release) bool {
-	if r.TagName == "" || r.TagName == u.Build.Tag || r.Draft || r.Prerelease {
+	if r.TagName == "" || r.TagName == u.Build.Tag || r.TagName == u.sameTag || r.Draft || r.Prerelease {
 		return false
 	}
 	if u.Build.Commit != "" && r.TargetCommitish == u.Build.Commit {
@@ -203,6 +204,10 @@ func (u *Updater) Check(ctx context.Context) Status {
 	u.mu.Unlock()
 
 	rel, err := u.fetchLatest(ctx)
+	same := ""
+	if err == nil && u.newer(rel) && u.sameAsRunning(ctx, rel) {
+		same = rel.TagName
+	}
 
 	u.mu.Lock()
 	u.busy, u.checked = false, u.now()
@@ -210,9 +215,42 @@ func (u *Updater) Check(ctx context.Context) Status {
 		u.state, u.lastErr = "error", err.Error()
 	} else {
 		u.state, u.lastErr, u.latest = "idle", "", rel
+		if same != "" {
+			u.sameTag = same
+		}
 	}
 	u.mu.Unlock()
 	return u.Status()
+}
+
+// sameAsRunning: the release's file for this platform has the checksum of the running program. A release that was
+// only re-tagged or renamed after the program was built is then not an update (it would reinstall itself forever).
+func (u *Updater) sameAsRunning(ctx context.Context, rel release) bool {
+	want := AssetName(u.goos(), u.goarch())
+	var sumsURL string
+	for _, a := range rel.Assets {
+		if a.Name == sumsAsset {
+			sumsURL = a.URL
+		}
+	}
+	if sumsURL == "" || want == "" || u.Exe == "" {
+		return false
+	}
+	sums, err := u.download(ctx, sumsURL, 1<<20)
+	if err != nil {
+		return false
+	}
+	wantSum := checksumFor(string(sums), want)
+	f, err := os.Open(u.Exe)
+	if err != nil || wantSum == "" {
+		return false
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return false
+	}
+	return hex.EncodeToString(h.Sum(nil)) == wantSum
 }
 
 func (u *Updater) fetchLatest(ctx context.Context) (release, error) {
