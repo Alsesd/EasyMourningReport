@@ -136,7 +136,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 				return err
 			}
 		}
-		token, device, err = startSession(tx, user.ID, a.now())
+		token, device, err = startSession(tx, user.ID, a.now(), a.metaOf(r))
 		return err
 	}); err != nil {
 		return err
@@ -195,7 +195,7 @@ func (a *App) changeOwnPassword(w http.ResponseWriter, r *http.Request, p *platf
 			return err
 		}
 		var err error
-		if token, device, err = startSession(tx, p.User.ID, a.now()); err != nil {
+		if token, device, err = startSession(tx, p.User.ID, a.now(), a.metaOf(r)); err != nil {
 			return err
 		}
 		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено власний пароль", "")

@@ -1,7 +1,7 @@
 /** The platform's own pages, declared with the same contract as feature modules. */
 
 import { lazy } from "react";
-import { Building2, Database, Download, Globe, KeySquare, ScrollText, ShieldCheck, Users } from "lucide-react";
+import { Building2, Database, Download, Globe, KeySquare, MonitorSmartphone, ScrollText, ShieldCheck, Users } from "lucide-react";
 import { P } from "@/platform/access/api";
 import { ukPlatform as uk } from "@/platform/i18n";
 import type { AppModule } from "@/platform/modules";
@@ -30,6 +30,8 @@ export const platformModule: AppModule = {
       permissions: [P.usersManage, P.orgUsersManage], order: 10, component: lazy(() => import("./access/UsersSection")) },
     { id: "organisations", label: s.organisations, description: s.organisationsDescription, group: "access", icon: Building2,
       permissions: [P.organisationsManage], order: 20, component: lazy(() => import("./access/OrganisationsSection")) },
+    { id: "sessions", label: s.sessions, description: s.sessionsDescription, group: "access", icon: MonitorSmartphone,
+      permissions: [P.usersManage], order: 25, component: lazy(() => import("./access/SessionsSection")) },
     { id: "roles", label: s.roles, description: s.rolesDescription, group: "access", icon: KeySquare,
       permissions: [P.rolesManage], order: 30, component: lazy(() => import("./access/RolesSection")) },
     { id: "tunnel", label: uk.system.tunnelTab, description: uk.system.tunnelDescription, group: "system", icon: Globe,

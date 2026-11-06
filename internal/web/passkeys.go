@@ -539,7 +539,7 @@ func (a *App) passkeyLogin(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		var err error
-		token, device, err = startSession(tx, user.ID, a.now())
+		token, device, err = startSession(tx, user.ID, a.now(), a.metaOf(r))
 		return err
 	}); err != nil {
 		return err

@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"net/http"
 	"time"
 )
 
@@ -36,7 +37,18 @@ func newToken() (string, error) {
 
 // startSession stores a new session for the user (and prunes expired ones) and returns the raw session token
 // and the raw device token that binds it to this browser.
-func startSession(tx *sql.Tx, uid int64, now time.Time) (token, device string, err error) {
+// sessionMeta is what the administrators' session list shows about where a session was started.
+type sessionMeta struct{ IP, UserAgent string }
+
+func (a *App) metaOf(r *http.Request) sessionMeta {
+	ua := r.UserAgent()
+	if len(ua) > 300 {
+		ua = ua[:300]
+	}
+	return sessionMeta{IP: a.Trusted.ClientIP(r), UserAgent: ua}
+}
+
+func startSession(tx *sql.Tx, uid int64, now time.Time, meta sessionMeta) (token, device string, err error) {
 	if token, err = newToken(); err != nil {
 		return "", "", err
 	}
@@ -53,8 +65,8 @@ func startSession(tx *sql.Tx, uid int64, now time.Time) (token, device string, e
 		hashToken(token), uid, now.Unix(), now.Add(sessionMaxAge*time.Second).Unix()); err != nil {
 		return "", "", err
 	}
-	if _, err := tx.Exec("INSERT INTO session_devices (token_hash, device_hash, prev_hash, rotated_at) VALUES (?, ?, '', ?)",
-		hashToken(token), hashToken(device), now.Unix()); err != nil {
+	if _, err := tx.Exec("INSERT INTO session_devices (token_hash, device_hash, prev_hash, rotated_at, ip, user_agent, last_seen) VALUES (?, ?, '', ?, ?, ?, ?)",
+		hashToken(token), hashToken(device), now.Unix(), meta.IP, meta.UserAgent, now.Unix()); err != nil {
 		return "", "", err
 	}
 	return token, device, nil
@@ -126,8 +138,8 @@ func (a *App) checkDevice(ctx context.Context, token, presented string) (ok bool
 	// Compare-and-set on rotated_at so two parallel requests do not both rotate.
 	var swapped bool
 	_ = a.write(ctx, func(tx *sql.Tx) error {
-		res, err := tx.Exec("UPDATE session_devices SET device_hash = ?, prev_hash = ?, rotated_at = ? WHERE token_hash = ? AND rotated_at = ?",
-			hashToken(next), ph, now.Unix(), th, rotated)
+		res, err := tx.Exec("UPDATE session_devices SET device_hash = ?, prev_hash = ?, rotated_at = ?, last_seen = ? WHERE token_hash = ? AND rotated_at = ?",
+			hashToken(next), ph, now.Unix(), now.Unix(), th, rotated)
 		if err != nil {
 			return err
 		}

@@ -69,6 +69,7 @@ func New(d Deps) http.Handler {
 	app.mountPlatform(rt)
 	app.mountAccounts(rt)
 	app.mountPasskeys(rt)
+	app.mountAdminSessions(rt)
 	app.mountReports(rt)
 	app.mountTransport(rt)
 	app.mountSystem(rt)

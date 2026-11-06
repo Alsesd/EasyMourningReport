@@ -146,6 +146,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/sessions": {
+        parameters: { query?: { user_id?: number }; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["AdminSessionDTO"][] } } } };
+        put?: never;
+        post?: never;
+        /** Sign the user `user_id` out of every device */
+        delete: { responses: { 200: { content: { "application/json": components["schemas"]["MessageDTO"] } } } };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sessions/{sid}": {
+        parameters: { query?: never; header?: never; path: { sid: number }; cookie?: never };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: { responses: { 200: { content: { "application/json": components["schemas"]["MessageDTO"] } } } };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     /** WebAuthn: bodies are `{challenge_id, public_key}` options and the signed ceremony result (hand-written, see platform/auth/passkeys.ts). */
     "/api/v1/auth/passkey/options": {
         parameters: { query?: never; header?: never; path?: never; cookie?: never };
@@ -981,6 +1004,25 @@ export interface components {
         MessageDTO: {
             /** Message */
             message: string;
+        };
+        /** AdminSessionDTO: one signed-in device of an employee (administrators only) */
+        AdminSessionDTO: {
+            id: number;
+            user_id: number;
+            login: string;
+            full_name: string;
+            organisation: components["schemas"]["OrganisationRefDTO"] | null;
+            /** The account is enabled */
+            active: boolean;
+            /** "Chrome · Windows" */
+            device: string;
+            ip: string;
+            /** RFC 3339, UTC */
+            created_at: string;
+            /** Last time the device token rolled (about every 10 minutes of use) */
+            last_seen: string;
+            /** The administrator's own session */
+            current: boolean;
         };
         /** PasskeyDTO */
         PasskeyDTO: {

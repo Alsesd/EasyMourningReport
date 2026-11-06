@@ -2,6 +2,7 @@
 
 import { api } from "@/platform/api/client";
 import type {
+  AdminSessionDTO,
   AuditLogDTO,
   MessageDTO,
   MutationDTO,
@@ -17,6 +18,10 @@ import type {
 } from "@/platform/api/types";
 
 export const accessApi = {
+  sessions: () => api.get<AdminSessionDTO[]>("/api/v1/admin/sessions"),
+  endSession: (id: number) => api.delete<MessageDTO>(`/api/v1/admin/sessions/${id}`),
+  endUserSessions: (userId: number) => api.delete<MessageDTO>("/api/v1/admin/sessions", { params: { user_id: userId } }),
+
   organisations: () => api.get<OrganisationDTO[]>("/api/v1/organisations"),
   createOrganisation: (payload: OrganisationCreateDTO) =>
     api.post<OrganisationDTO>("/api/v1/organisations", payload),

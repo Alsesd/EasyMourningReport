@@ -44,6 +44,9 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | GET | `/admin/tunnel` | `platform.system.manage` | Tunnel status: `state` is disabled, stopped, starting, running or error; `public_url`; `has_token` (the token itself is never returned) |
 | POST | `/admin/tunnel` | `platform.system.manage` | `{confirm_public: true, token?, autostart}`. Starts cloudflared; a token is saved for later starts. `503` with `detail` if it cannot start |
 | PUT | `/admin/tunnel/autostart` | `platform.system.manage` | `{enabled}`: start the tunnel with the app |
+| GET | `/admin/sessions` | `platform.users.manage` | Every signed-in device of every employee: user, organisation, device (browser · system), address, sign-in time, last activity (refreshed about every 10 minutes), `current` for the caller's own |
+| DELETE | `/admin/sessions/{id}` | `platform.users.manage` | End one session (audit: «завершено сеанс користувача») |
+| DELETE | `/admin/sessions?user_id=N` | `platform.users.manage` | Sign a user out of every device |
 | GET | `/admin/update` | `platform.system.manage` | Update status: `enabled` (stamped release build), `auto`, `current`/`latest` tags, `available`, `state` (idle, checking, downloading, restarting, error), `last_checked`, `error`, `writable` |
 | POST | `/admin/update/check` | `platform.system.manage` | Ask GitHub for the latest release now; `409` when this is not a release build |
 | POST | `/admin/update/apply` | `platform.system.manage` | Start installing the newest release in the background and restart; returns at once with `state: downloading`; `409` when there is nothing newer or an install is running |

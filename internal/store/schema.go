@@ -35,12 +35,15 @@ var goOwned = []string{
 	`CREATE INDEX IF NOT EXISTS ix_user_sessions_expires ON user_sessions (expires_at)`,
 	// session_devices binds a session to the one browser it was issued to: a rolling device token (only its
 	// SHA-256 is stored; the previous one stays valid for a grace period so parallel requests and a lost
-	// response do not sign the user out). A session without a row here is not valid.
+	// response do not sign the user out). A session without a row here is not valid. ip, user_agent and last_seen (refreshed when the token rolls) feed the administrators' session list.
 	`CREATE TABLE IF NOT EXISTS session_devices (
 		token_hash TEXT NOT NULL PRIMARY KEY,
 		device_hash TEXT NOT NULL,
 		prev_hash TEXT NOT NULL DEFAULT '',
-		rotated_at INTEGER NOT NULL
+		rotated_at INTEGER NOT NULL,
+		ip TEXT NOT NULL DEFAULT '',
+		user_agent TEXT NOT NULL DEFAULT '',
+		last_seen INTEGER NOT NULL DEFAULT 0
 	)`,
 	// passkeys are WebAuthn credentials (Face ID, fingerprint, Windows Hello, security keys) a user registered.
 	// public_key is PKIX DER; credential_id is base64url.
