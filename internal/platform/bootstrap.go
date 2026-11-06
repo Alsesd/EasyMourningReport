@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"legkyi/internal/core"
 )
 
 // Built-in roles. platform_admin and org_admin
@@ -96,7 +98,7 @@ func EnsureAdminRole(tx *sql.Tx) (int64, error) {
 // nothing else: no divisions, no other roles, no data. The password banner goes to out only when an admin is
 // created. With DEMO set, the module demo hooks run in the same transaction. ADMIN_PASSWORD must satisfy the
 // password rules; without it a compliant random password is generated.
-func Seed(tx *sql.Tx, getenv func(string) string, out io.Writer, now time.Time, demo ...func(context.Context, *sql.Tx, time.Time) error) error {
+func Seed(tx *sql.Tx, getenv func(string) string, out io.Writer, now time.Time, demo ...core.SeedFunc) error {
 	adminRole, err := EnsureAdminRole(tx)
 	if err != nil {
 		return err
@@ -125,7 +127,7 @@ func Seed(tx *sql.Tx, getenv func(string) string, out io.Writer, now time.Time, 
 	}
 	if demoEnabled(getenv("DEMO")) {
 		for _, seed := range demo {
-			if err := seed(context.Background(), tx, now); err != nil {
+			if err := seed(context.Background(), tx, now, DemoTools()); err != nil {
 				return err
 			}
 		}
@@ -141,4 +143,16 @@ func demoEnabled(v string) bool {
 		return false
 	}
 	return true
+}
+
+// DemoTools are the services handed to the modules' demo seeds.
+func DemoTools() core.SeedTools {
+	return core.SeedTools{CreateUser: func(tx *sql.Tx, login, password string, orgID, roleID int64, now time.Time) error {
+		hash, err := HashPassword(password, nil)
+		if err != nil {
+			return err
+		}
+		_, err = CreateUser(tx, login, hash, &orgID, now, roleID)
+		return err
+	}}
 }

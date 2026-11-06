@@ -163,8 +163,8 @@ func serve(exe string) (bool, error) {
 		Trusted: web.ParseTrustedHosts(orEnv("FORWARDED_ALLOW_IPS", "127.0.0.1")),
 	}
 	handler := web.New(deps)
-	// Background jobs (reminder to the desks that have no transport order for tomorrow, notification pruning).
-	// TRANSPORT_REMINDER_AT is "HH:MM" in APP_TIMEZONE (default 14:30, Europe/Kyiv); "off" disables the reminder.
+	// Background jobs (the modules' daily reminders, notification pruning).
+	// REMINDER_AT is "HH:MM" in APP_TIMEZONE (default 14:30, Europe/Kyiv); "off" disables the reminder.
 	schedDone := make(chan struct{})
 	go func() {
 		defer close(schedDone)
@@ -304,7 +304,7 @@ func announceTunnel(ctx context.Context, tun *system.Tunnel) {
 // schedulerConfig reads the reminder time and the zone it is evaluated in. The zone is explicit because the
 // program often runs on a machine set to UTC while the desks work on Kyiv time.
 func schedulerConfig() web.SchedulerConfig {
-	cfg := web.SchedulerConfig{ReminderAt: strings.TrimSpace(orEnv("TRANSPORT_REMINDER_AT", "14:30"))}
+	cfg := web.SchedulerConfig{ReminderAt: strings.TrimSpace(orEnv("REMINDER_AT", "14:30"))}
 	if strings.EqualFold(cfg.ReminderAt, "off") {
 		cfg.ReminderAt = ""
 	}

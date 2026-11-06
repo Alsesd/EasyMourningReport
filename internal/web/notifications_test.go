@@ -157,7 +157,7 @@ func TestReminderForDesksWithoutAnOrderForTomorrow(t *testing.T) {
 	cancelled := d.create(d.b, order("2026-11-07", "Скасований", "d09:00"))
 	d.post(d.b, "POST", "/api/v1/transport/orders/"+itoa(int(cancelled.ID))+"/cancel", nil)
 	for i := 0; i < 3; i++ { // evaluated again (restart, retry): still one reminder
-		if err := a.remindDesksWithoutTomorrow(context.Background(), now); err != nil {
+		if err := a.runDailyReminders(context.Background(), now); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -172,7 +172,7 @@ func TestReminderForDesksWithoutAnOrderForTomorrow(t *testing.T) {
 		t.Fatalf("staff are not desks: %+v", b)
 	}
 	// Next day, the same desk is reminded again (a new dedupe key).
-	if err := a.remindDesksWithoutTomorrow(context.Background(), now.AddDate(0, 0, 1)); err != nil {
+	if err := a.runDailyReminders(context.Background(), now.AddDate(0, 0, 1)); err != nil {
 		t.Fatal(err)
 	}
 	if b := d.bell(d.b); b.Unread != 2 {

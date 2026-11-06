@@ -8,6 +8,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"legkyi/internal/core"
 )
 
 // RuleError is a business-rule failure. Status 0 means a form error (HTTP 422 with
@@ -36,7 +38,7 @@ type Rules struct {
 
 func NormLogin(raw string) string { return strings.ToLower(strings.TrimSpace(raw)) }
 
-func NormName(raw string) string { return strings.Join(strings.Fields(raw), " ") }
+func NormName(raw string) string { return core.NormName(raw) }
 
 // SameName compares names the way Python's casefold does (strings.ToLower for Cyrillic).
 func SameName(a, b string) bool { return strings.ToLower(NormName(a)) == strings.ToLower(NormName(b)) }
@@ -58,14 +60,11 @@ func CleanLogin(raw string) (string, error) {
 	return l, nil
 }
 
-// CleanName collapses whitespace and enforces 1..100 characters; what names the entity.
+// CleanName collapses whitespace and enforces 1..100 characters; what names the entity (rule in core, shared with the modules).
 func CleanName(raw, what string) (string, error) {
-	n := NormName(raw)
-	if n == "" {
-		return "", formf("%s не може бути порожньою", what)
-	}
-	if utf8.RuneCountInString(n) > 100 {
-		return "", formf("%s задовга (до 100 символів)", what)
+	n, err := core.CleanName(raw, what)
+	if err != nil {
+		return "", form(err.Error())
 	}
 	return n, nil
 }

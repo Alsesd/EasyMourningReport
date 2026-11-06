@@ -12,7 +12,7 @@ import (
 
 	"github.com/xuri/excelize/v2"
 
-	"legkyi/internal/platform"
+	"legkyi/internal/core"
 )
 
 // ImportRow is one product row of an import file.
@@ -262,7 +262,7 @@ func ParseProductsXLSX(payload []byte) (rows []ImportRow, err error) {
 			problems = append(problems, fmt.Sprintf("рядок %d: %s", rowNumber, msgNameIsDate))
 			continue
 		}
-		clean, err := platform.CleanName(name, "Назва")
+		clean, err := core.CleanName(name, "Назва")
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("рядок %d: %s", rowNumber, err.Error()))
 			continue
@@ -299,7 +299,7 @@ func ParseProductsXLSX(payload []byte) (rows []ImportRow, err error) {
 func PlanImport(rows []ImportRow, existing map[string]bool) (create []ImportRow, skipped int) {
 	seen := map[string]bool{}
 	for _, r := range rows {
-		key := platform.NormName(r.Name)
+		key := core.NormName(r.Name)
 		if existing[key] || seen[key] {
 			skipped++
 			continue

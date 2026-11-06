@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
 	"legkyi/internal/platform"
-	"legkyi/internal/transport"
 )
 
 type notificationDTO struct {
@@ -97,14 +97,14 @@ func (a *App) notifyHolders(ctx context.Context, tx *sql.Tx, actor, orgID int64,
 
 // --- scheduled jobs ------------------------------------------------------------------------------------------
 
-// SchedulerConfig: ReminderAt is "HH:MM" in Loc ("" turns the reminder off).
+// SchedulerConfig: ReminderAt is "HH:MM" in Loc ("" turns the daily reminders off).
 type SchedulerConfig struct {
 	ReminderAt string
 	Loc        *time.Location
 }
 
-// RunScheduler runs the minute loop of the background jobs until ctx ends: the evening reminder to the desks that
-// have no transport order for tomorrow yet, and the pruning of old notifications. Both are idempotent, so a
+// RunScheduler runs the minute loop of the background jobs until ctx ends: the modules' daily reminders (e.g. the
+// desks that have no transport order for tomorrow yet) and the pruning of old notifications. Both are idempotent, so a
 // restart after the time of day neither repeats nor skips them.
 func RunScheduler(ctx context.Context, d Deps, cfg SchedulerConfig) {
 	a := &App{Deps: d}
@@ -126,8 +126,8 @@ func RunScheduler(ctx context.Context, d Deps, cfg SchedulerConfig) {
 			}
 		}
 		if hasAt && remindedOn != day && now.Hour()*60+now.Minute() >= at {
-			if err := a.remindDesksWithoutTomorrow(ctx, now); err != nil {
-				log.Printf("transport reminder failed: %v", err)
+			if err := a.runDailyReminders(ctx, now); err != nil {
+				log.Printf("daily reminders failed, will retry: %v", err)
 			} else {
 				remindedOn = day
 			}
@@ -146,55 +146,45 @@ func RunScheduler(ctx context.Context, d Deps, cfg SchedulerConfig) {
 	}
 }
 
+var clockRE = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
+
 // parseClock reads "HH:MM" as minutes since midnight.
 func parseClock(s string) (int, bool) {
-	if !transport.ValidTime(s) {
+	if !clockRE.MatchString(s) {
 		return 0, false
 	}
 	return int(s[0]-'0')*600 + int(s[1]-'0')*60 + int(s[3]-'0')*10 + int(s[4]-'0'), true
 }
 
-// remindDesksWithoutTomorrow tells the staff of every organisation that may order transport and has no order for
-// tomorrow (one that still holds or has done its car; cancelled, rejected and bumped ones do not count) that the order
-// is missing. The dedupe key keeps it to one reminder per person and day.
-func (a *App) remindDesksWithoutTomorrow(ctx context.Context, now time.Time) error {
-	tomorrow := now.AddDate(0, 0, 1)
-	day := tomorrow.Format("2006-01-02")
-	return a.write(ctx, func(tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `SELECT o.id, o.name FROM organisations o WHERE o.archived = 0 AND NOT EXISTS (
-			SELECT 1 FROM transport_orders t WHERE t.organisation_id = o.id AND t.service_date = ? AND t.status IN (?, ?, ?, ?))
-			ORDER BY o.id`, day, transport.Submitted, transport.Accepted, transport.InProgress, transport.Done)
-		if err != nil {
-			return err
+// txNotifier is the core.Notifier of one write transaction.
+type txNotifier struct {
+	a   *App
+	ctx context.Context
+	tx  *sql.Tx
+}
+
+func (n txNotifier) Recipients(orgID int64, codes ...string) ([]int64, error) {
+	return platform.Recipients(n.ctx, n.tx, n.a.Registry.Codes, orgID, codes...)
+}
+
+func (n txNotifier) Notify(ids []int64, kind, title, body, link, dedupe string) error {
+	return platform.Notify(n.tx, n.a.now(), ids, kind, title, body, link, dedupe)
+}
+
+// runDailyReminders gives every installed module's DailyReminder its own transaction (one module failing does not
+// stop the others) and returns the first error so the scheduler tries again on the next tick.
+func (a *App) runDailyReminders(ctx context.Context, now time.Time) error {
+	var first error
+	for _, m := range a.Registry.Modules {
+		if m.DailyReminder == nil {
+			continue
 		}
-		type org struct {
-			id   int64
-			name string
-		}
-		var orgs []org
-		for rows.Next() {
-			var o org
-			if err := rows.Scan(&o.id, &o.name); err != nil {
-				rows.Close()
-				return err
-			}
-			orgs = append(orgs, o)
-		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		for _, o := range orgs {
-			ids, err := platform.Recipients(ctx, tx, a.Registry.Codes, o.id, transport.Create)
-			if err != nil {
-				return err
-			}
-			title := "Замовлення транспорту на завтра ще не зроблено"
-			body := "Уже " + now.Format("15:04") + ", а замовлення на " + tomorrow.Format("02.01.2006") + " для «" + o.name + "» немає."
-			if err := platform.Notify(tx, a.now(), ids, "transport.reminder", title, body, "/admin/transport", "transport-reminder:"+day); err != nil {
-				return err
+		if err := a.write(ctx, func(tx *sql.Tx) error { return m.DailyReminder(ctx, tx, now, txNotifier{a, ctx, tx}) }); err != nil {
+			log.Printf("daily reminder of module %s failed: %v", m.Name, err)
+			if first == nil {
+				first = err
 			}
 		}
-		return nil
-	})
+	}
+	return first
 }

@@ -30,6 +30,23 @@ type OverviewStat struct {
 	Label, Value, Hint, Section string
 }
 
+// SeedTools are the platform services a module's demo seed may use, so a module never imports the platform.
+type SeedTools struct {
+	// CreateUser adds an active user (plain-text password) of an organisation with one role.
+	CreateUser func(tx *sql.Tx, login, password string, orgID, roleID int64, now time.Time) error
+}
+
+// SeedFunc adds a module's demo data inside the first-run transaction.
+type SeedFunc func(ctx context.Context, tx *sql.Tx, now time.Time, tools SeedTools) error
+
+// Notifier is what the platform hands to a module's scheduled reminder. It is bound to the reminder's transaction.
+type Notifier interface {
+	// Recipients lists the active users holding any of the permission codes; orgID > 0 limits it to one organisation.
+	Recipients(orgID int64, codes ...string) ([]int64, error)
+	// Notify writes a notification per user; a non-empty dedupe key makes it idempotent per user.
+	Notify(userIDs []int64, kind, title, body, link, dedupe string) error
+}
+
 // Module is everything the platform needs to know about a feature module. Routes are
 // registered separately (web.Mount), so this stays free of HTTP types.
 type Module struct {
@@ -41,7 +58,10 @@ type Module struct {
 	// with records is archived instead of deleted.
 	OrganisationUsage func(ctx context.Context, q Querier) (map[int64]int, error)
 	// Seed adds demo data (DEMO=1 on an empty database), inside the first-run transaction.
-	Seed func(ctx context.Context, tx *sql.Tx, now time.Time) error
+	Seed SeedFunc
+	// DailyReminder runs once a day, after the configured reminder time, inside a write transaction. now is in
+	// the configured zone. It must be idempotent (use dedupe keys): a restart may run it again the same day.
+	DailyReminder func(ctx context.Context, tx *sql.Tx, now time.Time, n Notifier) error
 	// Overview returns the figures the caller may see; can reports whether the caller holds any of
 	// the given permission codes, period is the current YYYY-MM.
 	Overview func(ctx context.Context, q Querier, can func(codes ...string) bool, period string) ([]OverviewStat, error)

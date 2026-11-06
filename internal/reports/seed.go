@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"legkyi/internal/platform"
+	"legkyi/internal/core"
 )
 
 // SeedDemo is the DEMO=1 data: three products and two stores with logins (password = login).
-func SeedDemo(ctx context.Context, tx *sql.Tx, now time.Time) error {
+func SeedDemo(ctx context.Context, tx *sql.Tx, now time.Time, tools core.SeedTools) error {
 	products := []struct {
 		name  string
 		cents int64
@@ -48,11 +48,8 @@ func SeedDemo(ctx context.Context, tx *sql.Tx, now time.Time) error {
 		}
 		org, _ := res.LastInsertId()
 		login := fmt.Sprintf("store%d", n)
-		hash, err := platform.HashPassword(strings.ToUpper(login[:1])+login[1:]+"-demo", nil) // e.g. Store1-demo
-		if err != nil {
-			return err
-		}
-		if _, err := platform.CreateUser(tx, login, hash, &org, now, role); err != nil {
+		// e.g. Store1-demo
+		if err := tools.CreateUser(tx, login, strings.ToUpper(login[:1])+login[1:]+"-demo", org, role, now); err != nil {
 			return err
 		}
 	}

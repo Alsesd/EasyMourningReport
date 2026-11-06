@@ -51,7 +51,7 @@ The list refreshes every 15 seconds and shows the status and the reply note. On 
 | New order; order sent again after being bumped; a desk cancels | dispatchers (`manage`), except the person who did it |
 | Dispatcher sets accepted / in progress / done / rejected | the employee who submitted the order |
 | Car taken by a military order (`bumped`) | the employee who submitted the bumped order |
-| 14:30 (`TRANSPORT_REMINDER_AT`, in `APP_TIMEZONE`): the organisation has no order for tomorrow that holds or has done a car (cancelled, rejected and bumped ones do not count) | every employee of that organisation with `create`; once per person and day |
+| 14:30 (`REMINDER_AT`, in `APP_TIMEZONE`): the organisation has no order for tomorrow that holds or has done a car (cancelled, rejected and bumped ones do not count) | every employee of that organisation with `create`; once per person and day |
 
 ## API
 
