@@ -32,11 +32,10 @@ cd frontend && npm test -- src/modules/reports
 
 ## Who submitted a report
 
-Every report carries the employee who submitted it, next to the organisation it belongs to. `PUT /store/reports/{period}` with `action: "submit"` records the signed-in employee (id and a name snapshot: full name, else login). The responses of the store page, the administrator's month list and the report detail carry `submission: {by, kind, submitted_at}`:
+Every report carries the employee who submitted it, next to the organisation it belongs to. `PUT /store/reports/{period}` with `action: "submit"` records the signed-in employee (id and a name snapshot: full name, else login). The responses of the store page, the administrator's month list and the report detail carry:
 
-- `kind: "store"`: the employee submitted it ("Надіслав(ла)"). After an administrator unlocks the report the signature stays as "Востаннє надіслав(ла)" until the store submits again.
-- `kind: "admin"`: an administrator locked a report the store never submitted ("Заблокував(ла)"). Locking a report that is already submitted keeps the employee's signature. After an unlock an administrator's lock is not shown.
-- `submission` is absent for reports submitted before this was recorded (nothing is guessed), and for drafts that were never submitted.
+- `submission: {by, signed_at}`: the employee who submitted the report ("Надіслав(ла)"). It stays after an administrator unlocks the report ("Востаннє надіслав(ла)") until the store submits again.
+- `locked: {by, signed_at}`: an administrator locked the report ("Заблокував(ла) адміністратор"). Present only while the report is submitted and the lock is newer than the last submission, so the correction cycle (submit, unlock, lock again without a resubmit) shows both the employee and the administrator. Locking a report that is already submitted changes nothing.
+- Both are absent for reports submitted before this was recorded (nothing is guessed) and for drafts that were never submitted.
 
-The signature lives in the side table `report_submissions` (`internal/store/schema.go`, `goOwned`), because the `reports` table mirrors the Python release and is never altered. The Excel summary has no per-report row, so the export is unchanged and its golden files are untouched.
-
+The signatures live in the side table `report_submissions` (one row per report and kind: `store` or `admin`; `internal/store/schema.go`, `goOwned`), because the `reports` table mirrors the Python release and is never altered. The Excel summary has no per-report row, so the export is unchanged and its golden files are untouched.

@@ -18,7 +18,7 @@ export const uk = {
 
   signature: {
     submittedBy: "Надіслав(ла)",
-    lockedBy: "Заблокував(ла)",
+    lockedBy: "Заблокував(ла) адміністратор",
     lastSubmittedBy: "Востаннє надіслав(ла)",
   },
 

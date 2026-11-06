@@ -1240,8 +1240,7 @@
           ],
           "submission": {
             "by": "clerk",
-            "kind": "store",
-            "submitted_at": "<time>"
+            "signed_at": "<time>"
           }
         }
       }
@@ -1368,8 +1367,7 @@
           ],
           "submission": {
             "by": "clerk",
-            "kind": "store",
-            "submitted_at": "<time>"
+            "signed_at": "<time>"
           }
         }
       }
@@ -1393,8 +1391,7 @@
             "item_count": 2,
             "submission": {
               "by": "clerk",
-              "kind": "store",
-              "submitted_at": "<time>"
+              "signed_at": "<time>"
             }
           },
           {
@@ -1797,8 +1794,7 @@
           "inactive_total_cents": 0,
           "submission": {
             "by": "clerk",
-            "kind": "store",
-            "submitted_at": "<time>"
+            "signed_at": "<time>"
           }
         }
       }
@@ -1837,8 +1833,7 @@
           "item_count": 2,
           "submission": {
             "by": "clerk",
-            "kind": "store",
-            "submitted_at": "<time>"
+            "signed_at": "<time>"
           }
         }
       }
@@ -1984,8 +1979,7 @@
           ],
           "submission": {
             "by": "clerk",
-            "kind": "store",
-            "submitted_at": "<time>"
+            "signed_at": "<time>"
           }
         }
       }
@@ -2155,8 +2149,7 @@
           ],
           "submission": {
             "by": "clerk",
-            "kind": "store",
-            "submitted_at": "<time>"
+            "signed_at": "<time>"
           }
         }
       }
@@ -2278,8 +2271,7 @@
           ],
           "submission": {
             "by": "clerk",
-            "kind": "store",
-            "submitted_at": "<time>"
+            "signed_at": "<time>"
           }
         }
       }

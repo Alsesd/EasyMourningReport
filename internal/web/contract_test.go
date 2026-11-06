@@ -70,7 +70,7 @@ func normalise(v any, problems *[]string) any {
 	case map[string]any:
 		out := map[string]any{}
 		for k, x := range t {
-			if (k == "ts" || k == "created_at" || k == "last_backup_at" || k == "submitted_at") && x != nil {
+			if (k == "ts" || k == "created_at" || k == "last_backup_at" || k == "signed_at") && x != nil {
 				if s, ok := x.(string); !ok || !timeFormat.MatchString(s) {
 					*problems = append(*problems, fmt.Sprintf("%s has bad time format: %v", k, x))
 				}

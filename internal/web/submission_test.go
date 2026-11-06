@@ -9,14 +9,15 @@ import (
 )
 
 type sub struct {
-	By, Kind    string
-	SubmittedAt string `json:"submitted_at"`
+	By       string
+	SignedAt string `json:"signed_at"`
 }
 
 type subReport struct {
 	ReportID   int64  `json:"report_id"`
 	Status     string `json:"status"`
 	Submission *sub   `json:"submission"`
+	Locked     *sub   `json:"locked"`
 }
 
 func submissionEnv(t *testing.T) (*env, *http.Cookie, *http.Cookie, string) {
@@ -52,7 +53,7 @@ func TestReportCarriesTheSubmittingEmployee(t *testing.T) {
 		t.Fatalf("a draft must not be signed: %+v", r.Submission)
 	}
 	r := e.report(clerk, "PUT", path, `{"action":"submit","quantities":[]}`)
-	if r.Status != "submitted" || r.Submission == nil || r.Submission.By != "Оксана Мельник" || r.Submission.Kind != "store" || r.Submission.SubmittedAt == "" {
+	if r.Status != "submitted" || r.Submission == nil || r.Submission.By != "Оксана Мельник" || r.Submission.SignedAt == "" || r.Locked != nil {
 		t.Fatalf("submit: %+v", r)
 	}
 	if again := e.report(clerk, "GET", path, ""); again.Submission == nil || again.Submission.By != "Оксана Мельник" {
@@ -69,7 +70,7 @@ func TestReportCarriesTheSubmittingEmployee(t *testing.T) {
 		t.Fatalf("list: %+v", list)
 	}
 	detail := e.report(boss, "GET", "/api/v1/admin/reports/"+itoa(int(r.ReportID)), "")
-	if detail.Submission == nil || detail.Submission.Kind != "store" {
+	if detail.Submission == nil || detail.Submission.By != "Оксана Мельник" {
 		t.Fatalf("detail: %+v", detail)
 	}
 
@@ -77,11 +78,25 @@ func TestReportCarriesTheSubmittingEmployee(t *testing.T) {
 	patch := func(status string) subReport {
 		return e.report(boss, "PATCH", "/api/v1/admin/reports/"+itoa(int(r.ReportID)), `{"status":"`+status+`"}`)
 	}
-	if locked := patch("submitted"); locked.Submission == nil || locked.Submission.Kind != "store" {
-		t.Fatalf("lock of a submitted report: %+v", locked.Submission)
+	if locked := patch("submitted"); locked.Submission == nil || locked.Submission.By != "Оксана Мельник" || locked.Locked != nil {
+		t.Fatalf("lock of a submitted report changes nothing: %+v", locked)
 	}
-	if open := patch("draft"); open.Status != "draft" || open.Submission == nil || open.Submission.By != "Оксана Мельник" {
+	if open := patch("draft"); open.Status != "draft" || open.Submission == nil || open.Submission.By != "Оксана Мельник" || open.Locked != nil {
 		t.Fatalf("unlock: %+v", open)
+	}
+	// The correction cycle: the store does not resubmit and the administrator locks the report again. The
+	// employee's signature stays, and the administrator's lock is shown beside it.
+	e.now = e.now.Add(time.Hour)
+	relocked := patch("submitted")
+	if relocked.Status != "submitted" || relocked.Submission == nil || relocked.Submission.By != "Оксана Мельник" ||
+		relocked.Locked == nil || relocked.Locked.By != "boss" {
+		t.Fatalf("re-lock after an unlock: %+v / %+v", relocked.Submission, relocked.Locked)
+	}
+	// The store submits again: that is newer than the lock, so only the employee remains.
+	patch("draft")
+	e.now = e.now.Add(time.Hour)
+	if again := e.report(clerk, "PUT", path, `{"action":"submit","quantities":[]}`); again.Locked != nil || again.Submission == nil {
+		t.Fatalf("resubmit: %+v / %+v", again.Submission, again.Locked)
 	}
 }
 
@@ -89,8 +104,12 @@ func TestAdminLockIsRecordedAsALockNotASubmission(t *testing.T) {
 	e, clerk, boss, period := submissionEnv(t)
 	r := e.report(clerk, "PUT", "/api/v1/store/reports/"+period, `{"action":"draft","quantities":[]}`)
 	locked := e.report(boss, "PATCH", "/api/v1/admin/reports/"+itoa(int(r.ReportID)), `{"status":"submitted"}`)
-	if locked.Submission == nil || locked.Submission.Kind != "admin" || locked.Submission.By != "boss" {
-		t.Fatalf("%+v", locked.Submission)
+	if locked.Submission != nil || locked.Locked == nil || locked.Locked.By != "boss" {
+		t.Fatalf("a lock is not a submission: %+v / %+v", locked.Submission, locked.Locked)
+	}
+	// After an unlock the administrator's earlier lock is not shown.
+	if open := e.report(boss, "PATCH", "/api/v1/admin/reports/"+itoa(int(r.ReportID)), `{"status":"draft"}`); open.Locked != nil || open.Submission != nil {
+		t.Fatalf("unlock: %+v / %+v", open.Submission, open.Locked)
 	}
 }
 
@@ -99,7 +118,7 @@ func TestReportsFromBeforeTheSignatureHaveNone(t *testing.T) {
 	r := e.report(clerk, "PUT", "/api/v1/store/reports/"+period, `{"action":"submit","quantities":[]}`)
 	e.st.W.Exec("DELETE FROM report_submissions")
 	body := e.do("GET", "/api/v1/admin/reports/"+itoa(int(r.ReportID)), "", nil, boss).Body.String()
-	if strings.Contains(body, "submission") {
+	if strings.Contains(body, "submission") || strings.Contains(body, "locked") {
 		t.Fatalf("an old report must not claim a submitter: %s", body)
 	}
 }

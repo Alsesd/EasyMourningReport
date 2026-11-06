@@ -111,7 +111,7 @@ export default function AdminReportDetailPage() {
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span>{formatPeriodReadable(report.period)}</span>
             <StatusPill status={report.status} />
-            <Signature status={report.status} submission={report.submission} />
+            <Signature status={report.status} signed={report} />
             {report.store_archived && <span>{uk.month.archived}</span>}
           </span>
         }

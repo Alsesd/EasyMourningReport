@@ -68,19 +68,33 @@ type inactiveLineDTO struct {
 	SumCents int64  `json:"sum_cents"`
 }
 
-// submissionDTO is the signature of a report: the store employee who submitted it or the administrator who
-// locked it. Absent for reports that were submitted before the signature was recorded.
-type submissionDTO struct {
-	By          string `json:"by"`
-	Kind        string `json:"kind"` // "store" | "admin"
-	SubmittedAt string `json:"submitted_at"`
+// signatureDTO is one person's mark on a report.
+type signatureDTO struct {
+	By string `json:"by"`
+	At string `json:"signed_at"`
 }
 
-func submissionOf(s *reports.Submission) *submissionDTO {
-	if s == nil {
-		return nil
+// signedDTO: the employee who submitted the report ("submission", kept after an unlock) and, only while the
+// report is submitted and the lock is newer than that submission, the administrator who locked it again
+// ("locked"). Both are absent for reports from before signatures were recorded.
+type signedDTO struct {
+	Submission *signatureDTO `json:"submission,omitempty"`
+	Locked     *signatureDTO `json:"locked,omitempty"`
+}
+
+func signedOf(status string, s reports.Signatures) signedDTO {
+	var d signedDTO
+	conv := func(x *reports.Signature) *signatureDTO {
+		if x == nil {
+			return nil
+		}
+		return &signatureDTO{By: x.ByName, At: servedTimeOf(x.At)}
 	}
-	return &submissionDTO{By: s.ByName, Kind: s.Kind, SubmittedAt: servedTimeOf(s.At)}
+	d.Submission = conv(s.Submitted)
+	if status == "submitted" && s.Locked != nil && (s.Submitted == nil || s.Locked.At.After(s.Submitted.At)) {
+		d.Locked = conv(s.Locked)
+	}
+	return d
 }
 
 type storeReportDTO struct {
@@ -95,32 +109,32 @@ type storeReportDTO struct {
 	InactiveTotalCents int64             `json:"inactive_total_cents"`
 	TotalCents         int64             `json:"total_cents"`
 	AvailablePeriods   []string          `json:"available_periods"`
-	Submission         *submissionDTO    `json:"submission,omitempty"`
+	signedDTO
 }
 
 type adminReportListItemDTO struct {
-	StoreID       int64          `json:"store_id"`
-	StoreName     string         `json:"store_name"`
-	StoreArchived bool           `json:"store_archived"`
-	ReportID      *int64         `json:"report_id"`
-	Period        string         `json:"period"`
-	Status        string         `json:"status"`
-	TotalCents    int64          `json:"total_cents"`
-	ItemCount     int            `json:"item_count"`
-	Submission    *submissionDTO `json:"submission,omitempty"`
+	StoreID       int64  `json:"store_id"`
+	StoreName     string `json:"store_name"`
+	StoreArchived bool   `json:"store_archived"`
+	ReportID      *int64 `json:"report_id"`
+	Period        string `json:"period"`
+	Status        string `json:"status"`
+	TotalCents    int64  `json:"total_cents"`
+	ItemCount     int    `json:"item_count"`
+	signedDTO
 }
 
 type adminReportDTO struct {
-	ReportID           int64          `json:"report_id"`
-	StoreID            int64          `json:"store_id"`
-	StoreName          string         `json:"store_name"`
-	StoreArchived      bool           `json:"store_archived"`
-	CalculationEnabled bool           `json:"calculation_enabled"`
-	Period             string         `json:"period"`
-	Status             string         `json:"status"`
-	TotalCents         int64          `json:"total_cents"`
-	ItemCount          int            `json:"item_count"`
-	Submission         *submissionDTO `json:"submission,omitempty"`
+	ReportID           int64  `json:"report_id"`
+	StoreID            int64  `json:"store_id"`
+	StoreName          string `json:"store_name"`
+	StoreArchived      bool   `json:"store_archived"`
+	CalculationEnabled bool   `json:"calculation_enabled"`
+	Period             string `json:"period"`
+	Status             string `json:"status"`
+	TotalCents         int64  `json:"total_cents"`
+	ItemCount          int    `json:"item_count"`
+	signedDTO
 }
 
 type adminReportDetailDTO struct {
@@ -618,11 +632,11 @@ func (a *App) storeReportDTO(ctx context.Context, q core.Querier, p *platform.Pr
 		d.TotalCents += r.Sum
 	}
 	if rep != nil {
-		sub, err := reports.SubmissionOf(ctx, q, rep.ID)
+		sigs, err := reports.SignaturesOf(ctx, q, rep.ID)
 		if err != nil {
 			return storeReportDTO{}, err
 		}
-		d.Submission = submissionOf(sub)
+		d.signedDTO = signedOf(rep.Status, sigs)
 	}
 	d.TotalCents += inactiveTotal
 	if rep != nil {
@@ -773,7 +787,7 @@ func (a *App) saveStoreReport(w http.ResponseWriter, r *http.Request, p *platfor
 			return err
 		}
 		if action == "submit" { // the store employee's signature
-			if err := reports.RecordSubmission(ctx, tx, rep.ID, p.User.ID, displayName(p.User), reports.KindStore, a.now()); err != nil {
+			if err := reports.RecordSignature(ctx, tx, rep.ID, p.User.ID, displayName(p.User), reports.KindStore, a.now()); err != nil {
 				return err
 			}
 		}
@@ -821,7 +835,7 @@ func (a *App) listAdminReports(w http.ResponseWriter, r *http.Request, p *platfo
 		byStore[sid] = x
 	}
 	rows.Close()
-	subs, err := reports.SubmissionsForPeriod(ctx, a.Store.R, selected)
+	subs, err := reports.SignaturesForPeriod(ctx, a.Store.R, selected)
 	if err != nil {
 		return err
 	}
@@ -846,8 +860,8 @@ func (a *App) listAdminReports(w http.ResponseWriter, r *http.Request, p *platfo
 		if has {
 			rid := x.id
 			d.ReportID, d.Status, d.TotalCents, d.ItemCount = &rid, x.status, x.total, x.count
-			if sub, ok := subs[rid]; ok {
-				d.Submission = submissionOf(&sub)
+			if sigs, ok := subs[rid]; ok {
+				d.signedDTO = signedOf(x.status, sigs)
 			}
 		}
 		out = append(out, d)
@@ -874,11 +888,11 @@ func (a *App) adminReportHeader(ctx context.Context, q core.Querier, rep *report
 	if org != nil {
 		d.StoreName, d.StoreArchived = org.Name, org.Archived
 	}
-	sub, err := reports.SubmissionOf(ctx, q, rep.ID)
+	sigs, err := reports.SignaturesOf(ctx, q, rep.ID)
 	if err != nil {
 		return adminReportDTO{}, nil, err
 	}
-	d.Submission = submissionOf(sub)
+	d.signedDTO = signedOf(rep.Status, sigs)
 	return d, items, nil
 }
 
@@ -943,10 +957,10 @@ func (a *App) updateAdminReportStatus(w http.ResponseWriter, r *http.Request, p 
 		}
 		was := rep.Status
 		rep.Status = target
-		// An administrator's lock is recorded as such (it is not a store's submission); locking a report that is
-		// already submitted keeps the store employee's signature.
+		// An administrator's lock is recorded as such (it is not a store's submission) and never replaces the
+		// employee's signature; locking a report that is already submitted changes nothing.
 		if target == "submitted" && was != "submitted" {
-			if err := reports.RecordSubmission(ctx, tx, rep.ID, p.User.ID, displayName(p.User), reports.KindAdmin, a.now()); err != nil {
+			if err := reports.RecordSignature(ctx, tx, rep.ID, p.User.ID, displayName(p.User), reports.KindAdmin, a.now()); err != nil {
 				return err
 			}
 		}

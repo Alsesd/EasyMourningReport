@@ -101,16 +101,18 @@ var goOwned = []string{
 		note TEXT NOT NULL DEFAULT ''
 	)`,
 	`CREATE INDEX IF NOT EXISTS ix_transport_order_events_order ON transport_order_events (order_id)`,
-	// Who put a monthly report into the submitted (locked) state last: the store employee who submitted it
-	// (kind "store") or the administrator who locked it (kind "admin"). id plus a name snapshot, so the
-	// signature survives renames. Reports from before this table have no row. A side table, because the
-	// reports table mirrors the Python release and is never altered.
+	// The signature of a monthly report. One row per kind: "store" is the store employee who submitted it last
+	// (kept after an administrator unlocks the report, replaced when the store submits again) and "admin" is
+	// the administrator who locked it last. id plus a name snapshot, so the signature survives renames.
+	// Reports from before this table have no row. A side table, because the reports table mirrors the Python
+	// release and is never altered.
 	`CREATE TABLE IF NOT EXISTS report_submissions (
-		report_id INTEGER NOT NULL PRIMARY KEY REFERENCES reports (id) ON DELETE CASCADE,
+		report_id INTEGER NOT NULL REFERENCES reports (id) ON DELETE CASCADE,
+		kind TEXT NOT NULL,
 		user_id INTEGER,
 		user_name TEXT NOT NULL,
-		kind TEXT NOT NULL,
-		at INTEGER NOT NULL
+		at INTEGER NOT NULL,
+		PRIMARY KEY (report_id, kind)
 	)`,
 }
 

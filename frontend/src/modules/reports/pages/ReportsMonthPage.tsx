@@ -10,7 +10,7 @@ import { ChevronRight, Download } from "lucide-react";
 import { reportsApi } from "@/modules/reports/api";
 import { uk, formatCurrency, formatPeriodReadable } from "@/modules/reports/i18n";
 import { StatusPill } from "@/modules/reports/components/StatusPill";
-import { signatureText } from "@/modules/reports/components/Signature";
+import { signatureLines } from "@/modules/reports/components/Signature";
 import type { AdminReportListItemDTO, SummaryDTO } from "@/platform/api/types";
 import { buttonClass, Button } from "@/ui/Button";
 import { LedgerSection } from "@/ui/LedgerSection";
@@ -131,9 +131,11 @@ function StoreRegister({
                   {item.report_id ? m.positions(item.item_count) : m.noReportYet}
                   {item.store_archived && `, ${m.archived}`}
                 </span>
-                {signatureText(item.status, item.submission) && (
-                  <span className="block text-xs text-text-muted">{signatureText(item.status, item.submission)}</span>
-                )}
+                {signatureLines(item.status, item).map((line) => (
+                  <span key={line} className="block text-xs text-text-muted">
+                    {line}
+                  </span>
+                ))}
               </span>
               <StatusPill status={item.status} className="w-32 shrink-0 max-sm:hidden" />
               <span className="figure w-32 shrink-0 text-right text-[17px] text-text-main">{formatCurrency(item.total_cents)}</span>

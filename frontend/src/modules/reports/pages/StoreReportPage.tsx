@@ -309,7 +309,7 @@ export default function StoreReportPage() {
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted">
               <StatusPill status={report?.status || "new"} />
               {report && <span>{uk.store.filledOf(filled, rows.length)}</span>}
-              <Signature status={report?.status || "new"} submission={report?.submission} />
+              <Signature status={report?.status || "new"} signed={report ?? {}} />
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">

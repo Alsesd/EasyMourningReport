@@ -1,22 +1,35 @@
-import type { SubmissionDTO } from "@/platform/api/types";
+import type { SignatureDTO } from "@/platform/api/types";
 import { formatDateTime } from "@/platform/i18n";
 import { uk } from "@/modules/reports/i18n";
 
-/**
- * The report's signature next to its status: the employee who submitted it, or the administrator who locked
- * it. After an unlock only a store employee's submission is shown, as the last one. Reports from before the
- * signature was recorded have none and show nothing.
- */
-export function signatureText(status: string, submission: SubmissionDTO | null | undefined): string | null {
-  if (!submission) return null;
-  const when = formatDateTime(submission.submitted_at);
-  if (status === "submitted") {
-    return `${submission.kind === "admin" ? uk.signature.lockedBy : uk.signature.submittedBy}: ${submission.by} · ${when}`;
-  }
-  return submission.kind === "store" ? `${uk.signature.lastSubmittedBy}: ${submission.by} · ${when}` : null;
+interface Signed {
+  submission?: SignatureDTO | null;
+  locked?: SignatureDTO | null;
 }
 
-export function Signature({ status, submission, className }: { status: string; submission: SubmissionDTO | null | undefined; className?: string }) {
-  const text = signatureText(status, submission);
-  return text ? <span className={className}>{text}</span> : null;
+/**
+ * The report's signature lines next to its status: the employee who submitted it (after an unlock as the
+ * last submission) and, while it is locked again by an administrator, who locked it. Reports from before
+ * the signature was recorded have none and show nothing.
+ */
+export function signatureLines(status: string, { submission, locked }: Signed): string[] {
+  const lines: string[] = [];
+  if (submission) {
+    const label = status === "submitted" ? uk.signature.submittedBy : uk.signature.lastSubmittedBy;
+    lines.push(`${label}: ${submission.by} · ${formatDateTime(submission.signed_at)}`);
+  }
+  if (locked && status === "submitted") lines.push(`${uk.signature.lockedBy}: ${locked.by} · ${formatDateTime(locked.signed_at)}`);
+  return lines;
+}
+
+export function Signature({ status, signed, className }: { status: string; signed: Signed; className?: string }) {
+  return (
+    <>
+      {signatureLines(status, signed).map((line) => (
+        <span key={line} className={className}>
+          {line}
+        </span>
+      ))}
+    </>
+  );
 }
