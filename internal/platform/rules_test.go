@@ -16,7 +16,21 @@ var allCodes = map[string]map[string]bool{
 	"organisation": {OrgUsersManage: true, "reports.submit": true, "transport.orders.create": true},
 }
 
-var testRules = Rules{Codes: func(s string) map[string]bool { return allCodes[s] }}
+// codesByScope is the test catalogue; "" means every code, like the registry's.
+func codesByScope(s string) map[string]bool {
+	if s != "" {
+		return allCodes[s]
+	}
+	all := map[string]bool{}
+	for _, m := range allCodes {
+		for c := range m {
+			all[c] = true
+		}
+	}
+	return all
+}
+
+var testRules = Rules{Codes: codesByScope}
 
 type fx struct {
 	t   *testing.T
@@ -90,7 +104,7 @@ func (f *fx) principal(uid int64) *Principal {
 	if err != nil || u == nil {
 		f.t.Fatal(err, u)
 	}
-	p, err := PrincipalFor(f.ctx, f.tx, u, func(s string) map[string]bool { return allCodes[s] })
+	p, err := PrincipalFor(f.ctx, f.tx, u, codesByScope)
 	if err != nil {
 		f.t.Fatal(err)
 	}
@@ -167,7 +181,7 @@ func TestAssignableRolesEscalationGuards(t *testing.T) {
 	f.role("Staff", "platform", nil, AuditView)
 
 	got, _ := testRules.AssignableRoles(f.ctx, f.tx, boss, ptr(f.orgA))
-	if names(got) != "A only,Limited manager,Reports clerk,Підрозділ,Адміністратор підрозділу" && !sameSet(names(got), "A only,Limited manager,Reports clerk,Підрозділ,Адміністратор підрозділу") {
+	if !sameSet(names(got), "A only,Limited manager,Reports clerk,Staff,Адміністратор,Підрозділ,Адміністратор підрозділу") {
 		t.Fatalf("platform manager, org A: %s", names(got))
 	}
 	for _, r := range got {
@@ -175,9 +189,10 @@ func TestAssignableRolesEscalationGuards(t *testing.T) {
 			t.Fatal("role scoped to org B leaked into org A")
 		}
 	}
+	// A role is a plain set of permissions: a user without a division may hold any role that is not tied to one.
 	got, _ = testRules.AssignableRoles(f.ctx, f.tx, boss, nil)
-	if !sameSet(names(got), "Адміністратор,Staff") {
-		t.Fatalf("platform staff roles: %s", names(got))
+	if !sameSet(names(got), "Limited manager,Reports clerk,Staff,Адміністратор,Підрозділ,Адміністратор підрозділу") {
+		t.Fatalf("roles for a user without a division: %s", names(got))
 	}
 	// A manager can only hand out what they hold themselves.
 	got, _ = testRules.AssignableRoles(f.ctx, f.tx, mgrLimited, ptr(f.orgA))
@@ -185,6 +200,7 @@ func TestAssignableRolesEscalationGuards(t *testing.T) {
 		t.Fatalf("limited manager may assign: %s", names(got))
 	}
 	got, _ = testRules.AssignableRoles(f.ctx, f.tx, mgrFull, ptr(f.orgA))
+	// The division administrator holds only division-level permissions, so roles with others are not theirs to give.
 	if !sameSet(names(got), "A only,Limited manager,Reports clerk,Підрозділ,Адміністратор підрозділу") {
 		t.Fatalf("org admin may assign: %s", names(got))
 	}
@@ -194,8 +210,11 @@ func TestAssignableRolesEscalationGuards(t *testing.T) {
 	if _, err := testRules.ResolveRoles(f.ctx, f.tx, mgrFull, ptr(f.orgA), []int64{onlyB}); err == nil {
 		t.Fatal("role of another organisation accepted")
 	}
-	if _, err := testRules.ResolveRoles(f.ctx, f.tx, boss, nil, []int64{f.roleStore}); err == nil {
-		t.Fatal("organisation role accepted for platform staff")
+	if _, err := testRules.ResolveRoles(f.ctx, f.tx, boss, nil, []int64{f.roleStore}); err != nil {
+		t.Fatalf("a role is a plain set of permissions, a user without a division may hold it: %v", err)
+	}
+	if _, err := testRules.ResolveRoles(f.ctx, f.tx, boss, nil, []int64{onlyB}); err == nil {
+		t.Fatal("a role tied to one division is not for a user without a division")
 	}
 	chosen, err := testRules.ResolveRoles(f.ctx, f.tx, mgrFull, ptr(f.orgA), []int64{onlyA, onlyA, limited})
 	if err != nil || len(chosen) != 2 {
@@ -336,18 +355,21 @@ func TestValidatedPermissions(t *testing.T) {
 	if err != nil || strings.Join(got, ",") != AuditView+","+UsersManage {
 		t.Fatal(got, err)
 	}
-	if _, err := testRules.ValidatedPermissions("organisation", []string{"reports.submit", UsersManage}); err == nil ||
-		!strings.Contains(err.Error(), UsersManage) {
-		t.Fatalf("wrong-scope code accepted: %v", err)
+	// A role is a plain set of permissions: codes of any kind may be combined, unknown ones are refused.
+	if got, err := testRules.ValidatedPermissions("organisation", []string{"reports.submit", UsersManage}); err != nil || len(got) != 2 {
+		t.Fatalf("mixed codes: %v %v", got, err)
+	}
+	if _, err := testRules.ValidatedPermissions("platform", []string{"nonsense.code"}); err == nil || !strings.Contains(err.Error(), "nonsense.code") {
+		t.Fatalf("unknown code accepted: %v", err)
 	}
 }
 
 func TestEffectivePermissionsByScope(t *testing.T) {
 	f := newFx(t)
-	// A platform-scope role given to an organisation user grants nothing (scope mismatch).
+	// A role is a plain set of permissions: a user of a division may hold the dispatcher-style ones too.
 	staff := f.role("Staff", "platform", nil, AuditView)
 	p := f.principal(f.user("odd", ptr(f.orgA), true, staff))
-	if len(p.Permissions) != 0 {
+	if len(p.Permissions) != 1 || !p.Permissions[AuditView] {
 		t.Fatalf("%v", p.Permissions)
 	}
 	// Unknown stored codes are ignored.

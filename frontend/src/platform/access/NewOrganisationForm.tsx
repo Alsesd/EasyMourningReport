@@ -49,7 +49,8 @@ export function generatePassword(length = 12): string {
   return chars.join("");
 }
 
-const sharedOrganisationRoles = (roles: RoleDTO[]) => roles.filter((r) => r.scope === "organisation" && r.organisation_id == null);
+// A role is a plain set of permissions: any role not tied to one division can be given (the administrator role aside).
+const sharedOrganisationRoles = (roles: RoleDTO[]) => roles.filter((r) => r.organisation_id == null && r.key !== "platform_admin");
 
 export function NewOrganisationForm({
   canManageUsers,
@@ -238,6 +239,7 @@ export function NewOrganisationForm({
                   </div>
                   <div className="space-y-1.5">
                     <label htmlFor={`emp-role-${e.key}`} className="text-xs font-medium text-text-muted">{uk.access.employeeRole}</label>
+                    {offered.length === 0 && <p className="text-xs text-attention">{uk.access.createRoleFirst}</p>}
                     <select
                       id={`emp-role-${e.key}`}
                       value={e.roleId ?? ""}

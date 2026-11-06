@@ -457,3 +457,27 @@ func TestOneCarForBothPartsOrAnotherCarToCarry(t *testing.T) {
 		t.Fatalf("order of the day: %v %v %v", got[0].Deceased, got[1].Deceased, got[2].Deceased)
 	}
 }
+
+func TestADispatcherMayBelongToADivision(t *testing.T) {
+	d := newDesks(t)
+	// A role is a plain set of permissions: one person of division A may both place A's orders and handle everyone's.
+	d.e.addUser("dual", "Двоєдина", "Dual-pass1", &d.orgA, "organisation", "transport.orders.create", "transport.orders.manage")
+	dual := sessionCookie(d.e.login("dual", "Dual-pass1"))
+	d.create(d.b, order(day, "Чужий", "d09:00"))
+	if got := d.list(dual, "date="+day); len(got) != 1 || got[0].Deceased != "Чужий" {
+		t.Fatalf("a holder of manage sees every division's orders: %+v", got)
+	}
+	own := d.create(dual, order(day, "Свій", "d10:00"))
+	if own.Organisation.Name != "Філія А" || own.SubmittedBy != "Двоєдина" {
+		t.Fatalf("their own orders belong to their division: %+v", own)
+	}
+	other := d.list(dual, "date="+day)[0]
+	w := d.post(dual, "POST", "/api/v1/transport/orders/"+itoa(int(other.ID))+"/status", map[string]any{"status": "accepted", "note": ""})
+	if w.Code != 200 {
+		t.Fatalf("handling another division's order: %d %s", w.Code, w.Body)
+	}
+	// Without the handling permission a desk still sees only its own division.
+	if got := d.list(d.a, "date="+day); len(got) != 1 || got[0].Deceased != "Свій" {
+		t.Fatalf("a plain desk is still limited to its division: %+v", got)
+	}
+}

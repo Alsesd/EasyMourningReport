@@ -822,7 +822,7 @@
       }
     },
     {
-      "name": "create platform role in org",
+      "name": "role of any kind may be held in a division",
       "as": "boss",
       "method": "POST",
       "path": "/api/v1/users",
@@ -835,10 +835,22 @@
         ]
       },
       "expect": {
-        "status": 422,
+        "status": 201,
         "json": {
-          "detail": "Цю роль не можна призначити цьому користувачеві.",
-          "code": "validation_error"
+          "active": true,
+          "full_name": "",
+          "id": 4,
+          "login": "mixed",
+          "organisation": {
+            "id": 1,
+            "name": "Shop A"
+          },
+          "role_ids": [
+            1
+          ],
+          "role_names": [
+            "Адміністратор"
+          ]
         }
       }
     },
@@ -887,10 +899,10 @@
         "status": 200,
         "json": [
           {
+            "active": true,
+            "full_name": "",
             "id": 2,
             "login": "clerk",
-            "full_name": "",
-            "active": true,
             "organisation": {
               "id": 1,
               "name": "Shop A"
@@ -903,10 +915,10 @@
             ]
           },
           {
+            "active": true,
+            "full_name": "Mgr",
             "id": 3,
             "login": "manager",
-            "full_name": "Mgr",
-            "active": true,
             "organisation": {
               "id": 1,
               "name": "Shop A"
@@ -916,6 +928,22 @@
             ],
             "role_names": [
               "Адміністратор підрозділу"
+            ]
+          },
+          {
+            "active": true,
+            "full_name": "",
+            "id": 4,
+            "login": "mixed",
+            "organisation": {
+              "id": 1,
+              "name": "Shop A"
+            },
+            "role_ids": [
+              1
+            ],
+            "role_names": [
+              "Адміністратор"
             ]
           }
         ]
@@ -930,10 +958,10 @@
         "status": 200,
         "json": [
           {
+            "active": true,
+            "full_name": "",
             "id": 2,
             "login": "clerk",
-            "full_name": "",
-            "active": true,
             "organisation": {
               "id": 1,
               "name": "Shop A"
@@ -946,10 +974,10 @@
             ]
           },
           {
+            "active": true,
+            "full_name": "Mgr",
             "id": 3,
             "login": "manager",
-            "full_name": "Mgr",
-            "active": true,
             "organisation": {
               "id": 1,
               "name": "Shop A"
@@ -959,6 +987,22 @@
             ],
             "role_names": [
               "Адміністратор підрозділу"
+            ]
+          },
+          {
+            "active": true,
+            "full_name": "",
+            "id": 4,
+            "login": "mixed",
+            "organisation": {
+              "id": 1,
+              "name": "Shop A"
+            },
+            "role_ids": [
+              1
+            ],
+            "role_names": [
+              "Адміністратор"
             ]
           }
         ]
@@ -983,7 +1027,7 @@
       "expect": {
         "status": 201,
         "json": {
-          "id": 4,
+          "id": 5,
           "login": "clerk2",
           "full_name": "",
           "active": true,
@@ -1016,7 +1060,7 @@
       "expect": {
         "status": 201,
         "json": {
-          "id": 5,
+          "id": 6,
           "login": "intruder",
           "full_name": "",
           "active": true,
@@ -1280,13 +1324,13 @@
       "expect": {
         "status": 422,
         "json": {
-          "detail": "Дозволи не підходять для цього типу ролі: nope.nope",
+          "detail": "Невідомі дозволи: nope.nope",
           "code": "validation_error"
         }
       }
     },
     {
-      "name": "custom role wrong scope permission",
+      "name": "custom role with permissions of any kind",
       "as": "boss",
       "method": "POST",
       "path": "/api/v1/roles",
@@ -1298,10 +1342,20 @@
         ]
       },
       "expect": {
-        "status": 422,
+        "status": 201,
         "json": {
-          "detail": "Дозволи не підходять для цього типу ролі: reports.submit",
-          "code": "validation_error"
+          "all_permissions": false,
+          "built_in": false,
+          "id": 5,
+          "key": null,
+          "name": "Odd2",
+          "organisation_id": null,
+          "organisation_name": null,
+          "permissions": [
+            "reports.submit"
+          ],
+          "scope": "platform",
+          "user_count": 0
         }
       }
     },
@@ -1368,7 +1422,7 @@
       "expect": {
         "status": 201,
         "json": {
-          "id": 6,
+          "id": 7,
           "login": "audit",
           "full_name": "",
           "active": true,
@@ -1394,7 +1448,7 @@
       "expect": {
         "status": 200,
         "json": {
-          "user_id": 6,
+          "user_id": 7,
           "login": "audit",
           "full_name": "",
           "organisation": null,
@@ -1423,175 +1477,193 @@
         "status": 200,
         "json": [
           {
-            "id": 19,
-            "ts": "<time>",
+            "action": "вхід",
+            "detail": "",
+            "id": 21,
+            "ip": "testclient",
             "login": "audit",
             "role": "Auditors",
-            "action": "вхід",
-            "detail": "",
-            "ip": "testclient"
+            "ts": "<time>"
           },
           {
-            "id": 18,
-            "ts": "<time>",
-            "login": "boss",
-            "role": "Адміністратор",
             "action": "додано користувача",
             "detail": "audit · платформа · Auditors",
-            "ip": "testclient"
-          },
-          {
-            "id": 17,
-            "ts": "<time>",
+            "id": 20,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "змінено роль",
             "detail": "Auditors: назва «Auditor» → «Auditors»; дозволи: platform.audit.view, platform.system.manage",
-            "ip": "testclient"
-          },
-          {
-            "id": 16,
-            "ts": "<time>",
+            "id": 19,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
+            "action": "додано роль",
+            "detail": "Odd2: reports.submit",
+            "id": 18,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "додано роль",
             "detail": "Auditor: platform.audit.view",
-            "ip": "testclient"
+            "id": 17,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "Адміністратор",
+            "ts": "<time>"
           },
           {
-            "id": 15,
-            "ts": "<time>",
-            "login": "manager",
-            "role": "Адміністратор підрозділу",
             "action": "змінено пароль користувача",
             "detail": "clerk2",
-            "ip": "testclient"
-          },
-          {
-            "id": 14,
-            "ts": "<time>",
+            "id": 16,
+            "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
+            "ts": "<time>"
+          },
+          {
             "action": "додано користувача",
             "detail": "intruder · Shop A · Підрозділ",
-            "ip": "testclient"
-          },
-          {
-            "id": 13,
-            "ts": "<time>",
+            "id": 15,
+            "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
+            "ts": "<time>"
+          },
+          {
             "action": "додано користувача",
             "detail": "clerk2 · Shop A · Підрозділ",
-            "ip": "testclient"
-          },
-          {
-            "id": 12,
-            "ts": "<time>",
+            "id": 14,
+            "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
-            "action": "вхід",
-            "detail": "",
-            "ip": "testclient"
+            "ts": "<time>"
           },
           {
-            "id": 11,
-            "ts": "<time>",
+            "action": "вхід",
+            "detail": "",
+            "id": 13,
+            "ip": "testclient",
+            "login": "manager",
+            "role": "Адміністратор підрозділу",
+            "ts": "<time>"
+          },
+          {
+            "action": "додано користувача",
+            "detail": "mixed · Shop A · Адміністратор",
+            "id": 12,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "додано користувача",
             "detail": "manager · Shop A · Адміністратор підрозділу",
-            "ip": "testclient"
+            "id": 11,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "Адміністратор",
+            "ts": "<time>"
           },
           {
-            "id": 10,
-            "ts": "<time>",
-            "login": "clerk",
-            "role": "Підрозділ",
             "action": "вхід",
             "detail": "",
-            "ip": "testclient"
-          },
-          {
-            "id": 9,
-            "ts": "<time>",
-            "login": "clerk",
-            "role": "",
-            "action": "невдалий вхід",
-            "detail": "",
-            "ip": "testclient"
-          },
-          {
-            "id": 8,
-            "ts": "<time>",
+            "id": 10,
+            "ip": "testclient",
             "login": "clerk",
             "role": "Підрозділ",
+            "ts": "<time>"
+          },
+          {
+            "action": "невдалий вхід",
+            "detail": "",
+            "id": 9,
+            "ip": "testclient",
+            "login": "clerk",
+            "role": "",
+            "ts": "<time>"
+          },
+          {
             "action": "змінено власний пароль",
             "detail": "",
-            "ip": "testclient"
-          },
-          {
-            "id": 7,
-            "ts": "<time>",
+            "id": 8,
+            "ip": "testclient",
             "login": "clerk",
             "role": "Підрозділ",
-            "action": "вхід",
-            "detail": "",
-            "ip": "testclient"
+            "ts": "<time>"
           },
           {
-            "id": 6,
-            "ts": "<time>",
-            "login": "boss",
-            "role": "Адміністратор",
+            "action": "вхід",
+            "detail": "",
+            "id": 7,
+            "ip": "testclient",
+            "login": "clerk",
+            "role": "Підрозділ",
+            "ts": "<time>"
+          },
+          {
             "action": "змінено підрозділ",
             "detail": "«Shop B» → «Shop Beta»",
-            "ip": "testclient"
-          },
-          {
-            "id": 5,
-            "ts": "<time>",
+            "id": 6,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "додано підрозділ",
             "detail": "Shop B",
-            "ip": "testclient"
-          },
-          {
-            "id": 4,
-            "ts": "<time>",
+            "id": 5,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "додано підрозділ",
             "detail": "Shop A · логін clerk",
-            "ip": "testclient"
-          },
-          {
-            "id": 3,
-            "ts": "<time>",
+            "id": 4,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "вхід",
             "detail": "",
-            "ip": "testclient"
+            "id": 3,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "Адміністратор",
+            "ts": "<time>"
           },
           {
+            "action": "невдалий вхід",
+            "detail": "",
             "id": 2,
-            "ts": "<time>",
+            "ip": "testclient",
             "login": "ghost",
             "role": "",
-            "action": "невдалий вхід",
-            "detail": "",
-            "ip": "testclient"
+            "ts": "<time>"
           },
           {
-            "id": 1,
-            "ts": "<time>",
-            "login": "boss",
-            "role": "",
             "action": "невдалий вхід",
             "detail": "",
-            "ip": "testclient"
+            "id": 1,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "",
+            "ts": "<time>"
           }
         ]
       }
@@ -1697,7 +1769,7 @@
       "expect": {
         "status": 200,
         "json": {
-          "id": 6,
+          "id": 7,
           "login": "audit",
           "full_name": "",
           "active": true,
@@ -1715,7 +1787,7 @@
       "expect": {
         "status": 200,
         "json": {
-          "id": 6,
+          "id": 7,
           "archived": false,
           "deleted": true,
           "message": "Користувача «audit» видалено."
@@ -1855,211 +1927,229 @@
         "status": 200,
         "json": [
           {
-            "id": 23,
-            "ts": "<time>",
-            "login": "boss",
-            "role": "Адміністратор",
             "action": "видалено підрозділ",
             "detail": "Shop Beta",
-            "ip": "testclient"
-          },
-          {
-            "id": 22,
-            "ts": "<time>",
+            "id": 25,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "видалено підрозділ",
             "detail": "Shop A",
-            "ip": "testclient"
-          },
-          {
-            "id": 21,
-            "ts": "<time>",
+            "id": 24,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "видалено користувача",
             "detail": "audit",
-            "ip": "testclient"
-          },
-          {
-            "id": 20,
-            "ts": "<time>",
+            "id": 23,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "видалено роль",
             "detail": "Auditors",
-            "ip": "testclient"
+            "id": 22,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "Адміністратор",
+            "ts": "<time>"
           },
           {
-            "id": 19,
-            "ts": "<time>",
+            "action": "вхід",
+            "detail": "",
+            "id": 21,
+            "ip": "testclient",
             "login": "audit",
             "role": "Auditors",
-            "action": "вхід",
-            "detail": "",
-            "ip": "testclient"
+            "ts": "<time>"
           },
           {
-            "id": 18,
-            "ts": "<time>",
-            "login": "boss",
-            "role": "Адміністратор",
             "action": "додано користувача",
             "detail": "audit · платформа · Auditors",
-            "ip": "testclient"
-          },
-          {
-            "id": 17,
-            "ts": "<time>",
+            "id": 20,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "змінено роль",
             "detail": "Auditors: назва «Auditor» → «Auditors»; дозволи: platform.audit.view, platform.system.manage",
-            "ip": "testclient"
-          },
-          {
-            "id": 16,
-            "ts": "<time>",
+            "id": 19,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
+            "action": "додано роль",
+            "detail": "Odd2: reports.submit",
+            "id": 18,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "додано роль",
             "detail": "Auditor: platform.audit.view",
-            "ip": "testclient"
+            "id": 17,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "Адміністратор",
+            "ts": "<time>"
           },
           {
-            "id": 15,
-            "ts": "<time>",
-            "login": "manager",
-            "role": "Адміністратор підрозділу",
             "action": "змінено пароль користувача",
             "detail": "clerk2",
-            "ip": "testclient"
-          },
-          {
-            "id": 14,
-            "ts": "<time>",
+            "id": 16,
+            "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
+            "ts": "<time>"
+          },
+          {
             "action": "додано користувача",
             "detail": "intruder · Shop A · Підрозділ",
-            "ip": "testclient"
-          },
-          {
-            "id": 13,
-            "ts": "<time>",
+            "id": 15,
+            "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
+            "ts": "<time>"
+          },
+          {
             "action": "додано користувача",
             "detail": "clerk2 · Shop A · Підрозділ",
-            "ip": "testclient"
-          },
-          {
-            "id": 12,
-            "ts": "<time>",
+            "id": 14,
+            "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
-            "action": "вхід",
-            "detail": "",
-            "ip": "testclient"
+            "ts": "<time>"
           },
           {
-            "id": 11,
-            "ts": "<time>",
+            "action": "вхід",
+            "detail": "",
+            "id": 13,
+            "ip": "testclient",
+            "login": "manager",
+            "role": "Адміністратор підрозділу",
+            "ts": "<time>"
+          },
+          {
+            "action": "додано користувача",
+            "detail": "mixed · Shop A · Адміністратор",
+            "id": 12,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "додано користувача",
             "detail": "manager · Shop A · Адміністратор підрозділу",
-            "ip": "testclient"
+            "id": 11,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "Адміністратор",
+            "ts": "<time>"
           },
           {
-            "id": 10,
-            "ts": "<time>",
-            "login": "clerk",
-            "role": "Підрозділ",
             "action": "вхід",
             "detail": "",
-            "ip": "testclient"
-          },
-          {
-            "id": 9,
-            "ts": "<time>",
-            "login": "clerk",
-            "role": "",
-            "action": "невдалий вхід",
-            "detail": "",
-            "ip": "testclient"
-          },
-          {
-            "id": 8,
-            "ts": "<time>",
+            "id": 10,
+            "ip": "testclient",
             "login": "clerk",
             "role": "Підрозділ",
+            "ts": "<time>"
+          },
+          {
+            "action": "невдалий вхід",
+            "detail": "",
+            "id": 9,
+            "ip": "testclient",
+            "login": "clerk",
+            "role": "",
+            "ts": "<time>"
+          },
+          {
             "action": "змінено власний пароль",
             "detail": "",
-            "ip": "testclient"
-          },
-          {
-            "id": 7,
-            "ts": "<time>",
+            "id": 8,
+            "ip": "testclient",
             "login": "clerk",
             "role": "Підрозділ",
-            "action": "вхід",
-            "detail": "",
-            "ip": "testclient"
+            "ts": "<time>"
           },
           {
-            "id": 6,
-            "ts": "<time>",
-            "login": "boss",
-            "role": "Адміністратор",
+            "action": "вхід",
+            "detail": "",
+            "id": 7,
+            "ip": "testclient",
+            "login": "clerk",
+            "role": "Підрозділ",
+            "ts": "<time>"
+          },
+          {
             "action": "змінено підрозділ",
             "detail": "«Shop B» → «Shop Beta»",
-            "ip": "testclient"
-          },
-          {
-            "id": 5,
-            "ts": "<time>",
+            "id": 6,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "додано підрозділ",
             "detail": "Shop B",
-            "ip": "testclient"
-          },
-          {
-            "id": 4,
-            "ts": "<time>",
+            "id": 5,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "додано підрозділ",
             "detail": "Shop A · логін clerk",
-            "ip": "testclient"
-          },
-          {
-            "id": 3,
-            "ts": "<time>",
+            "id": 4,
+            "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
             "action": "вхід",
             "detail": "",
-            "ip": "testclient"
+            "id": 3,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "Адміністратор",
+            "ts": "<time>"
           },
           {
+            "action": "невдалий вхід",
+            "detail": "",
             "id": 2,
-            "ts": "<time>",
+            "ip": "testclient",
             "login": "ghost",
             "role": "",
-            "action": "невдалий вхід",
-            "detail": "",
-            "ip": "testclient"
+            "ts": "<time>"
           },
           {
-            "id": 1,
-            "ts": "<time>",
-            "login": "boss",
-            "role": "",
             "action": "невдалий вхід",
             "detail": "",
-            "ip": "testclient"
+            "id": 1,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "",
+            "ts": "<time>"
           }
         ]
       }

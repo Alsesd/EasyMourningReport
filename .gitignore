@@ -13,7 +13,6 @@ flake.lock
 .direnv/
 .envrc
 result
-.claude/
 coverage/
 *.out
 *.test

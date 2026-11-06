@@ -24,7 +24,8 @@ function PermissionPicker({
   idPrefix,
 }: {
   permissions: PermissionDTO[];
-  scope: Scope;
+  /** Only for a built-in administrator role, which holds every permission of one kind; other roles may hold any. */
+  scope?: Scope;
   selected: string[];
   locked: boolean;
   onChange: (codes: string[]) => void;
@@ -32,7 +33,7 @@ function PermissionPicker({
 }) {
   const groups = useMemo(() => {
     const byModule = new Map<string, { title: string; items: PermissionDTO[] }>();
-    for (const p of permissions.filter((p) => p.scope === scope)) {
+    for (const p of permissions.filter((p) => !scope || p.scope === scope)) {
       const group = byModule.get(p.module) ?? { title: p.module_title, items: [] };
       group.items.push(p);
       byModule.set(p.module, group);
@@ -95,14 +96,16 @@ function RoleForm({
 }) {
   const [value, setValue] = useState<RoleInputDTO>(initial);
   const idPrefix = `role-${role?.id ?? "new"}`;
-  const scope = value.scope as Scope;
+  const locked = Boolean(role?.all_permissions);
 
   return (
     <form
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit(value);
+        // A role is a plain set of permissions; the old "type" is only recorded: a role made for one division is
+        // "organisation", any other "platform".
+        onSubmit(role?.built_in ? value : { ...value, scope: value.organisation_id ? "organisation" : "platform" });
       }}
     >
       <div className="grid gap-3 sm:grid-cols-2">
@@ -117,20 +120,7 @@ function RoleForm({
             className="h-11"
           />
         </div>
-        <div className="space-y-1.5">
-          <label htmlFor={`${idPrefix}-scope`} className="text-xs font-medium text-text-muted">{uk.access.scopeLabel}</label>
-          <select
-            id={`${idPrefix}-scope`}
-            value={value.scope}
-            disabled={Boolean(role)}
-            onChange={(e) => setValue({ ...value, scope: e.target.value as Scope, permissions: [], organisation_id: null })}
-            className="h-11 w-full rounded-control border border-border bg-surface px-3 text-sm text-text-main disabled:opacity-70"
-          >
-            <option value="organisation">{uk.access.scopeOrganisation}</option>
-            <option value="platform">{uk.access.scopePlatform}</option>
-          </select>
-        </div>
-        {scope === "organisation" && !role?.built_in && (
+        {!role?.built_in && (
           <div className="space-y-1.5 sm:col-span-2">
             <label htmlFor={`${idPrefix}-org`} className="text-xs font-medium text-text-muted">{uk.access.roleOrganisation}</label>
             <select
@@ -149,9 +139,9 @@ function RoleForm({
       </div>
       <PermissionPicker
         permissions={permissions}
-        scope={scope}
+        scope={locked ? (value.scope as Scope) : undefined}
         selected={value.permissions ?? []}
-        locked={Boolean(role?.all_permissions)}
+        locked={locked}
         onChange={(codes) => setValue({ ...value, permissions: codes })}
         idPrefix={idPrefix}
       />

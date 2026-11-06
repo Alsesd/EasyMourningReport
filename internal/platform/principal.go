@@ -168,27 +168,13 @@ func LoadRoles(ctx context.Context, q Querier, where string, args ...any) ([]Rol
 	return roles, grows.Err()
 }
 
-// PrincipalFor computes effective permissions: for roles matching the user's scope,
-// platform_admin/org_admin get every code of their scope, other roles their grants
-// restricted to codes that exist in that scope.
+// PrincipalFor computes effective permissions: the union of what the user's roles grant (see effectiveCodes).
+// A role has no type: administrators and division staff are told apart by their permissions.
 func PrincipalFor(ctx context.Context, q Querier, u *User, codesByScope func(scope string) map[string]bool) (*Principal, error) {
-	scope := u.Scope()
 	perms := map[string]bool{}
 	for _, r := range u.Roles {
-		if r.Scope != scope {
-			continue
-		}
-		codes := codesByScope(r.Scope)
-		if _, all := AllOfScope[r.Key]; all {
-			for c := range codes {
-				perms[c] = true
-			}
-			continue
-		}
-		for _, c := range r.Grants {
-			if codes[c] {
-				perms[c] = true
-			}
+		for c := range effectiveCodes(r, codesByScope) {
+			perms[c] = true
 		}
 	}
 	return &Principal{User: *u, Permissions: perms}, nil

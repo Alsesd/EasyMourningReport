@@ -88,10 +88,10 @@ func (a *App) mountTransport(rt *Router) {
 	rt.Handle("POST", "/transport/orders/{oid}/status", a.authed([]string{transport.Manage}, a.setTransportOrderStatus))
 }
 
-// seesAll: staff (platform users holding view_all or manage) see every organisation's orders; an
-// organisation's employees only their own.
+// seesAll: whoever holds view_all or manage sees every division's orders (a dispatcher may belong to a division
+// or to none); everyone else only their own division's.
 func seesAll(p *platform.Principal) bool {
-	return p.User.Org == nil && p.Can(transport.ViewAll, transport.Manage)
+	return p.Can(transport.ViewAll, transport.Manage)
 }
 
 func (a *App) orderDTO(o transport.Order, p *platform.Principal, events []transport.Event) transportOrderDTO {

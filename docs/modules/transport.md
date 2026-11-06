@@ -28,7 +28,7 @@ The day list is ordered by the earliest time of each order (then by id). Times a
 | `transport.orders.manage` | platform | Handle orders: see every organisation's orders and the history, and set the reply status (with a note shown to the desk). Required to change a status. |
 | `transport.orders.view_all` | platform | Read-only: see every organisation's orders and the history, no status changes. |
 
-A desk and a dispatcher are different kinds of users: organisation roles can only hold organisation-scope permissions, platform roles only platform-scope ones. No role grants `create` by default; assign it to the desks' role in the role editor.
+A role is a plain set of permissions and the user's division is the scope of what they see: nobody sees other divisions' orders unless a role they hold grants `manage` or `view_all`. A dispatcher may belong to a division or to none, and one person may hold both `create` and `manage`. No role grants `create` by default; make a role for the desks in the role editor.
 
 ## Bearers and the printed schedule
 

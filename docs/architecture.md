@@ -71,10 +71,10 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 
 - **Organisation**: a customer-side unit. Every store from earlier releases became one. It can have many users. Archived organisations keep their data, and their users cannot sign in.
 - **User**: `organisation_id = NULL` means platform staff, who act across organisations. Users can be disabled (`active = false`).
-- **Role**: a named permission set with a scope (`platform` or `organisation`). Organisation roles can be shared by all organisations or limited to one. A user may hold several roles.
+- **Role**: a named, plain set of permissions (any codes; the stored `scope` is legacy and informational). A role can be shared by all divisions or limited to one. A user may hold several roles. The user's division is the scope of what they see; seeing other divisions needs a permission that says so (for example `transport.orders.manage`, `reports.review`).
   - Built-in **Адміністратор** (`platform_admin`) and **Адміністратор організації** (`org_admin`) always hold every permission of their scope, including permissions of modules installed later.
   - Built-in **Магазин** (`store`) is editable and starts with `reports.submit`.
-- **Effective permissions** are the union of the user's roles that match their scope (`internal/platform/principal.go`).
+- **Effective permissions** are the union of what the user's roles grant (`internal/platform/principal.go`); the built-in administrator holds every platform-level code.
 - **Escalation guards**: organisation managers (`org.users.manage`) only see and edit their own organisation, and only hand out roles whose permissions they hold themselves. The last active platform administrator cannot be disabled, demoted or deleted.
 
 | Permission | Scope | Unlocks |

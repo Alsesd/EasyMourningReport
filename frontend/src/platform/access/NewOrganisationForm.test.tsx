@@ -154,3 +154,24 @@ describe("NewOrganisationForm", () => {
     expect(done.mock.calls[0][0]).toMatchObject({ moved: 1, failures: [] });
   });
 });
+
+describe("NewOrganisationForm without any division role", () => {
+  it("tells the administrator to create a role first", async () => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = vi.fn((url: string) =>
+      Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(url.includes("/roles") ? [{ id: 1, key: "platform_admin", name: "Адміністратор", scope: "platform", organisation_id: null }] : []) }),
+    ) as unknown as typeof fetch;
+    try {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={client}>
+          <NewOrganisationForm canManageUsers onDone={() => {}} onCancel={() => {}} />
+        </QueryClientProvider>,
+      );
+      fireEvent.click(await screen.findByRole("button", { name: "Додати працівника" }));
+      expect(await screen.findByText(/спершу створіть роль/)).toBeDefined();
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+});

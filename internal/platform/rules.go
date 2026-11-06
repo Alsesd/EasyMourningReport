@@ -140,19 +140,26 @@ func ResolveTargetOrganisation(ctx context.Context, q Querier, p *Principal, org
 	return o, nil
 }
 
-// RolePermissions is the set of codes a role grants: every code of its scope for
-// platform_admin/org_admin, otherwise its grants limited to existing codes of that scope.
+// RolePermissions is the set of codes a role grants. A role is just a set of permissions: the platform
+// administrator holds every platform-level code, the (legacy) division administrator every division-level code, any other
+// role its grants limited to codes that exist. Where a user's data ends is decided by the user's division and by
+// the permissions themselves (seeing other divisions needs one), not by a role type.
 func (r Rules) RolePermissions(role Role) map[string]bool {
-	codes := r.Codes(role.Scope)
+	return effectiveCodes(role, r.Codes)
+}
+
+// effectiveCodes resolves a role against the catalogue of codes by scope ("" = all).
+func effectiveCodes(role Role, codesByScope func(scope string) map[string]bool) map[string]bool {
 	out := map[string]bool{}
-	if _, all := AllOfScope[role.Key]; all {
-		for c := range codes {
+	if scope, all := AllOfScope[role.Key]; all {
+		for c := range codesByScope(scope) {
 			out[c] = true
 		}
 		return out
 	}
+	known := codesByScope("")
 	for _, c := range role.Grants {
-		if codes[c] {
+		if known[c] {
 			out[c] = true
 		}
 	}
@@ -174,9 +181,9 @@ func (r Rules) AssignableRoles(ctx context.Context, q Querier, p *Principal, org
 	var roles []Role
 	var err error
 	if orgID == nil {
-		roles, err = LoadRoles(ctx, q, "WHERE r.scope = 'platform'")
+		roles, err = LoadRoles(ctx, q, "WHERE r.organisation_id IS NULL")
 	} else {
-		roles, err = LoadRoles(ctx, q, "WHERE r.scope = 'organisation' AND (r.organisation_id IS NULL OR r.organisation_id = ?)", *orgID)
+		roles, err = LoadRoles(ctx, q, "WHERE r.organisation_id IS NULL OR r.organisation_id = ?", *orgID)
 	}
 	if err != nil {
 		return nil, err
@@ -337,9 +344,10 @@ func CheckAdminRemains(ctx context.Context, q Querier) error {
 	return nil
 }
 
-// ValidatedPermissions: every code must exist in the role's scope; the result is sorted and unique.
+// ValidatedPermissions: every code must exist; the result is sorted and unique. (The scope argument is kept for
+// the callers' sake: a role is a plain set of permissions and may hold codes of any kind.)
 func (r Rules) ValidatedPermissions(scope string, codes []string) ([]string, error) {
-	allowed := r.Codes(scope)
+	allowed := r.Codes("")
 	var unknown []string
 	for _, c := range codes {
 		if !allowed[c] {
@@ -347,7 +355,7 @@ func (r Rules) ValidatedPermissions(scope string, codes []string) ([]string, err
 		}
 	}
 	if len(unknown) > 0 {
-		return nil, formf("Дозволи не підходять для цього типу ролі: %s", strings.Join(unknown, ", "))
+		return nil, formf("Невідомі дозволи: %s", strings.Join(unknown, ", "))
 	}
 	set := map[string]bool{}
 	for _, c := range codes {

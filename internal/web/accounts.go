@@ -977,8 +977,16 @@ func (a *App) createRole(w http.ResponseWriter, r *http.Request, p *platform.Pri
 		return err
 	}
 	rawName := body.String("name", 1, 100)
-	scope := body.Literal("scope", "platform", "organisation")
 	orgID := body.OptInt("organisation_id")
+	// A role is a plain set of permissions; "scope" is accepted for old clients and only records whether the role
+	// was made for one division.
+	scope := body.OptLiteral("scope", "", "platform", "organisation")
+	if scope == "" {
+		scope = "platform"
+		if orgID != nil {
+			scope = "organisation"
+		}
+	}
 	perms := body.StringList("permissions", 500)
 	if err := body.Err(); err != nil {
 		return err
@@ -991,10 +999,7 @@ func (a *App) createRole(w http.ResponseWriter, r *http.Request, p *platform.Pri
 		if err != nil {
 			return err
 		}
-		var oid *int64
-		if scope == "organisation" {
-			oid = orgID
-		}
+		oid := orgID
 		if oid != nil {
 			if _, err := orgOr404(ctx, tx, *oid); err != nil {
 				return err
@@ -1056,8 +1061,8 @@ func (a *App) updateRole(w http.ResponseWriter, r *http.Request, p *platform.Pri
 		return err
 	}
 	rawName := body.String("name", 1, 100)
-	scope := body.Literal("scope", "platform", "organisation")
 	orgID := body.OptInt("organisation_id")
+	_ = body.OptLiteral("scope", "", "platform", "organisation") // accepted, no longer meaningful
 	perms := body.StringList("permissions", 500)
 	if err := body.Err(); err != nil {
 		return err
@@ -1069,19 +1074,13 @@ func (a *App) updateRole(w http.ResponseWriter, r *http.Request, p *platform.Pri
 		if err != nil {
 			return err
 		}
-		if scope != role.Scope {
-			return platform.RuleError{Msg: "Тип ролі (для платформи чи для підрозділу) змінити не можна."}
-		}
 		name, err := platform.CleanName(rawName, "Назва ролі")
 		if err != nil {
 			return err
 		}
 		oid := role.OrgID
 		if role.Key == "" {
-			oid = nil
-			if role.Scope == "organisation" {
-				oid = orgID
-			}
+			oid = orgID
 		}
 		if oid != nil {
 			if _, err := orgOr404(ctx, tx, *oid); err != nil {
