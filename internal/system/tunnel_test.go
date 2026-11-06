@@ -371,3 +371,37 @@ func TestMissingCloudflaredMessageSaysWhatToDo(t *testing.T) {
 		t.Fatalf("Termux message: %q", got.Error)
 	}
 }
+
+func TestNoResolverFailureNamesTheFix(t *testing.T) {
+	line := `2026-11-06T11:07:37Z ERR Initiating shutdown error="Could not lookup srv records on _v2-origintunneld._tcp.argotunnel.com: lookup _v2-origintunneld._tcp.argotunnel.com on [::1]:53: read udp [::1]:43333->[::1]:53: read: connection refused"`
+	script := "#!/bin/sh\necho '" + line + "'\nexit 1\n"
+	for _, termux := range []bool{true, false} {
+		f := newFixture(t)
+		f.binary(script)
+		if termux {
+			f.env["TERMUX_VERSION"] = "0.118"
+		}
+		f.tun.Start("", false)
+		var got string
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if st := f.tun.Status(); st.State == "error" {
+				got = st.Error
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		want := "DNS-резолвера"
+		if termux {
+			want = "pkg install cloudflared"
+		}
+		if !strings.Contains(got, want) || !strings.Contains(got, "connection refused") {
+			t.Errorf("termux=%v: %q", termux, got)
+		}
+	}
+	// A different failure is shown unchanged.
+	f := newFixture(t)
+	if got := f.tun.withHint("ERR something else"); got != "ERR something else" {
+		t.Errorf("unrelated line altered: %q", got)
+	}
+}

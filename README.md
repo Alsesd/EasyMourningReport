@@ -116,7 +116,13 @@ chmod +x legkyi-linux-arm64
 ADMIN_PASSWORD=choose-a-password ./legkyi-linux-arm64
 ```
 
-cloudflared is inside the file. On Termux the program prefers the Termux package if you have it (`pkg install cloudflared`), because the temporary quick-tunnel address needs name lookup that plain Linux builds cannot do on Android; a tunnel with `TUNNEL_TOKEN` in `.env` works either way. Run `termux-wake-lock` so Android does not pause the app, and keep the file in Termux's home folder.
+cloudflared is inside the file, but that copy is a generic Linux build and **cannot look up DNS on Android** (Termux has no `/etc/resolv.conf`), so the tunnel fails with `lookup ... on [::1]:53: connection refused`. On Termux install the Android build once and the program picks it up automatically (it is preferred over the bundled copy), for the temporary address and for `TUNNEL_TOKEN` alike:
+
+```bash
+pkg install cloudflared
+```
+
+Run `termux-wake-lock` so Android does not pause the app, and keep the file in Termux's home folder. The first start prints the administrator password once in the console; change it under «Налаштування» (do not share that output).
 
 ## Releasing
 

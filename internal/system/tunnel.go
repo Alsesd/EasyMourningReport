@@ -161,6 +161,20 @@ func (t *Tunnel) binary() string {
 	return fromPath()
 }
 
+// withHint adds the fix for the one failure that is not obvious from cloudflared's own line: no DNS resolver
+// (a generic Linux cloudflared on Android looks for one at [::1]:53 or 127.0.0.1:53).
+func (t *Tunnel) withHint(line string) string {
+	noResolver := strings.Contains(line, "lookup") && (strings.Contains(line, "[::1]:53") || strings.Contains(line, "127.0.0.1:53")) &&
+		strings.Contains(line, "connection refused")
+	if !noResolver {
+		return line
+	}
+	if t.onTermux() {
+		return "На Android цей cloudflared не знаходить DNS. Виконайте в Termux: pkg install cloudflared — і перезапустіть програму (вона сама візьме його). " + line
+	}
+	return "У системі немає DNS-резолвера (/etc/resolv.conf), тому cloudflared не знайшов серверів Cloudflare. Налаштуйте DNS або вкажіть робочий cloudflared у CLOUDFLARED_PATH. " + line
+}
+
 func (t *Tunnel) onTermux() bool { return t.env("TERMUX_VERSION") != "" }
 
 // missingMessage tells what to do when no cloudflared exists.
@@ -231,7 +245,7 @@ func (t *Tunnel) Status() TunnelStatus {
 	select {
 	case <-p.done:
 		res.State = "error"
-		res.Error = t.lastLogLine()
+		res.Error = t.withHint(t.lastLogLine())
 		if res.Error == "" {
 			res.Error = fmt.Sprintf("cloudflared завершився з кодом %d.", p.code)
 		}
