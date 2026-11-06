@@ -83,3 +83,22 @@ The locked Starlette writes the session cookie only when the session changes (lo
   DEMO seed created store1/store2, login, store report save+submit, admin list/detail/summary/settings/products
   and transport status all returned 200 with the expected data.
   Browser e2e (`scripts/e2e_test.py` spawns the Python server and needs chromium) is deferred to Slice 7.
+
+## Slice 5 outcome (XLSX)
+- Library: `github.com/xuri/excelize/v2` v2.11.1 (no change to the `go` line).
+- Import: 50 synthetic fixtures (`testdata/reports/gen_xlsx_golden.py` → `xlsx/*.xlsx`, `xlsx_import.json`), made
+  with a raw OOXML writer so every cell type exists: shared/inline/formula strings, cached and missing formula
+  values, bool, error cells, floats written the way Excel writes them (`2.6749999999999998`), exponent forms,
+  date formats, active sheet ≠ first, row gaps, header words, duplicates. The Go parser matches Python's
+  messages and created rows on all of them, except the two deviations below.
+  - Numbers become text through Python's `str()` rules (`pyFloatRepr`, ints keep their digits); falsy
+    names (`0`, `0.0`, `False`) are empty, as in Python.
+  - Date/time-formatted cells are detected with a port of openpyxl's `is_date_format`.
+- Intentional differences from Python:
+  1. A date/time cell in the name column is refused («назва виглядає як дата або час»); Python imported the date's
+     text as a product name.
+  2. A workbook whose `activeTab` is out of range reads the first sheet; Python could not open it.
+- Export: `reports.SummaryXLSX` reproduces the layout (sheet «Звіт», widths, freeze `A2`, autofilter over product
+  rows, `#,##0.00`, bold header and totals). Checked against an openpyxl read-back of the Python output for six
+  states, and the Go files were read back with openpyxl once. excelize writes the autofilter ref with `$`.
+- Contract harness now supports `multipart` steps. **Ledger is empty: 135/135 steps pass on all three schemas.**

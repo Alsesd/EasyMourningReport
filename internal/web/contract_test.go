@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -194,16 +195,29 @@ func runScenario(t *testing.T, file, schema string) map[string]stepResult {
 			clients[who] = c
 		}
 		var body io.Reader
+		contentType := "application/json"
 		if j, ok := step["json"]; ok {
 			b, _ := json.Marshal(substitute(j, saved))
 			body = bytes.NewReader(b)
+		}
+		if m, ok := step["multipart"].(map[string]any); ok {
+			content, err := os.ReadFile(filepath.Join(contractDir, m["path"].(string)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var buf bytes.Buffer
+			mw := multipart.NewWriter(&buf)
+			fw, _ := mw.CreateFormFile("file", m["filename"].(string))
+			fw.Write(content)
+			mw.Close()
+			body, contentType = &buf, mw.FormDataContentType()
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		req := httptest.NewRequest(step["method"].(string), substitute(step["path"], saved).(string), body).WithContext(ctx)
 		req.Host = "testserver"
 		req.RemoteAddr = "testclient:50000"
 		if body != nil {
-			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Content-Type", contentType)
 		}
 		if no, _ := step["no_origin"].(bool); !no {
 			req.Header.Set("Origin", "http://testserver")

@@ -1,14 +1,5 @@
 {
- "fresh": [
-  "02_reports_catalog#38",
-  "02_reports_catalog#55"
- ],
- "migrated_previous_release": [
-  "02_reports_catalog#38",
-  "02_reports_catalog#55"
- ],
- "migrated_very_old": [
-  "02_reports_catalog#38",
-  "02_reports_catalog#55"
- ]
+ "fresh": null,
+ "migrated_previous_release": null,
+ "migrated_very_old": null
 }

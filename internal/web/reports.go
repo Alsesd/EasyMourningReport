@@ -162,6 +162,7 @@ func (a *App) mountReports(rt *Router) {
 	rt.Handle("PUT", "/admin/products/{pid}", a.authed(cm, a.updateProduct))
 	rt.Handle("DELETE", "/admin/products/{pid}", a.authed(cm, a.deleteProduct))
 	rt.Handle("POST", "/admin/products/{pid}/restore", a.authed(cm, a.restoreProduct))
+	rt.Handle("POST", "/admin/products/import", a.authed(cm, a.importProducts))
 
 	rt.Handle("GET", "/store/reports/{period}", a.member([]string{reports.Submit}, a.readStoreReport))
 	rt.Handle("PUT", "/store/reports/{period}", a.member([]string{reports.Submit}, a.saveStoreReport))
@@ -171,6 +172,7 @@ func (a *App) mountReports(rt *Router) {
 	rt.Handle("GET", "/admin/reports/{rid}", a.authed(rv, a.readAdminReport))
 	rt.Handle("PATCH", "/admin/reports/{rid}", a.authed(rv, a.updateAdminReportStatus))
 	rt.Handle("GET", "/admin/summary", a.authed(rv, a.readSummary))
+	rt.Handle("GET", "/admin/summary.xlsx", a.authed(rv, a.exportSummary))
 
 	sm := []string{reports.SettingsManage}
 	rt.Handle("GET", "/reports/settings", a.authed(sm, a.listReportSettings))
