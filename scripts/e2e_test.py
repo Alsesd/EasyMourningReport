@@ -24,6 +24,7 @@ def run_tests():
     env["LEGKYI_DATA_DIR"] = test_dir
     env["ADMIN_PASSWORD"] = "admin123"
     env["DEMO"] = "1"
+    env["AUTO_UPDATE"] = "0"  # a stamped CI build must never update itself during a test
     env["COOKIE_SECURE"] = "0"
     env["HOST"] = "127.0.0.1"
     env["PORT"] = "8888"

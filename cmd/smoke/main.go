@@ -77,7 +77,7 @@ func run(exe string, tunnel bool) error {
 	cmd.Dir = dir
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	cmd.Stdin = nil
-	cmd.Env = cleanEnv()
+	cmd.Env = append(cleanEnv(), "AUTO_UPDATE=0") // a stamped CI build must never update itself during a test
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -266,7 +266,7 @@ func cleanEnv() []string {
 	for _, kv := range os.Environ() {
 		k := strings.ToUpper(strings.SplitN(kv, "=", 2)[0])
 		switch k {
-		case "ADMIN_PASSWORD", "PORT", "HOST", "TUNNEL_TOKEN", "TUNNEL_ENABLED", "LEGKYI_DATA_DIR", "LEGKYI_BACKUPS_DIR", "CLOUDFLARED_PATH", "DEMO", "SECRET_KEY":
+		case "ADMIN_PASSWORD", "PORT", "HOST", "TUNNEL_TOKEN", "TUNNEL_ENABLED", "LEGKYI_DATA_DIR", "LEGKYI_BACKUPS_DIR", "CLOUDFLARED_PATH", "DEMO", "SECRET_KEY", "AUTO_UPDATE":
 			continue
 		}
 		out = append(out, kv)

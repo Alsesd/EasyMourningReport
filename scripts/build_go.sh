@@ -10,7 +10,13 @@ cd "$root"
 bash scripts/fetch_cloudflared.sh windows-amd64 linux-amd64 linux-arm64
 if [ -z "${SKIP_FRONTEND:-}" ]; then (cd frontend && npm ci && npm run build); fi
 mkdir -p dist
-flags=(-trimpath -ldflags="-s -w" -tags bundle)
+# LEGKYI_VERSION is the release tag. Without it the build is a development build and never updates itself.
+stamp=""
+if [ -n "${LEGKYI_VERSION:-}" ]; then
+  pkg=legkyi/internal/update
+  stamp="-X $pkg.Tag=$LEGKYI_VERSION -X $pkg.Commit=$(git rev-parse HEAD) -X $pkg.BuiltAt=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+fi
+flags=(-trimpath -ldflags="-s -w $stamp" -tags bundle)
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build "${flags[@]}" -o dist/legkyi.exe ./cmd/server
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build "${flags[@]}" -o dist/legkyi ./cmd/server
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build "${flags[@]}" -o dist/legkyi-linux-arm64 ./cmd/server

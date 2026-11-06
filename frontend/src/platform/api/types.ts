@@ -20,6 +20,7 @@ export type UserUpdateDTO = Schemas["UserUpdateDTO"];
 export type RoleDTO = Schemas["RoleDTO"];
 export type RoleInputDTO = Schemas["RoleInputDTO"];
 export type PermissionDTO = Schemas["PermissionDTO"];
+export type UpdateStatusDTO = Schemas["UpdateStatusDTO"];
 export type TunnelStatusDTO = Schemas["TunnelStatusDTO"];
 export type TunnelStartDTO = Schemas["TunnelStartDTO"];
 export type BackupDTO = Schemas["BackupDTO"];

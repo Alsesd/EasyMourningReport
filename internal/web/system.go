@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"io"
 	"log"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 
 	"legkyi/internal/platform"
 	"legkyi/internal/system"
+	"legkyi/internal/update"
 )
 
 type backupDTO struct {
@@ -81,6 +83,46 @@ func (a *App) mountSystem(rt *Router) {
 	}))
 	rt.Handle("GET", "/admin/backup/download", a.authed(sm, a.downloadBackup))
 	rt.Handle("GET", "/admin/overview", a.authed(nil, a.overview))
+	rt.Handle("GET", "/admin/update", a.authed(sm, func(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
+		writeJSON(w, http.StatusOK, a.updateStatus())
+		return nil
+	}))
+	rt.Handle("POST", "/admin/update/check", a.authed(sm, func(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
+		if a.Updater == nil || !a.Updater.Enabled() {
+			return HTTPError{Status: 409, Detail: "Це не релізна збірка: автоматичне оновлення недоступне."}
+		}
+		writeJSON(w, http.StatusOK, a.Updater.Check(r.Context()))
+		return nil
+	}))
+	rt.Handle("POST", "/admin/update/apply", a.authed(sm, a.applyUpdate))
+}
+
+func (a *App) updateStatus() update.Status {
+	if a.Updater == nil {
+		return update.Status{State: "idle"}
+	}
+	return a.Updater.Status()
+}
+
+// applyUpdate installs the newest release and restarts the program; the browser reconnects by itself.
+func (a *App) applyUpdate(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
+	if a.Updater == nil || !a.Updater.Enabled() {
+		return HTTPError{Status: 409, Detail: "Це не релізна збірка: автоматичне оновлення недоступне."}
+	}
+	a.Updater.Check(r.Context())
+	st := a.Updater.Status()
+	if !st.Available {
+		return HTTPError{Status: 409, Detail: "Новішої версії немає."}
+	}
+	if err := a.audit(r, a.Trusted.ClientIP(r), p.User.Login, p.User.RoleLabel(), "оновлення програми", st.Current+" → "+st.Latest); err != nil {
+		return err
+	}
+	// The request must not be tied to the connection: the response is written before the restart begins.
+	if err := a.Updater.Apply(context.WithoutCancel(r.Context())); err != nil {
+		return HTTPError{Status: 502, Detail: err.Error()}
+	}
+	writeJSON(w, http.StatusOK, a.Updater.Status())
+	return nil
 }
 
 func (a *App) startTunnel(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {

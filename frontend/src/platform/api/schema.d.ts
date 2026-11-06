@@ -1316,6 +1316,24 @@ export interface components {
             /** Token */
             token?: string | null;
         };
+        /** UpdateStatusDTO */
+        UpdateStatusDTO: {
+            /** This build can update itself (a release build on a supported platform) */
+            enabled: boolean;
+            /** Installs updates without being asked (AUTO_UPDATE) */
+            auto: boolean;
+            /** Tag of the running build; empty for a development build */
+            current: string;
+            /** Tag of the newest release seen at the last check */
+            latest: string;
+            available: boolean;
+            state: "idle" | "checking" | "downloading" | "restarting" | "error";
+            /** RFC 3339, UTC */
+            last_checked: string | null;
+            error: string;
+            /** The program's folder accepts the new file */
+            writable: boolean;
+        };
         /** TunnelStatusDTO */
         TunnelStatusDTO: {
             /** Enabled */

@@ -9,10 +9,12 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -24,11 +26,17 @@ import (
 	"legkyi/internal/store"
 	"legkyi/internal/system"
 	"legkyi/internal/tunnelbin"
+	"legkyi/internal/update"
 	"legkyi/internal/web"
 )
 
 func main() {
-	if err := run(); err != nil {
+	relaunch, exe, err := run()
+	if err == nil && relaunch {
+		// The previous run has closed the database and the tunnel; start the new program in its place.
+		err = relaunchProgram(exe)
+	}
+	if err != nil {
 		log.Printf("fatal: %v", err)
 		if runtime.GOOS == "windows" { // keep a double-clicked console window readable
 			fmt.Print("\nНатисніть Enter, щоб закрити це вікно...")
@@ -38,11 +46,16 @@ func main() {
 	}
 }
 
-func run() error {
-	exe, err := os.Executable()
+func run() (relaunch bool, exe string, err error) {
+	exe, err = os.Executable() // read once: after an update the running file is gone from this path
 	if err != nil {
-		return err
+		return false, exe, err
 	}
+	relaunch, err = serve(exe)
+	return relaunch, exe, err
+}
+
+func serve(exe string) (bool, error) {
 	appDir := filepath.Dir(exe)
 	// Optional .env: the one next to the exe first, then the working directory. Exported variables win,
 	// and the first file to define a key wins over later ones.
@@ -54,7 +67,7 @@ func run() error {
 	}
 	cfg, err := config.Load(os.Getenv, appDir)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if os.Getenv("LEGKYI_DATA_DIR") == "" && cfg.DataDir != appDir {
 		log.Printf("WARNING: %s is not writable, so data (database, backups, secret) is kept in %s instead. Move the program to a writable folder to keep everything next to it.", appDir, cfg.DataDir)
@@ -69,7 +82,7 @@ func run() error {
 
 	st, err := store.Open(cfg.DBPath(), journal)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer st.Close()
 
@@ -78,10 +91,10 @@ func run() error {
 		log.Printf("DATABASE INTEGRITY CHECK FAILED: %v %s. Restore the newest backup from the backups folder.", err, verdict)
 	}
 	if err := st.EnsureSchema(); err != nil {
-		return err
+		return false, err
 	}
 	if err := seed(st); err != nil {
-		return err
+		return false, err
 	}
 	backups := &store.Backups{Store: st, Dir: cfg.BackupsDir, Keep: cfg.BackupKeep}
 	if _, err := backups.Run(""); err != nil {
@@ -98,8 +111,29 @@ func run() error {
 
 	secret, err := web.LoadSecret(os.Getenv, cfg.DataDir)
 	if err != nil {
-		return err
+		return false, err
 	}
+	restartc := make(chan struct{}, 1)
+	updater := &update.Updater{
+		Exe: exe, Build: update.Current(), Auto: boolEnv("AUTO_UPDATE", true),
+		Backup: func() error { _, err := backups.Run("before-update"); return err },
+		Restart: func() {
+			select {
+			case restartc <- struct{}{}:
+			default:
+			}
+		},
+	}
+	updater.Repo = strings.TrimSpace(os.Getenv("UPDATE_REPO"))
+	if api := strings.TrimSpace(os.Getenv("UPDATE_API_URL")); api != "" { // for tests: a fake GitHub on this machine
+		if u, err := url.Parse(api); err == nil && (u.Scheme == "https" || u.Hostname() == "127.0.0.1" || u.Hostname() == "localhost") {
+			updater.API, updater.AllowHTTP = api, u.Scheme == "http"
+		}
+	}
+	if updater.Enabled() && updater.Auto {
+		log.Printf("auto-update is on (build %s); AUTO_UPDATE=0 turns it off", updater.Build.Tag)
+	}
+	go updater.Loop(ctx, 10*time.Minute, time.Duration(max(1, atoiEnv("AUTO_UPDATE_CHECK_HOURS", 6)))*time.Hour)
 	tun := &system.Tunnel{Root: cfg.DataDir, Port: cfg.Port, EnableByDefault: tunnelbin.Bundled}
 	if tunnelbin.Bundled {
 		tun.Bundled = tunnelbin.Extract
@@ -115,7 +149,7 @@ func run() error {
 		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret, Backups: backups,
 		BackupEveryMin: cfg.BackupEveryM, Tunnel: tun,
 		CookieSecure: os.Getenv("COOKIE_SECURE") == "1",
-		PasskeyRPID:  strings.TrimSpace(os.Getenv("PASSKEY_RP_ID")),
+		PasskeyRPID:  strings.TrimSpace(os.Getenv("PASSKEY_RP_ID")), Updater: updater,
 		// Only the local cloudflared may set the client address (X-Forwarded-For).
 		Trusted: web.ParseTrustedHosts(orEnv("FORWARDED_ALLOW_IPS", "127.0.0.1")),
 	})
@@ -127,13 +161,21 @@ func run() error {
 		IdleTimeout:       2 * time.Minute,
 		MaxHeaderBytes:    64 << 10,
 	}
+	ln, err := listen(srv.Addr, os.Getenv("LEGKYI_RESTARTED") == "1")
+	if err != nil {
+		return false, err
+	}
 	errc := make(chan error, 1)
-	go func() { errc <- srv.ListenAndServe() }()
+	go func() { errc <- srv.Serve(ln) }()
 
 	var serveErr error
+	relaunch := false
 	select {
 	case <-ctx.Done():
 	case serveErr = <-errc:
+	case <-restartc:
+		relaunch = true
+		log.Printf("the program was updated; restarting")
 	}
 	// Shutdown order: HTTP, tunnel, loop, checkpoint, final backup.
 	// Windows gives a closing console about 5 s: finish in-flight requests quickly so the
@@ -153,7 +195,37 @@ func run() error {
 	if errors.Is(serveErr, http.ErrServerClosed) {
 		serveErr = nil
 	}
-	return serveErr
+	return relaunch && serveErr == nil, serveErr
+}
+
+// listen binds the port. A program that was just updated retries for a few seconds: the previous process
+// may still be closing its listener.
+func listen(addr string, retry bool) (net.Listener, error) {
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		ln, err := net.Listen("tcp", addr)
+		if err == nil || !retry || time.Now().After(deadline) {
+			return ln, err
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
+}
+
+func boolEnv(k string, def bool) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(k))) {
+	case "0", "false", "no", "off":
+		return false
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return def
+}
+
+func atoiEnv(k string, def int) int {
+	if n, err := strconv.Atoi(strings.TrimSpace(os.Getenv(k))); err == nil {
+		return n
+	}
+	return def
 }
 
 func seed(st *store.Store) error {

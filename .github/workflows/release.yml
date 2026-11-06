@@ -1,6 +1,6 @@
 name: Release exe
 
-# Run by hand: Actions → "Release exe" → Run workflow.
+# Run by hand (Actions → "Release exe" → Run workflow) or by auto-release.yml on every push to main.
 # Builds the single-file legkyi.exe (UI + cloudflared inside), tests it on Linux and on a real Windows
 # runner, and publishes a GitHub release. Untick "publish" to only build and test.
 on:
@@ -19,6 +19,21 @@ on:
         description: "Mark the release as a pre-release"
         required: true
         type: boolean
+        default: false
+
+  # Called by auto-release.yml on every push to main.
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      publish:
+        type: boolean
+        required: true
+        default: true
+      prerelease:
+        type: boolean
+        required: true
         default: false
 
 concurrency:
@@ -74,6 +89,9 @@ jobs:
           go test ./cmd/... ./internal/...
 
       - name: Build exe and Linux binary (cloudflared bundled)
+        env:
+          # Stamps the tag, commit and time into the programs so they can find newer releases.
+          LEGKYI_VERSION: ${{ inputs.version }}
         run: SKIP_FRONTEND=1 bash scripts/build_go.sh
 
       # Optional code signing (untested): runs only when the repository has the secrets WINDOWS_CERT_PFX (base64 of a

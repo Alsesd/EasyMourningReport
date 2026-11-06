@@ -18,6 +18,7 @@ import (
 	"legkyi/internal/registry"
 	"legkyi/internal/store"
 	"legkyi/internal/system"
+	"legkyi/internal/update"
 )
 
 // Deps is everything the HTTP layer needs. New builds the exact stack production serves,
@@ -33,8 +34,9 @@ type Deps struct {
 	Limiter        *LoginLimiter
 	Backups        *store.Backups // before-delete snapshots (nil in tests)
 	BackupEveryMin int
-	Tunnel         *system.Tunnel // nil gets a disabled one in New
-	PasskeyRPID    string         // PASSKEY_RP_ID: pins the WebAuthn relying party id (default: the host the browser is on)
+	Tunnel         *system.Tunnel  // nil gets a disabled one in New
+	Updater        *update.Updater // nil: updates are not available (tests, development builds)
+	PasskeyRPID    string          // PASSKEY_RP_ID: pins the WebAuthn relying party id (default: the host the browser is on)
 }
 
 // App holds the dependencies handlers share.
