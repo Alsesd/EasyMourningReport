@@ -34,11 +34,13 @@ type Deps struct {
 	Backups        *store.Backups // before-delete snapshots (nil in tests)
 	BackupEveryMin int
 	Tunnel         *system.Tunnel // nil gets a disabled one in New
+	PasskeyRPID    string         // PASSKEY_RP_ID: pins the WebAuthn relying party id (default: the host the browser is on)
 }
 
 // App holds the dependencies handlers share.
 type App struct {
 	Deps
+	challenges challenges
 }
 
 func (a *App) now() time.Time {
@@ -63,11 +65,13 @@ func New(d Deps) http.Handler {
 	rt := &Router{}
 	app.mountPlatform(rt)
 	app.mountAccounts(rt)
+	app.mountPasskeys(rt)
 	app.mountReports(rt)
 	app.mountSystem(rt)
 	srv := &Server{DB: d.Store, Assets: d.Assets, API: rt}
 	secure := func(r *http.Request) bool { return cookieSecure(d.CookieSecure, d.Trusted, r) }
-	return securityHeaders(d.Trusted, sessionMiddleware(Signer{Secret: d.Secret}, secure, app.sessionUser, sameOriginGuard(srv)))
+	return securityHeaders(d.Trusted, sessionMiddleware(Signer{Secret: d.Secret}, secure,
+		SessionHooks{Lookup: app.sessionUser, Device: app.checkDevice}, sameOriginGuard(srv)))
 }
 
 // LoadSecret: SECRET_KEY wins; otherwise <data>/secret.key, created (0600, never overwritten) when absent.

@@ -124,7 +124,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 	if err := a.audit(r, ip, user.Login, user.RoleLabel(), "вхід", ""); err != nil {
 		return err
 	}
-	var token string
+	var token, device string
 	if err := a.write(ctx, func(tx *sql.Tx) error {
 		var err error
 		if platform.NeedsRehash(user.PasswordHash) { // upgrade an old hash now that the password is known
@@ -136,12 +136,12 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 				return err
 			}
 		}
-		token, err = startSession(tx, user.ID, a.now())
+		token, device, err = startSession(tx, user.ID, a.now())
 		return err
 	}); err != nil {
 		return err
 	}
-	SessionFrom(r).Start(user.ID, token)
+	SessionFrom(r).Start(user.ID, token, device)
 	p, err := platform.PrincipalFor(ctx, a.Store.R, user, a.Registry.Codes)
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func (a *App) changeOwnPassword(w http.ResponseWriter, r *http.Request, p *platf
 		return err
 	}
 	ip := a.Trusted.ClientIP(r)
-	var token string
+	var token, device string
 	err = a.write(r.Context(), func(tx *sql.Tx) error {
 		if _, err := tx.Exec("UPDATE users SET password_hash = ? WHERE id = ?", hash, p.User.ID); err != nil {
 			return err
@@ -195,7 +195,7 @@ func (a *App) changeOwnPassword(w http.ResponseWriter, r *http.Request, p *platf
 			return err
 		}
 		var err error
-		if token, err = startSession(tx, p.User.ID, a.now()); err != nil {
+		if token, device, err = startSession(tx, p.User.ID, a.now()); err != nil {
 			return err
 		}
 		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено власний пароль", "")
@@ -203,7 +203,7 @@ func (a *App) changeOwnPassword(w http.ResponseWriter, r *http.Request, p *platf
 	if err != nil {
 		return err
 	}
-	SessionFrom(r).Start(p.User.ID, token)
+	SessionFrom(r).Start(p.User.ID, token, device)
 	writeJSON(w, http.StatusOK, messageDTO{"Ваш пароль змінено."})
 	return nil
 }

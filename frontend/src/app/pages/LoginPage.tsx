@@ -8,12 +8,13 @@ import { Button } from "@/ui/Button";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 import { MakerMark } from "@/ui/MakerMark";
 import { ApiError } from "@/platform/api/client";
-import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { passkeysSupported } from "@/platform/auth/passkeys";
+import { AlertCircle, Eye, EyeOff, Fingerprint } from "lucide-react";
 import { returnPath } from "./returnPath";
 
 /** The page a signed-out user was sent away from (set by ProtectedRoute), if it is worth returning to. */
 export function LoginPage() {
-  const { session, isLoading, login } = useAuth();
+  const { session, isLoading, login, loginWithPasskey } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   // Deep links survive sign-in; the route guard sends the user on if they may not open the page.
@@ -41,6 +42,21 @@ export function LoginPage() {
   if (session) {
     return <Navigate to={target(session)} replace />;
   }
+
+  const handlePasskey = async () => {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const newSession = await loginWithPasskey();
+      navigate(target(newSession), { replace: true });
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+      else if (err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "AbortError")) setError(uk.auth.passkeyCancelled);
+      else setError(uk.auth.networkError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,6 +186,16 @@ export function LoginPage() {
                 {isSubmitting ? uk.auth.submittingButton : uk.auth.submitButton}
               </Button>
             </form>
+
+            {passkeysSupported() && (
+              <div className="mt-5">
+                <p className="mb-3 text-center text-xs uppercase tracking-wide text-text-muted">{uk.auth.passkeyOr}</p>
+                <Button type="button" variant="outline" size="lg" className="w-full" onClick={handlePasskey} disabled={isSubmitting}>
+                  <Fingerprint className="mr-2 h-5 w-5" aria-hidden="true" />
+                  {isSubmitting ? uk.auth.passkeyBusy : uk.auth.passkeyButton}
+                </Button>
+              </div>
+            )}
 
             <p className="mt-6 border-t border-border pt-4 text-sm leading-6 text-text-muted">{uk.auth.dataPrivacyNote}</p>
           </div>

@@ -817,6 +817,15 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** PasskeyDTO */
+        PasskeyDTO: {
+            id: number;
+            name: string;
+            /** RFC 3339, UTC */
+            created_at: string;
+            /** RFC 3339, UTC; empty when never used */
+            last_used_at: string;
+        };
         /** ModuleOverviewDTO */
         ModuleOverviewDTO: {
             /** Module */

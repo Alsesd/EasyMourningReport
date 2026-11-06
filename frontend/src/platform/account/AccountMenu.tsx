@@ -2,19 +2,22 @@
 
 import { useRef, useState } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { KeyRound, LogOut } from "lucide-react";
+import { Fingerprint, KeyRound, LogOut } from "lucide-react";
 import { useAuth } from "@/platform/auth/AuthContext";
 import { ukPlatform as uk } from "@/platform/i18n";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/Dialog";
 import { cn } from "@/ui/utils";
 import { PasswordForm } from "./PasswordForm";
+import { PasskeysForm } from "./PasskeysForm";
 
 export function AccountMenu({ variant = "header" }: { variant?: "header" | "sidebar" }) {
   const { session, logout } = useAuth();
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [passkeysOpen, setPasskeysOpen] = useState(false);
   // The dialog opens only once the menu has fully closed; opening it from inside the closing menu
   // leaves the menu's layer on top, which swallows Escape and keeps the overlay stuck.
   const openPasswordAfterClose = useRef(false);
+  const openPasskeysAfterClose = useRef(false);
   if (!session) return null;
 
   const name = session.full_name || session.login;
@@ -57,6 +60,10 @@ export function AccountMenu({ variant = "header" }: { variant?: "header" | "side
                 openPasswordAfterClose.current = false;
                 event.preventDefault();
                 setPasswordOpen(true);
+              } else if (openPasskeysAfterClose.current) {
+                openPasskeysAfterClose.current = false;
+                event.preventDefault();
+                setPasskeysOpen(true);
               }
             }}
             align={variant === "sidebar" ? "start" : "end"}
@@ -75,6 +82,10 @@ export function AccountMenu({ variant = "header" }: { variant?: "header" | "side
               <KeyRound className="h-4 w-4 text-text-muted" aria-hidden="true" />
               {uk.account.changePassword}
             </DropdownMenu.Item>
+            <DropdownMenu.Item className={itemClass} onSelect={() => (openPasskeysAfterClose.current = true)}>
+              <Fingerprint className="h-4 w-4 text-text-muted" aria-hidden="true" />
+              {uk.account.passkeys}
+            </DropdownMenu.Item>
             <DropdownMenu.Item className={cn(itemClass, "text-destructive")} onSelect={() => logout()}>
               <LogOut className="h-4 w-4" aria-hidden="true" />
               {uk.auth.logoutButton}
@@ -89,6 +100,15 @@ export function AccountMenu({ variant = "header" }: { variant?: "header" | "side
             <DialogTitle>{uk.account.title}</DialogTitle>
           </DialogHeader>
           <PasswordForm />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={passkeysOpen} onOpenChange={setPasskeysOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{uk.account.passkeysTitle}</DialogTitle>
+          </DialogHeader>
+          <PasskeysForm />
         </DialogContent>
       </Dialog>
     </>

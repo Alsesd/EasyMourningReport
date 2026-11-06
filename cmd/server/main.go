@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -114,6 +115,7 @@ func run() error {
 		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret, Backups: backups,
 		BackupEveryMin: cfg.BackupEveryM, Tunnel: tun,
 		CookieSecure: os.Getenv("COOKIE_SECURE") == "1",
+		PasskeyRPID:  strings.TrimSpace(os.Getenv("PASSKEY_RP_ID")),
 		// Only the local cloudflared may set the client address (X-Forwarded-For).
 		Trusted: web.ParseTrustedHosts(orEnv("FORWARDED_ALLOW_IPS", "127.0.0.1")),
 	})

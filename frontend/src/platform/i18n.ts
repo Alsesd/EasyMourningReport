@@ -24,6 +24,10 @@ export const ukPlatform = {
     submittingButton: "Вхід…",
     logoutButton: "Вийти",
     networkError: "Помилка зв’язку із сервером. Перевірте з’єднання.",
+    passkeyButton: "Увійти за біометрією",
+    passkeyBusy: "Очікуємо підтвердження на пристрої…",
+    passkeyOr: "або",
+    passkeyCancelled: "Вхід за ключем доступу скасовано.",
   },
 
   nav: {
@@ -105,6 +109,21 @@ export const ukPlatform = {
     minChars: "Мінімум 10 символів",
     changeButton: "Змінити пароль",
     changed: "Ваш пароль змінено.",
+    passkeys: "Біометрія та ключі доступу",
+    passkeysTitle: "Вхід за біометрією",
+    passkeysDescription:
+      "Додайте відбиток пальця, обличчя або екран блокування цього пристрою, щоб входити без пароля. Біометричні дані не залишають пристрій.",
+    passkeysUnsupported: "Цей браузер або з’єднання не підтримує ключі доступу (потрібен https).",
+    passkeysEmpty: "Ключів доступу ще немає.",
+    passkeyName: "Назва пристрою",
+    passkeyNamePlaceholder: "Наприклад, телефон",
+    passkeyAdd: "Додати цей пристрій",
+    passkeyAdded: "Ключ доступу додано.",
+    passkeyRemove: "Видалити",
+    passkeyRemoved: "Ключ доступу видалено.",
+    passkeyCreated: "Додано",
+    passkeyLastUsed: "Останній вхід",
+    passkeyNever: "ще не було",
   },
 
   system: {

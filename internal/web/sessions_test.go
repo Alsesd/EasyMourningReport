@@ -106,6 +106,9 @@ func TestSessionSurvivesRestartAndExpires(t *testing.T) {
 	req := httptest.NewRequest("GET", "/api/v1/session", nil)
 	req.Host, req.RemoteAddr = "testserver", "testclient:50000"
 	req.AddCookie(c)
+	if d, ok := testDevices.Load(c.Value); ok {
+		req.AddCookie(d.(*http.Cookie))
+	}
 	rec := httptest.NewRecorder()
 	restarted.ServeHTTP(rec, req)
 	if rec.Code != 200 {
@@ -166,5 +169,94 @@ func TestNewPasswordsNeedTenCharacters(t *testing.T) {
 	}
 	if w := e.do("PUT", "/api/v1/me/password", `{"password":"1234567890"}`, nil, c); w.Code != 200 {
 		t.Fatalf("10 characters: %d", w.Code)
+	}
+}
+
+func deviceOf(w *httptest.ResponseRecorder) *http.Cookie {
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "device" {
+			return c
+		}
+	}
+	return nil
+}
+
+func TestSessionCookieWithoutItsDeviceTokenGetsNoAnswerAndIsRevoked(t *testing.T) {
+	e := newEnv(t, nil)
+	login := e.login("boss", "boss-pass")
+	session, device := sessionCookie(login), deviceOf(login)
+	if device == nil || !device.HttpOnly || device.MaxAge != 604800 {
+		t.Fatalf("login must issue the device cookie: %+v", device)
+	}
+	// A copied session cookie alone: the server hangs up without a word...
+	if !e.dropped("GET", "/api/v1/session", &http.Cookie{Name: session.Name, Value: session.Value}) {
+		t.Fatal("a session cookie without a device token must be ignored")
+	}
+	// ...and the session is gone, even for the real browser.
+	var n int
+	e.st.R.QueryRow("SELECT COUNT(*) FROM user_sessions").Scan(&n)
+	if n != 0 {
+		t.Fatalf("the replayed session must be revoked, %d left", n)
+	}
+	if got := e.do("GET", "/api/v1/session", "", nil, session, device).Code; got != 401 {
+		t.Fatalf("the real browser is signed out, got %d", got)
+	}
+}
+
+func TestDeviceTokenOfAnotherSessionIsRejected(t *testing.T) {
+	e := newEnv(t, nil)
+	a, b := e.login("boss", "boss-pass"), e.login("boss", "boss-pass")
+	if !e.dropped("GET", "/api/v1/session", sessionCookie(a), deviceOf(b)) {
+		t.Fatal("a device token issued to another session must be ignored")
+	}
+}
+
+func TestDeviceTokenRollsAndTheOldOneDiesAfterTheGrace(t *testing.T) {
+	e := newEnv(t, nil)
+	login := e.login("boss", "boss-pass")
+	session, first := sessionCookie(login), deviceOf(login)
+
+	if w := e.do("GET", "/api/v1/session", "", nil, session, first); w.Code != 200 || deviceOf(w) != nil {
+		t.Fatalf("no rotation before the interval: %d %v", w.Code, deviceOf(w))
+	}
+	e.now = e.now.Add(deviceRotateEvery + time.Second)
+	w := e.do("GET", "/api/v1/session", "", nil, session, first)
+	second := deviceOf(w)
+	if w.Code != 200 || second == nil || second.Value == first.Value {
+		t.Fatalf("the token must roll after the interval: %d %v", w.Code, second)
+	}
+	// A parallel request that still carries the old token is let through and does not rotate again.
+	if w := e.do("GET", "/api/v1/session", "", nil, session, first); w.Code != 200 || deviceOf(w) != nil {
+		t.Fatalf("grace: %d %v", w.Code, deviceOf(w))
+	}
+	if w := e.do("GET", "/api/v1/session", "", nil, session, second); w.Code != 200 {
+		t.Fatalf("new token: %d", w.Code)
+	}
+	// The old token, replayed once the grace has passed, is a copy.
+	e.now = e.now.Add(deviceGrace + time.Minute)
+	if !e.dropped("GET", "/api/v1/session", session, first) {
+		t.Fatal("an old device token after the grace must be ignored")
+	}
+}
+
+func TestLostRotationResponseIsReissued(t *testing.T) {
+	e := newEnv(t, nil)
+	login := e.login("boss", "boss-pass")
+	session, first := sessionCookie(login), deviceOf(login)
+	e.now = e.now.Add(deviceRotateEvery + time.Second)
+	e.do("GET", "/api/v1/session", "", nil, session, first) // the response with the new cookie never reached the browser
+	e.now = e.now.Add(deviceResync + time.Second)
+	w := e.do("GET", "/api/v1/session", "", nil, session, first)
+	if w.Code != 200 || deviceOf(w) == nil {
+		t.Fatalf("the browser must get a fresh token: %d %v", w.Code, deviceOf(w))
+	}
+}
+
+func TestSessionWithoutDeviceRowFromBeforeThisReleaseIsInvalid(t *testing.T) {
+	e := newEnv(t, nil)
+	c := sessionCookie(e.login("boss", "boss-pass"))
+	e.st.W.Exec("DELETE FROM session_devices")
+	if got := e.do("GET", "/api/v1/session", "", nil, &http.Cookie{Name: c.Name, Value: c.Value}).Code; got != 401 {
+		t.Fatalf("got %d, want 401", got)
 	}
 }

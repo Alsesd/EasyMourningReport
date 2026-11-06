@@ -33,10 +33,32 @@ var goOwned = []string{
 	)`,
 	`CREATE INDEX IF NOT EXISTS ix_user_sessions_user ON user_sessions (user_id)`,
 	`CREATE INDEX IF NOT EXISTS ix_user_sessions_expires ON user_sessions (expires_at)`,
+	// session_devices binds a session to the one browser it was issued to: a rolling device token (only its
+	// SHA-256 is stored; the previous one stays valid for a grace period so parallel requests and a lost
+	// response do not sign the user out). A session without a row here is not valid.
+	`CREATE TABLE IF NOT EXISTS session_devices (
+		token_hash TEXT NOT NULL PRIMARY KEY,
+		device_hash TEXT NOT NULL,
+		prev_hash TEXT NOT NULL DEFAULT '',
+		rotated_at INTEGER NOT NULL
+	)`,
+	// passkeys are WebAuthn credentials (Face ID, fingerprint, Windows Hello, security keys) a user registered.
+	// public_key is PKIX DER; credential_id is base64url.
+	`CREATE TABLE IF NOT EXISTS passkeys (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+		credential_id TEXT NOT NULL UNIQUE,
+		public_key BLOB NOT NULL,
+		sign_count INTEGER NOT NULL DEFAULT 0,
+		name TEXT NOT NULL,
+		created_at INTEGER NOT NULL,
+		last_used_at INTEGER NOT NULL DEFAULT 0
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_passkeys_user ON passkeys (user_id)`,
 }
 
 // GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
-var GoOwnedTables = []string{"user_sessions"}
+var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys"}
 
 type object struct {
 	kind, name, table, sql string

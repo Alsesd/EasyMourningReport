@@ -22,6 +22,8 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | Method | Path | Permission | Purpose |
 |---|---|---|---|
 | POST | `/auth/login`, `/auth/logout` | — | Sign in / out |
+| POST | `/auth/passkey/options`, `/auth/passkey` | — | Biometric (WebAuthn) sign-in: get a challenge, post the signed assertion |
+| GET, POST, DELETE | `/passkeys`, `/passkeys/options`, `/passkeys/{id}` | any signed-in user | List, register (two steps) and remove your own passkeys |
 | GET | `/session` | signed in | Identity, organisation, roles, effective `permissions`, installed `modules`, current period |
 | PUT | `/me/password` | signed in | Change own password |
 | GET | `/permissions` | `platform.roles.manage`, `platform.users.manage` or `org.users.manage` | Permission catalogue from all modules |

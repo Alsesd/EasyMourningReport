@@ -6,6 +6,7 @@ export type Schemas = components["schemas"];
 export type SessionDTO = Schemas["SessionDTO"];
 export type LoginDTO = Schemas["LoginDTO"];
 export type MessageDTO = Schemas["MessageDTO"];
+export type PasskeyDTO = Schemas["PasskeyDTO"];
 export type MutationDTO = Schemas["MutationDTO"];
 export type PasswordDTO = Schemas["PasswordDTO"];
 export type AuditLogDTO = Schemas["AuditLogDTO"];

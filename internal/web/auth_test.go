@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +20,8 @@ type env struct {
 	h   http.Handler
 	now time.Time
 	lim *LoginLimiter
+	// bare: do not add the device cookie a browser would send (tests of a copied session cookie).
+	bare bool
 }
 
 func newEnv(t *testing.T, mut func(*Deps)) *env {
@@ -51,12 +54,35 @@ func (e *env) do(method, path, body string, hdr map[string]string, cookies ...*h
 			req.Header.Set(k, v)
 		}
 	}
+	var session *http.Cookie
 	for _, c := range cookies {
 		req.AddCookie(c)
+		if c.Name == "session" {
+			session = c
+		}
+	}
+	if session != nil && !e.bare { // a browser sends the device cookie that belongs to its session
+		if d, ok := testDevices.Load(session.Value); ok {
+			req.AddCookie(d.(*http.Cookie))
+		}
 	}
 	w := httptest.NewRecorder()
 	e.h.ServeHTTP(w, req)
+	if session != nil {
+		rememberDevice(session.Value, w)
+	}
 	return w
+}
+
+// testDevices maps a session cookie value to the device cookie issued with it, like a browser's cookie jar.
+var testDevices sync.Map
+
+func rememberDevice(session string, w *httptest.ResponseRecorder) {
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "device" && c.MaxAge >= 0 {
+			testDevices.Store(session, c)
+		}
+	}
 }
 
 func (e *env) login(login, pw string) *httptest.ResponseRecorder {
@@ -67,6 +93,9 @@ func (e *env) login(login, pw string) *httptest.ResponseRecorder {
 func sessionCookie(w *httptest.ResponseRecorder) *http.Cookie {
 	for _, c := range w.Result().Cookies() {
 		if c.Name == "session" {
+			if c.MaxAge >= 0 {
+				rememberDevice(c.Value, w)
+			}
 			return c
 		}
 	}
@@ -121,8 +150,8 @@ func TestLoginSetsCookieAndSessionWorks(t *testing.T) {
 	if r.Code != 200 || sessionCookie(r) != nil {
 		t.Fatalf("session GET: %d cookie=%v (cookie is only written on login/logout, like Starlette)", r.Code, sessionCookie(r))
 	}
-	if r := e.do("GET", "/api/v1/session", "", nil, &http.Cookie{Name: "session", Value: "garbage"}); r.Code != 401 {
-		t.Fatal("garbage cookie must be anonymous")
+	if !e.dropped("GET", "/api/v1/session", &http.Cookie{Name: "session", Value: "garbage"}) {
+		t.Fatal("a cookie this server never signed must get no answer")
 	}
 }
 
@@ -400,4 +429,20 @@ func TestLoadSecret(t *testing.T) {
 	if c, _ := LoadSecret(func(k string) string { return map[string]string{"SECRET_KEY": "env"}[k] }, dir); string(c) != "env" {
 		t.Fatal("SECRET_KEY must win")
 	}
+}
+
+// dropped reports whether the server ended the connection without answering (http.ErrAbortHandler).
+func (e *env) dropped(method, path string, cookies ...*http.Cookie) (aborted bool) {
+	e.bare = len(cookies) == 1
+	defer func() { e.bare = false }()
+	defer func() {
+		if r := recover(); r != nil {
+			if r != http.ErrAbortHandler {
+				panic(r)
+			}
+			aborted = true
+		}
+	}()
+	e.do(method, path, "", nil, cookies...)
+	return false
 }

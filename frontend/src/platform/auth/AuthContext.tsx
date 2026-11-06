@@ -1,6 +1,7 @@
 import React, { createContext, useContext } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/platform/api/client";
+import { passkeyApi } from "@/platform/auth/passkeys";
 import type { SessionDTO, LoginDTO, MessageDTO } from "@/platform/api/types";
 
 interface AuthContextType {
@@ -8,6 +9,8 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginDTO) => Promise<SessionDTO>;
+  /** Biometric sign-in with a registered passkey. */
+  loginWithPasskey: () => Promise<SessionDTO>;
   logout: () => Promise<void>;
   refetchSession: () => Promise<void>;
   /** True when the signed-in user holds at least one of the permission codes. */
@@ -53,6 +56,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
+  const passkeyMutation = useMutation({
+    mutationFn: () => passkeyApi.login(),
+    onSuccess: (newSession) => {
+      queryClient.setQueryData(["session"], newSession);
+    },
+  });
+
   const logoutMutation = useMutation({
     mutationFn: async () => {
       try {
@@ -70,6 +80,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (credentials: LoginDTO) => {
     return await loginMutation.mutateAsync(credentials);
   };
+
+  const loginWithPasskey = () => passkeyMutation.mutateAsync();
 
   const logout = async () => {
     await logoutMutation.mutateAsync();
@@ -89,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: Boolean(session),
         login,
+        loginWithPasskey,
         logout,
         refetchSession,
         can,
