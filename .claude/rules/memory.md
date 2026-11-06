@@ -1,5 +1,8 @@
 # Memory
 
+The memory lives IN THE REPOSITORY: `.claude/memory/` (index `MEMORY.md`). Cloud containers are ephemeral, so never keep
+memory only under `~/.claude`. Read and edit the files there and commit them with the work they describe.
+
 ## Recall — Before Responding
 
 Check memory when the message involves past decisions, preferences, system
@@ -21,7 +24,7 @@ Run this decision tree after every substantive response:
 
 ## Memory File Format
 
-Save each memory as its own file in the memory directory:
+Save each memory as its own file in `.claude/memory/`:
 
 ```markdown
 ---
