@@ -280,7 +280,7 @@ func TestBackupRetentionAndSameSecondCollision(t *testing.T) {
 	s := openTemp(t)
 	s.EnsureSchema()
 	b := newBackups(t, s, 3)
-	clock := time.Date(2026, 1, 2, 3, 4, 5, 0, time.Local)
+	clock := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	b.Now = func() time.Time { return clock }
 	a, _ := b.Run("x")
 	c, err := b.Run("x") // same second, same tag
@@ -300,7 +300,7 @@ func TestBackupRetentionAndSameSecondCollision(t *testing.T) {
 		t.Fatalf("retention kept %d, want 3", n)
 	}
 	names := b.List()
-	if !strings.Contains(names[0], "20260102-030805-t") {
+	if !strings.Contains(names[0], "20260102-030805Z-t") {
 		t.Fatalf("newest first expected, got %v", names)
 	}
 }
@@ -309,10 +309,87 @@ func TestBackupNameFormat(t *testing.T) {
 	s := openTemp(t)
 	s.EnsureSchema()
 	b := newBackups(t, s, 3)
-	b.Now = func() time.Time { return time.Date(2026, 11, 6, 7, 8, 9, 0, time.Local) }
+	// The name is always UTC, whatever zone the clock is in.
+	b.Now = func() time.Time { return time.Date(2026, 11, 6, 9, 8, 9, 0, time.FixedZone("Kyiv", 2*3600)) }
 	got, _ := b.Run("")
-	if filepath.Base(got) != "reports-20261106-070809.db" {
+	if filepath.Base(got) != "reports-20261106-070809Z.db" {
 		t.Fatal(got)
+	}
+}
+
+func TestBackupOrderMixesLegacyLocalAndUTCNames(t *testing.T) {
+	s := openTemp(t)
+	b := newBackups(t, s, 3)
+	os.MkdirAll(b.Dir, 0o755)
+	// A legacy name has no marker and is read as local time; a new name ends in Z and is UTC.
+	local := time.Date(2026, 1, 2, 10, 0, 0, 0, time.Local)
+	utcNew := local.Add(time.Hour).UTC()
+	oldName := "reports-" + local.Format("20060102-150405") + ".db"
+	newName := "reports-" + utcNew.Format("20060102-150405") + "Z.db"
+	for _, n := range []string{oldName, newName} {
+		os.WriteFile(filepath.Join(b.Dir, n), []byte("x"), 0o644)
+	}
+	if got := b.List(); filepath.Base(got[0]) != newName {
+		t.Fatalf("the later copy must be first: %v", got)
+	}
+}
+
+func TestBackupIgnoresSessionOnlyChanges(t *testing.T) {
+	s := openTemp(t)
+	s.EnsureSchema()
+	must := func(q string) {
+		t.Helper()
+		if _, err := s.W.Exec(q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	must("INSERT INTO organisations (name, archived) VALUES ('Shop', 0)")
+	must("INSERT INTO users (login, password_hash) VALUES ('u', 'x')")
+	b := newBackups(t, s, 5)
+	if p, err := b.Run(""); err != nil || p == "" {
+		t.Fatalf("first: %q %v", p, err)
+	}
+	if got, _ := b.Run(""); got != "" {
+		t.Fatalf("unchanged data made a copy: %s", got)
+	}
+	// Session and device churn only: no new copy, although the database files were written.
+	must("INSERT INTO user_sessions (token_hash, user_id, created_at, expires_at) VALUES ('h', (SELECT id FROM users LIMIT 1), 1, 2)")
+	must("INSERT INTO session_devices (token_hash, device_hash, rotated_at) VALUES ('h', 'd', 1)")
+	must("UPDATE session_devices SET last_seen = 99")
+	if got, _ := b.Run(""); got != "" {
+		t.Fatalf("a session write alone made a copy: %s", got)
+	}
+	must("INSERT INTO organisations (name, archived) VALUES ('Other', 0)")
+	if got, err := b.Run(""); err != nil || got == "" {
+		t.Fatalf("a data change was not backed up: %q %v", got, err)
+	}
+}
+
+func TestSnapshotsDoNotCountAgainstKeep(t *testing.T) {
+	s := openTemp(t)
+	s.EnsureSchema()
+	b := newBackups(t, s, 2)
+	clock := time.Date(2026, 1, 2, 3, 0, 0, 0, time.UTC)
+	b.Now = func() time.Time { return clock }
+	b.Run("x")
+	clock = clock.Add(time.Minute)
+	b.Run("x")
+	for i := 0; i < 4; i++ {
+		clock = clock.Add(time.Minute)
+		if _, err := b.Run(SnapshotTag); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snaps, regular := 0, 0
+	for _, f := range b.List() {
+		if IsSnapshot(f) {
+			snaps++
+		} else {
+			regular++
+		}
+	}
+	if regular != 2 || snaps != 4 {
+		t.Fatalf("regular=%d snapshots=%d, want 2 and 4", regular, snaps)
 	}
 }
 
@@ -320,7 +397,7 @@ func TestConcurrentBackupsAreSerialised(t *testing.T) {
 	s := openTemp(t)
 	s.EnsureSchema()
 	b := newBackups(t, s, 50)
-	b.Now = func() time.Time { return time.Date(2026, 1, 2, 3, 4, 5, 0, time.Local) }
+	b.Now = func() time.Time { return time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC) }
 	const n = 5
 	paths := make(chan string, n)
 	errs := make(chan error, n)

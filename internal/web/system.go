@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"legkyi/internal/platform"
+	"legkyi/internal/store"
 	"legkyi/internal/system"
 	"legkyi/internal/update"
 )
@@ -81,6 +82,7 @@ func (a *App) mountSystem(rt *Router) {
 		return nil
 	}))
 	rt.Handle("GET", "/admin/backup/download", a.authed(sm, a.downloadBackup))
+	rt.Handle("GET", "/admin/backups/{name}/download", a.authed(sm, a.downloadListedBackup))
 	rt.Handle("GET", "/admin/overview", a.authed(nil, a.overview))
 	rt.Handle("GET", "/admin/update", a.authed(sm, func(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
 		writeJSON(w, http.StatusOK, a.updateStatus())
@@ -190,13 +192,32 @@ func (a *App) downloadBackup(w http.ResponseWriter, r *http.Request, p *platform
 	if a.Backups == nil {
 		return fail500
 	}
-	path, err := a.Backups.Run("snapshot")
+	path, err := a.Backups.Run(store.SnapshotTag)
 	if err != nil {
 		return HTTPError{Status: 500, Detail: err.Error()}
 	}
 	if path == "" {
 		return fail500
 	}
+	return a.sendBackupFile(w, r, p, path, "завантажено бекап")
+}
+
+// downloadListedBackup sends one of the listed copies. The name is looked up among the files the program made
+// itself, so no part of it ever reaches a file path.
+func (a *App) downloadListedBackup(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
+	name := Param(r, "name")
+	if a.Backups != nil {
+		for _, path := range a.Backups.List() {
+			if filepath.Base(path) == name {
+				return a.sendBackupFile(w, r, p, path, "завантажено збережену копію")
+			}
+		}
+	}
+	return HTTPError{Status: 404, Detail: "Резервну копію не знайдено."}
+}
+
+func (a *App) sendBackupFile(w http.ResponseWriter, r *http.Request, p *platform.Principal, path, action string) error {
+	fail500 := HTTPError{Status: 500, Detail: "Не вдалося прочитати резервну копію"}
 	f, err := os.Open(path)
 	if err != nil {
 		return fail500
@@ -206,7 +227,7 @@ func (a *App) downloadBackup(w http.ResponseWriter, r *http.Request, p *platform
 	if err != nil {
 		return fail500
 	}
-	if err := a.audit(r, a.Trusted.ClientIP(r), p.User.Login, p.User.RoleLabel(), "завантажено бекап", filepath.Base(path)); err != nil {
+	if err := a.audit(r, a.Trusted.ClientIP(r), p.User.Login, p.User.RoleLabel(), action, filepath.Base(path)); err != nil {
 		// A logging failure must not turn a successfully created backup into a failed download.
 		log.Printf("could not record the backup download in the audit log: %v", err)
 	}

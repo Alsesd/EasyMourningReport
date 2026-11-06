@@ -53,6 +53,7 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | DELETE | `/admin/tunnel` | `platform.system.manage` | Disconnect now (autostart preference unchanged) |
 | GET | `/admin/backups?limit=20` | `platform.system.manage` | Newest backups: name, size, time |
 | GET | `/admin/system/health` | `platform.system.manage` | Integrity check result, journal mode, database size, backup count and time, schedule |
+| GET | `/admin/backups/{name}/download` | `platform.system.manage` | Download one listed copy (`404` for a name that is not in the list) |
 | GET | `/admin/backup/download` | `platform.system.manage` | Take a fresh verified snapshot and download it (`500` if it cannot be made; the live file is never streamed) |
 
 ## Reports module endpoints

@@ -23,4 +23,5 @@ export const systemApi = {
   checkUpdate: () => api.post<UpdateStatusDTO>("/api/v1/admin/update/check", {}),
   applyUpdate: () => api.post<UpdateStatusDTO>("/api/v1/admin/update/apply", {}),
   backupDownloadUrl: "/api/v1/admin/backup/download",
+  backupFileUrl: (name: string) => `/api/v1/admin/backups/${encodeURIComponent(name)}/download`,
 };

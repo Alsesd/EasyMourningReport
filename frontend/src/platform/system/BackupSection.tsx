@@ -78,10 +78,23 @@ export default function BackupSection() {
             backups.map((item) => (
               <li key={item.name} className="flex items-center justify-between gap-3 px-1 py-3">
                 <span className="min-w-0">
-                  <span className="block truncate text-text-main">{item.name}</span>
+                  <span className="block truncate text-text-main">
+                    {item.name}
+                    {item.name.endsWith("-snapshot.db") && <span className="ml-2 text-xs text-text-muted">· {b.snapshot}</span>}
+                  </span>
                   <span className="figure block text-xs text-text-muted">{formatDateTime(item.created_at)}</span>
                 </span>
-                <span className="figure shrink-0 text-xs text-text-muted">{formatBytes(item.size_bytes)}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <span className="figure text-xs text-text-muted">{formatBytes(item.size_bytes)}</span>
+                  <a
+                    href={systemApi.backupFileUrl(item.name)}
+                    download
+                    aria-label={b.downloadItem(item.name)}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-md text-text-muted hover:bg-primary/10 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                  </a>
+                </span>
               </li>
             ))
           )}
