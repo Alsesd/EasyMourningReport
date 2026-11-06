@@ -9,14 +9,9 @@ import { ThemeToggle } from "@/ui/ThemeToggle";
 import { MakerMark } from "@/ui/MakerMark";
 import { ApiError } from "@/platform/api/client";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { returnPath } from "./returnPath";
 
 /** The page a signed-out user was sent away from (set by ProtectedRoute), if it is worth returning to. */
-function returnPath(state: unknown): string | null {
-  const from = (state as { from?: { pathname?: string; search?: string } } | null)?.from;
-  if (!from?.pathname || from.pathname === "/" || from.pathname.startsWith("/login")) return null;
-  return from.pathname + (from.search ?? "");
-}
-
 export function LoginPage() {
   const { session, isLoading, login } = useAuth();
   const navigate = useNavigate();
