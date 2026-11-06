@@ -35,6 +35,9 @@ export const uk = {
     carLabel: "Номер авто",
     departureFieldLabel: "Звідки забирає (місце)",
     sameCar: "Одна машина на доставку й винос",
+    militaryLabel: "Військове замовлення",
+    militaryHint: "Має пріоритет: якщо авто вже зайняте, його буде знято з попереднього замовлення (крім того, що вже в дорозі чи теж військового).",
+    militaryBadge: "Військове",
     stopsRequired: "Зупинки (обов’язково хоча б одна)",
     stopsOptional: "Зупинки (за потреби)",
     carriersNeedStop: "Винос: вкажіть хоча б одну зупинку (дім жалоби, церква…) — її не буде в замовленні, якщо не вказати.",
@@ -102,6 +105,7 @@ export const uk = {
       done: "Виконано",
       rejected: "Відхилено",
       cancelled: "Скасовано",
+      bumped: "Авто знято",
     } as Record<string, string>,
     actions: {
       accepted: "Прийняти",
@@ -114,6 +118,7 @@ export const uk = {
       edited: "Змінено",
       status: "Статус",
       bearers: "Носії",
+      bumped: "Авто знято",
     } as Record<string, string>,
   },
 };

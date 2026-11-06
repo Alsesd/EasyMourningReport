@@ -475,3 +475,35 @@ func TestCheckpointAndPing(t *testing.T) {
 		s.Close()
 	}
 }
+
+// A database from before is_military existed: its orders stay, the column appears with 0, a second start is a no-op.
+func TestEnsureSchemaAddsIsMilitaryToExistingTransportOrders(t *testing.T) {
+	s := openTemp(t)
+	loadSnapshot(t, s, "migrated_previous_release")
+	if _, err := s.W.Exec(`CREATE TABLE transport_orders (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		organisation_id INTEGER NOT NULL REFERENCES organisations (id),
+		service_date TEXT NOT NULL, deceased TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '',
+		has_delivery INTEGER NOT NULL DEFAULT 0, delivery_car TEXT NOT NULL DEFAULT '', delivery_from TEXT NOT NULL DEFAULT '',
+		delivery_time TEXT NOT NULL DEFAULT '', destination TEXT NOT NULL DEFAULT '',
+		has_carriers INTEGER NOT NULL DEFAULT 0, carriers_car TEXT NOT NULL DEFAULT '', carriers_from TEXT NOT NULL DEFAULT '',
+		carriers_count INTEGER NOT NULL DEFAULT 0, carriers_time TEXT NOT NULL DEFAULT '', cemetery_number TEXT NOT NULL DEFAULT '',
+		status TEXT NOT NULL, reply_note TEXT NOT NULL DEFAULT '', created_by_id INTEGER, created_by_name TEXT NOT NULL DEFAULT '',
+		created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	s.W.Exec("INSERT INTO organisations (name, archived) VALUES ('Shop', 0)")
+	if _, err := s.W.Exec(`INSERT INTO transport_orders (organisation_id, service_date, deceased, status, created_at, updated_at)
+		VALUES (1, '2026-11-06', 'Old order', 'submitted', 1, 1)`); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := s.EnsureSchema(); err != nil {
+			t.Fatalf("start %d: %v", i, err)
+		}
+	}
+	var mil int
+	if err := s.R.QueryRow("SELECT is_military FROM transport_orders WHERE deceased = 'Old order'").Scan(&mil); err != nil || mil != 0 {
+		t.Fatalf("is_military: %d %v", mil, err)
+	}
+}

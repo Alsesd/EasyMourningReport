@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -51,6 +52,7 @@ type transportOrderDTO struct {
 	Deceased     string          `json:"deceased"`
 	Notes        string          `json:"notes"`
 	SameCar      bool            `json:"same_car"`
+	Military     bool            `json:"military"`
 	Status       string          `json:"status"`
 	ReplyNote    string          `json:"reply_note"`
 	Delivery     *deliveryDTO    `json:"delivery"`
@@ -97,10 +99,10 @@ func seesAll(p *platform.Principal) bool {
 func (a *App) orderDTO(o transport.Order, p *platform.Principal, events []transport.Event) transportOrderDTO {
 	d := transportOrderDTO{
 		ID: o.ID, Organisation: organisationRef{o.OrganisationID, o.OrganisationName},
-		ServiceDate: o.ServiceDate, Deceased: o.Deceased, Notes: o.Notes, SameCar: o.SameCar(), Status: o.Status, ReplyNote: o.ReplyNote,
+		ServiceDate: o.ServiceDate, Deceased: o.Deceased, Notes: o.Notes, SameCar: o.SameCar(), Military: o.Military, Status: o.Status, ReplyNote: o.ReplyNote,
 		SortTime: o.SortTime(), SubmittedBy: o.SubmittedByName,
 		CreatedAt: servedTimeOf(time.Unix(o.CreatedAt, 0)), UpdatedAt: servedTimeOf(time.Unix(o.UpdatedAt, 0)),
-		CanEdit:      p.User.Org != nil && o.Status == transport.Submitted && p.Can(transport.Create),
+		CanEdit:      p.User.Org != nil && (o.Status == transport.Submitted || o.Status == transport.Bumped) && p.Can(transport.Create),
 		NextStatuses: []string{}, Events: []orderEventDTO{},
 	}
 	if o.Delivery != nil {
@@ -255,6 +257,7 @@ func parseOrder(r *http.Request) (transport.Input, error) {
 		ServiceDate: strings.TrimSpace(body.String("service_date", 10, 10)),
 		Deceased:    reqString(body, "deceased", 200),
 		Notes:       strings.TrimSpace(body.OptString("notes", "", 1000)),
+		Military:    body.OptBool("military", false),
 	}
 	if in.ServiceDate != "" && !transport.ValidDate(in.ServiceDate) {
 		body.fail("service_date", "Дата має мати вигляд 2026-10-31", "value_error")
@@ -303,10 +306,13 @@ func (a *App) createTransportOrder(w http.ResponseWriter, r *http.Request, p *pl
 	var id int64
 	err = a.write(r.Context(), func(tx *sql.Tx) error {
 		var err error
+		if err = a.claimCars(r.Context(), tx, in, 0, p, name, ip); err != nil {
+			return err
+		}
 		if id, err = transport.CreateOrder(r.Context(), tx, p.User.Org.ID, p.User.ID, name, in, a.now()); err != nil {
 			return err
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "створено замовлення транспорту", in.Deceased+" · "+in.ServiceDate)
+		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "створено замовлення транспорту", in.Deceased+" · "+in.ServiceDate+militaryMark(in.Military))
 	})
 	if err != nil {
 		return err
@@ -337,13 +343,16 @@ func (a *App) updateTransportOrder(w http.ResponseWriter, r *http.Request, p *pl
 		if err != nil {
 			return err
 		}
-		if o.Status != transport.Submitted {
+		if o.Status != transport.Submitted && o.Status != transport.Bumped {
 			return errOrderLocked
+		}
+		if err := a.claimCars(r.Context(), tx, in, id, p, name, ip); err != nil {
+			return err
 		}
 		if err := transport.UpdateOrder(r.Context(), tx, id, p.User.ID, name, in, a.now()); err != nil {
 			return err
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено замовлення транспорту", in.Deceased+" · "+in.ServiceDate)
+		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено замовлення транспорту", in.Deceased+" · "+in.ServiceDate+militaryMark(in.Military))
 	})
 	if err != nil {
 		return err
@@ -368,7 +377,7 @@ func (a *App) cancelTransportOrder(w http.ResponseWriter, r *http.Request, p *pl
 		if err != nil {
 			return err
 		}
-		if o.Status != transport.Submitted {
+		if o.Status != transport.Submitted && o.Status != transport.Bumped {
 			return HTTPError{Status: 409, Detail: "Замовлення вже розглянуто диспетчером. Зв’яжіться з ним, щоб скасувати."}
 		}
 		if err := transport.SetOrderStatus(r.Context(), tx, id, transport.Cancelled, "", p.User.ID, name, a.now()); err != nil {
@@ -491,5 +500,54 @@ func (a *App) setTransportBearers(w http.ResponseWriter, r *http.Request, p *pla
 		return err
 	}
 	writeJSON(w, http.StatusOK, a.orderDTO(o, p, events))
+	return nil
+}
+
+func militaryMark(m bool) string {
+	if m {
+		return " · військове"
+	}
+	return ""
+}
+
+// claimCars books the cars of an order (excludeID is the order itself on an edit; 0 for a new one) inside the
+// writer's transaction. An ordinary order that meets an active order on the same car within transport.CarLock is
+// refused with 409. A military order refuses only when the car is already taken for the army or is out on a trip
+// (in_progress); otherwise it takes the car: each order it meets is bumped, which keeps the order, drops its car
+// and tells the desk (history and audit).
+func (a *App) claimCars(ctx context.Context, tx *sql.Tx, in transport.Input, excludeID int64, p *platform.Principal, name, ip string) error {
+	conflicts, err := transport.FindConflicts(ctx, tx, in, excludeID)
+	if err != nil || len(conflicts) == 0 {
+		return err
+	}
+	span := func(c transport.Conflict) string {
+		return c.Start.Format("15:04") + "–" + c.Start.Add(transport.CarLock).Format("15:04")
+	}
+	if !in.Military {
+		c := conflicts[0]
+		return HTTPError{Status: 409, Detail: "Авто " + c.Car + " уже зайняте: " + span(c) + " (авто тримається " + itoa(int(transport.CarLock.Hours())) + " год після замовлення). Оберіть інший час або авто."}
+	}
+	for _, c := range conflicts {
+		if c.Military {
+			return HTTPError{Status: 409, Detail: "Авто " + c.Car + " уже зайняте іншим військовим замовленням: " + span(c) + "."}
+		}
+		if c.Status == transport.InProgress {
+			return HTTPError{Status: 409, Detail: "Авто " + c.Car + " уже виконує замовлення (" + span(c) + "), зняти його не можна. Зв’яжіться з диспетчером."}
+		}
+	}
+	for _, c := range conflicts {
+		o, err := transport.GetOrder(ctx, tx, c.OrderID)
+		if err != nil {
+			return err
+		}
+		note := "Авто знято під військове замовлення. Змініть авто чи час і надішліть замовлення знову."
+		if err := transport.Bump(ctx, tx, c.OrderID, note, p.User.ID, name, a.now()); err != nil {
+			return err
+		}
+		if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "знято авто із замовлення транспорту",
+			o.OrganisationName+" · "+o.Deceased+" · "+c.Car+" → військове замовлення"); err != nil {
+			return err
+		}
+	}
 	return nil
 }

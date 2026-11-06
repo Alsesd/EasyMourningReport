@@ -1490,7 +1490,10 @@ export interface components {
             notes: string;
             /** One car does both parts (shown as one run) */
             same_car: boolean;
-            status: "submitted" | "accepted" | "in_progress" | "done" | "rejected" | "cancelled";
+            /** An order for the army: it has priority and takes a busy car from an ordinary order */
+            military: boolean;
+            /** bumped: a military order took the car; the desk edits the order to send it again */
+            status: "submitted" | "accepted" | "in_progress" | "done" | "rejected" | "cancelled" | "bumped";
             /** The dispatcher's reply shown to the desk */
             reply_note: string;
             delivery: components["schemas"]["TransportDeliveryDTO"] | null;
@@ -1512,6 +1515,8 @@ export interface components {
             service_date: string;
             deceased: string;
             notes: string;
+            /** Military order: priority over the car (a busy car is taken from an ordinary order) */
+            military?: boolean;
             delivery: components["schemas"]["TransportDeliveryDTO"] | null;
             carriers: components["schemas"]["TransportCarriersDTO"] | null;
         };

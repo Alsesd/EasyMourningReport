@@ -78,14 +78,32 @@ func (d *desks) post(c *http.Cookie, method, path string, body any) *httptest.Re
 	return d.e.do(method, path, string(b), nil, c)
 }
 
+// carFor gives every deceased its own car, so orders written for other purposes do not meet on one car.
+func carFor(name string) string {
+	n := 0
+	for _, r := range strings.Join(strings.Fields(strings.ToLower(name)), " ") {
+		n = (n*31 + int(r)) % 9000
+	}
+	return "АА " + itoa(1000+n) + " АА"
+}
+
+func withCar(o map[string]any, car string) map[string]any {
+	for _, part := range []string{"delivery", "carriers"} {
+		if m, ok := o[part].(map[string]any); ok {
+			m["car_number"] = car
+		}
+	}
+	return o
+}
+
 func order(date, name string, parts ...string) map[string]any {
 	o := map[string]any{"service_date": date, "deceased": name}
 	for _, p := range parts {
 		switch {
 		case strings.HasPrefix(p, "d"): // delivery at HH:MM
-			o["delivery"] = map[string]any{"car_number": "АА 1111 АА", "departure": "вул. Квітуча, 5", "time": p[1:], "destination": "Морг"}
+			o["delivery"] = map[string]any{"car_number": carFor(name), "departure": "вул. Квітуча, 5", "time": p[1:], "destination": "Морг"}
 		case strings.HasPrefix(p, "c"): // carriers at HH:MM
-			o["carriers"] = map[string]any{"car_number": "АА 1111 АА", "departure": "Морг", "count": 6, "time": p[1:], "cemetery_number": "3", "stops": []string{"Церква"}}
+			o["carriers"] = map[string]any{"car_number": carFor(name), "departure": "Морг", "count": 6, "time": p[1:], "cemetery_number": "3", "stops": []string{"Церква"}}
 		}
 	}
 	return o
@@ -354,7 +372,7 @@ func TestOrdersOfOneDeceasedStayTogether(t *testing.T) {
 	// The carriers part is ordered later, as a second order of the same deceased (different spacing and case).
 	d.create(d.a, order(day, "  іваненко  і. і. ", "c14:00"))
 	// Another desk's deceased with the same name is a different person's order.
-	d.create(d.b, order(day, "Іваненко І. І.", "d09:30"))
+	d.create(d.b, withCar(order(day, "Іваненко І. І.", "d09:30"), "ВВ 2222 ВВ"))
 	var got []string
 	for _, o := range d.list(d.boss, "date="+day) {
 		got = append(got, o.Organisation.Name+":"+strings.TrimSpace(o.Deceased)+"@"+o.SortTime)
@@ -446,7 +464,7 @@ func TestOneCarForBothPartsOrAnotherCarToCarry(t *testing.T) {
 	for id, dst := range map[int64]any{same.ID: &sameRaw, two.ID: &twoRaw} {
 		json.Unmarshal(d.e.do("GET", "/api/v1/transport/orders/"+itoa(int(id)), "", nil, d.boss).Body.Bytes(), dst)
 	}
-	if !sameRaw.SameCar || twoRaw.SameCar || twoRaw.Delivery.CarNumber != "АА 1111 АА" || twoRaw.Carriers.CarNumber != "КК 7777 КК" {
+	if !sameRaw.SameCar || twoRaw.SameCar || twoRaw.Delivery.CarNumber != carFor("Дві машини") || twoRaw.Carriers.CarNumber != "КК 7777 КК" {
 		t.Fatalf("same %+v two %+v", sameRaw, twoRaw)
 	}
 	// One car's two runs (delivery 10:00, carrying 11:30) are one row: no other order lands between them
@@ -500,5 +518,170 @@ func TestHandlingOtherDivisionsOrdersNeverMeansRewritingThem(t *testing.T) {
 	}
 	if got := d.list(d.b, "date="+day); got[0].Deceased != "Чужий" || got[0].Status != "accepted" {
 		t.Fatalf("the order stayed as the owner wrote it: %+v", got[0])
+	}
+}
+
+// --- car occupancy and military priority ---------------------------------------------------------------------
+
+func (d *desks) createStatus(c *http.Cookie, body map[string]any) (int, string) {
+	w := d.post(c, "POST", "/api/v1/transport/orders", body)
+	return w.Code, w.Body.String()
+}
+
+func (d *desks) get(c *http.Cookie, id int64) orderJSON {
+	d.e.t.Helper()
+	var o orderJSON
+	w := d.e.do("GET", "/api/v1/transport/orders/"+itoa(int(id)), "", nil, c)
+	if w.Code != 200 {
+		d.e.t.Fatalf("get %d: %d %s", id, w.Code, w.Body)
+	}
+	json.Unmarshal(w.Body.Bytes(), &o)
+	return o
+}
+
+func sameCarOrder(name, car string, parts ...string) map[string]any {
+	return withCar(order(day, name, parts...), car)
+}
+
+func TestACarIsLockedForTwoHoursAfterAnOrder(t *testing.T) {
+	d := newDesks(t)
+	d.create(d.a, sameCarOrder("Перший", "АА 5555 АА", "d10:00"))
+	// Less than two hours later, on any desk: refused, with the busy window in the message.
+	for _, at := range []string{"d10:00", "d11:59", "d08:01"} {
+		code, body := d.createStatus(d.b, sameCarOrder("Другий", "аа5555аа", at))
+		if code != 409 || !strings.Contains(body, "10:00–12:00") {
+			t.Fatalf("%s: %d %s", at, code, body)
+		}
+	}
+	// Exactly two hours away, another car, or another day is free.
+	d.create(d.b, sameCarOrder("Рівно через дві години", "АА 5555 АА", "d12:00"))
+	d.create(d.b, sameCarOrder("Раніше на дві години", "АА 5555 АА", "d08:00"))
+	d.create(d.b, sameCarOrder("Інше авто", "АА 6666 АА", "d10:00"))
+	other := sameCarOrder("Інший день", "АА 5555 АА", "d10:00")
+	other["service_date"] = "2026-11-07"
+	d.create(d.b, other)
+}
+
+func TestTheCarLockCrossesMidnight(t *testing.T) {
+	d := newDesks(t)
+	late := sameCarOrder("Пізній", "АА 5555 АА", "d23:30")
+	d.create(d.a, late)
+	next := sameCarOrder("Наступного дня", "АА 5555 АА", "d00:30")
+	next["service_date"] = "2026-11-07"
+	if code, body := d.createStatus(d.b, next); code != 409 {
+		t.Fatalf("%d %s", code, body)
+	}
+}
+
+func TestBothPartsOfOneOrderMayUseTheSameCarCloseTogether(t *testing.T) {
+	d := newDesks(t)
+	o := d.create(d.a, sameCarOrder("Один рейс", "АА 5555 АА", "d10:00", "c10:30"))
+	// Editing keeps working: the order never clashes with its own old content.
+	w := d.post(d.a, "PUT", "/api/v1/transport/orders/"+itoa(int(o.ID)), sameCarOrder("Один рейс", "АА 5555 АА", "d10:15", "c10:45"))
+	if w.Code != 200 {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	// But a second order's part on the same car inside the window of either part is refused.
+	if code, _ := d.createStatus(d.b, sameCarOrder("Чужий", "АА 5555 АА", "c11:30")); code != 409 {
+		t.Fatalf("carriers part on the busy car: %d", code)
+	}
+}
+
+func TestOrdersThatReleaseTheirCarDoNotBlockIt(t *testing.T) {
+	d := newDesks(t)
+	for i, release := range []func(o orderJSON){
+		func(o orderJSON) { d.post(d.a, "POST", "/api/v1/transport/orders/"+itoa(int(o.ID))+"/cancel", nil) },
+		func(o orderJSON) {
+			d.post(d.boss, "POST", "/api/v1/transport/orders/"+itoa(int(o.ID))+"/status", map[string]any{"status": "rejected", "note": "немає"})
+		},
+		func(o orderJSON) {
+			d.post(d.boss, "POST", "/api/v1/transport/orders/"+itoa(int(o.ID))+"/status", map[string]any{"status": "done"})
+		},
+	} {
+		car := "АА 70" + itoa(10+i) + " АА"
+		o := d.create(d.a, sameCarOrder("Звільняє "+itoa(i), car, "d10:00"))
+		if i == 2 {
+			d.post(d.boss, "POST", "/api/v1/transport/orders/"+itoa(int(o.ID))+"/status", map[string]any{"status": "accepted"})
+		}
+		release(o)
+		if code, body := d.createStatus(d.b, sameCarOrder("Після "+itoa(i), car, "d10:30")); code != 200 {
+			t.Fatalf("case %d: %d %s", i, code, body)
+		}
+	}
+}
+
+func TestMilitaryOrderTakesTheCarFromAnOrdinaryOne(t *testing.T) {
+	d := newDesks(t)
+	civil := d.create(d.a, sameCarOrder("Цивільний", "АА 5555 АА", "d10:00"))
+	d.post(d.boss, "POST", "/api/v1/transport/orders/"+itoa(int(civil.ID))+"/status", map[string]any{"status": "accepted"})
+	mil := sameCarOrder("Військовий", "АА 5555 АА", "d11:00")
+	mil["military"] = true
+	m := d.create(d.b, mil)
+	if got := d.get(d.boss, m.ID); got.Status != "submitted" {
+		t.Fatalf("military order: %+v", got)
+	}
+	got := d.get(d.boss, civil.ID)
+	if got.Status != "bumped" || !strings.Contains(got.ReplyNote, "військове") || len(got.Events) == 0 || got.Events[len(got.Events)-1].Kind != "bumped" {
+		t.Fatalf("bumped order: %+v", got)
+	}
+	if n := count(d.e, "SELECT COUNT(*) FROM audit_log WHERE action = 'знято авто із замовлення транспорту'"); n != 1 {
+		t.Fatalf("audit rows: %d", n)
+	}
+	// The desk can still edit and cancel it; the old car and time stay refused, a new time works and resubmits.
+	if !d.get(d.a, civil.ID).CanEdit {
+		t.Fatal("a bumped order must stay editable")
+	}
+	if w := d.post(d.a, "PUT", "/api/v1/transport/orders/"+itoa(int(civil.ID)), sameCarOrder("Цивільний", "АА 5555 АА", "d10:30")); w.Code != 409 {
+		t.Fatalf("same car, still busy: %d %s", w.Code, w.Body)
+	}
+	if got := d.get(d.boss, civil.ID); got.Status != "bumped" {
+		t.Fatalf("a refused edit must not resubmit: %s", got.Status)
+	}
+	if w := d.post(d.a, "PUT", "/api/v1/transport/orders/"+itoa(int(civil.ID)), sameCarOrder("Цивільний", "АА 5555 АА", "d14:00")); w.Code != 200 {
+		t.Fatalf("new time: %d %s", w.Code, w.Body)
+	}
+	if got := d.get(d.boss, civil.ID); got.Status != "submitted" {
+		t.Fatalf("after the edit: %s", got.Status)
+	}
+}
+
+func TestMilitaryOrderCannotTakeTheCarFromAnotherMilitaryOrderOrARunningTrip(t *testing.T) {
+	d := newDesks(t)
+	m1 := sameCarOrder("Військовий 1", "АА 5555 АА", "d10:00")
+	m1["military"] = true
+	d.create(d.a, m1)
+	m2 := sameCarOrder("Військовий 2", "АА 5555 АА", "d10:30")
+	m2["military"] = true
+	if code, body := d.createStatus(d.b, m2); code != 409 || !strings.Contains(body, "військовим") {
+		t.Fatalf("%d %s", code, body)
+	}
+	run := d.create(d.a, sameCarOrder("У дорозі", "АА 8888 АА", "d10:00"))
+	for _, st := range []string{"accepted", "in_progress"} {
+		d.post(d.boss, "POST", "/api/v1/transport/orders/"+itoa(int(run.ID))+"/status", map[string]any{"status": st})
+	}
+	m3 := sameCarOrder("Військовий 3", "АА 8888 АА", "d10:30")
+	m3["military"] = true
+	if code, body := d.createStatus(d.b, m3); code != 409 || !strings.Contains(body, "виконує") {
+		t.Fatalf("%d %s", code, body)
+	}
+	if got := d.get(d.boss, run.ID); got.Status != "in_progress" {
+		t.Fatalf("the running trip was touched: %s", got.Status)
+	}
+}
+
+func TestAFailedMilitaryOrderBumpsNothing(t *testing.T) {
+	d := newDesks(t)
+	civil := d.create(d.a, sameCarOrder("Цивільний", "АА 5555 АА", "d10:00"))
+	run := d.create(d.a, sameCarOrder("У дорозі", "АА 5555 АА", "d12:00"))
+	for _, st := range []string{"accepted", "in_progress"} {
+		d.post(d.boss, "POST", "/api/v1/transport/orders/"+itoa(int(run.ID))+"/status", map[string]any{"status": st})
+	}
+	mil := sameCarOrder("Військовий", "АА 5555 АА", "d11:00") // meets both: the trip blocks it, so the civil one stays
+	mil["military"] = true
+	if code, _ := d.createStatus(d.b, mil); code != 409 {
+		t.Fatalf("expected 409, got %d", code)
+	}
+	if got := d.get(d.boss, civil.ID); got.Status != "submitted" {
+		t.Fatalf("an order was bumped by a refused request: %s", got.Status)
 	}
 }

@@ -47,7 +47,10 @@ export function OrderCard({
 
       <div className="min-w-0 space-y-3">
         <div>
-          <h3 className="font-serif text-lg font-semibold leading-snug text-text-main">{order.deceased}</h3>
+          <h3 className="font-serif text-lg font-semibold leading-snug text-text-main">
+            {order.deceased}
+            {order.military && <span className="ml-2 align-middle text-xs font-semibold uppercase tracking-wide text-attention">{t.militaryBadge}</span>}
+          </h3>
           <p className="text-sm text-text-muted">
             {showOrganisation && <>{order.organisation.name} · </>}
             {t.submittedBy}: {order.submitted_by}

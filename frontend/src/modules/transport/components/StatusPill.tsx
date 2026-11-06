@@ -8,6 +8,7 @@ const tone: Record<string, { text: string; mark: string }> = {
   done: { text: "text-text-main", mark: "bg-text-main" },
   rejected: { text: "text-destructive", mark: "bg-destructive" },
   cancelled: { text: "text-text-muted", mark: "border border-text-muted" },
+  bumped: { text: "text-destructive", mark: "border border-destructive" },
 };
 
 /** An order's state as a word with a mark (the mark repeats it for people who scan by shape). */

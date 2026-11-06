@@ -83,9 +83,9 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | GET | `/transport/status` | any transport permission | `{ready, message}` |
 | GET | `/transport/orders` | create, view_all or manage | The day's orders (`date`, default today) or a range (`from`, `to`), chronological; `status`; staff may add `organisation_id`. A desk sees only its organisation |
 | GET | `/transport/orders/{id}` | same | One order; `events` (history) only for staff |
-| POST | `/transport/orders` | `transport.orders.create` (organisation member) | `{service_date, deceased, notes?, delivery?: {car_number, departure, time, destination, stops?}, carriers?: {car_number, departure, count: 4 or 6, time, stops (at least one), cemetery_number}}`; at least one part; signed with the submitting employee |
-| PUT | `/transport/orders/{id}` | `transport.orders.create` | Replace the content while the status is `submitted` (`409` after the reply) |
-| POST | `/transport/orders/{id}/cancel` | `transport.orders.create` | Cancel while `submitted` |
+| POST | `/transport/orders` | `transport.orders.create` (organisation member) | `{service_date, deceased, notes?, military?: bool, delivery?: {car_number, departure, time, destination, stops?}, carriers?: {car_number, departure, count: 4 or 6, time, stops (at least one), cemetery_number}}`; at least one part; signed with the submitting employee. `409` when a car is busy (2 h lock; see docs/modules/transport.md); `military: true` takes the car from an ordinary order, which becomes `bumped` |
+| PUT | `/transport/orders/{id}` | `transport.orders.create` | Replace the content while the status is `submitted` or `bumped` (`409` after the reply, or when the car is busy; a bumped order goes back to `submitted`) |
+| POST | `/transport/orders/{id}/cancel` | `transport.orders.create` | Cancel while `submitted` or `bumped` |
 | POST | `/transport/orders/{id}/status` | `transport.orders.manage` | `{status: accepted, in_progress, done or rejected; note?}`; `409` for a transition that is not allowed, `422` when rejecting without a note |
 | PUT | `/transport/orders/{id}/bearers` | `transport.orders.manage` | `{names: [..]}`: the men assigned to the carriers part (at most the ordered crew of 4 or 6); `409` without carriers or for a rejected/cancelled order
 

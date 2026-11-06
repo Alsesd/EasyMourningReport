@@ -15,7 +15,7 @@ const base: SessionDTO = {
 const dispatcher: SessionDTO = { ...base, user_id: 2, login: "boss", organisation: null, permissions: ["transport.orders.manage"] };
 
 const order = (over: Partial<TransportOrderDTO>): TransportOrderDTO => ({
-  id: 1, organisation: { id: 3, name: "Філія А" }, service_date: todayIso(), deceased: "Іваненко І. І.", notes: "", same_car: false,
+  id: 1, organisation: { id: 3, name: "Філія А" }, service_date: todayIso(), deceased: "Іваненко І. І.", notes: "", same_car: false, military: false,
   status: "submitted", reply_note: "", delivery: { car_number: "АА 1111 АА", departure: "вул. Квітуча, 5", time: "09:30", destination: "Морг", stops: [] },
   carriers: null, sort_time: "09:30", submitted_by: "Оксана", created_at: "", updated_at: "", can_edit: true, next_statuses: [], events: [], ...over,
 });
@@ -76,6 +76,43 @@ describe("TransportPage", () => {
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
     const sent = create.mock.calls[0][0];
     expect(sent).toMatchObject({ deceased: "Петренко П. П.", carriers: null, delivery: { car_number: "ВС 5555 ВС", departure: "вул. Квітуча, 5", time: "09:30", destination: "Кладовище №2" } });
+  });
+
+  it("marks an order as military and shows the server's busy-car message", async () => {
+    vi.spyOn(transportApi, "orders").mockResolvedValue([]);
+    const create = vi
+      .spyOn(transportApi, "create")
+      .mockRejectedValueOnce(new Error("Авто ВС 5555 ВС уже зайняте: 09:30–11:30. Оберіть інший час або авто."))
+      .mockResolvedValueOnce(order({ military: true }));
+    renderPage(base);
+    fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
+    fireEvent.change(screen.getByLabelText("Прізвище та ініціали померлого"), { target: { value: "Петренко П. П." } });
+    fireEvent.change(screen.getByLabelText(/Номер авто/), { target: { value: "ВС 5555 ВС" } });
+    fireEvent.change(screen.getByLabelText(/Звідки забирає/), { target: { value: "вул. Квітуча, 5" } });
+    fireEvent.change(screen.getByLabelText("Час"), { target: { value: "0930" } });
+    fireEvent.change(screen.getByLabelText("Кінцевий пункт"), { target: { value: "Кладовище №2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
+    expect((await screen.findByRole("status")).textContent).toMatch(/уже зайняте/);
+    expect(create.mock.calls[0][0].military).toBe(false);
+
+    fireEvent.click(screen.getByRole("switch", { name: "Військове замовлення" }));
+    fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+    expect(create.mock.calls[1][0].military).toBe(true);
+  });
+
+  it("shows a military badge and lets the desk edit an order whose car was taken", async () => {
+    vi.spyOn(transportApi, "orders").mockResolvedValue([
+      order({ id: 1, deceased: "Військовий", military: true, can_edit: false }),
+      order({ id: 2, deceased: "Знятий", status: "bumped", reply_note: "Авто знято під військове замовлення.", can_edit: true }),
+    ]);
+    renderPage(base);
+    const mil = await screen.findByRole("article", { name: /Військовий/ });
+    expect(within(mil).getByText("Військове")).toBeDefined();
+    const bumped = await screen.findByRole("article", { name: /Знятий/ });
+    expect(within(bumped).getByText("Авто знято")).toBeDefined();
+    expect(within(bumped).getByText(/Авто знято під військове/)).toBeDefined();
+    expect(within(bumped).getByRole("button", { name: /Змінити|Редагувати/ })).toBeDefined();
   });
 
   it("a dispatcher replies with a status and a note", async () => {

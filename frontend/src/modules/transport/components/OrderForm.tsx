@@ -19,6 +19,7 @@ interface Draft {
   service_date: string;
   deceased: string;
   notes: string;
+  military: boolean;
   delivery: { on: boolean; car_number: string; departure: string; time: string; destination: string; stops: string[] };
   carriers: { on: boolean; car_number: string; departure: string; count: string; time: string; cemetery_number: string; stops: string[] };
 }
@@ -28,6 +29,7 @@ export function draftFrom(day: string, order?: TransportOrderDTO): Draft {
     service_date: order?.service_date ?? day,
     deceased: order?.deceased ?? "",
     notes: order?.notes ?? "",
+    military: order?.military ?? false,
     delivery: {
       on: order ? order.delivery !== null : true,
       car_number: order?.delivery?.car_number ?? "",
@@ -71,6 +73,7 @@ export function toInput(d: Draft): TransportOrderInputDTO {
     service_date: d.service_date,
     deceased: d.deceased.trim(),
     notes: d.notes.trim(),
+    military: d.military,
     delivery: d.delivery.on
       ? { car_number: d.delivery.car_number.trim(), departure: d.delivery.departure.trim(), time: d.delivery.time, destination: d.delivery.destination.trim(), stops: clean(d.delivery.stops) }
       : null,
@@ -188,6 +191,14 @@ export function OrderForm({
           </div>
         )}
       </fieldset>
+
+      <div className="border-t border-border pt-2">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-medium text-text-main">{t.militaryLabel}</span>
+          <Switch label={t.militaryLabel} onText={uk.system.on} offText={uk.system.off} checked={draft.military} onChange={(military) => set({ military })} />
+        </div>
+        <p className="text-xs text-text-muted">{t.militaryHint}</p>
+      </div>
 
       {field("order-notes", t.notes, <Input id="order-notes" value={draft.notes} maxLength={1000} onChange={(e) => set({ notes: e.target.value })} />)}
 

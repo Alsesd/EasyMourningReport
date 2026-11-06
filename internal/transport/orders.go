@@ -21,6 +21,9 @@ const (
 	Done       = "done"
 	Rejected   = "rejected"
 	Cancelled  = "cancelled"
+	// Bumped: a military order took the car. The desk keeps the order, which holds no car any more, and
+	// edits it (another car or time) to send it again.
+	Bumped = "bumped"
 )
 
 // ManagerNext lists the statuses a dispatcher may set from each status. done, rejected and cancelled are final.
@@ -28,6 +31,7 @@ var ManagerNext = map[string][]string{
 	Submitted:  {Accepted, Rejected},
 	Accepted:   {InProgress, Done, Rejected},
 	InProgress: {Done, Rejected},
+	Bumped:     {Rejected},
 }
 
 // CanSet reports whether a dispatcher may move an order from one status to another.
@@ -79,6 +83,7 @@ func ValidCrew(n int) bool { return n == 4 || n == 6 }
 // Input is what a desk submits.
 type Input struct {
 	ServiceDate, Deceased, Notes string
+	Military                     bool // an order for the army: it takes a car from an ordinary order
 	Delivery                     *Delivery
 	Carriers                     *Carriers
 }
@@ -89,6 +94,7 @@ type Order struct {
 	OrganisationName             string
 	ServiceDate, Deceased, Notes string
 	Status, ReplyNote            string
+	Military                     bool
 	Delivery                     *Delivery
 	Carriers                     *Carriers
 	SubmittedByID                int64
@@ -130,22 +136,23 @@ var ErrNotFound = errors.New("transport order not found")
 const orderColumns = `o.id, o.organisation_id, org.name, o.service_date, o.deceased, o.notes, o.status, o.reply_note,
 	o.has_delivery, o.delivery_car, o.delivery_from, o.delivery_time, o.destination,
 	o.has_carriers, o.carriers_car, o.carriers_from, o.carriers_count, o.carriers_time, o.cemetery_number,
-	COALESCE(o.created_by_id, 0), o.created_by_name, o.created_at, o.updated_at`
+	o.is_military, COALESCE(o.created_by_id, 0), o.created_by_name, o.created_at, o.updated_at`
 
 type scanner interface{ Scan(dest ...any) error }
 
 func scanOrder(r scanner) (Order, error) {
 	var o Order
-	var hasD, hasC int
+	var hasD, hasC, mil int
 	var d Delivery
 	var c Carriers
 	err := r.Scan(&o.ID, &o.OrganisationID, &o.OrganisationName, &o.ServiceDate, &o.Deceased, &o.Notes, &o.Status, &o.ReplyNote,
 		&hasD, &d.CarNumber, &d.Departure, &d.Time, &d.Destination,
 		&hasC, &c.CarNumber, &c.Departure, &c.Count, &c.Time, &c.CemeteryNumber,
-		&o.SubmittedByID, &o.SubmittedByName, &o.CreatedAt, &o.UpdatedAt)
+		&mil, &o.SubmittedByID, &o.SubmittedByName, &o.CreatedAt, &o.UpdatedAt)
 	if err != nil {
 		return o, err
 	}
+	o.Military = mil == 1
 	if hasD == 1 {
 		o.Delivery = &d
 	}
@@ -364,7 +371,7 @@ func partArgs(in Input) []any {
 	}
 	return []any{in.ServiceDate, in.Deceased, in.Notes,
 		b2i(in.Delivery != nil), d.CarNumber, d.Departure, d.Time, d.Destination,
-		b2i(in.Carriers != nil), c.CarNumber, c.Departure, c.Count, c.Time, c.CemeteryNumber}
+		b2i(in.Carriers != nil), c.CarNumber, c.Departure, c.Count, c.Time, c.CemeteryNumber, b2i(in.Military)}
 }
 
 func addEvent(ctx context.Context, tx *sql.Tx, id int64, now time.Time, userID int64, userName, kind, status, note string) error {
@@ -378,9 +385,9 @@ func CreateOrder(ctx context.Context, tx *sql.Tx, orgID, userID int64, userName 
 	args := append(partArgs(in), orgID, Submitted, userID, userName, now.Unix(), now.Unix())
 	res, err := tx.ExecContext(ctx, `INSERT INTO transport_orders
 		(service_date, deceased, notes, has_delivery, delivery_car, delivery_from, delivery_time, destination,
-		 has_carriers, carriers_car, carriers_from, carriers_count, carriers_time, cemetery_number,
+		 has_carriers, carriers_car, carriers_from, carriers_count, carriers_time, cemetery_number, is_military,
 		 organisation_id, status, created_by_id, created_by_name, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -396,7 +403,7 @@ func UpdateOrder(ctx context.Context, tx *sql.Tx, id, userID int64, userName str
 	args := append(partArgs(in), now.Unix(), id)
 	if _, err := tx.ExecContext(ctx, `UPDATE transport_orders SET
 		service_date = ?, deceased = ?, notes = ?, has_delivery = ?, delivery_car = ?, delivery_from = ?, delivery_time = ?, destination = ?,
-		has_carriers = ?, carriers_car = ?, carriers_from = ?, carriers_count = ?, carriers_time = ?, cemetery_number = ?, updated_at = ? WHERE id = ?`, args...); err != nil {
+		has_carriers = ?, carriers_car = ?, carriers_from = ?, carriers_count = ?, carriers_time = ?, cemetery_number = ?, is_military = ?, updated_at = ? WHERE id = ?`, args...); err != nil {
 		return err
 	}
 	if err := writeParts(ctx, tx, id, in); err != nil {
@@ -408,6 +415,9 @@ func UpdateOrder(ctx context.Context, tx *sql.Tx, id, userID int64, userName str
 		keep = in.Carriers.Count
 	}
 	if _, err := tx.ExecContext(ctx, "DELETE FROM transport_order_stops WHERE order_id = ? AND part = 'bearers' AND position >= ?", id, keep); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, "UPDATE transport_orders SET status = ? WHERE id = ? AND status = ?", Submitted, id, Bumped); err != nil {
 		return err
 	}
 	return addEvent(ctx, tx, id, now, userID, userName, "edited", "", "")

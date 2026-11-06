@@ -78,6 +78,7 @@ var goOwned = []string{
 		carriers_count INTEGER NOT NULL DEFAULT 0,
 		carriers_time TEXT NOT NULL DEFAULT '',
 		cemetery_number TEXT NOT NULL DEFAULT '',
+		is_military INTEGER NOT NULL DEFAULT 0,
 		status TEXT NOT NULL,
 		reply_note TEXT NOT NULL DEFAULT '',
 		created_by_id INTEGER,
@@ -119,6 +120,26 @@ var goOwned = []string{
 		at INTEGER NOT NULL,
 		PRIMARY KEY (report_id, kind)
 	)`,
+}
+
+// goOwnedColumns are columns added to Go-owned tables after their first release. CREATE TABLE IF NOT EXISTS does
+// not touch an existing table, so each one is added once with ALTER TABLE (a constant default keeps old rows valid).
+var goOwnedColumns = []struct{ table, column, def string }{
+	{"transport_orders", "is_military", "INTEGER NOT NULL DEFAULT 0"},
+}
+
+func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
+	var n int
+	if err := tx.QueryRow("SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?", c.table, c.column).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	if _, err := tx.Exec("ALTER TABLE " + c.table + " ADD COLUMN " + c.column + " " + c.def); err != nil {
+		return fmt.Errorf("add column %s.%s: %w", c.table, c.column, err)
+	}
+	return nil
 }
 
 // GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
@@ -207,6 +228,11 @@ func (s *Store) EnsureSchema() error {
 	for _, ddl := range goOwned {
 		if _, err := tx.Exec(ddl); err != nil {
 			return fmt.Errorf("go-owned schema: %w", err)
+		}
+	}
+	for _, c := range goOwnedColumns {
+		if err := addColumn(tx, c); err != nil {
+			return err
 		}
 	}
 	if fresh {
