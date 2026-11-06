@@ -16,7 +16,9 @@
     ],
     "deny": [
       "Read(./.env)",
-      "Read(./.env.*)",
+      "Read(./.env.local)",
+      "Read(./.env.production)",
+      "Read(./.env.development)",
       "Read(./secret.key)",
       "Read(./data/**)",
       "Read(./backups/**)",

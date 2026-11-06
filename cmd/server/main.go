@@ -145,7 +145,15 @@ func serve(exe string) (bool, error) {
 			go announceTunnel(ctx, tun)
 		}
 	}
-	handler := web.New(web.Deps{
+	var access *web.AccessConfig
+	if team, aud := strings.TrimSpace(os.Getenv("CF_ACCESS_TEAM_DOMAIN")), strings.TrimSpace(os.Getenv("CF_ACCESS_AUD")); team != "" && aud != "" {
+		access = &web.AccessConfig{TeamDomain: strings.TrimPrefix(strings.TrimSuffix(team, "/"), "https://"), Audience: aud}
+		log.Printf("Cloudflare Access is enforced for requests that come through the tunnel (team %s)", access.TeamDomain)
+		if strings.TrimSpace(os.Getenv("TUNNEL_TOKEN")) == "" {
+			log.Printf("WARNING: Cloudflare Access is on but there is no TUNNEL_TOKEN. A quick tunnel (trycloudflare.com) cannot be put behind Access, so all tunnel traffic will be refused. Use a named tunnel with your own domain.")
+		}
+	}
+	handler := web.New(web.Deps{Access: access,
 		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret, Backups: backups,
 		BackupEveryMin: cfg.BackupEveryM, Tunnel: tun,
 		CookieSecure: os.Getenv("COOKIE_SECURE") == "1",
