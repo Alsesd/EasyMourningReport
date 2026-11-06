@@ -22,9 +22,17 @@ def run_tests():
     env["PORT"] = "8888"
     env["TUNNEL_ENABLED"] = "0"  # The app's optional .env loader must not enable a real tunnel in tests.
 
+    # LEGKYI_E2E_BINARY runs the Go build instead of the Python app. It runs in the throwaway folder so a
+    # repository .env cannot point its data or backups at the real ones.
+    go_binary = os.getenv("LEGKYI_E2E_BINARY")
+    if go_binary:
+        env["LEGKYI_BACKUPS_DIR"] = os.path.join(test_dir, "backups")
+        command, workdir = [os.path.abspath(go_binary)], test_dir
+    else:
+        command, workdir = [sys.executable, "-m", "app"], backend_path
     server_process = subprocess.Popen(
-        [sys.executable, "-m", "app"],
-        cwd=backend_path,
+        command,
+        cwd=workdir,
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

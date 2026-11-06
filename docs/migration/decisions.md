@@ -122,3 +122,25 @@ The locked Starlette writes the session cookie only when the session changes (lo
   Run it only with a throwaway data folder and a non-default password, for example:
   `nix shell nixpkgs#cloudflared --command bash -c 'LEGKYI_DATA_DIR=$(mktemp -d) ADMIN_PASSWORD=<strong> TUNNEL_ENABLED=1 ./legkyi'`
   (no `DEMO=1`: the demo logins are `store1/store1`).
+
+## Slice 7 outcome (packaging)
+- `deploy/Dockerfile.go` (Node build → `golang:1.26-bookworm` static build → `debian:bookworm-slim` + curl +
+  cloudflared; same ENV, mounts, 777 dirs, `/healthz` check, root user). **The production `deploy/Dockerfile`,
+  `deploy/compose.yaml` and `compose.yaml` are unchanged**: swapping them is the cut-over (Slice 8). Build it as
+  `easymourningreport:go`, never `:local`.
+- Image test (real Docker, throwaway dirs, port 18001): healthz, login, SPA deep link all OK; `docker stop` took the
+  final backup.
+- **Rollback rehearsal (temp dirs, no real data):** Python (DEMO) wrote a submitted report, an import and a price
+  change, SIGINT → backup. Go on a copy: `secret.key` reused, old Python cookie gets a clean 401, startup/final
+  backups use the same name pattern, Go wrote an unlock, a draft save, an import and a product. Python was then
+  started on that same folder: it booted, read everything Go wrote (audit rows, reports, products, history) and
+  accepted a further write. So Slice 8's rollback (previous image + the tagged backup) works.
+- Shutdown: the HTTP drain is now 3 s (Windows gives a closing console ~5 s; console close arrives as SIGTERM).
+- `scripts/build_go.sh` builds `dist/legkyi` and `dist/legkyi.exe`. `GOOS=windows` builds; **not run on real
+  Windows (Q2) — manual step.**
+- `scripts/e2e_test.py` takes `LEGKYI_E2E_BINARY` to run the Go binary in the throwaway folder (with
+  `LEGKYI_BACKUPS_DIR` set); the Python default is unchanged.
+- **Playwright e2e not run:** on NixOS Playwright's bundled `node` cannot execute (stub-ld) after two attempts.
+  Instead headless Chromium (`nix shell nixpkgs#chromium`) loaded `/login` from the Go binary (login form rendered)
+  and a deep link redirected to it. Run the full script where Playwright works, e.g. in the Playwright Docker image.
+- Gate: Python `pytest` 175 passed; frontend not touched.
