@@ -1237,7 +1237,12 @@
           "total_cents": 7770,
           "available_periods": [
             "<current-period>"
-          ]
+          ],
+          "submission": {
+            "by": "clerk",
+            "kind": "store",
+            "submitted_at": "<time>"
+          }
         }
       }
     },
@@ -1360,7 +1365,12 @@
           "total_cents": 7770,
           "available_periods": [
             "<current-period>"
-          ]
+          ],
+          "submission": {
+            "by": "clerk",
+            "kind": "store",
+            "submitted_at": "<time>"
+          }
         }
       }
     },
@@ -1380,7 +1390,12 @@
             "period": "<current-period>",
             "status": "submitted",
             "total_cents": 7770,
-            "item_count": 2
+            "item_count": 2,
+            "submission": {
+              "by": "clerk",
+              "kind": "store",
+              "submitted_at": "<time>"
+            }
           },
           {
             "store_id": 2,
@@ -1779,7 +1794,12 @@
             }
           ],
           "inactive_rows": [],
-          "inactive_total_cents": 0
+          "inactive_total_cents": 0,
+          "submission": {
+            "by": "clerk",
+            "kind": "store",
+            "submitted_at": "<time>"
+          }
         }
       }
     },
@@ -1814,7 +1834,12 @@
           "period": "<current-period>",
           "status": "draft",
           "total_cents": 7770,
-          "item_count": 2
+          "item_count": 2,
+          "submission": {
+            "by": "clerk",
+            "kind": "store",
+            "submitted_at": "<time>"
+          }
         }
       }
     },
@@ -1956,7 +1981,12 @@
           "total_cents": 10200,
           "available_periods": [
             "<current-period>"
-          ]
+          ],
+          "submission": {
+            "by": "clerk",
+            "kind": "store",
+            "submitted_at": "<time>"
+          }
         }
       }
     },
@@ -2122,7 +2152,12 @@
           "total_cents": 10200,
           "available_periods": [
             "<current-period>"
-          ]
+          ],
+          "submission": {
+            "by": "clerk",
+            "kind": "store",
+            "submitted_at": "<time>"
+          }
         }
       }
     },
@@ -2240,7 +2275,12 @@
           "total_cents": 10200,
           "available_periods": [
             "<current-period>"
-          ]
+          ],
+          "submission": {
+            "by": "clerk",
+            "kind": "store",
+            "submitted_at": "<time>"
+          }
         }
       }
     },

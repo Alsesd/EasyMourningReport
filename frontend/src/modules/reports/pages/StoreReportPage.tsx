@@ -10,6 +10,7 @@ import type { StoreReportDTO, ReportLineDTO, ReportSaveDTO } from "@/platform/ap
 import { uk, formatCurrency, formatPeriodReadable, shiftPeriod } from "@/modules/reports/i18n";
 import { Button } from "@/ui/Button";
 import { StatusPill } from "@/modules/reports/components/StatusPill";
+import { Signature } from "@/modules/reports/components/Signature";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { QuantityStepper } from "@/ui/QuantityStepper";
 import { ThemeToggle } from "@/ui/ThemeToggle";
@@ -308,6 +309,7 @@ export default function StoreReportPage() {
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted">
               <StatusPill status={report?.status || "new"} />
               {report && <span>{uk.store.filledOf(filled, rows.length)}</span>}
+              <Signature status={report?.status || "new"} submission={report?.submission} />
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">

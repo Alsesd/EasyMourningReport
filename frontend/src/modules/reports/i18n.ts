@@ -16,6 +16,12 @@ export {
 export const uk = {
   ...ukPlatform,
 
+  signature: {
+    submittedBy: "Надіслав(ла)",
+    lockedBy: "Заблокував(ла)",
+    lastSubmittedBy: "Востаннє надіслав(ла)",
+  },
+
   store: {
     previousMonth: "Попередній місяць",
     monthLabel: "Місяць звіту",

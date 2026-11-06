@@ -57,7 +57,7 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | Method | Path | Permission | Purpose |
 |---|---|---|---|
 | GET | `/store/reports/{period}` | `reports.submit` (organisation member) | The caller's organisation report and editable lines |
-| PUT | `/store/reports/{period}` | `reports.submit` (organisation member) | Save a report snapshot as a draft or submit it |
+| PUT | `/store/reports/{period}` | `reports.submit` (organisation member) | Save a report snapshot as a draft or submit it; a submit records the submitting employee. Report responses (store page, `/admin/reports`, `/admin/reports/{id}`) carry `submission: {by, kind, submitted_at}` when known (see docs/modules/reports.md) |
 | GET | `/admin/reports?period=YYYY-MM` | `reports.review` | Reports of all visible organisations for a month, including missing submissions |
 | GET | `/admin/reports/{id}` | `reports.review` | Report detail |
 | PATCH | `/admin/reports/{id}` | `reports.review` | Lock/unlock by setting status |

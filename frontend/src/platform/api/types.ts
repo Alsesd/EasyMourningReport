@@ -29,6 +29,7 @@ export type AdminOverviewDTO = Schemas["AdminOverviewDTO"];
 
 // Reports module
 export type StoreReportDTO = Schemas["StoreReportDTO"];
+export type SubmissionDTO = Schemas["SubmissionDTO"];
 export type ReportLineDTO = Schemas["ReportLineDTO"];
 export type ReportInputDTO = Schemas["ReportInputDTO"];
 export type ReportSaveDTO = Schemas["ReportSaveDTO"];

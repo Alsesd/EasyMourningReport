@@ -783,8 +783,19 @@ export interface components {
              */
             modules: components["schemas"]["ModuleOverviewDTO"][];
         };
+        /** SubmissionDTO: the signature of a report */
+        SubmissionDTO: {
+            /** Full name (else login) of the employee */
+            by: string;
+            /** store: the store employee submitted it; admin: an administrator locked it */
+            kind: "store" | "admin";
+            /** RFC 3339, UTC */
+            submitted_at: string;
+        };
         /** AdminReportDTO */
         AdminReportDTO: {
+            /** Who submitted (store employee) or locked (administrator) the report; absent for reports from before this was recorded */
+            submission?: components["schemas"]["SubmissionDTO"] | null;
             /** Report Id */
             report_id: number;
             /** Store Id */
@@ -812,6 +823,8 @@ export interface components {
         };
         /** AdminReportDetailDTO */
         AdminReportDetailDTO: {
+            /** Who submitted (store employee) or locked (administrator) the report; absent for reports from before this was recorded */
+            submission?: components["schemas"]["SubmissionDTO"] | null;
             /** Report Id */
             report_id: number;
             /** Store Id */
@@ -848,6 +861,8 @@ export interface components {
         };
         /** AdminReportListItemDTO */
         AdminReportListItemDTO: {
+            /** Who submitted (store employee) or locked (administrator) the report; absent for reports from before this was recorded */
+            submission?: components["schemas"]["SubmissionDTO"] | null;
             /** Store Id */
             store_id: number;
             /** Store Name */
@@ -1265,6 +1280,8 @@ export interface components {
         };
         /** StoreReportDTO */
         StoreReportDTO: {
+            /** Who submitted (store employee) or locked (administrator) the report; absent for reports from before this was recorded */
+            submission?: components["schemas"]["SubmissionDTO"] | null;
             /** Report Id */
             report_id?: number | null;
             /** Store Name */

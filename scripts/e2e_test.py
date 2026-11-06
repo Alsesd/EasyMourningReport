@@ -122,6 +122,8 @@ def run_tests():
 
             page.wait_for_selector('text=Звіт надіслано й заблоковано', timeout=5000)
             print("Submit confirmed and locked!")
+            assert "Надіслав(ла): store1" in page.inner_text("main"), "the page must name the employee who submitted"
+            print("Report is signed by the submitting employee!")
 
             # Verify inputs are now disabled
             first_input = page.locator('input[inputmode="numeric"]').first
@@ -196,6 +198,8 @@ def run_tests():
             admin_page.wait_for_url("**/admin/reports/**", timeout=5000)
             admin_page.wait_for_selector('text=Магазин 1', timeout=5000)
             print("Navigated to Report Detail:", admin_page.url)
+            admin_page.wait_for_selector('text=Надіслав(ла): store1', timeout=5000)
+            print("Admin sees who submitted the report!")
 
             # Unlock report
             unlock_btn = admin_page.locator('button:has-text("Розблокувати")')

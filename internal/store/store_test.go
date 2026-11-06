@@ -49,7 +49,7 @@ func structure(t *testing.T, db *sql.DB) string {
 	t.Helper()
 	var tables []string
 	// Tables owned by the Go program are not part of the Python shape being compared.
-	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('user_sessions', 'session_devices', 'passkeys', 'transport_orders', 'transport_order_stops', 'transport_order_events') ORDER BY name")
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('user_sessions', 'session_devices', 'passkeys', 'transport_orders', 'transport_order_stops', 'transport_order_events', 'report_submissions') ORDER BY name")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -8,6 +8,7 @@ import { Notice } from "@/ui/Notice";
 import { PageHeader } from "@/ui/PageHeader";
 import { Button } from "@/ui/Button";
 import { StatusPill } from "@/modules/reports/components/StatusPill";
+import { Signature } from "@/modules/reports/components/Signature";
 import {
   Dialog,
   DialogContent,
@@ -110,6 +111,7 @@ export default function AdminReportDetailPage() {
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span>{formatPeriodReadable(report.period)}</span>
             <StatusPill status={report.status} />
+            <Signature status={report.status} submission={report.submission} />
             {report.store_archived && <span>{uk.month.archived}</span>}
           </span>
         }

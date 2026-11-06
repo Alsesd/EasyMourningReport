@@ -101,10 +101,21 @@ var goOwned = []string{
 		note TEXT NOT NULL DEFAULT ''
 	)`,
 	`CREATE INDEX IF NOT EXISTS ix_transport_order_events_order ON transport_order_events (order_id)`,
+	// Who put a monthly report into the submitted (locked) state last: the store employee who submitted it
+	// (kind "store") or the administrator who locked it (kind "admin"). id plus a name snapshot, so the
+	// signature survives renames. Reports from before this table have no row. A side table, because the
+	// reports table mirrors the Python release and is never altered.
+	`CREATE TABLE IF NOT EXISTS report_submissions (
+		report_id INTEGER NOT NULL PRIMARY KEY REFERENCES reports (id) ON DELETE CASCADE,
+		user_id INTEGER,
+		user_name TEXT NOT NULL,
+		kind TEXT NOT NULL,
+		at INTEGER NOT NULL
+	)`,
 }
 
 // GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
-var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events"}
+var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions"}
 
 type object struct {
 	kind, name, table, sql string
