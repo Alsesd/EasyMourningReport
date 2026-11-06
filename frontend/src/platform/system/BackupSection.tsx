@@ -1,6 +1,6 @@
 /** Backups and database health: schedule, integrity, recent copies and an on-demand download. */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { systemApi } from "@/platform/system/api";
 import { formatDateTime, ukPlatform as uk } from "@/platform/i18n";
 import { buttonClass } from "@/ui/Button";
@@ -9,6 +9,7 @@ import { StateDot } from "@/ui/StateDot";
 import { Download } from "lucide-react";
 
 const b = uk.system.backup;
+const REFRESH_MS = 15000;
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} Б`;
@@ -17,8 +18,17 @@ export function formatBytes(bytes: number): string {
 }
 
 export default function BackupSection() {
-  const { data: health } = useQuery({ queryKey: ["systemHealth"], queryFn: () => systemApi.health() });
-  const { data: backups = [] } = useQuery({ queryKey: ["backups"], queryFn: () => systemApi.backups(8) });
+  const queryClient = useQueryClient();
+  // Only this section refreshes: new copies and the health figures show up by themselves, without a page reload.
+  // Polling pauses while the tab is hidden (react-query default) and resumes with a fresh read.
+  const { data: health } = useQuery({ queryKey: ["systemHealth"], queryFn: () => systemApi.health(), refetchInterval: REFRESH_MS });
+  const { data: backups = [] } = useQuery({ queryKey: ["backups"], queryFn: () => systemApi.backups(8), refetchInterval: REFRESH_MS });
+  // A download takes a fresh "snapshot" copy on the server; show it once the file has been made.
+  const refreshSoon = () =>
+    window.setTimeout(() => {
+      void queryClient.invalidateQueries({ queryKey: ["backups"] });
+      void queryClient.invalidateQueries({ queryKey: ["systemHealth"] });
+    }, 3000);
 
   return (
     <div className="grid gap-10 xl:grid-cols-2">
@@ -26,7 +36,7 @@ export default function BackupSection() {
         id="backup-database"
         title={uk.hub.database}
         actions={
-          <a href={systemApi.backupDownloadUrl} download className={buttonClass("primary", "sm")}>
+          <a href={systemApi.backupDownloadUrl} download onClick={refreshSoon} className={buttonClass("primary", "sm")}>
             <Download className="h-4 w-4" aria-hidden="true" />
             {b.downloadButton}
           </a>
