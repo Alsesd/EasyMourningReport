@@ -4,6 +4,10 @@ name: Release exe
 # Builds the single-file legkyi.exe (UI + cloudflared inside), tests it on Linux and on a real Windows
 # runner, and publishes a GitHub release. Untick "publish" to only build and test.
 on:
+  # A pull request to main runs the whole build and test gate (Linux, the Windows exe, the self-update smoke test)
+  # and never publishes: publishing needs a manual run or auto-release.yml.
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
@@ -91,7 +95,7 @@ jobs:
       - name: Build exe and Linux binary (cloudflared bundled)
         env:
           # Stamps the tag, commit and time into the programs so they can find newer releases.
-          LEGKYI_VERSION: ${{ inputs.version }}
+          LEGKYI_VERSION: ${{ inputs.version || format('pr-{0}', github.run_number) }}
         run: SKIP_FRONTEND=1 bash scripts/build_go.sh
 
       # Optional code signing (untested): runs only when the repository has the secrets WINDOWS_CERT_PFX (base64 of a
