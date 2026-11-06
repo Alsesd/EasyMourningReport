@@ -7,10 +7,22 @@ secret.key
 dist/
 bin/
 
-# Nix / direnv
+# Developer tooling and local artifacts (not part of the application)
+flake.nix
+flake.lock
 .direnv/
 .envrc
 result
+.claude/
+coverage/
+*.out
+*.test
+*.log
+*.tmp
+.env.*
+!.env.example
+tmp/
+scratch/
 
 # Frontend (the Vite build is embedded into the Go binary)
 internal/assets/static/app/
