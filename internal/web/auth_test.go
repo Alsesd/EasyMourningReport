@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"legkyi/internal/assets"
 	"legkyi/internal/platform"
 	"legkyi/internal/registry"
 	"legkyi/internal/store"
@@ -29,7 +28,7 @@ func newEnv(t *testing.T, mut func(*Deps)) *env {
 	e := &env{t: t, st: st, now: time.Date(2026, 11, 6, 10, 0, 0, 0, time.UTC)}
 	e.lim = NewLoginLimiter()
 	e.lim.Now = func() time.Time { return e.now }
-	d := Deps{Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: []byte("s"),
+	d := Deps{Store: st, Assets: testAssets(), Registry: registry.Installed(), Secret: []byte("s"),
 		Now: func() time.Time { return e.now }, Limiter: e.lim}
 	if mut != nil {
 		mut(&d)

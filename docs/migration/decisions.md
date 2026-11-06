@@ -36,3 +36,32 @@ answered, so each takes its documented default. Revisit when marked.
 - **Schema:** `internal/store/schema/fresh.sql` is a copy of `testdata/schema/fresh.sql` (a test fails if they differ). Only missing tables are created.
 - **Backups:** `VACUUM INTO` temp file, verify, rename. A same-second name collision gets a `-2` suffix (Python overwrote).
 - **Not in Slice 1:** CSRF guard, sessions, `DEMO=1` seeding, tunnel, `before-migrate`/`before-delete` backups callers.
+
+## Re-split of the remaining slices (replaces plan slices 3-8)
+
+Reads in the fixtures depend on data their writes create, so the work is split by feature:
+
+| Slice | Content |
+|---|---|
+| 3 | Platform accounts: organisations, users, roles, permissions, audit logs; reads and writes. Target: all 70 steps of scenario 01 |
+| 4 | Reports module (catalogue, price history, store report, review, summary, settings) and `DEMO=1` seeding |
+| 5 | XLSX import/export |
+| 6 | System: backups, health, overview, tunnel |
+| 7 | Packaging, Windows build, Playwright e2e against the Go binary |
+| 8 | Cut-over |
+
+## Session cookie
+The locked Starlette writes the session cookie only when the session changes (login, logout): a fixed
+7-day window, no sliding refresh. Go does the same.
+
+## Deliberate differences from Python (Go-only expectations live in `internal/web/testdata/overrides.json`)
+- Audit `ts` and `users.created_at` are served as RFC3339 UTC with `Z` (Q5).
+- Deleting a user who still has roles works (Python returned 500).
+
+## Slice 3 outcome
+- All 70 steps of scenario 01 pass on fresh, `migrated_very_old` and `migrated_previous_release` with **no overrides**
+  (`internal/web/testdata/overrides.json` is not needed yet). The ledger lists only `02_*` steps.
+- `ts` is served as RFC3339 UTC with `Z`; the harness now requires the `Z` on `ts`/`created_at`/`last_backup_at`.
+- Deletes remove child rows explicitly (`user_roles`, `role_permissions`, `report_settings`) and are tested on all three schemas.
+- `core.Module.OrganisationUsage` decides archive-vs-delete; the reports module reports its report counts.
+- The optional SPA click-through (needs Node build) is deferred to Slice 7.

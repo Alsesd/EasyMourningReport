@@ -2,6 +2,17 @@
 // (the Go form of backend/app/core/modules.py).
 package core
 
+import (
+	"context"
+	"database/sql"
+)
+
+// Querier is satisfied by *sql.DB, *sql.Tx and *sql.Conn.
+type Querier interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
 type Scope = string
 
 const (
@@ -21,4 +32,7 @@ type Module struct {
 	Permissions   []Permission
 	AuditActions  []string
 	DefaultGrants map[string][]string // built-in role key -> permission codes
+	// OrganisationUsage counts the records the module holds per organisation id. An organisation
+	// with records is archived instead of deleted.
+	OrganisationUsage func(ctx context.Context, q Querier) (map[int64]int, error)
 }

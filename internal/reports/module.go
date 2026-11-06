@@ -28,5 +28,6 @@ var Module = core.Module{
 		"додано товар", "масово додано товари", "змінено товар", "змінено ціну товару",
 		"архівовано товар", "відновлено товар", "видалено товар", "змінено налаштування звітів",
 	},
-	DefaultGrants: map[string][]string{"store": {Submit}},
+	DefaultGrants:     map[string][]string{"store": {Submit}},
+	OrganisationUsage: UsagePerOrganisation,
 }

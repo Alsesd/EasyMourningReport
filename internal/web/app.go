@@ -30,6 +30,7 @@ type Deps struct {
 	Trusted      *TrustedHosts
 	Now          func() time.Time
 	Limiter      *LoginLimiter
+	Backups      *store.Backups // before-delete snapshots (nil in tests)
 }
 
 // App holds the dependencies handlers share.
@@ -55,6 +56,7 @@ func New(d Deps) http.Handler {
 	app := &App{Deps: d}
 	rt := &Router{}
 	app.mountPlatform(rt)
+	app.mountAccounts(rt)
 	srv := &Server{DB: d.Store, Assets: d.Assets, API: rt}
 	return sessionMiddleware(Signer{Secret: d.Secret, Now: d.Now}, d.CookieSecure, sameOriginGuard(srv))
 }
@@ -142,7 +144,7 @@ func (a *App) done(w http.ResponseWriter, err error) {
 		return
 	}
 	switch err.(type) {
-	case validationError, FormError, HTTPError:
+	case validationError, FormError, HTTPError, platform.RuleError:
 		fail(w, err)
 	default:
 		log.Printf("internal error: %v", err)

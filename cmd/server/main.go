@@ -87,7 +87,7 @@ func run() error {
 		return err
 	}
 	handler := web.New(web.Deps{
-		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret,
+		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret, Backups: backups,
 		CookieSecure: os.Getenv("COOKIE_SECURE") == "1",
 		// Only the local cloudflared may set the client address (X-Forwarded-For).
 		Trusted: web.ParseTrustedHosts(orEnv("FORWARDED_ALLOW_IPS", "127.0.0.1")),

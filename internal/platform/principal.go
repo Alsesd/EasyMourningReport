@@ -3,21 +3,20 @@ package platform
 import (
 	"context"
 	"database/sql"
+	"legkyi/internal/core"
 	"sort"
 	"strings"
 )
 
-// Querier is satisfied by *sql.DB, *sql.Tx and *sql.Conn.
-type Querier interface {
-	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-}
+type Querier = core.Querier
 
 type Role struct {
-	ID    int64
-	Key   string // "" for custom roles
-	Name  string
-	Scope string
+	ID     int64
+	Key    string // "" for custom roles
+	Name   string
+	Scope  string
+	OrgID  *int64
+	Grants []string // permission codes stored for the role
 }
 
 type Organisation struct {
@@ -116,20 +115,57 @@ func loadUser(ctx context.Context, q Querier, query string, arg any) (*User, err
 	if oid.Valid {
 		u.Org = &Organisation{ID: oid.Int64, Name: oname.String, Archived: oarch.Int64 != 0}
 	}
-	rows, err := q.QueryContext(ctx, `SELECT r.id, COALESCE(r."key", ''), r.name, r.scope FROM roles r
-		JOIN user_roles ur ON ur.role_id = r.id WHERE ur.user_id = ? ORDER BY r.id`, u.ID)
+	roles, err := LoadRoles(ctx, q, `WHERE r.id IN (SELECT role_id FROM user_roles WHERE user_id = ?)`, u.ID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	u.Roles = roles
+	return &u, nil
+}
+
+// LoadRoles loads roles (with their stored grants) ordered by id. where may be "" or a
+// clause over the alias r, e.g. "WHERE r.scope = ?".
+func LoadRoles(ctx context.Context, q Querier, where string, args ...any) ([]Role, error) {
+	rows, err := q.QueryContext(ctx, `SELECT r.id, COALESCE(r."key", ''), r.name, r.scope, r.organisation_id FROM roles r `+where+` ORDER BY r.id`, args...)
+	if err != nil {
+		return nil, err
+	}
+	var roles []Role
+	idx := map[int64]int{}
 	for rows.Next() {
 		var r Role
-		if err := rows.Scan(&r.ID, &r.Key, &r.Name, &r.Scope); err != nil {
+		var oid sql.NullInt64
+		if err := rows.Scan(&r.ID, &r.Key, &r.Name, &r.Scope, &oid); err != nil {
+			rows.Close()
 			return nil, err
 		}
-		u.Roles = append(u.Roles, r)
+		if oid.Valid {
+			v := oid.Int64
+			r.OrgID = &v
+		}
+		idx[r.ID] = len(roles)
+		roles = append(roles, r)
 	}
-	return &u, rows.Err()
+	rows.Close()
+	if err := rows.Err(); err != nil || len(roles) == 0 {
+		return roles, err
+	}
+	grows, err := q.QueryContext(ctx, `SELECT role_id, permission FROM role_permissions ORDER BY role_id, permission`)
+	if err != nil {
+		return nil, err
+	}
+	defer grows.Close()
+	for grows.Next() {
+		var rid int64
+		var code string
+		if err := grows.Scan(&rid, &code); err != nil {
+			return nil, err
+		}
+		if i, ok := idx[rid]; ok {
+			roles[i].Grants = append(roles[i].Grants, code)
+		}
+	}
+	return roles, grows.Err()
 }
 
 // PrincipalFor computes effective permissions: for roles matching the user's scope,
@@ -149,21 +185,11 @@ func PrincipalFor(ctx context.Context, q Querier, u *User, codesByScope func(sco
 			}
 			continue
 		}
-		rows, err := q.QueryContext(ctx, "SELECT permission FROM role_permissions WHERE role_id = ?", r.ID)
-		if err != nil {
-			return nil, err
-		}
-		for rows.Next() {
-			var c string
-			if err := rows.Scan(&c); err != nil {
-				rows.Close()
-				return nil, err
-			}
+		for _, c := range r.Grants {
 			if codes[c] {
 				perms[c] = true
 			}
 		}
-		rows.Close()
 	}
 	return &Principal{User: *u, Permissions: perms}, nil
 }

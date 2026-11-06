@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"legkyi/internal/assets"
 	"legkyi/internal/platform"
 	"legkyi/internal/registry"
 	"legkyi/internal/store"
@@ -61,7 +60,8 @@ func substitute(v any, saved map[string]any) any {
 	return v
 }
 
-var timeFormat = regexp.MustCompile(`^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|\+00:00)?$`)
+// Q5: served times are RFC3339 UTC with an explicit Z.
+var timeFormat = regexp.MustCompile(`^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$`)
 
 // normalise replaces volatile fields after checking their format (so R5/R12 regressions show).
 func normalise(v any, problems *[]string) any {
@@ -176,7 +176,7 @@ func runScenario(t *testing.T, file, schema string) map[string]stepResult {
 	boss := sc.Seed["platform_admin"]
 	seedBoss(t, st, boss["login"], boss["password"])
 	secret := []byte("contract-test-secret")
-	h := New(Deps{Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret})
+	h := New(Deps{Store: st, Assets: testAssets(), Registry: registry.Installed(), Secret: secret})
 
 	clients := map[string]*client{}
 	saved := map[string]any{}
@@ -284,6 +284,13 @@ func checkLedger(t *testing.T, label string, results map[string]stepResult) {
 		}
 	}
 	sort.Slice(failing, func(i, j int) bool { return stepOrder(failing[i]) < stepOrder(failing[j]) })
+	if os.Getenv("CONTRACT_VERBOSE") != "" && label == "fresh" {
+		for _, id := range failing {
+			if strings.HasPrefix(id, os.Getenv("CONTRACT_VERBOSE")) {
+				t.Log("\n" + results[id].detail)
+			}
+		}
+	}
 	if os.Getenv("LEDGER_RECORD") == "1" {
 		l := ledger{}
 		if b, err := os.ReadFile(path); err == nil {

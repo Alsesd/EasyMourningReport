@@ -3,10 +3,12 @@
 package registry
 
 import (
+	"context"
 	"legkyi/internal/core"
 	"legkyi/internal/platform"
 	"legkyi/internal/reports"
 	"legkyi/internal/transport"
+	"sort"
 )
 
 type Registry struct{ Modules []core.Module }
@@ -69,4 +71,35 @@ func (r *Registry) Names() []string {
 		n[i] = m.Name
 	}
 	return n
+}
+
+// UsageEntry is one module's record count for an organisation.
+type UsageEntry struct {
+	Module string
+	Count  int
+}
+
+// OrganisationUsage: organisation id -> per-module counts (module order), non-zero only.
+func (r *Registry) OrganisationUsage(ctx context.Context, q core.Querier) (map[int64][]UsageEntry, error) {
+	out := map[int64][]UsageEntry{}
+	for _, m := range r.Modules {
+		if m.OrganisationUsage == nil {
+			continue
+		}
+		counts, err := m.OrganisationUsage(ctx, q)
+		if err != nil {
+			return nil, err
+		}
+		ids := make([]int64, 0, len(counts))
+		for id := range counts {
+			ids = append(ids, id)
+		}
+		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+		for _, id := range ids {
+			if counts[id] != 0 {
+				out[id] = append(out[id], UsageEntry{m.Name, counts[id]})
+			}
+		}
+	}
+	return out, nil
 }
