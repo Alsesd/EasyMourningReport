@@ -10,9 +10,11 @@ One order per deceased, with two optional parts (at least one is required). Deli
 
 | Level | Fields (all required unless marked) |
 |---|---|
-| Order | service day (`YYYY-MM-DD`), deceased, **car number and departure place (common to both parts: one car does both for one deceased)**, note (optional), organisation, **submitting employee** (id and a name snapshot: full name, else login) |
-| Delivery (optional part) | time, final destination, transit stops (optional) |
-| Carriers («винос»: bearers; optional part) | crew size (**4 or 6**), time, **transit stops (at least one: e.g. the house of mourning, the church)**, **cemetery number**; the **dispatcher assigns the bearers by name** (at most the crew size) |
+| Order | service day (`YYYY-MM-DD`), deceased, note (optional), organisation, **submitting employee** (id and a name snapshot: full name, else login) |
+| Delivery (optional part) | **car number, departure place**, time, final destination, transit stops (optional) |
+| Carriers («винос»: bearers; optional part) | **car number, departure place** (the delivery's car and place, or another car: the form starts with the delivery's values), crew size (**4 or 6**), time, **transit stops (at least one: e.g. the house of mourning, the church)**, **cemetery number**; the **dispatcher assigns the bearers by name** (at most the crew size) |
+
+One car may do both parts, or one car delivers while another carries the coffin. When it is the same car (`same_car` in the API) both parts are one run: they are in the same row of the day list, so nothing lands between a car's delivery and its carrying.
 
 At least one of delivery and carriers is required. The route has to be in the order: the stops and the cemetery of a carrying order are mandatory, so a stop that is made but was not ordered is the desk's omission and visible in the history.
 

@@ -82,7 +82,7 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | GET | `/transport/status` | any transport permission | `{ready, message}` |
 | GET | `/transport/orders` | create, view_all or manage | The day's orders (`date`, default today) or a range (`from`, `to`), chronological; `status`; staff may add `organisation_id`. A desk sees only its organisation |
 | GET | `/transport/orders/{id}` | same | One order; `events` (history) only for staff |
-| POST | `/transport/orders` | `transport.orders.create` (organisation member) | `{service_date, deceased, car_number, departure, notes?, delivery?: {time, destination, stops?}, carriers?: {count: 4 or 6, time, stops (at least one), cemetery_number}}`; at least one part; signed with the submitting employee |
+| POST | `/transport/orders` | `transport.orders.create` (organisation member) | `{service_date, deceased, notes?, delivery?: {car_number, departure, time, destination, stops?}, carriers?: {car_number, departure, count: 4 or 6, time, stops (at least one), cemetery_number}}`; at least one part; signed with the submitting employee |
 | PUT | `/transport/orders/{id}` | `transport.orders.create` | Replace the content while the status is `submitted` (`409` after the reply) |
 | POST | `/transport/orders/{id}/cancel` | `transport.orders.create` | Cancel while `submitted` |
 | POST | `/transport/orders/{id}/status` | `transport.orders.manage` | `{status: accepted, in_progress, done or rejected; note?}`; `409` for a transition that is not allowed, `422` when rejecting without a note |

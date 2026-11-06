@@ -1449,6 +1449,9 @@ export interface components {
         };
         /** TransportDeliveryDTO: the transport of the deceased */
         TransportDeliveryDTO: {
+            car_number: string;
+            /** Where the car picks the deceased up */
+            departure: string;
             /** HH:MM, 24-hour */
             time: string;
             destination: string;
@@ -1456,6 +1459,9 @@ export interface components {
         };
         /** TransportCarriersDTO: the bearers' part */
         TransportCarriersDTO: {
+            /** The car that takes the coffin: the delivery's car or another one */
+            car_number: string;
+            departure: string;
             /** Crew size: 4 or 6 men */
             count: 4 | 6;
             /** HH:MM, 24-hour */
@@ -1482,10 +1488,8 @@ export interface components {
             service_date: string;
             deceased: string;
             notes: string;
-            /** The car, common to delivery and carriers */
-            car_number: string;
-            /** Where the car picks the deceased up, common to delivery and carriers */
-            departure: string;
+            /** One car does both parts (shown as one run) */
+            same_car: boolean;
             status: "submitted" | "accepted" | "in_progress" | "done" | "rejected" | "cancelled";
             /** The dispatcher's reply shown to the desk */
             reply_note: string;
@@ -1508,8 +1512,6 @@ export interface components {
             service_date: string;
             deceased: string;
             notes: string;
-            car_number: string;
-            departure: string;
             delivery: components["schemas"]["TransportDeliveryDTO"] | null;
             carriers: components["schemas"]["TransportCarriersDTO"] | null;
         };

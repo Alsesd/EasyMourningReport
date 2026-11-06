@@ -19,12 +19,16 @@ type transportStatusDTO struct {
 }
 
 type deliveryDTO struct {
+	CarNumber   string   `json:"car_number"`
+	Departure   string   `json:"departure"`
 	Time        string   `json:"time"`
 	Destination string   `json:"destination"`
 	Stops       []string `json:"stops"`
 }
 
 type carriersDTO struct {
+	CarNumber      string   `json:"car_number"`
+	Departure      string   `json:"departure"`
 	Count          int      `json:"count"`
 	Time           string   `json:"time"`
 	CemeteryNumber string   `json:"cemetery_number"`
@@ -46,8 +50,7 @@ type transportOrderDTO struct {
 	ServiceDate  string          `json:"service_date"`
 	Deceased     string          `json:"deceased"`
 	Notes        string          `json:"notes"`
-	CarNumber    string          `json:"car_number"`
-	Departure    string          `json:"departure"`
+	SameCar      bool            `json:"same_car"`
 	Status       string          `json:"status"`
 	ReplyNote    string          `json:"reply_note"`
 	Delivery     *deliveryDTO    `json:"delivery"`
@@ -94,17 +97,17 @@ func seesAll(p *platform.Principal) bool {
 func (a *App) orderDTO(o transport.Order, p *platform.Principal, events []transport.Event) transportOrderDTO {
 	d := transportOrderDTO{
 		ID: o.ID, Organisation: organisationRef{o.OrganisationID, o.OrganisationName},
-		ServiceDate: o.ServiceDate, Deceased: o.Deceased, Notes: o.Notes, CarNumber: o.CarNumber, Departure: o.Departure, Status: o.Status, ReplyNote: o.ReplyNote,
+		ServiceDate: o.ServiceDate, Deceased: o.Deceased, Notes: o.Notes, SameCar: o.SameCar(), Status: o.Status, ReplyNote: o.ReplyNote,
 		SortTime: o.SortTime(), SubmittedBy: o.SubmittedByName,
 		CreatedAt: servedTimeOf(time.Unix(o.CreatedAt, 0)), UpdatedAt: servedTimeOf(time.Unix(o.UpdatedAt, 0)),
 		CanEdit:      p.User.Org != nil && o.Status == transport.Submitted && p.Can(transport.Create),
 		NextStatuses: []string{}, Events: []orderEventDTO{},
 	}
 	if o.Delivery != nil {
-		d.Delivery = &deliveryDTO{o.Delivery.Time, o.Delivery.Destination, o.Delivery.Stops}
+		d.Delivery = &deliveryDTO{o.Delivery.CarNumber, o.Delivery.Departure, o.Delivery.Time, o.Delivery.Destination, o.Delivery.Stops}
 	}
 	if o.Carriers != nil {
-		d.Carriers = &carriersDTO{o.Carriers.Count, o.Carriers.Time, o.Carriers.CemeteryNumber, o.Carriers.Stops, o.Carriers.Bearers}
+		d.Carriers = &carriersDTO{o.Carriers.CarNumber, o.Carriers.Departure, o.Carriers.Count, o.Carriers.Time, o.Carriers.CemeteryNumber, o.Carriers.Stops, o.Carriers.Bearers}
 	}
 	if p.Can(transport.Manage) {
 		d.NextStatuses = append(d.NextStatuses, transport.ManagerNext[o.Status]...)
@@ -241,14 +244,14 @@ func parseOrder(r *http.Request) (transport.Input, error) {
 		ServiceDate: strings.TrimSpace(body.String("service_date", 10, 10)),
 		Deceased:    reqString(body, "deceased", 200),
 		Notes:       strings.TrimSpace(body.OptString("notes", "", 1000)),
-		CarNumber:   reqString(body, "car_number", 30),
-		Departure:   reqString(body, "departure", 300),
 	}
 	if in.ServiceDate != "" && !transport.ValidDate(in.ServiceDate) {
 		body.fail("service_date", "Дата має мати вигляд 2026-10-31", "value_error")
 	}
 	if d := body.Object("delivery"); d != nil {
 		in.Delivery = &transport.Delivery{
+			CarNumber:   reqString(d, "car_number", 30),
+			Departure:   reqString(d, "departure", 300),
 			Time:        timeField(d, "time"),
 			Destination: reqString(d, "destination", 300),
 			Stops:       stopsOf(d),
@@ -260,6 +263,8 @@ func parseOrder(r *http.Request) (transport.Input, error) {
 			c.fail("count", "Бригада виносу — 4 або 6 осіб", "value_error")
 		}
 		in.Carriers = &transport.Carriers{
+			CarNumber:      reqString(c, "car_number", 30),
+			Departure:      reqString(c, "departure", 300),
 			Count:          int(n),
 			Time:           timeField(c, "time"),
 			CemeteryNumber: reqString(c, "cemetery_number", 50),

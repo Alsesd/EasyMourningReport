@@ -19,10 +19,8 @@ interface Draft {
   service_date: string;
   deceased: string;
   notes: string;
-  car_number: string;
-  departure: string;
-  delivery: { on: boolean; time: string; destination: string; stops: string[] };
-  carriers: { on: boolean; count: string; time: string; cemetery_number: string; stops: string[] };
+  delivery: { on: boolean; car_number: string; departure: string; time: string; destination: string; stops: string[] };
+  carriers: { on: boolean; car_number: string; departure: string; count: string; time: string; cemetery_number: string; stops: string[] };
 }
 
 export function draftFrom(day: string, order?: TransportOrderDTO): Draft {
@@ -30,16 +28,18 @@ export function draftFrom(day: string, order?: TransportOrderDTO): Draft {
     service_date: order?.service_date ?? day,
     deceased: order?.deceased ?? "",
     notes: order?.notes ?? "",
-    car_number: order?.car_number ?? "",
-    departure: order?.departure ?? "",
     delivery: {
       on: order ? order.delivery !== null : true,
+      car_number: order?.delivery?.car_number ?? "",
+      departure: order?.delivery?.departure ?? "",
       time: order?.delivery?.time ?? "",
       destination: order?.delivery?.destination ?? "",
       stops: order?.delivery?.stops ?? [],
     },
     carriers: {
       on: order ? order.carriers !== null : false,
+      car_number: order?.carriers?.car_number ?? "",
+      departure: order?.carriers?.departure ?? "",
       count: String(order?.carriers?.count ?? 6),
       time: order?.carriers?.time ?? "",
       cemetery_number: order?.carriers?.cemetery_number ?? "",
@@ -51,16 +51,14 @@ export function draftFrom(day: string, order?: TransportOrderDTO): Draft {
 /** The first problem a person can fix, or null. The server checks everything again. */
 export function draftProblem(d: Draft): string | null {
   if (!d.deceased.trim()) return `${t.deceasedLabel}: ${uk.common.error.toLowerCase()}`;
-  if (!d.car_number.trim()) return t.carLabel;
-  if (!d.departure.trim()) return t.departureFieldLabel;
   if (!d.delivery.on && !d.carriers.on) return t.atLeastOne;
-  if (d.delivery.on && (!d.delivery.destination.trim() || !isValidTime(d.delivery.time))) {
-    return `${t.delivery}: ${t.time.toLowerCase()} (${t.timeInvalid.toLowerCase()}), ${t.destinationLabel.toLowerCase()}`;
+  if (d.delivery.on && (!d.delivery.car_number.trim() || !d.delivery.departure.trim() || !d.delivery.destination.trim() || !isValidTime(d.delivery.time))) {
+    return `${t.delivery}: ${t.carLabel.toLowerCase()}, ${t.departureFieldLabel.toLowerCase()}, ${t.time.toLowerCase()} (${t.timeInvalid.toLowerCase()}), ${t.destinationLabel.toLowerCase()}`;
   }
   const n = Number(d.carriers.count);
   if (d.carriers.on) {
-    if ((n !== 4 && n !== 6) || !isValidTime(d.carriers.time) || !d.carriers.cemetery_number.trim()) {
-      return `${t.carriers}: ${t.menLabel.toLowerCase()} (4 / 6), ${t.time.toLowerCase()} (${t.timeInvalid.toLowerCase()}), ${t.cemeteryLabel.toLowerCase()}`;
+    if (!d.carriers.car_number.trim() || !d.carriers.departure.trim() || (n !== 4 && n !== 6) || !isValidTime(d.carriers.time) || !d.carriers.cemetery_number.trim()) {
+      return `${t.carriers}: ${t.carLabel.toLowerCase()}, ${t.departureFieldLabel.toLowerCase()}, ${t.menLabel.toLowerCase()} (4 / 6), ${t.time.toLowerCase()} (${t.timeInvalid.toLowerCase()}), ${t.cemeteryLabel.toLowerCase()}`;
     }
     if (!d.carriers.stops.some((x) => x.trim())) return t.carriersNeedStop;
   }
@@ -73,13 +71,13 @@ export function toInput(d: Draft): TransportOrderInputDTO {
     service_date: d.service_date,
     deceased: d.deceased.trim(),
     notes: d.notes.trim(),
-    car_number: d.car_number.trim(),
-    departure: d.departure.trim(),
     delivery: d.delivery.on
-      ? { time: d.delivery.time, destination: d.delivery.destination.trim(), stops: clean(d.delivery.stops) }
+      ? { car_number: d.delivery.car_number.trim(), departure: d.delivery.departure.trim(), time: d.delivery.time, destination: d.delivery.destination.trim(), stops: clean(d.delivery.stops) }
       : null,
     carriers: d.carriers.on
       ? {
+          car_number: d.carriers.car_number.trim(),
+          departure: d.carriers.departure.trim(),
           count: Number(d.carriers.count) as 4 | 6,
           time: d.carriers.time,
           cemetery_number: d.carriers.cemetery_number.trim(),
@@ -106,7 +104,14 @@ export function OrderForm({
     onError: (err: Error) => setMessage({ text: err.message, kind: "err" }),
   });
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
-  const setDelivery = (patch: Partial<Draft["delivery"]>) => setDraft((d) => ({ ...d, delivery: { ...d.delivery, ...patch } }));
+  // The carrying car and place start as the delivery's (one car usually does both) until they are edited apart.
+  const setDelivery = (patch: Partial<Draft["delivery"]>) =>
+    setDraft((d) => {
+      const carriers = { ...d.carriers };
+      if (patch.car_number !== undefined && carriers.car_number === d.delivery.car_number) carriers.car_number = patch.car_number;
+      if (patch.departure !== undefined && carriers.departure === d.delivery.departure) carriers.departure = patch.departure;
+      return { ...d, delivery: { ...d.delivery, ...patch }, carriers };
+    });
   const setCarriers = (patch: Partial<Draft["carriers"]>) => setDraft((d) => ({ ...d, carriers: { ...d.carriers, ...patch } }));
 
   const field = (id: string, label: string, control: React.ReactNode) => (
@@ -133,11 +138,6 @@ export function OrderForm({
       <Notice message={message} onDismiss={() => setMessage(null)} dismissLabel={uk.common.close} />
       {field("order-day", t.serviceDate, <DayPicker compact value={draft.service_date} onChange={(v) => set({ service_date: v })} labels={{ previous: t.previousDay, next: t.nextDay, day: t.serviceDate }} />)}
       {field("order-deceased", t.deceasedLabel, <Input id="order-deceased" value={draft.deceased} maxLength={200} onChange={(e) => set({ deceased: e.target.value })} />)}
-      <div className="flex flex-wrap gap-3">
-        {field("order-car", t.carLabel, <Input id="order-car" className="w-60" value={draft.car_number} maxLength={30} onChange={(e) => set({ car_number: e.target.value })} />)}
-      </div>
-      {field("order-departure", t.departureFieldLabel, <Input id="order-departure" value={draft.departure} maxLength={300} onChange={(e) => set({ departure: e.target.value })} />)}
-
       <fieldset className="space-y-3 border-t border-border pt-4">
         <legend className="sr-only">{t.delivery}</legend>
         <div className="flex items-center justify-between">
@@ -147,8 +147,10 @@ export function OrderForm({
         {draft.delivery.on && (
           <div className="space-y-3">
             <div className="flex flex-wrap gap-3">
+              {field("delivery-car", t.carLabel, <Input id="delivery-car" className="w-52" value={draft.delivery.car_number} maxLength={30} onChange={(e) => setDelivery({ car_number: e.target.value })} />)}
               {field("delivery-time", t.time, <TimeField id="delivery-time" value={draft.delivery.time} onChange={(v) => setDelivery({ time: v })} />)}
             </div>
+            {field("delivery-departure", t.departureFieldLabel, <Input id="delivery-departure" value={draft.delivery.departure} maxLength={300} onChange={(e) => setDelivery({ departure: e.target.value })} />)}
             {field("delivery-destination", t.destinationLabel, <Input id="delivery-destination" value={draft.delivery.destination} maxLength={300} onChange={(e) => setDelivery({ destination: e.target.value })} />)}
             <StopsEditor idPrefix="delivery" label={t.stopsOptional} stops={draft.delivery.stops} onChange={(stops) => setDelivery({ stops })} />
           </div>
@@ -164,6 +166,7 @@ export function OrderForm({
         {draft.carriers.on && (
           <div className="space-y-3">
             <div className="flex flex-wrap gap-3">
+              {field("carriers-car", t.carLabel, <Input id="carriers-car" className="w-52" value={draft.carriers.car_number} maxLength={30} onChange={(e) => setCarriers({ car_number: e.target.value })} />)}
               {field(
                 "carriers-count",
                 t.menLabel,
@@ -180,6 +183,7 @@ export function OrderForm({
               {field("carriers-time", t.time, <TimeField id="carriers-time" value={draft.carriers.time} onChange={(v) => setCarriers({ time: v })} />)}
               {field("carriers-cemetery", t.cemeteryLabel, <Input id="carriers-cemetery" className="figure w-32" value={draft.carriers.cemetery_number} maxLength={50} onChange={(e) => setCarriers({ cemetery_number: e.target.value })} />)}
             </div>
+            {field("carriers-departure", t.departureFieldLabel, <Input id="carriers-departure" value={draft.carriers.departure} maxLength={300} onChange={(e) => setCarriers({ departure: e.target.value })} />)}
             <StopsEditor idPrefix="carriers" label={t.stopsRequired} stops={draft.carriers.stops} onChange={(stops) => setCarriers({ stops })} />
           </div>
         )}

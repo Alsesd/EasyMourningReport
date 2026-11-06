@@ -55,20 +55,22 @@ func ValidDate(s string) bool {
 	return err == nil
 }
 
-// Delivery is the transport of the deceased: when and where to (the car and the departure place are the order's).
+// Delivery is the transport of the deceased: which car, from where, when and where to.
 type Delivery struct {
-	Time, Destination string
-	Stops             []string // optional transit stops
+	CarNumber, Departure string
+	Time, Destination    string
+	Stops                []string // optional transit stops
 }
 
 // Carriers is the bearers' part ("на плечах"): how many men, when, the transit stops on the way (for the
 // ceremony: at least one) and the cemetery number at the end.
 type Carriers struct {
-	Count          int // 4 or 6 men
-	Time           string
-	CemeteryNumber string
-	Stops          []string
-	Bearers        []string // the men the dispatcher assigned (at most Count)
+	CarNumber, Departure string // the car that takes the coffin: the delivery's car or another one
+	Count                int    // 4 or 6 men
+	Time                 string
+	CemeteryNumber       string
+	Stops                []string
+	Bearers              []string // the men the dispatcher assigned (at most Count)
 }
 
 // ValidCrew: a crew is 4 or 6 men.
@@ -77,7 +79,6 @@ func ValidCrew(n int) bool { return n == 4 || n == 6 }
 // Input is what a desk submits.
 type Input struct {
 	ServiceDate, Deceased, Notes string
-	CarNumber, Departure         string // common to both parts
 	Delivery                     *Delivery
 	Carriers                     *Carriers
 }
@@ -87,13 +88,21 @@ type Order struct {
 	ID, OrganisationID           int64
 	OrganisationName             string
 	ServiceDate, Deceased, Notes string
-	CarNumber, Departure         string
 	Status, ReplyNote            string
 	Delivery                     *Delivery
 	Carriers                     *Carriers
 	SubmittedByID                int64
 	SubmittedByName              string
 	CreatedAt, UpdatedAt         int64
+}
+
+// SameCar reports whether one car does both parts (they are shown as one run).
+func (o Order) SameCar() bool {
+	if o.Delivery == nil || o.Carriers == nil {
+		return false
+	}
+	norm := func(s string) string { return strings.Join(strings.Fields(strings.ToLower(s)), "") }
+	return norm(o.Delivery.CarNumber) == norm(o.Carriers.CarNumber)
 }
 
 // SortTime is the earliest time of the order; the day list is ordered by it.
@@ -118,9 +127,9 @@ type Event struct {
 
 var ErrNotFound = errors.New("transport order not found")
 
-const orderColumns = `o.id, o.organisation_id, org.name, o.service_date, o.deceased, o.notes, o.car_number, o.departure, o.status, o.reply_note,
-	o.has_delivery, o.delivery_time, o.destination,
-	o.has_carriers, o.carriers_count, o.carriers_time, o.cemetery_number,
+const orderColumns = `o.id, o.organisation_id, org.name, o.service_date, o.deceased, o.notes, o.status, o.reply_note,
+	o.has_delivery, o.delivery_car, o.delivery_from, o.delivery_time, o.destination,
+	o.has_carriers, o.carriers_car, o.carriers_from, o.carriers_count, o.carriers_time, o.cemetery_number,
 	COALESCE(o.created_by_id, 0), o.created_by_name, o.created_at, o.updated_at`
 
 type scanner interface{ Scan(dest ...any) error }
@@ -130,9 +139,9 @@ func scanOrder(r scanner) (Order, error) {
 	var hasD, hasC int
 	var d Delivery
 	var c Carriers
-	err := r.Scan(&o.ID, &o.OrganisationID, &o.OrganisationName, &o.ServiceDate, &o.Deceased, &o.Notes, &o.CarNumber, &o.Departure, &o.Status, &o.ReplyNote,
-		&hasD, &d.Time, &d.Destination,
-		&hasC, &c.Count, &c.Time, &c.CemeteryNumber,
+	err := r.Scan(&o.ID, &o.OrganisationID, &o.OrganisationName, &o.ServiceDate, &o.Deceased, &o.Notes, &o.Status, &o.ReplyNote,
+		&hasD, &d.CarNumber, &d.Departure, &d.Time, &d.Destination,
+		&hasC, &c.CarNumber, &c.Departure, &c.Count, &c.Time, &c.CemeteryNumber,
 		&o.SubmittedByID, &o.SubmittedByName, &o.CreatedAt, &o.UpdatedAt)
 	if err != nil {
 		return o, err
@@ -353,9 +362,9 @@ func partArgs(in Input) []any {
 	if in.Carriers != nil {
 		c = *in.Carriers
 	}
-	return []any{in.ServiceDate, in.Deceased, in.Notes, in.CarNumber, in.Departure,
-		b2i(in.Delivery != nil), d.Time, d.Destination,
-		b2i(in.Carriers != nil), c.Count, c.Time, c.CemeteryNumber}
+	return []any{in.ServiceDate, in.Deceased, in.Notes,
+		b2i(in.Delivery != nil), d.CarNumber, d.Departure, d.Time, d.Destination,
+		b2i(in.Carriers != nil), c.CarNumber, c.Departure, c.Count, c.Time, c.CemeteryNumber}
 }
 
 func addEvent(ctx context.Context, tx *sql.Tx, id int64, now time.Time, userID int64, userName, kind, status, note string) error {
@@ -368,10 +377,10 @@ func addEvent(ctx context.Context, tx *sql.Tx, id int64, now time.Time, userID i
 func CreateOrder(ctx context.Context, tx *sql.Tx, orgID, userID int64, userName string, in Input, now time.Time) (int64, error) {
 	args := append(partArgs(in), orgID, Submitted, userID, userName, now.Unix(), now.Unix())
 	res, err := tx.ExecContext(ctx, `INSERT INTO transport_orders
-		(service_date, deceased, notes, car_number, departure, has_delivery, delivery_time, destination,
-		 has_carriers, carriers_count, carriers_time, cemetery_number,
+		(service_date, deceased, notes, has_delivery, delivery_car, delivery_from, delivery_time, destination,
+		 has_carriers, carriers_car, carriers_from, carriers_count, carriers_time, cemetery_number,
 		 organisation_id, status, created_by_id, created_by_name, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -386,8 +395,8 @@ func CreateOrder(ctx context.Context, tx *sql.Tx, orgID, userID int64, userName 
 func UpdateOrder(ctx context.Context, tx *sql.Tx, id, userID int64, userName string, in Input, now time.Time) error {
 	args := append(partArgs(in), now.Unix(), id)
 	if _, err := tx.ExecContext(ctx, `UPDATE transport_orders SET
-		service_date = ?, deceased = ?, notes = ?, car_number = ?, departure = ?, has_delivery = ?, delivery_time = ?, destination = ?,
-		has_carriers = ?, carriers_count = ?, carriers_time = ?, cemetery_number = ?, updated_at = ? WHERE id = ?`, args...); err != nil {
+		service_date = ?, deceased = ?, notes = ?, has_delivery = ?, delivery_car = ?, delivery_from = ?, delivery_time = ?, destination = ?,
+		has_carriers = ?, carriers_car = ?, carriers_from = ?, carriers_count = ?, carriers_time = ?, cemetery_number = ?, updated_at = ? WHERE id = ?`, args...); err != nil {
 		return err
 	}
 	if err := writeParts(ctx, tx, id, in); err != nil {

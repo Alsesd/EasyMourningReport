@@ -79,13 +79,13 @@ func (d *desks) post(c *http.Cookie, method, path string, body any) *httptest.Re
 }
 
 func order(date, name string, parts ...string) map[string]any {
-	o := map[string]any{"service_date": date, "deceased": name, "car_number": "АА 1111 АА", "departure": "вул. Квітуча, 5"}
+	o := map[string]any{"service_date": date, "deceased": name}
 	for _, p := range parts {
 		switch {
 		case strings.HasPrefix(p, "d"): // delivery at HH:MM
-			o["delivery"] = map[string]any{"time": p[1:], "destination": "Морг"}
+			o["delivery"] = map[string]any{"car_number": "АА 1111 АА", "departure": "вул. Квітуча, 5", "time": p[1:], "destination": "Морг"}
 		case strings.HasPrefix(p, "c"): // carriers at HH:MM
-			o["carriers"] = map[string]any{"count": 6, "time": p[1:], "cemetery_number": "3", "stops": []string{"Церква"}}
+			o["carriers"] = map[string]any{"car_number": "АА 1111 АА", "departure": "Морг", "count": 6, "time": p[1:], "cemetery_number": "3", "stops": []string{"Церква"}}
 		}
 	}
 	return o
@@ -207,29 +207,32 @@ func TestDesksSeeOnlyTheirOwnOrders(t *testing.T) {
 func TestOrderValidation(t *testing.T) {
 	d := newDesks(t)
 	crew := func(over map[string]any) map[string]any {
-		c := map[string]any{"count": 6, "time": "09:00", "cemetery_number": "3", "stops": []string{"Церква"}}
+		c := map[string]any{"car_number": "АА 1", "departure": "Морг", "count": 6, "time": "09:00", "cemetery_number": "3", "stops": []string{"Церква"}}
 		for k, v := range over {
 			c[k] = v
 		}
-		return map[string]any{"service_date": day, "deceased": "X", "car_number": "АА 1", "departure": "A", "carriers": c}
+		return map[string]any{"service_date": day, "deceased": "X", "carriers": c}
 	}
 	noCar := order(day, "X", "d09:00")
-	delete(noCar, "car_number")
+	delete(noCar["delivery"].(map[string]any), "car_number")
 	noDeparture := order(day, "X", "d09:00")
-	noDeparture["departure"] = "  "
+	noDeparture["delivery"].(map[string]any)["departure"] = "  "
+	noCrewCar := crew(map[string]any{"car_number": " "})
 	bad := map[string]map[string]any{
-		"no parts":     {"service_date": day, "deceased": "X", "car_number": "АА 1", "departure": "A"},
-		"no car":       noCar,
-		"no departure": noDeparture,
-		"bad date":     order("2026-13-45", "X", "d09:00"),
-		"bad time":     order(day, "X", "d25:99"),
-		"empty name":   order(day, "", "d09:00"),
-		"zero men":     crew(map[string]any{"count": 0}),
-		"too many men": crew(map[string]any{"count": 99}),
-		"five men":     crew(map[string]any{"count": 5}),
-		"no stops":     crew(map[string]any{"stops": []string{}}),
-		"blank stop":   crew(map[string]any{"stops": []string{" "}}),
-		"no cemetery":  crew(map[string]any{"cemetery_number": ""}),
+		"no parts":         {"service_date": day, "deceased": "X"},
+		"no crew car":      noCrewCar,
+		"no crew from":     crew(map[string]any{"departure": ""}),
+		"no delivery car":  noCar,
+		"no delivery from": noDeparture,
+		"bad date":         order("2026-13-45", "X", "d09:00"),
+		"bad time":         order(day, "X", "d25:99"),
+		"empty name":       order(day, "", "d09:00"),
+		"zero men":         crew(map[string]any{"count": 0}),
+		"too many men":     crew(map[string]any{"count": 99}),
+		"five men":         crew(map[string]any{"count": 5}),
+		"no stops":         crew(map[string]any{"stops": []string{}}),
+		"blank stop":       crew(map[string]any{"stops": []string{" "}}),
+		"no cemetery":      crew(map[string]any{"cemetery_number": ""}),
 	}
 	if w := d.post(d.a, "POST", "/api/v1/transport/orders", crew(nil)); w.Code != 200 {
 		t.Fatalf("a complete crew order must pass: %d %s", w.Code, w.Body)
@@ -422,5 +425,35 @@ func TestDispatcherAssignsBearersAndTheyShowOnTheDesk(t *testing.T) {
 	d.post(d.boss, "POST", "/api/v1/transport/orders/"+itoa(int(o.ID))+"/status", map[string]any{"status": "rejected", "note": "x"})
 	if w := put(d.boss, itoa(int(o.ID)), "А"); w.Code != 409 {
 		t.Fatalf("rejected: %d", w.Code)
+	}
+}
+
+func TestOneCarForBothPartsOrAnotherCarToCarry(t *testing.T) {
+	d := newDesks(t)
+	same := d.create(d.a, order(day, "Одна машина", "d10:00", "c11:30"))
+	other := order(day, "Дві машини", "d10:30", "c12:00")
+	other["carriers"].(map[string]any)["car_number"] = "КК 7777 КК"
+	two := d.create(d.a, other)
+	var sameRaw, twoRaw struct {
+		SameCar  bool `json:"same_car"`
+		Delivery struct {
+			CarNumber string `json:"car_number"`
+		}
+		Carriers struct {
+			CarNumber string `json:"car_number"`
+		}
+	}
+	for id, dst := range map[int64]any{same.ID: &sameRaw, two.ID: &twoRaw} {
+		json.Unmarshal(d.e.do("GET", "/api/v1/transport/orders/"+itoa(int(id)), "", nil, d.boss).Body.Bytes(), dst)
+	}
+	if !sameRaw.SameCar || twoRaw.SameCar || twoRaw.Delivery.CarNumber != "АА 1111 АА" || twoRaw.Carriers.CarNumber != "КК 7777 КК" {
+		t.Fatalf("same %+v two %+v", sameRaw, twoRaw)
+	}
+	// One car's two runs (delivery 10:00, carrying 11:30) are one row: no other order lands between them
+	// (the 11:00 order of another desk comes after the whole row).
+	d.create(d.b, order(day, "Після", "d11:00"))
+	got := d.list(d.boss, "date="+day)
+	if got[0].Deceased != "Одна машина" || got[1].Deceased != "Дві машини" || got[2].Deceased != "Після" {
+		t.Fatalf("order of the day: %v %v %v", got[0].Deceased, got[1].Deceased, got[2].Deceased)
 	}
 }
