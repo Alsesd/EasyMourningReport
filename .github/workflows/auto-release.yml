@@ -1,8 +1,8 @@
 name: Auto release
 
-# Every push to main that changes the program publishes a release, which running programs pick up on their
-# own (see "Оновлення програми" in the admin area). Docs-only pushes are ignored. Runs only on the main branch,
-# so this takes effect once the work is merged there.
+# Every push to main that changes the program publishes a release named Soup.V<series>.<n> (for example
+# Soup.V6.3), which running programs pick up on their own (see "Оновлення програми" in the admin area).
+# Docs-only pushes are ignored. To start a new series, change SERIES below.
 on:
   push:
     branches: [main]
@@ -14,11 +14,36 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+env:
+  SERIES: "6"
+
 jobs:
+  tag:
+    name: Next version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+    steps:
+      - id: next
+        env:
+          REMOTE: https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git
+        run: |
+          # Highest Soup.V<series>.<n> that exists, plus one (the first one of a series is .0).
+          last=$(git ls-remote --tags --refs "$REMOTE" "refs/tags/Soup.V${SERIES}.*" \
+            | sed "s|.*refs/tags/Soup.V${SERIES}\.||" | grep -E '^[0-9]+$' | sort -n | tail -1 || true)
+          next=$(( ${last:--1} + 1 ))
+          echo "version=Soup.V${SERIES}.${next}" >> "$GITHUB_OUTPUT"
+          echo "Next version: Soup.V${SERIES}.${next}"
+
   release:
+    needs: tag
     uses: ./.github/workflows/release.yml
     secrets: inherit # the code-signing certificate, when the repository has one
     with:
-      version: auto-${{ github.run_number }}
+      version: ${{ needs.tag.outputs.version }}
       publish: true
       prerelease: false

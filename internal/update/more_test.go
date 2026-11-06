@@ -95,3 +95,22 @@ func TestCheckToleratesAConcurrentCheck(t *testing.T) {
 		t.Fatal("a busy updater still reports")
 	}
 }
+
+func TestAReleaseThatIsTheRunningFileIsNotAnUpdate(t *testing.T) {
+	// The release was re-tagged after the program was built: same bytes, another tag, published later.
+	f := newFake(t, "old program")
+	u, exe := newUpdater(t, f) // the program on disk reads "old program"
+	if st := u.Check(context.Background()); st.Available {
+		t.Fatalf("a release with the running file's checksum is not newer: %+v", st)
+	}
+	if err := u.Apply(context.Background()); err == nil {
+		t.Fatal("nothing to install")
+	}
+	_ = exe
+	// A different file is still an update.
+	f2 := newFake(t, "different program")
+	u2, _ := newUpdater(t, f2)
+	if st := u2.Check(context.Background()); !st.Available {
+		t.Fatalf("%+v", st)
+	}
+}

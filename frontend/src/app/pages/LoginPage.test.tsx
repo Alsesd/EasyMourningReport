@@ -90,3 +90,33 @@ describe("LoginPage", () => {
     await waitFor(() => expect(screen.getByText("at /admin/manage/users")).toBeDefined());
   });
 });
+
+describe("LoginPage biometric auto sign-in", () => {
+  it("starts the device prompt by itself only on a device that agreed", async () => {
+    vi.resetModules();
+    const login = vi.fn().mockRejectedValue(new DOMException("c", "NotAllowedError"));
+    vi.doMock("@/platform/auth/passkeys", () => ({ passkeysSupported: () => true, passkeyApi: { login } }));
+    window.localStorage.setItem("legkyi.biometric", "on");
+    window.sessionStorage.clear();
+    const { LoginPage: Page } = await import("./LoginPage");
+    const { AuthProvider: Provider } = await import("@/platform/auth/AuthContext");
+    const { ThemeProvider: Theme } = await import("@/platform/theme/ThemeContext");
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    qc.setQueryData(["session"], null);
+    render(
+      <QueryClientProvider client={qc}>
+        <Theme>
+          <Provider>
+            <BrowserRouter>
+              <Page />
+            </BrowserRouter>
+          </Provider>
+        </Theme>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(login).toHaveBeenCalledTimes(1));
+    expect(await screen.findByRole("alert")).toBeDefined();
+    window.localStorage.clear();
+    vi.doUnmock("@/platform/auth/passkeys");
+  });
+});

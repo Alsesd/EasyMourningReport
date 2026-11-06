@@ -86,7 +86,8 @@ func run(exe string, tunnel, updateTest bool) error {
 	var fake *fakeGitHub
 	if updateTest {
 		var err error
-		if fake, err = startFakeGitHub(src, filepath.Base(exe)); err != nil {
+		// One trailing byte (ignored by ELF/PE loaders) makes the offer differ from the running file, as a real release does.
+		if fake, err = startFakeGitHub(append(append([]byte{}, src...), 0), filepath.Base(exe)); err != nil {
 			return err
 		}
 		defer fake.close()

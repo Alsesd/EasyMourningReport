@@ -1,3 +1,4 @@
+import { BiometricOffer } from "@/platform/account/BiometricOffer";
 import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -39,6 +40,7 @@ export function App() {
         <AuthProvider>
           <ModuleRegistryContext.Provider value={appModules}>
             <BrowserRouter>
+              <BiometricOffer />
               <Suspense fallback={<PageSpinner />}>
                 <Routes>
                   <Route path="/login" element={<LoginPage />} />
