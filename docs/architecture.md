@@ -12,6 +12,7 @@ internal/
 ├── reports/               # feature module: catalogue, price history, money, XLSX import/export, seed
 ├── transport/             # scaffold and template for new modules
 ├── system/                # cloudflared supervisor and database health
+├── update/                # self-update from GitHub Releases (check, verify, swap, restart)
 ├── registry/              # platform + installed modules (the only package that imports modules)
 ├── web/                   # HTTP: router, sessions, CSRF, rate limit, client IP, handlers
 └── assets/                # embedded static/ (PWA files) and static/app/ (the Vite build)
@@ -82,7 +83,7 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 | `platform.users.manage` | platform | All user accounts |
 | `platform.roles.manage` | platform | Role editor |
 | `platform.audit.view` | platform | Audit log |
-| `platform.system.manage` | platform | Backups, database health, Cloudflare Tunnel |
+| `platform.system.manage` | platform | Backups, database health, Cloudflare Tunnel, program updates |
 | `org.users.manage` | organisation | Own organisation's users |
 | `reports.submit` | organisation | Fill and submit own monthly report |
 | `reports.review` | platform | Summary, report list/detail, lock/unlock, Excel |

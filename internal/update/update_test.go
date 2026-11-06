@@ -26,6 +26,7 @@ type fakeGitHub struct {
 	sumsLine string // overrides the checksum line when set
 	omit     string // asset name to leave out
 	hits     int
+	base     string // address the asset links point at (default: this server)
 }
 
 func newFake(t *testing.T, binary string) *fakeGitHub {
@@ -40,7 +41,7 @@ func newFake(t *testing.T, binary string) *fakeGitHub {
 			var assets []map[string]any
 			for _, n := range []string{"legkyi", "legkyi.exe", "legkyi-linux-arm64", "SHA256SUMS.txt"} {
 				if n != f.omit {
-					assets = append(assets, map[string]any{"name": n, "browser_download_url": f.srv.URL + "/dl/" + n, "size": len(f.binary)})
+					assets = append(assets, map[string]any{"name": n, "browser_download_url": f.base + "/dl/" + n, "size": len(f.binary)})
 				}
 			}
 			json.NewEncoder(w).Encode(map[string]any{"tag_name": f.tag, "target_commitish": f.commit, "published_at": f.pub, "assets": assets})
@@ -58,6 +59,7 @@ func newFake(t *testing.T, binary string) *fakeGitHub {
 			http.NotFound(w, r)
 		}
 	}))
+	f.base = f.srv.URL
 	t.Cleanup(f.srv.Close)
 	return f
 }
@@ -118,8 +120,11 @@ func TestApplyReplacesTheProgramAfterBackupAndAsksForRestart(t *testing.T) {
 		t.Fatalf("order: %v", steps)
 	}
 	entries, _ := os.ReadDir(filepath.Dir(exe))
-	if len(entries) != 1 {
-		t.Fatalf("temporary files left behind: %v", entries)
+	if len(entries) != 2 { // the program and its predecessor, no temporary files
+		t.Fatalf("unexpected files: %v", entries)
+	}
+	if old, _ := os.ReadFile(exe + ".old"); string(old) != "old program" {
+		t.Fatalf("the previous program must stay available for a rollback: %q", old)
 	}
 	if u.Status().State != "restarting" {
 		t.Fatalf("%+v", u.Status())
@@ -224,5 +229,48 @@ func TestChecksumLineFormats(t *testing.T) {
 	}
 	if checksumFor("short  legkyi", "legkyi") != "" {
 		t.Fatal("a malformed hash must not match")
+	}
+}
+
+func TestStartRunsInTheBackgroundAndRefusesASecondInstall(t *testing.T) {
+	f := newFake(t, "new program")
+	release := make(chan struct{})
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/dl/legkyi" {
+			<-release // the download hangs until the test lets go
+		}
+		f.srv.Config.Handler.ServeHTTP(w, r)
+	}))
+	defer slow.Close()
+	f.base = slow.URL
+	u, exe := newUpdater(t, f)
+	u.API = slow.URL
+	restarted := make(chan struct{}, 1)
+	u.Restart = func() { restarted <- struct{}{} }
+	u.Check(context.Background())
+
+	if err := u.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if st := u.Status(); st.State != "downloading" {
+		t.Fatalf("Start must return while the download runs: %+v", st)
+	}
+	if err := u.Start(); err == nil {
+		t.Fatal("a second install during a download must be refused")
+	}
+	if err := u.Apply(context.Background()); err == nil {
+		t.Fatal("Apply during a download must be refused")
+	}
+	if st := u.Check(context.Background()); st.State != "downloading" {
+		t.Fatalf("a check must not disturb the install: %+v", st)
+	}
+	close(release)
+	select {
+	case <-restarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("restart was never requested")
+	}
+	if got, _ := os.ReadFile(exe); string(got) != "new program" {
+		t.Fatalf("program: %q", got)
 	}
 }

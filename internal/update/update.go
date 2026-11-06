@@ -264,28 +264,31 @@ func (u *Updater) writable() bool {
 	return true
 }
 
-// Apply downloads and installs the newest release when there is one, then asks main to restart.
-func (u *Updater) Apply(ctx context.Context) error {
+// begin claims the updater for one install and returns the release to install.
+func (u *Updater) begin() (release, error) {
 	if !u.Enabled() {
-		return errors.New("цей екземпляр не є релізною збіркою, оновлення вимкнено")
+		return release{}, errors.New("цей екземпляр не є релізною збіркою, оновлення вимкнено")
 	}
 	u.mu.Lock()
+	defer u.mu.Unlock()
 	if u.busy {
-		u.mu.Unlock()
-		return errors.New("оновлення вже виконується")
+		return release{}, errors.New("оновлення вже виконується")
 	}
-	u.busy, u.state = true, "downloading"
-	rel := u.latest
-	u.mu.Unlock()
+	if !u.newer(u.latest) {
+		return release{}, errors.New("новішої версії немає")
+	}
+	u.busy, u.state, u.lastErr = true, "downloading", ""
+	return u.latest, nil
+}
 
+func (u *Updater) run(ctx context.Context, rel release) error {
 	err := u.install(ctx, rel)
-
 	u.mu.Lock()
 	u.busy = false
 	if err != nil {
 		u.state, u.lastErr = "error", err.Error()
 	} else {
-		u.state, u.lastErr = "restarting", ""
+		u.state = "restarting"
 	}
 	u.mu.Unlock()
 	if err == nil && u.Restart != nil {
@@ -294,10 +297,32 @@ func (u *Updater) Apply(ctx context.Context) error {
 	return err
 }
 
-func (u *Updater) install(ctx context.Context, rel release) error {
-	if !u.newer(rel) {
-		return errors.New("новішої версії немає")
+// Apply downloads and installs the newest release (the one the last Check saw), then asks main to restart.
+// It returns when the file is in place.
+func (u *Updater) Apply(ctx context.Context) error {
+	rel, err := u.begin()
+	if err != nil {
+		return err
 	}
+	return u.run(ctx, rel)
+}
+
+// Start is Apply in the background: it returns at once, the progress is in Status. The admin page uses it
+// because a download through the tunnel can outlast the edge's request timeout.
+func (u *Updater) Start() error {
+	rel, err := u.begin()
+	if err != nil {
+		return err
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		defer cancel()
+		_ = u.run(ctx, rel)
+	}()
+	return nil
+}
+
+func (u *Updater) install(ctx context.Context, rel release) error {
 	want := AssetName(u.goos(), u.goarch())
 	var binURL, sumsURL string
 	var size int64
@@ -387,15 +412,16 @@ func checksumFor(sums, name string) string {
 	return ""
 }
 
-// Swap puts newFile in place of exe. Linux replaces the file atomically (the running process keeps the old
-// inode); Windows cannot overwrite a running exe, so it is renamed to <exe>.old first (kept for a manual
-// rollback until the next update replaces it).
+// Swap puts newFile in place of exe and keeps the previous program as <exe>.old for a manual rollback until the
+// next update replaces it. Linux replaces the file atomically (the running process keeps the old inode);
+// Windows cannot overwrite a running exe, so it is renamed first.
 func Swap(exe, newFile, goos string) error {
-	if goos != "windows" {
-		return os.Rename(newFile, exe)
-	}
 	old := exe + ".old"
 	_ = os.Remove(old)
+	if goos != "windows" {
+		_ = os.Link(exe, old) // keep the previous program for a manual rollback (best effort: not every filesystem links)
+		return os.Rename(newFile, exe)
+	}
 	if err := os.Rename(exe, old); err != nil {
 		return err
 	}

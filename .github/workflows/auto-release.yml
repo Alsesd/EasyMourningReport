@@ -17,6 +17,7 @@ permissions:
 jobs:
   release:
     uses: ./.github/workflows/release.yml
+    secrets: inherit # the code-signing certificate, when the repository has one
     with:
       version: auto-${{ github.run_number }}
       publish: true

@@ -56,6 +56,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/update": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["UpdateStatusDTO"] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/update/check": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["UpdateStatusDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/update/apply": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["UpdateStatusDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     /** WebAuthn: bodies are `{challenge_id, public_key}` options and the signed ceremony result (hand-written, see platform/auth/passkeys.ts). */
     "/api/v1/auth/passkey/options": {
         parameters: { query?: never; header?: never; path?: never; cookie?: never };

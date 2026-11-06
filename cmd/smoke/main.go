@@ -2,7 +2,11 @@
 // the web server and UI answer, an administrator can sign in, every file is created next to the
 // program, and (with -tunnel) cloudflared is started from the embedded copy and stops with the app.
 //
-//	go run ./cmd/smoke -exe dist/legkyi.exe [-tunnel]
+//	go run ./cmd/smoke -exe dist/legkyi.exe [-tunnel] [-update]
+//
+// With -update the program (which must be a stamped release build, scripts/build_go.sh with LEGKYI_VERSION) is
+// pointed at a fake GitHub on this machine that offers the very same file as a newer release; the smoke test
+// installs it through the admin API and checks the backup, the file swap, the restart and that the session survives.
 package main
 
 import (
@@ -25,12 +29,13 @@ import (
 func main() {
 	exe := flag.String("exe", "", "path of the executable to test")
 	tunnel := flag.Bool("tunnel", false, "also test the bundled cloudflared (needs no network access)")
+	updateTest := flag.Bool("update", false, "also test a self-update against a fake GitHub (needs a stamped release build)")
 	flag.Parse()
 	if *exe == "" {
-		fmt.Fprintln(os.Stderr, "usage: smoke -exe <path> [-tunnel]")
+		fmt.Fprintln(os.Stderr, "usage: smoke -exe <path> [-tunnel] [-update]")
 		os.Exit(2)
 	}
-	if err := run(*exe, *tunnel); err != nil {
+	if err := run(*exe, *tunnel, *updateTest); err != nil {
 		fmt.Fprintln(os.Stderr, "SMOKE FAILED:", err)
 		os.Exit(1)
 	}
@@ -39,7 +44,7 @@ func main() {
 
 func step(format string, a ...any) { fmt.Printf("• "+format+"\n", a...) }
 
-func run(exe string, tunnel bool) error {
+func run(exe string, tunnel, updateTest bool) error {
 	src, err := os.ReadFile(exe)
 	if err != nil {
 		return err
@@ -78,6 +83,15 @@ func run(exe string, tunnel bool) error {
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	cmd.Stdin = nil
 	cmd.Env = append(cleanEnv(), "AUTO_UPDATE=0") // a stamped CI build must never update itself during a test
+	var fake *fakeGitHub
+	if updateTest {
+		var err error
+		if fake, err = startFakeGitHub(src, filepath.Base(exe)); err != nil {
+			return err
+		}
+		defer fake.close()
+		cmd.Env = append(cmd.Env, "UPDATE_API_URL="+fake.url)
+	}
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -136,6 +150,13 @@ func run(exe string, tunnel bool) error {
 		return fail(fmt.Errorf("session login = %q", s.Login))
 	}
 
+	if updateTest {
+		step("self-update through the admin API (fake GitHub on %s)", fake.url)
+		if err := checkUpdate(client, base, dir, target, cmd, logPath); err != nil {
+			return fail(err)
+		}
+	}
+
 	step("data files are next to the program")
 	for _, f := range []string{"reports.db", "secret.key", "backups"} {
 		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
@@ -172,6 +193,9 @@ func run(exe string, tunnel bool) error {
 	}
 
 	step("graceful stop")
+	if updateTest && runtime.GOOS == "windows" {
+		return killReplacement(filepath.Base(exe)) // the replacement is a new process this harness did not start
+	}
 	return stop(cmd, exited, false)
 }
 

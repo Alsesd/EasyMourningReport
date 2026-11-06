@@ -14,11 +14,13 @@ const t = uk.system.update;
 
 export default function UpdateSection({ notify }: AdminSectionProps) {
   const queryClient = useQueryClient();
-  const [restarting, setRestarting] = useState(false);
+  // "waiting" starts when the install is requested and ends with a page reload once the restarted program answers.
+  const [waiting, setWaiting] = useState(false);
   const { data: status, isError } = useQuery({
     queryKey: ["adminUpdate"],
     queryFn: () => systemApi.update(),
-    refetchInterval: restarting ? 1500 : 30000,
+    refetchInterval: waiting ? 1500 : 30000,
+    retry: false,
   });
   const set = (next: UpdateStatusDTO) => queryClient.setQueryData(["adminUpdate"], next);
   const onError = (err: Error) => notify(err.message, "err");
@@ -28,16 +30,19 @@ export default function UpdateSection({ notify }: AdminSectionProps) {
     mutationFn: () => systemApi.applyUpdate(),
     onSuccess: (next) => {
       set(next);
-      setRestarting(true);
+      setWaiting(true);
     },
     onError,
   });
 
-  // After "restarting" the old process is gone; once the new one answers with another version, reload the page.
-  const before = status?.current;
+  // While installing, the old program reports "downloading" and then "restarting" (or stops answering). Any
+  // other healthy answer comes from the new program: reload so the page matches it. A failed install ends the wait.
   useEffect(() => {
-    if (restarting && status && !isError && status.current !== before) window.location.reload();
-  }, [restarting, status, isError, before]);
+    if (!waiting || isError || !status) return;
+    if (status.state === "idle") window.location.reload();
+    else if (status.state === "error") setWaiting(false);
+  }, [waiting, status, isError]);
+  const restarting = waiting && (isError || status?.state === "restarting" || status?.state === "downloading");
 
   if (!status) return <p className="text-sm text-text-muted">{uk.common.loading}</p>;
 
@@ -93,7 +98,7 @@ export default function UpdateSection({ notify }: AdminSectionProps) {
           )}
         </p>
       )}
-      {restarting && <p role="status" className="text-sm text-text-muted">{t.restarting}</p>}
+      {waiting && restarting && <p role="status" className="text-sm text-text-muted">{t.restarting}</p>}
 
       {status.enabled && (
         <div className="flex flex-wrap gap-3">
@@ -104,7 +109,7 @@ export default function UpdateSection({ notify }: AdminSectionProps) {
             type="button"
             className="min-h-[44px]"
             onClick={() => apply.mutate()}
-            disabled={!status.available || !status.writable || apply.isPending || restarting}
+            disabled={!status.available || !status.writable || apply.isPending || waiting}
           >
             {apply.isPending ? t.applying : t.apply}
           </Button>

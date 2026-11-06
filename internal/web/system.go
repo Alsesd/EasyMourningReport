@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"io"
 	"log"
 	"net/http"
@@ -117,9 +116,9 @@ func (a *App) applyUpdate(w http.ResponseWriter, r *http.Request, p *platform.Pr
 	if err := a.audit(r, a.Trusted.ClientIP(r), p.User.Login, p.User.RoleLabel(), "оновлення програми", st.Current+" → "+st.Latest); err != nil {
 		return err
 	}
-	// The request must not be tied to the connection: the response is written before the restart begins.
-	if err := a.Updater.Apply(context.WithoutCancel(r.Context())); err != nil {
-		return HTTPError{Status: 502, Detail: err.Error()}
+	// The download runs in the background: through the tunnel it can outlast the edge's request timeout.
+	if err := a.Updater.Start(); err != nil {
+		return HTTPError{Status: 409, Detail: err.Error()}
 	}
 	writeJSON(w, http.StatusOK, a.Updater.Status())
 	return nil

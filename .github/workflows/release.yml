@@ -116,6 +116,7 @@ jobs:
         run: |
           go run ./cmd/smoke -exe dist/legkyi
           go run ./cmd/smoke -exe dist/legkyi -tunnel
+          go run ./cmd/smoke -exe dist/legkyi -update
 
       - name: Browser end-to-end test (Linux binary)
         env:
@@ -162,6 +163,10 @@ jobs:
 
       - name: Smoke test with the bundled cloudflared (forced kill must take it down too)
         run: go run ./cmd/smoke -exe dist/legkyi.exe -tunnel
+
+      # The exe replaces itself while running (rename to .old, new file, restart) against a fake GitHub on this machine.
+      - name: Smoke test of the self-update (Windows swap and restart)
+        run: go run ./cmd/smoke -exe dist/legkyi.exe -update
 
   release:
     name: Publish release

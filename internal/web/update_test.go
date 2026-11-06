@@ -66,7 +66,7 @@ func TestUpdateApplyThroughTheAPI(t *testing.T) {
 	}
 	select {
 	case <-restarted:
-	default:
+	case <-time.After(5 * time.Second):
 		t.Fatal("a restart must be requested")
 	}
 	if b, _ := os.ReadFile(exe); string(b) != "new" {
