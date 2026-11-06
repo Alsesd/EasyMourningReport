@@ -59,7 +59,7 @@ npm run build
 
 `bash scripts/build_go.sh` (needs Go, Node and curl; works from Linux or macOS) writes `dist/legkyi.exe` (Windows) and `dist/legkyi` (Linux). Each is **one file** that contains the web UI, the PWA files and `cloudflared` (a pinned release, downloaded once and checked by SHA-256, Apache-2.0, see `dist/NOTICE.txt`).
 
-Copy `legkyi.exe` to any writable folder and start it. It creates everything **in that same folder**:
+Requires **64-bit Windows 10 or later** (the Go runtime needs an API that Windows 7/8 lack; 32-bit Windows is not built). Copy `legkyi.exe` to any writable folder and start it. It creates everything **in that same folder**:
 
 | File | What |
 |---|---|
