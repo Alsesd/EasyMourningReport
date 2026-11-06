@@ -11,6 +11,7 @@ import { Bell, BellRing } from "lucide-react";
 import { formatDateTime, ukPlatform as uk } from "@/platform/i18n";
 import type { NotificationsDTO } from "@/platform/api/types";
 import { notificationsApi } from "@/platform/notifications/api";
+import { notificationPermission, showDeviceNotification } from "@/platform/device/notify";
 import { Button } from "@/ui/Button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/Dialog";
 import { cn } from "@/ui/utils";
@@ -18,19 +19,11 @@ import { cn } from "@/ui/utils";
 const t = uk.notifications;
 const REFRESH_MS = 20000;
 
-function deviceNotifications(): NotificationPermission | "unsupported" {
-  try {
-    return typeof Notification === "undefined" ? "unsupported" : Notification.permission;
-  } catch {
-    return "unsupported";
-  }
-}
-
 export function NotificationBell({ className }: { className?: string }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [permission, setPermission] = useState(deviceNotifications);
+  const [permission, setPermission] = useState(notificationPermission);
   const { data } = useQuery({
     queryKey: ["notifications"],
     queryFn: notificationsApi.list,
@@ -51,11 +44,7 @@ export function NotificationBell({ className }: { className?: string }) {
     if (lastSeen.current !== null && permission === "granted") {
       for (const n of items) {
         if (n.id > lastSeen.current && !n.read) {
-          try {
-            new Notification(n.title, { body: n.body, tag: `legkyi-${n.id}` });
-          } catch {
-            /* some browsers only allow notifications from a service worker */
-          }
+          void showDeviceNotification(n.id, n.title, n.body, n.link);
         }
       }
     }

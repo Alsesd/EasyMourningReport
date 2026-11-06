@@ -6,12 +6,14 @@ import { useAuth } from "@/platform/auth/AuthContext";
 import { passkeyApi, passkeysSupported } from "@/platform/auth/passkeys";
 import { biometricChoice, setBiometricChoice, takeFreshPasswordLogin } from "@/platform/auth/biometricPref";
 import { ukPlatform as uk } from "@/platform/i18n";
+import { useDialogSlot } from "@/platform/device/dialogSlot";
 import { Button } from "@/ui/Button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/Dialog";
 
 export function BiometricOffer() {
   const { isAuthenticated } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [want, setWant] = useState(false);
+  const open = useDialogSlot(want);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,7 +23,7 @@ export function BiometricOffer() {
     // A device that already holds a key for this account is asked nothing.
     passkeyApi
       .list()
-      .then((keys) => alive && !keys.length && setOpen(true))
+      .then((keys) => alive && !keys.length && setWant(true))
       .catch(() => undefined);
     return () => {
       alive = false;
@@ -30,7 +32,7 @@ export function BiometricOffer() {
 
   const decline = () => {
     setBiometricChoice("declined");
-    setOpen(false);
+    setWant(false);
   };
 
   const accept = async () => {
@@ -39,7 +41,7 @@ export function BiometricOffer() {
     try {
       await passkeyApi.register(uk.auth.biometricDeviceName);
       setBiometricChoice("on");
-      setOpen(false);
+      setWant(false);
     } catch (err) {
       const e = err as Error;
       setError(e.name === "NotAllowedError" || e.name === "AbortError" ? uk.auth.passkeyCancelled : e.message);

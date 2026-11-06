@@ -16,6 +16,29 @@ import tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
+def dismiss_first_login_dialogs(pg):
+    """The first sign-in on a device opens, one after the other, the biometric offer ("Не зараз") and the device
+    setup (notifications / install, "Пізніше"). Decline each until none is left; at least one must have appeared."""
+    seen = 0
+    for _ in range(6):
+        try:
+            pg.wait_for_selector('[role="dialog"]', state="visible", timeout=1500 if seen else 5000)
+        except Exception:
+            break
+        dialog = pg.get_by_role("dialog")
+        for name in ("Не зараз", "Пізніше"):
+            btn = dialog.get_by_role("button", name=name)
+            if btn.count():
+                btn.first.click()
+                seen += 1
+                break
+        else:
+            raise AssertionError("an unexpected dialog is open after sign-in")
+        pg.wait_for_timeout(300)
+    assert seen, "no first-login dialog appeared"
+    pg.wait_for_selector('[role="dialog"]', state="detached", timeout=5000)
+
+
 def run_tests():
     test_dir = tempfile.mkdtemp(prefix="legkyi_test_")
     print(f"Using isolated test directory: {test_dir}")
@@ -84,8 +107,7 @@ def run_tests():
             print("Successfully navigated to:", page.url)
 
             # The first password sign-in on a device offers biometric sign-in; decline it
-            page.get_by_role("dialog").get_by_role("button", name="Не зараз").click()
-            page.wait_for_selector('[role="dialog"]', state="detached", timeout=5000)
+            dismiss_first_login_dialogs(page)
             print("Biometric offer shown and declined")
 
             # Wait for report items to load
@@ -174,8 +196,7 @@ def run_tests():
 
             admin_page.wait_for_url("**/admin/**", timeout=5000)
             print("Admin landed on:", admin_page.url)
-            admin_page.get_by_role("dialog").get_by_role("button", name="Не зараз").click()
-            admin_page.wait_for_selector('[role="dialog"]', state="detached", timeout=5000)
+            dismiss_first_login_dialogs(admin_page)
             admin_page.wait_for_selector('text=Товари за місяць', timeout=5000)
             print("Admin month view loaded")
 
