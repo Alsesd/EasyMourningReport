@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const fakeCloudflared = "#!/bin/sh\necho \"args: $*\"\nexec sleep 30\n"
+const fakeCloudflared = "#!/bin/sh\necho \"args: $* env-token: $TUNNEL_TOKEN\"\nexec sleep 30\n"
 const failingCloudflared = "#!/bin/sh\necho \"2026-11-05T10:00:00Z ERR Provided Tunnel token is not valid\"\nexit 1\n"
 
 type fixture struct {
@@ -152,7 +152,10 @@ func TestNamedTunnelRunsWithSavedTokenAndStops(t *testing.T) {
 	if st, _ := os.Stat(tokenFile); st.Mode().Perm() != 0o600 {
 		t.Fatalf("mode %v", st.Mode().Perm())
 	}
-	f.waitLog("run --token secret-token")
+	f.waitLog("env-token: secret-token")
+	if strings.Contains(f.logText(), "--token") {
+		t.Fatal("the token must not be on the command line")
+	}
 	stopped := f.tun.Stop()
 	if stopped.State != "stopped" || !stopped.Autostart || stopped.Enabled {
 		t.Fatalf("%+v", stopped)
@@ -175,7 +178,7 @@ func TestEnvTokenOverridesSavedOne(t *testing.T) {
 	f.binary(fakeCloudflared)
 	f.env["TUNNEL_TOKEN"] = "from-env"
 	f.tun.Start("saved", true)
-	f.waitLog("run --token from-env")
+	f.waitLog("env-token: from-env")
 }
 
 func TestQuickTunnelReportsTrycloudflareURL(t *testing.T) {
@@ -270,10 +273,10 @@ func TestRestartWithNewTokenReplacesTheProcess(t *testing.T) {
 	f := newFixture(t)
 	f.binary(fakeCloudflared)
 	f.tun.Start("one", true)
-	f.waitLog("--token one")
+	f.waitLog("env-token: one")
 	f.tun.Start("two", true)
-	f.waitLog("--token two")
-	if strings.Contains(f.logText(), "--token one") {
+	f.waitLog("env-token: two")
+	if strings.Contains(f.logText(), "env-token: one") {
 		t.Fatal("log must be truncated on restart")
 	}
 }

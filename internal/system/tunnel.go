@@ -288,8 +288,11 @@ func (t *Tunnel) Start(token string, autostart bool) TunnelStatus {
 		return t.failed("cloudflared не встановлено на цьому сервері.")
 	}
 	args := []string{"tunnel", "--no-autoupdate", "--metrics", t.metricsAddr()}
+	var childEnv []string
 	if run := t.token(); run != "" {
-		args = append(args, "run", "--token", run)
+		// The token goes through the environment, not the command line, where every local user could read it.
+		args = append(args, "run")
+		childEnv = append(os.Environ(), "TUNNEL_TOKEN="+run)
 	} else {
 		port := t.Port
 		if port == "" {
@@ -304,6 +307,9 @@ func (t *Tunnel) Start(token string, autostart bool) TunnelStatus {
 		return t.failed("Не вдалося запустити cloudflared: " + err.Error())
 	}
 	cmd := exec.Command(bin, args...)
+	if childEnv != nil {
+		cmd.Env = childEnv
+	}
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	if err := cmd.Start(); err != nil {
 		logFile.Close()

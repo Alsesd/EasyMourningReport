@@ -48,7 +48,7 @@ func (a *App) now() time.Time {
 	return time.Now()
 }
 
-// New composes the middleware chain: session (outermost) -> same-origin guard -> routes.
+// New composes the middleware chain: security headers (outermost) -> session -> same-origin guard -> routes.
 func New(d Deps) http.Handler {
 	if d.Limiter == nil {
 		d.Limiter = NewLoginLimiter()
@@ -66,7 +66,8 @@ func New(d Deps) http.Handler {
 	app.mountReports(rt)
 	app.mountSystem(rt)
 	srv := &Server{DB: d.Store, Assets: d.Assets, API: rt}
-	return sessionMiddleware(Signer{Secret: d.Secret, Now: d.Now}, d.CookieSecure, sameOriginGuard(srv))
+	secure := func(r *http.Request) bool { return cookieSecure(d.CookieSecure, d.Trusted, r) }
+	return securityHeaders(sessionMiddleware(Signer{Secret: d.Secret, Now: d.Now}, secure, sameOriginGuard(srv)))
 }
 
 // LoadSecret: SECRET_KEY wins; otherwise <data>/secret.key, created (0600, never overwritten) when absent.

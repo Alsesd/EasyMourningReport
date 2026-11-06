@@ -120,6 +120,9 @@ func run() error {
 		Addr:              net.JoinHostPort(cfg.Host, cfg.Port),
 		Handler:           handler,
 		ReadHeaderTimeout: 15 * time.Second,
+		ReadTimeout:       2 * time.Minute, // bodies and Excel uploads; no WriteTimeout: backup downloads stream a whole database
+		IdleTimeout:       2 * time.Minute,
+		MaxHeaderBytes:    64 << 10,
 	}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()

@@ -96,7 +96,7 @@ func (s Signer) Verify(value string) (int64, bool) {
 
 // sessionMiddleware loads the session from the cookie and applies cookie changes to the
 // response just before its headers are written.
-func sessionMiddleware(sg Signer, secure bool, next http.Handler) http.Handler {
+func sessionMiddleware(sg Signer, secure func(*http.Request) bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s := &Session{}
 		if c, err := r.Cookie(cookieName); err == nil {
@@ -104,7 +104,7 @@ func sessionMiddleware(sg Signer, secure bool, next http.Handler) http.Handler {
 				s.UID, s.hadData = uid, true
 			}
 		}
-		sw := &sessionWriter{ResponseWriter: w, s: s, sg: sg, secure: secure}
+		sw := &sessionWriter{ResponseWriter: w, s: s, sg: sg, secure: secure(r)}
 		next.ServeHTTP(sw, r.WithContext(context.WithValue(r.Context(), sessionKey{}, s)))
 	})
 }

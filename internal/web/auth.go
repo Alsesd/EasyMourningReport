@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"legkyi/internal/platform"
@@ -67,6 +68,12 @@ func (a *App) mountPlatform(rt *Router) {
 	rt.Handle("PUT", "/me/password", a.authed(nil, a.changeOwnPassword))
 }
 
+// dummyPasswordHash is a valid hash nobody knows the password of, computed once.
+var dummyPasswordHash = sync.OnceValue(func() string {
+	h, _ := platform.HashPassword("no-such-user-placeholder", []byte("legkyi-timing-pad"))
+	return h
+})
+
 func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 	body, err := ReadBody(r)
 	if err != nil {
@@ -86,6 +93,10 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) error {
 	user, err := platform.LoadUserByLogin(ctx, a.Store.R, key)
 	if err != nil {
 		return err
+	}
+	if user == nil {
+		// Spend the same time as a real check so the response time does not reveal which logins exist.
+		platform.CheckPassword(password, dummyPasswordHash())
 	}
 	if user == nil || !platform.CheckPassword(password, user.PasswordHash) {
 		a.Limiter.RecordFailure(ip, key)
