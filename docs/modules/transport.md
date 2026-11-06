@@ -11,7 +11,7 @@ One order per deceased, with two optional parts (at least one is required). Deli
 | Part | Fields |
 |---|---|
 | Delivery | car number, time, final destination, optional transit stops |
-| Carriers («винос»: bearers) | number of men (1–50), time, departure place, transit stops (for the ceremony), cemetery number |
+| Carriers («винос»: bearers) | crew size (**4 or 6** men), time, departure place, transit stops (for the ceremony), cemetery number; the **dispatcher assigns the bearers by name** (at most the crew size) |
 | Order | service day (`YYYY-MM-DD`), deceased, note, organisation, **submitting employee** (id and a name snapshot: full name, else login) |
 
 The day list is ordered by the earliest time of each order (then by id). Times are 24-hour `HH:MM`.
@@ -25,6 +25,10 @@ The day list is ordered by the earliest time of each order (then by id). Times a
 | `transport.orders.view_all` | platform | Read-only: see every organisation's orders and the history, no status changes. |
 
 A desk and a dispatcher are different kinds of users: organisation roles can only hold organisation-scope permissions, platform roles only platform-scope ones. No role grants `create` by default; assign it to the desks' role in the role editor.
+
+## Bearers and the printed schedule
+
+The desk orders a crew of 4 or 6. A dispatcher (`manage`) names the men for each carrying order (`PUT /orders/{id}/bearers`, not for rejected or cancelled orders; a desk edit keeps the names but cuts them to a smaller crew). «Схема виносу» on the day view opens a page for printing: carrying orders only, earliest carrying time first, with deceased, organisation, departure place and stops, cemetery, and who carries (a missing crew is flagged). The menu and sidebar are hidden when printing.
 
 ## Statuses
 

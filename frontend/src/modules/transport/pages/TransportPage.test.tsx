@@ -116,4 +116,33 @@ describe("TransportPage", () => {
     await waitFor(() => expect(cancel).toHaveBeenCalledWith(1));
     expect(nativeConfirm).not.toHaveBeenCalled();
   });
+
+  it("a dispatcher names the bearers of the ordered crew", async () => {
+    const carrying = order({
+      can_edit: false,
+      carriers: { count: 4, time: "12:00", from: "вул. Квітуча, 5", cemetery_number: "3", stops: [], bearers: [] },
+    });
+    vi.spyOn(transportApi, "orders").mockResolvedValue([carrying]);
+    const setBearers = vi.spyOn(transportApi, "setBearers").mockResolvedValue(carrying);
+    renderPage(dispatcher);
+    const card = await screen.findByRole("article", { name: /Іваненко/ });
+    expect(within(card).getByText("Носіїв ще не призначено")).toBeDefined();
+    fireEvent.click(within(card).getByRole("button", { name: /Призначити носіїв/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getAllByRole("textbox")).toHaveLength(4); // one field per man of the crew
+    fireEvent.change(within(dialog).getByLabelText("Носій 1"), { target: { value: "Петренко О." } });
+    fireEvent.change(within(dialog).getByLabelText("Носій 2"), { target: { value: "Коваль І." } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Зберегти" }));
+    await waitFor(() => expect(setBearers).toHaveBeenCalledWith(1, ["Петренко О.", "Коваль І."]));
+  });
+
+  it("a desk offers only crews of 4 or 6", async () => {
+    vi.spyOn(transportApi, "orders").mockResolvedValue([]);
+    renderPage(base);
+    fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
+    const toggle = screen.getAllByRole("switch", { name: "Винос" })[0];
+    fireEvent.click(toggle);
+    const select = (await screen.findByLabelText("Бригада виносу")) as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual(["4", "6"]);
+  });
 });

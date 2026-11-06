@@ -107,8 +107,9 @@ type orderJSON struct {
 		Time string `json:"time"`
 	} `json:"delivery"`
 	Carriers *struct {
-		Time  string   `json:"time"`
-		Stops []string `json:"stops"`
+		Time    string   `json:"time"`
+		Stops   []string `json:"stops"`
+		Bearers []string `json:"bearers"`
 	} `json:"carriers"`
 	Events []struct {
 		Kind, Status, Note string
@@ -212,6 +213,7 @@ func TestOrderValidation(t *testing.T) {
 		"empty name":   order(day, "", "d09:00"),
 		"zero men":     {"service_date": day, "deceased": "X", "carriers": map[string]any{"count": 0, "time": "09:00", "from": "A"}},
 		"too many men": {"service_date": day, "deceased": "X", "carriers": map[string]any{"count": 99, "time": "09:00", "from": "A"}},
+		"five men":     {"service_date": day, "deceased": "X", "carriers": map[string]any{"count": 5, "time": "09:00", "from": "A"}},
 	}
 	for name, body := range bad {
 		if w := d.post(d.a, "POST", "/api/v1/transport/orders", body); w.Code != 422 {
@@ -348,5 +350,58 @@ func TestRangeNeedsBothDates(t *testing.T) {
 	}
 	if w := d.e.do("GET", "/api/v1/transport/orders?from=2026-01-01&to=2027-03-01", "", nil, d.boss); w.Code != 400 {
 		t.Fatalf("over 400 days: %d", w.Code)
+	}
+}
+
+func TestDispatcherAssignsBearersAndTheyShowOnTheDesk(t *testing.T) {
+	d := newDesks(t)
+	o := d.create(d.a, order(day, "Іваненко", "c12:00")) // crew of 6
+	d2 := d.create(d.a, order(day, "Без виносу", "d09:00"))
+	path := "/api/v1/transport/orders/" + itoa(int(o.ID)) + "/bearers"
+	put := func(c *http.Cookie, id string, names ...string) *httptest.ResponseRecorder {
+		return d.post(c, "PUT", "/api/v1/transport/orders/"+id+"/bearers", map[string]any{"names": names})
+	}
+	if w := put(d.a, itoa(int(o.ID)), "А"); w.Code != 403 {
+		t.Fatalf("a desk cannot assign: %d", w.Code)
+	}
+	if w := put(d.view, itoa(int(o.ID)), "А"); w.Code != 403 {
+		t.Fatalf("view_all cannot assign: %d", w.Code)
+	}
+	if w := put(d.boss, itoa(int(d2.ID)), "А"); w.Code != 409 {
+		t.Fatalf("an order without carriers: %d", w.Code)
+	}
+	if w := put(d.boss, itoa(int(o.ID)), "1", "2", "3", "4", "5", "6", "7"); w.Code != 422 && w.Code != 400 {
+		t.Fatalf("more than six: %d", w.Code)
+	}
+	if w := put(d.boss, itoa(int(o.ID)), "  "); w.Code != 422 {
+		t.Fatalf("blank name: %d", w.Code)
+	}
+	w := put(d.boss, itoa(int(o.ID)), "Петренко О.", "Коваль І.", "Шевчук Д.", "Мороз В.")
+	var got orderJSON
+	json.Unmarshal(w.Body.Bytes(), &got)
+	if w.Code != 200 || got.Carriers == nil || len(got.Carriers.Bearers) != 4 || got.Events[len(got.Events)-1].Kind != "bearers" {
+		t.Fatalf("assign: %d %s", w.Code, w.Body)
+	}
+	if seen := d.list(d.a, "date="+day)[1]; seen.Carriers == nil || seen.Carriers.Bearers[0] != "Петренко О." {
+		t.Fatalf("the desk sees the crew: %+v", seen)
+	}
+	_ = path
+	// A desk edit keeps the crew but cuts it to a smaller ordered size.
+	edited := order(day, "Іваненко", "c12:00")
+	edited["carriers"].(map[string]any)["count"] = 4
+	if w := d.post(d.a, "PUT", "/api/v1/transport/orders/"+itoa(int(o.ID)), edited); w.Code != 200 {
+		t.Fatalf("edit: %d %s", w.Code, w.Body)
+	}
+	if kept := d.list(d.boss, "date="+day)[1]; len(kept.Carriers.Bearers) != 4 {
+		t.Fatalf("crew after edit: %+v", kept.Carriers)
+	}
+	// Four men cannot be more than ordered.
+	if w := put(d.boss, itoa(int(o.ID)), "1", "2", "3", "4", "5"); w.Code != 422 {
+		t.Fatalf("over the ordered crew: %d", w.Code)
+	}
+	// A rejected order takes no crew.
+	d.post(d.boss, "POST", "/api/v1/transport/orders/"+itoa(int(o.ID))+"/status", map[string]any{"status": "rejected", "note": "x"})
+	if w := put(d.boss, itoa(int(o.ID)), "А"); w.Code != 409 {
+		t.Fatalf("rejected: %d", w.Code)
 	}
 }

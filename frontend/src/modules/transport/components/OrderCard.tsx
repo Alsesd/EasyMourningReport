@@ -1,6 +1,6 @@
 /** One order of the day as a ruled row: time, the deceased, delivery and carriers together, the reply and the actions. */
 
-import { History, Pencil, X } from "lucide-react";
+import { History, Pencil, Users, X } from "lucide-react";
 import type { TransportOrderDTO } from "@/platform/api/types";
 import { uk, formatDayReadable } from "@/modules/transport/i18n";
 import { Button } from "@/ui/Button";
@@ -25,6 +25,7 @@ export function OrderCard({
   onCancel,
   onAction,
   onHistory,
+  onBearers,
 }: {
   order: TransportOrderDTO;
   showOrganisation: boolean;
@@ -33,6 +34,7 @@ export function OrderCard({
   onCancel?: (o: TransportOrderDTO) => void;
   onAction?: (o: TransportOrderDTO, status: string) => void;
   onHistory?: (o: TransportOrderDTO) => void;
+  onBearers?: (o: TransportOrderDTO) => void;
 }) {
   const d = order.delivery;
   const c = order.carriers;
@@ -72,6 +74,9 @@ export function OrderCard({
                 <div className="col-span-2"><Detail label={t.departure}>{c.from}</Detail></div>
                 {c.stops.length > 0 && <div className="col-span-2"><Detail label={t.stops}>{c.stops.join(" → ")}</Detail></div>}
                 {c.cemetery_number && <Detail label={t.cemetery}><span className="figure">{c.cemetery_number}</span></Detail>}
+                <div className="col-span-2">
+                  <Detail label={t.bearers}>{c.bearers && c.bearers.length > 0 ? c.bearers.join(", ") : <span className="text-text-muted">{t.noBearers}</span>}</Detail>
+                </div>
               </dl>
             </section>
           )}
@@ -103,6 +108,12 @@ export function OrderCard({
                 {t.actions[s] ?? s}
               </Button>
             ))}
+          {onBearers && c && order.status !== "rejected" && order.status !== "cancelled" && (
+            <Button type="button" variant="secondary" size="sm" onClick={() => onBearers(order)}>
+              <Users className="h-4 w-4" aria-hidden="true" />
+              {t.assignBearers}
+            </Button>
+          )}
           {onHistory && (
             <Button type="button" variant="ghost" size="sm" onClick={() => onHistory(order)}>
               <History className="h-4 w-4" aria-hidden="true" />

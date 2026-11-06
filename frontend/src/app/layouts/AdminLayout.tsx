@@ -49,7 +49,7 @@ export default function AdminLayout() {
   return (
     <div className="flex min-h-screen flex-col text-text-main lg:flex-row">
       {/* Desktop rail: brand, the modules' pages, then who is signed in. */}
-      <aside className="hidden border-r border-border bg-surface-raised lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[240px] lg:shrink-0 lg:flex-col">
+      <aside className="hidden print:!hidden border-r border-border bg-surface-raised lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[240px] lg:shrink-0 lg:flex-col">
         <div className="flex items-center gap-3 px-5 pb-6 pt-6">
           <Monogram />
           <div className="min-w-0">
@@ -94,7 +94,7 @@ export default function AdminLayout() {
 
       <div className="flex min-h-screen min-w-0 flex-1 flex-col pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0">
         {/* Narrow screens: a slim bar with the brand and the personal controls. */}
-        <header className="sticky top-0 z-30 flex min-h-[60px] items-center justify-between gap-3 border-b border-border bg-page/95 px-4 lg:hidden">
+        <header className="sticky top-0 z-30 flex min-h-[60px] print:hidden items-center justify-between gap-3 border-b border-border bg-page/95 px-4 lg:hidden">
           <div className="flex min-w-0 items-center gap-2.5">
             <Monogram className="h-8 w-8 text-sm" />
             <span className="truncate font-serif text-base font-semibold">{uk.appTitle}</span>
@@ -106,7 +106,7 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        <main className="flex-1 px-4 pb-12 pt-6 sm:px-8 lg:px-12 lg:pt-10">
+        <main className="flex-1 px-4 pb-12 pt-6 print:p-0 sm:px-8 lg:px-12 lg:pt-10">
           <Outlet />
         </main>
       </div>
@@ -114,7 +114,7 @@ export default function AdminLayout() {
       {/* Mobile bottom navigation keeps the daily destinations within thumb reach. */}
       <nav
         aria-label={uk.nav.portalLabel}
-        className="fixed bottom-0 left-0 right-0 z-40 grid border-t border-border bg-surface px-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-40 grid print:hidden border-t border-border bg-surface px-2 pb-[max(0.25rem,env(safe-area-inset-bottom))] lg:hidden"
         style={{ gridTemplateColumns: `repeat(${Math.max(navItems.length, 1)}, minmax(0, 1fr))` }}
       >
         {navItems.map((item) => {

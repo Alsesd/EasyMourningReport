@@ -54,8 +54,8 @@ export function draftProblem(d: Draft): string | null {
     return `${t.delivery}: ${t.carNumber.toLowerCase()}, ${t.time.toLowerCase()} (${t.timeInvalid.toLowerCase()}), ${t.destinationLabel.toLowerCase()}`;
   }
   const n = Number(d.carriers.count);
-  if (d.carriers.on && (!Number.isInteger(n) || n < 1 || n > 50 || !d.carriers.from.trim() || !isValidTime(d.carriers.time))) {
-    return `${t.carriers}: ${t.menLabel.toLowerCase()} (1–50), ${t.time.toLowerCase()} (${t.timeInvalid.toLowerCase()}), ${t.departureLabel.toLowerCase()}`;
+  if (d.carriers.on && ((n !== 4 && n !== 6) || !d.carriers.from.trim() || !isValidTime(d.carriers.time))) {
+    return `${t.carriers}: ${t.menLabel.toLowerCase()} (4 / 6), ${t.time.toLowerCase()} (${t.timeInvalid.toLowerCase()}), ${t.departureLabel.toLowerCase()}`;
   }
   return null;
 }
@@ -71,7 +71,7 @@ export function toInput(d: Draft): TransportOrderInputDTO {
       : null,
     carriers: d.carriers.on
       ? {
-          count: Number(d.carriers.count),
+          count: Number(d.carriers.count) as 4 | 6,
           time: d.carriers.time,
           from: d.carriers.from.trim(),
           cemetery_number: d.carriers.cemetery_number.trim(),
@@ -153,7 +153,19 @@ export function OrderForm({
         {draft.carriers.on && (
           <div className="space-y-3">
             <div className="flex flex-wrap gap-3">
-              {field("carriers-count", t.menLabel, <Input id="carriers-count" className="figure w-28" type="number" inputMode="numeric" min={1} max={50} value={draft.carriers.count} onChange={(e) => setCarriers({ count: e.target.value })} />)}
+              {field(
+                "carriers-count",
+                t.menLabel,
+                <select
+                  id="carriers-count"
+                  value={draft.carriers.count}
+                  onChange={(e) => setCarriers({ count: e.target.value })}
+                  className="figure h-11 w-32 rounded-control border border-border bg-surface px-3 text-[15px] text-text-main"
+                >
+                  <option value="4">{t.crew(4)}</option>
+                  <option value="6">{t.crew(6)}</option>
+                </select>,
+              )}
               {field("carriers-time", t.time, <TimeField id="carriers-time" value={draft.carriers.time} onChange={(v) => setCarriers({ time: v })} />)}
               {field("carriers-cemetery", t.cemeteryLabel, <Input id="carriers-cemetery" className="figure w-32" value={draft.carriers.cemetery_number} maxLength={50} onChange={(e) => setCarriers({ cemetery_number: e.target.value })} />)}
             </div>

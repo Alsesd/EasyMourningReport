@@ -6,16 +6,18 @@
 
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, Printer } from "lucide-react";
+import { Link } from "react-router-dom";
 import { transportApi, type OrderQuery } from "@/modules/transport/api";
 import { OrderCard } from "@/modules/transport/components/OrderCard";
 import { OrderForm } from "@/modules/transport/components/OrderForm";
+import { BearersForm } from "@/modules/transport/components/BearersForm";
 import { StatusForm } from "@/modules/transport/components/StatusDialog";
 import { uk, formatDateTime, formatDayReadable, shiftDay, todayIso } from "@/modules/transport/i18n";
 import { TP } from "@/modules/transport/permissions";
 import { useAuth } from "@/platform/auth/AuthContext";
 import type { TransportOrderDTO } from "@/platform/api/types";
-import { Button } from "@/ui/Button";
+import { Button, buttonClass } from "@/ui/Button";
 import { useConfirm } from "@/ui/ConfirmDialog";
 import { DayPicker } from "@/ui/DayPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/Dialog";
@@ -79,6 +81,7 @@ export default function TransportPage() {
   const [editing, setEditing] = useState<TransportOrderDTO | "new" | null>(null);
   const [replying, setReplying] = useState<{ order: TransportOrderDTO; status: string } | null>(null);
   const [history, setHistory] = useState<TransportOrderDTO | null>(null);
+  const [assigning, setAssigning] = useState<TransportOrderDTO | null>(null);
 
   const query: OrderQuery = mode === "day" ? { date: day } : { from, to, ...(status ? { status } : {}) };
   const orders = useQuery({
@@ -116,12 +119,20 @@ export default function TransportPage() {
         title={t.title}
         meta={t.pollHint}
         actions={
-          desk && (
-            <Button type="button" onClick={() => setEditing("new")}>
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              {t.newOrder}
-            </Button>
-          )
+          <>
+            {staff && mode === "day" && (
+              <Link to={`/admin/transport/schedule?date=${day}`} className={buttonClass("outline")}>
+                <Printer className="h-4 w-4" aria-hidden="true" />
+                {t.schedule}
+              </Link>
+            )}
+            {desk && (
+              <Button type="button" onClick={() => setEditing("new")}>
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                {t.newOrder}
+              </Button>
+            )}
+          </>
         }
       />
       <Notice message={message} onDismiss={() => setMessage(null)} dismissLabel={uk.common.close} />
@@ -194,6 +205,7 @@ export default function TransportPage() {
                     onCancel={desk ? cancel : undefined}
                     onAction={manage ? (order, s) => setReplying({ order, status: s }) : undefined}
                     onHistory={staff ? setHistory : undefined}
+                    onBearers={manage ? setAssigning : undefined}
                   />
                 ))}
             </div>
@@ -233,6 +245,24 @@ export default function TransportPage() {
               status={replying.status}
               onDone={() => {
                 setReplying(null);
+                void refresh();
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={assigning !== null} onOpenChange={(open) => !open && setAssigning(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.bearersTitle}</DialogTitle>
+          </DialogHeader>
+          {assigning && (
+            <BearersForm
+              order={assigning}
+              onDone={() => {
+                setAssigning(null);
+                notify(t.bearersSaved);
                 void refresh();
               }}
             />

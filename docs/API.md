@@ -83,6 +83,7 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | PUT | `/transport/orders/{id}` | `transport.orders.create` | Replace the content while the status is `submitted` (`409` after the reply) |
 | POST | `/transport/orders/{id}/cancel` | `transport.orders.create` | Cancel while `submitted` |
 | POST | `/transport/orders/{id}/status` | `transport.orders.manage` | `{status: accepted, in_progress, done or rejected; note?}`; `409` for a transition that is not allowed, `422` when rejecting without a note |
+| PUT | `/transport/orders/{id}/bearers` | `transport.orders.manage` | `{names: [..]}`: the men assigned to the carriers part (at most the ordered crew of 4 or 6); `409` without carriers or for a rejected/cancelled order
 
 ## Example requests
 

@@ -122,6 +122,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transport/orders/{oid}/bearers": {
+        parameters: { query?: never; header?: never; path: { oid: number }; cookie?: never };
+        get?: never;
+        /** Body `{names: string[]}` (at most the ordered crew, 1-100 characters each); dispatcher only */
+        put: { responses: { 200: { content: { "application/json": components["schemas"]["TransportOrderDTO"] } } } };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transport/orders/{oid}/status": {
         parameters: { query?: never; header?: never; path: { oid: number }; cookie?: never };
         get?: never;
@@ -1403,8 +1415,8 @@ export interface components {
         };
         /** TransportCarriersDTO: the bearers' part */
         TransportCarriersDTO: {
-            /** Number of men, 1-50 */
-            count: number;
+            /** Crew size: 4 or 6 men */
+            count: 4 | 6;
             /** HH:MM, 24-hour */
             time: string;
             /** Departure place */
@@ -1412,12 +1424,14 @@ export interface components {
             cemetery_number: string;
             /** Transit stops (for the ceremony) */
             stops: string[];
+            /** The men the dispatcher assigned (at most `count`); empty until assigned. Ignored on input. */
+            bearers?: string[];
         };
         /** TransportEventDTO: one line of an order's history (staff only) */
         TransportEventDTO: {
             ts: string;
             user_name: string;
-            kind: "created" | "edited" | "status";
+            kind: "created" | "edited" | "status" | "bearers";
             status: string;
             note: string;
         };

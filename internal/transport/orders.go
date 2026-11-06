@@ -64,11 +64,15 @@ type Delivery struct {
 // Carriers is the bearers' part ("на плечах"): how many men, when and from where, the cemetery, and the
 // transit stops (for the ceremony) on the way.
 type Carriers struct {
-	Count          int
+	Count          int // 4 or 6 men
 	Time, From     string
 	CemeteryNumber string
 	Stops          []string
+	Bearers        []string // the men the dispatcher assigned (at most Count)
 }
+
+// ValidCrew: a crew is 4 or 6 men.
+func ValidCrew(n int) bool { return n == 4 || n == 6 }
 
 // Input is what a desk submits.
 type Input struct {
@@ -196,6 +200,7 @@ func attachStops(o *Order, parts map[string][]string) {
 	}
 	if o.Carriers != nil {
 		o.Carriers.Stops = append([]string{}, parts["carriers"]...)
+		o.Carriers.Bearers = append([]string{}, parts["bearers"]...)
 	}
 }
 
@@ -313,7 +318,7 @@ func b2i(b bool) int {
 }
 
 func writeParts(ctx context.Context, tx *sql.Tx, id int64, in Input) error {
-	if _, err := tx.ExecContext(ctx, "DELETE FROM transport_order_stops WHERE order_id = ?", id); err != nil {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM transport_order_stops WHERE order_id = ? AND part IN ('delivery', 'carriers')", id); err != nil {
 		return err
 	}
 	add := func(part string, places []string) error {
@@ -386,6 +391,14 @@ func UpdateOrder(ctx context.Context, tx *sql.Tx, id, userID int64, userName str
 	if err := writeParts(ctx, tx, id, in); err != nil {
 		return err
 	}
+	// Assigned men survive an edit, but not more than the (possibly smaller) crew, and not without carriers.
+	keep := 0
+	if in.Carriers != nil {
+		keep = in.Carriers.Count
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM transport_order_stops WHERE order_id = ? AND part = 'bearers' AND position >= ?", id, keep); err != nil {
+		return err
+	}
 	return addEvent(ctx, tx, id, now, userID, userName, "edited", "", "")
 }
 
@@ -398,4 +411,20 @@ func SetOrderStatus(ctx context.Context, tx *sql.Tx, id int64, status, note stri
 		return err
 	}
 	return addEvent(ctx, tx, id, now, userID, userName, "status", status, note)
+}
+
+// SetBearers replaces the men the dispatcher assigned to the carriers part (the caller checks the count).
+func SetBearers(ctx context.Context, tx *sql.Tx, id int64, names []string, userID int64, userName string, now time.Time) error {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM transport_order_stops WHERE order_id = ? AND part = 'bearers'", id); err != nil {
+		return err
+	}
+	for i, n := range names {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO transport_order_stops (order_id, part, position, place) VALUES (?, 'bearers', ?, ?)", id, i, n); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, "UPDATE transport_orders SET updated_at = ? WHERE id = ?", now.Unix(), id); err != nil {
+		return err
+	}
+	return addEvent(ctx, tx, id, now, userID, userName, "bearers", "", strings.Join(names, ", "))
 }

@@ -31,6 +31,7 @@ type carriersDTO struct {
 	From           string   `json:"from"`
 	CemeteryNumber string   `json:"cemetery_number"`
 	Stops          []string `json:"stops"`
+	Bearers        []string `json:"bearers"`
 }
 
 type orderEventDTO struct {
@@ -80,6 +81,7 @@ func (a *App) mountTransport(rt *Router) {
 	rt.Handle("POST", "/transport/orders", a.member(create, a.createTransportOrder))
 	rt.Handle("PUT", "/transport/orders/{oid}", a.member(create, a.updateTransportOrder))
 	rt.Handle("POST", "/transport/orders/{oid}/cancel", a.member(create, a.cancelTransportOrder))
+	rt.Handle("PUT", "/transport/orders/{oid}/bearers", a.authed([]string{transport.Manage}, a.setTransportBearers))
 	rt.Handle("POST", "/transport/orders/{oid}/status", a.authed([]string{transport.Manage}, a.setTransportOrderStatus))
 }
 
@@ -102,7 +104,7 @@ func (a *App) orderDTO(o transport.Order, p *platform.Principal, events []transp
 		d.Delivery = &deliveryDTO{o.Delivery.CarNumber, o.Delivery.Time, o.Delivery.Destination, o.Delivery.Stops}
 	}
 	if o.Carriers != nil {
-		d.Carriers = &carriersDTO{o.Carriers.Count, o.Carriers.Time, o.Carriers.From, o.Carriers.CemeteryNumber, o.Carriers.Stops}
+		d.Carriers = &carriersDTO{o.Carriers.Count, o.Carriers.Time, o.Carriers.From, o.Carriers.CemeteryNumber, o.Carriers.Stops, o.Carriers.Bearers}
 	}
 	if p.Can(transport.Manage) {
 		d.NextStatuses = append(d.NextStatuses, transport.ManagerNext[o.Status]...)
@@ -242,8 +244,8 @@ func parseOrder(r *http.Request) (transport.Input, error) {
 	}
 	if c := body.Object("carriers"); c != nil {
 		n := c.Int("count", 1, false)
-		if n > 50 {
-			c.fail("count", "Input should be less than or equal to 50", "less_than_equal")
+		if !transport.ValidCrew(int(n)) {
+			c.fail("count", "Бригада виносу — 4 або 6 осіб", "value_error")
 		}
 		in.Carriers = &transport.Carriers{
 			Count:          int(n),
@@ -387,6 +389,65 @@ func (a *App) setTransportOrderStatus(w http.ResponseWriter, r *http.Request, p 
 		}
 		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено статус замовлення транспорту",
 			o.OrganisationName+" · "+o.Deceased+" → "+status)
+	})
+	if err != nil {
+		return err
+	}
+	o, err := a.loadOrder(r, a.Store.R, p, id)
+	if err != nil {
+		return err
+	}
+	events, err := transport.OrderEvents(r.Context(), a.Store.R, id)
+	if err != nil {
+		return err
+	}
+	writeJSON(w, http.StatusOK, a.orderDTO(o, p, events))
+	return nil
+}
+
+// setTransportBearers: the dispatcher names the men who will carry (at most the crew size ordered).
+func (a *App) setTransportBearers(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
+	pm := Query(r)
+	id := pm.PathInt("oid")
+	if err := pm.Err(); err != nil {
+		return err
+	}
+	body, err := ReadBody(r)
+	if err != nil {
+		return err
+	}
+	raw := body.StringList("names", 6)
+	if err := body.Err(); err != nil {
+		return err
+	}
+	names := make([]string, 0, len(raw))
+	for _, n := range raw {
+		n = strings.TrimSpace(n)
+		if c := utf8.RuneCountInString(n); c < 1 || c > 100 {
+			return FormError{"Кожне прізвище — від 1 до 100 символів."}
+		}
+		names = append(names, n)
+	}
+	ip, name := a.Trusted.ClientIP(r), displayName(p.User)
+	err = a.write(r.Context(), func(tx *sql.Tx) error {
+		o, err := a.loadOrder(r, tx, p, id)
+		if err != nil {
+			return err
+		}
+		if o.Carriers == nil {
+			return HTTPError{Status: 409, Detail: "У замовленні немає виносу."}
+		}
+		if o.Status == transport.Rejected || o.Status == transport.Cancelled {
+			return HTTPError{Status: 409, Detail: "Замовлення відхилено або скасовано."}
+		}
+		if len(names) > o.Carriers.Count {
+			return FormError{"Носіїв більше, ніж замовлено (" + itoa(o.Carriers.Count) + ")."}
+		}
+		if err := transport.SetBearers(r.Context(), tx, id, names, p.User.ID, name, a.now()); err != nil {
+			return err
+		}
+		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "призначено носіїв замовлення транспорту",
+			o.OrganisationName+" · "+o.Deceased+" · "+strings.Join(names, ", "))
 	})
 	if err != nil {
 		return err

@@ -18,6 +18,7 @@ export const transportApi = {
   create: (input: TransportOrderInputDTO) => api.post<TransportOrderDTO>("/api/v1/transport/orders", input),
   update: (id: number, input: TransportOrderInputDTO) => api.put<TransportOrderDTO>(`/api/v1/transport/orders/${id}`, input),
   cancel: (id: number) => api.post<TransportOrderDTO>(`/api/v1/transport/orders/${id}/cancel`, {}),
+  setBearers: (id: number, names: string[]) => api.put<TransportOrderDTO>(`/api/v1/transport/orders/${id}/bearers`, { names }),
   setStatus: (id: number, status: string, note: string) =>
     api.post<TransportOrderDTO>(`/api/v1/transport/orders/${id}/status`, { status, note }),
 };
