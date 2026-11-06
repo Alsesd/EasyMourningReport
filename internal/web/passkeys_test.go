@@ -153,7 +153,7 @@ func (e *env) passkeyLogin(t *testing.T, a *authenticator, flags byte, count uin
 
 func TestPasskeyRegisterAndSignInEndToEnd(t *testing.T) {
 	e := newEnv(t, nil)
-	session := sessionCookie(e.login("boss", "boss-pass"))
+	session := sessionCookie(e.login("boss", "Boss-pass1"))
 	a := newAuthenticator(t)
 	if w := e.registerPasskey(t, a, session, okFlag|flagAT); w.Code != 200 {
 		t.Fatalf("register: %d %s", w.Code, w.Body)
@@ -182,7 +182,7 @@ func TestPasskeyRegisterAndSignInEndToEnd(t *testing.T) {
 
 func TestPasskeyRejectsWeakOrForgedCeremonies(t *testing.T) {
 	e := newEnv(t, nil)
-	session := sessionCookie(e.login("boss", "boss-pass"))
+	session := sessionCookie(e.login("boss", "Boss-pass1"))
 	a := newAuthenticator(t)
 	if w := e.registerPasskey(t, a, session, flagUP|flagAT); w.Code != 400 {
 		t.Fatalf("a credential without user verification must be refused: %d", w.Code)
@@ -220,9 +220,9 @@ func TestPasskeyRejectsWeakOrForgedCeremonies(t *testing.T) {
 
 func TestPasskeysAreOwnedAndDeletable(t *testing.T) {
 	e := newEnv(t, nil)
-	seedBoss(t, e.st, "second", "second-pass")
-	boss := sessionCookie(e.login("boss", "boss-pass"))
-	second := sessionCookie(e.login("second", "second-pass"))
+	seedBoss(t, e.st, "second", "Second-pass1")
+	boss := sessionCookie(e.login("boss", "Boss-pass1"))
+	second := sessionCookie(e.login("second", "Second-pass1"))
 	if w := e.registerPasskey(t, newAuthenticator(t), boss, okFlag|flagAT); w.Code != 200 {
 		t.Fatal(w.Code, w.Body)
 	}
@@ -238,7 +238,7 @@ func TestPasskeysAreOwnedAndDeletable(t *testing.T) {
 
 func TestPasskeysNeedHTTPS(t *testing.T) {
 	e := newEnv(t, nil)
-	session := sessionCookie(e.login("boss", "boss-pass"))
+	session := sessionCookie(e.login("boss", "Boss-pass1"))
 	w := e.do("POST", "/api/v1/passkeys/options", "{}", map[string]string{"Origin": "http://testserver"}, session)
 	if w.Code != 400 {
 		t.Fatalf("plain http: %d", w.Code)
@@ -255,9 +255,9 @@ func TestCBORRejectsJunk(t *testing.T) {
 
 func TestDeletedUsersPasskeyCannotSignInAsSomeoneElse(t *testing.T) {
 	e := newEnv(t, nil)
-	seedBoss(t, e.st, "second", "second-pass")
-	boss := sessionCookie(e.login("boss", "boss-pass"))
-	second := sessionCookie(e.login("second", "second-pass"))
+	seedBoss(t, e.st, "second", "Second-pass1")
+	boss := sessionCookie(e.login("boss", "Boss-pass1"))
+	second := sessionCookie(e.login("second", "Second-pass1"))
 	a := newAuthenticator(t)
 	if w := e.registerPasskey(t, a, second, okFlag|flagAT); w.Code != 200 {
 		t.Fatal(w.Code, w.Body)

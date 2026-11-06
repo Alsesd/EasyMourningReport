@@ -31,7 +31,7 @@ cd frontend && npm ci && npm run build   # writes internal/assets/static/app/, w
 cd .. && go run ./cmd/server             # http://127.0.0.1:8000
 ```
 
-The server binds to `127.0.0.1:8000` by default; `HOST` and `PORT` override that. A first start creates `reports.db` and `secret.key` in the data folder (next to the executable when writable, else the per-user data folder; `LEGKYI_DATA_DIR` overrides) and prints the first administrator password once (`ADMIN_PASSWORD` sets it; `DEMO=1` also adds demo stores).
+The server binds to `127.0.0.1:8000` by default; `HOST` and `PORT` override that. A first start creates `reports.db` and `secret.key` in the data folder (next to the executable when writable, else the per-user data folder; `LEGKYI_DATA_DIR` overrides) and prints the first administrator password once (`ADMIN_PASSWORD` sets it; `DEMO=1` also adds demo divisions). A new database contains only that administrator: no divisions, no other roles, no data; passwords need 8+ characters with small and capital letters and a digit.
 
 Backend tests (use these package paths, `./...` would descend into `node_modules`):
 
@@ -75,7 +75,7 @@ On start it opens the database, takes a backup, starts the web server on `http:/
 `.env` next to the exe (Notepad is fine: UTF-8, UTF-8 with BOM, UTF-16 and Windows line endings are all read):
 
 ```env
-ADMIN_PASSWORD=choose-a-password
+ADMIN_PASSWORD=Choose-a-pass1
 TUNNEL_TOKEN=eyJ...            # your Cloudflare named-tunnel token: a stable public address
 PUBLIC_URL=https://zvit.example.com
 PORT=8000
@@ -105,7 +105,7 @@ One command builds both parts (web UI, then the Go program with the UI and cloud
 bash scripts/build.sh      # -> dist/legkyi (one file)
 ```
 
-It needs `go` 1.26+, `node`/`npm` 22+ and `curl`. In Termux: `pkg install git golang nodejs`, clone the repo, run the script, then `ADMIN_PASSWORD=choose-a-password ./dist/legkyi` and open `http://127.0.0.1:8000`. The script detects Android/Termux and ARM, and warns if your Go is older than the pinned patch release (the build still works; run `pkg upgrade golang` to get the newest fixes). `bash scripts/build_go.sh` is the release build for all platforms (Windows x64, Linux x64, Linux ARM64).
+It needs `go` 1.26+, `node`/`npm` 22+ and `curl`. In Termux: `pkg install git golang nodejs`, clone the repo, run the script, then `ADMIN_PASSWORD=Choose-a-pass1 ./dist/legkyi` and open `http://127.0.0.1:8000`. The script detects Android/Termux and ARM, and warns if your Go is older than the pinned patch release (the build still works; run `pkg upgrade golang` to get the newest fixes). `bash scripts/build_go.sh` is the release build for all platforms (Windows x64, Linux x64, Linux ARM64).
 
 ## Android (Termux), prebuilt
 
@@ -113,7 +113,7 @@ Download `legkyi-linux-arm64` from the latest release, then:
 
 ```bash
 chmod +x legkyi-linux-arm64
-ADMIN_PASSWORD=choose-a-password ./legkyi-linux-arm64
+ADMIN_PASSWORD=Choose-a-pass1 ./legkyi-linux-arm64
 ```
 
 cloudflared is inside the file, but that copy is a generic Linux build and **cannot look up DNS on Android** (Termux has no `/etc/resolv.conf`), so the tunnel fails with `lookup ... on [::1]:53: connection refused`. On Termux install the Android build once and the program picks it up automatically (it is preferred over the bundled copy), for the temporary address and for `TUNNEL_TOKEN` alike:

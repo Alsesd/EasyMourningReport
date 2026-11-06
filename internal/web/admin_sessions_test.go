@@ -32,8 +32,8 @@ func TestAdminSeesEveryEmployeesDevicesAndCanEndThem(t *testing.T) {
 	e := d.e
 	const chromeWin = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36"
 	const safariIOS = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile Safari/604.1"
-	pc := sessionCookie(e.loginAs("desk_a", "desk-a-pass", chromeWin, "198.51.100.10:1"))
-	phone := sessionCookie(e.loginAs("desk_a", "desk-a-pass", safariIOS, "198.51.100.11:1"))
+	pc := sessionCookie(e.loginAs("desk_a", "Desk-a-pass1", chromeWin, "198.51.100.10:1"))
+	phone := sessionCookie(e.loginAs("desk_a", "Desk-a-pass1", safariIOS, "198.51.100.11:1"))
 
 	var rows []sessionRow
 	w := e.do("GET", "/api/v1/admin/sessions", "", nil, d.boss)

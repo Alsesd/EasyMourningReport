@@ -63,13 +63,13 @@ func newDesks(t *testing.T) *desks {
 			d.orgB = id
 		}
 	}
-	e.addUser("desk_a", "Оксана Мельник", "desk-a-pass", &d.orgA, "organisation", "transport.orders.create")
-	e.addUser("desk_b", "", "desk-b-pass", &d.orgB, "organisation", "transport.orders.create")
-	e.addUser("viewer", "", "viewer-pass", nil, "platform", "transport.orders.view_all")
-	d.a = sessionCookie(e.login("desk_a", "desk-a-pass"))
-	d.b = sessionCookie(e.login("desk_b", "desk-b-pass"))
-	d.view = sessionCookie(e.login("viewer", "viewer-pass"))
-	d.boss = sessionCookie(e.login("boss", "boss-pass"))
+	e.addUser("desk_a", "Оксана Мельник", "Desk-a-pass1", &d.orgA, "organisation", "transport.orders.create")
+	e.addUser("desk_b", "", "Desk-b-pass1", &d.orgB, "organisation", "transport.orders.create")
+	e.addUser("viewer", "", "Viewer-pass1", nil, "platform", "transport.orders.view_all")
+	d.a = sessionCookie(e.login("desk_a", "Desk-a-pass1"))
+	d.b = sessionCookie(e.login("desk_b", "Desk-b-pass1"))
+	d.view = sessionCookie(e.login("viewer", "Viewer-pass1"))
+	d.boss = sessionCookie(e.login("boss", "Boss-pass1"))
 	return &d
 }
 

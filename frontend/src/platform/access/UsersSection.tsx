@@ -13,7 +13,7 @@ import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { useConfirm } from "@/ui/ConfirmDialog";
 import { KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import type { AdminSectionProps } from "@/platform/modules";
-import { MIN_PASSWORD_LENGTH } from "@/platform/passwordPolicy";
+import { MIN_PASSWORD_LENGTH, PASSWORD_RULE, isAcceptablePassword } from "@/platform/passwordPolicy";
 
 const PLATFORM = "platform";
 
@@ -109,8 +109,10 @@ function UserForm({
               minLength={MIN_PASSWORD_LENGTH}
               required
               autoComplete="new-password"
+              aria-describedby={`${idPrefix}-password-rule`}
               className="h-11"
             />
+            <p id={`${idPrefix}-password-rule`} className="text-xs text-text-muted">{PASSWORD_RULE}</p>
           </div>
         )}
         {platformManager && (
@@ -204,7 +206,7 @@ function PasswordReset({ user, notify }: { user: UserDTO; notify: AdminSectionPr
       className="flex flex-col sm:flex-row gap-2 sm:items-end"
       onSubmit={(e) => {
         e.preventDefault();
-        if (password.length >= MIN_PASSWORD_LENGTH) reset.mutate();
+        if (isAcceptablePassword(password)) reset.mutate();
       }}
     >
       <div className="flex-1 space-y-1.5">
@@ -214,12 +216,14 @@ function PasswordReset({ user, notify }: { user: UserDTO; notify: AdminSectionPr
           type="password"
           autoComplete="new-password"
           minLength={MIN_PASSWORD_LENGTH}
+          aria-describedby={`reset-${user.id}-rule`}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="h-11"
         />
+        <p id={`reset-${user.id}-rule`} className="text-xs text-text-muted">{PASSWORD_RULE}</p>
       </div>
-      <Button type="submit" variant="outline" className="min-h-[44px]" disabled={password.length < MIN_PASSWORD_LENGTH || reset.isPending}>
+      <Button type="submit" variant="outline" className="min-h-[44px]" disabled={!isAcceptablePassword(password) || reset.isPending}>
         <KeyRound className="h-4 w-4 mr-1.5" />
         {uk.access.resetPasswordButton}
       </Button>

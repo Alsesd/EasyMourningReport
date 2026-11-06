@@ -62,11 +62,11 @@ func TestHashFormatAndMalformed(t *testing.T) {
 }
 
 func TestLegacyHashesStillVerifyAndAreFlagged(t *testing.T) {
-	h, err := LegacyHashPassword("old-pass", nil)
+	h, err := LegacyHashPassword("Old-pass1", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !CheckPassword("old-pass", h) || CheckPassword("new-pass", h) {
+	if !CheckPassword("Old-pass1", h) || CheckPassword("New-pass1", h) {
 		t.Fatal("legacy verify failed")
 	}
 	if !NeedsRehash(h) || !NeedsRehash("garbage") {

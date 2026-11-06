@@ -22,7 +22,7 @@ def run_tests():
 
     env = os.environ.copy()
     env["LEGKYI_DATA_DIR"] = test_dir
-    env["ADMIN_PASSWORD"] = "admin123"
+    env["ADMIN_PASSWORD"] = "Admin123pass"
     env["DEMO"] = "1"
     env["AUTO_UPDATE"] = "0"  # a stamped CI build must never update itself during a test
     env["COOKIE_SECURE"] = "0"
@@ -76,7 +76,7 @@ def run_tests():
 
             # Fill login form
             page.fill('#login-username', "store1")
-            page.fill('#login-password', "store1")
+            page.fill('#login-password', "Store1-demo")
             page.click('button[type="submit"]')
 
             # Wait for navigation to /report
@@ -164,7 +164,7 @@ def run_tests():
             admin_page.goto("http://127.0.0.1:8888/login")
             admin_page.wait_for_load_state("networkidle")
             admin_page.fill('#login-username', "admin")
-            admin_page.fill('#login-password', "admin123")
+            admin_page.fill('#login-password', "Admin123pass")
             admin_page.click('button[type="submit"]')
 
             admin_page.wait_for_url("**/admin/**", timeout=5000)

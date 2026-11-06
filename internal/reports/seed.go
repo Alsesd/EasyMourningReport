@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"legkyi/internal/platform"
@@ -25,8 +26,19 @@ func SeedDemo(ctx context.Context, tx *sql.Tx, now time.Time) error {
 			return err
 		}
 	}
+	// A new installation has no division roles; the demo brings one with the permission to fill in reports.
 	var role int64
-	if err := tx.QueryRowContext(ctx, `SELECT id FROM roles WHERE "key" = 'store'`).Scan(&role); err != nil {
+	err := tx.QueryRowContext(ctx, `SELECT id FROM roles WHERE "key" = 'store'`).Scan(&role)
+	if err == sql.ErrNoRows {
+		res, err := tx.ExecContext(ctx, `INSERT INTO roles ("key", name, scope) VALUES ('store', 'Підрозділ (демо)', 'organisation')`)
+		if err != nil {
+			return err
+		}
+		role, _ = res.LastInsertId()
+		if _, err := tx.ExecContext(ctx, "INSERT INTO role_permissions (role_id, permission) VALUES (?, ?)", role, Submit); err != nil {
+			return err
+		}
+	} else if err != nil {
 		return err
 	}
 	for n := 1; n <= 2; n++ {
@@ -36,7 +48,7 @@ func SeedDemo(ctx context.Context, tx *sql.Tx, now time.Time) error {
 		}
 		org, _ := res.LastInsertId()
 		login := fmt.Sprintf("store%d", n)
-		hash, err := platform.HashPassword(login, nil)
+		hash, err := platform.HashPassword(strings.ToUpper(login[:1])+login[1:]+"-demo", nil) // e.g. Store1-demo
 		if err != nil {
 			return err
 		}

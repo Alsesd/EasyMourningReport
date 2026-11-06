@@ -27,7 +27,7 @@ func (e *env) userID(login string) int64 {
 
 func TestLogoutRevokesTheCookieEvenIfReplayed(t *testing.T) {
 	e := newEnv(t, nil)
-	c := sessionCookie(e.login("boss", "boss-pass"))
+	c := sessionCookie(e.login("boss", "Boss-pass1"))
 	if e.status(c) != 200 {
 		t.Fatal("fresh session must work")
 	}
@@ -39,9 +39,9 @@ func TestLogoutRevokesTheCookieEvenIfReplayed(t *testing.T) {
 
 func TestOwnPasswordChangeEndsOtherDevices(t *testing.T) {
 	e := newEnv(t, nil)
-	phone := sessionCookie(e.login("boss", "boss-pass"))
-	laptop := sessionCookie(e.login("boss", "boss-pass"))
-	changed := e.do("PUT", "/api/v1/me/password", `{"password":"another-pass"}`, nil, laptop)
+	phone := sessionCookie(e.login("boss", "Boss-pass1"))
+	laptop := sessionCookie(e.login("boss", "Boss-pass1"))
+	changed := e.do("PUT", "/api/v1/me/password", `{"password":"Another-pass1"}`, nil, laptop)
 	if changed.Code != 200 {
 		t.Fatalf("password change: %d", changed.Code)
 	}
@@ -55,15 +55,15 @@ func TestOwnPasswordChangeEndsOtherDevices(t *testing.T) {
 
 func TestAdminPasswordResetAndDisableSignTheUserOut(t *testing.T) {
 	e := newEnv(t, nil)
-	seedBoss(t, e.st, "second", "second-pass")
-	boss := sessionCookie(e.login("boss", "boss-pass"))
-	second := sessionCookie(e.login("second", "second-pass"))
+	seedBoss(t, e.st, "second", "Second-pass1")
+	boss := sessionCookie(e.login("boss", "Boss-pass1"))
+	second := sessionCookie(e.login("second", "Second-pass1"))
 	id := e.userID("second")
 	if w := e.registerPasskey(t, newAuthenticator(t), second, okFlag|flagAT); w.Code != 200 {
 		t.Fatal(w.Code, w.Body)
 	}
 
-	reset := e.do("PUT", fmt.Sprintf("/api/v1/users/%d/password", id), `{"password":"brand-new-pass"}`, nil, boss)
+	reset := e.do("PUT", fmt.Sprintf("/api/v1/users/%d/password", id), `{"password":"Brand-new-pass1"}`, nil, boss)
 	if reset.Code != 200 {
 		t.Fatalf("reset: %d %s", reset.Code, reset.Body)
 	}
@@ -77,7 +77,7 @@ func TestAdminPasswordResetAndDisableSignTheUserOut(t *testing.T) {
 		t.Fatal("a reset must remove the user's passkeys")
 	}
 
-	again := sessionCookie(e.login("second", "brand-new-pass"))
+	again := sessionCookie(e.login("second", "Brand-new-pass1"))
 	if e.status(again) != 200 {
 		t.Fatal("the new password works")
 	}
@@ -109,7 +109,7 @@ func (e *env) roleIDs(login string) []int64 {
 
 func TestSessionSurvivesRestartAndExpires(t *testing.T) {
 	e := newEnv(t, nil)
-	c := sessionCookie(e.login("boss", "boss-pass"))
+	c := sessionCookie(e.login("boss", "Boss-pass1"))
 	// A new handler on the same database and secret (an app restart) still knows the session.
 	restarted := New(Deps{Store: e.st, Assets: testAssets(), Registry: registry.Installed(), Secret: []byte("s"), Now: func() time.Time { return e.now }, Limiter: e.lim})
 	req := httptest.NewRequest("GET", "/api/v1/session", nil)
@@ -131,7 +131,7 @@ func TestSessionSurvivesRestartAndExpires(t *testing.T) {
 
 func TestOnlyAHashOfTheTokenIsStored(t *testing.T) {
 	e := newEnv(t, nil)
-	c := sessionCookie(e.login("boss", "boss-pass"))
+	c := sessionCookie(e.login("boss", "Boss-pass1"))
 	token := strings.Split(c.Value, ".")[0]
 	var stored string
 	if err := e.st.R.QueryRow("SELECT token_hash FROM user_sessions").Scan(&stored); err != nil {
@@ -144,7 +144,7 @@ func TestOnlyAHashOfTheTokenIsStored(t *testing.T) {
 
 func TestLegacyHashIsUpgradedOnSuccessfulLoginOnly(t *testing.T) {
 	e := newEnv(t, nil)
-	legacy, err := platform.LegacyHashPassword("boss-pass", nil)
+	legacy, err := platform.LegacyHashPassword("Boss-pass1", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,25 +159,46 @@ func TestLegacyHashIsUpgradedOnSuccessfulLoginOnly(t *testing.T) {
 	if e.login("boss", "wrong-password").Code != 401 || stored() != legacy {
 		t.Fatal("a failed login must not touch the stored hash")
 	}
-	if e.login("boss", "boss-pass").Code != 200 {
+	if e.login("boss", "Boss-pass1").Code != 200 {
 		t.Fatal("a legacy hash must still sign in")
 	}
 	if h := stored(); h == legacy || !strings.HasPrefix(h, "pbkdf2_sha256$600000$") {
 		t.Fatalf("hash was not upgraded: %q", h)
 	}
-	if e.login("boss", "boss-pass").Code != 200 {
+	if e.login("boss", "Boss-pass1").Code != 200 {
 		t.Fatal("the upgraded hash must verify")
 	}
 }
 
-func TestNewPasswordsNeedTenCharacters(t *testing.T) {
+func TestNewPasswordsFollowThePolicy(t *testing.T) {
 	e := newEnv(t, nil)
-	c := sessionCookie(e.login("boss", "boss-pass"))
-	if w := e.do("PUT", "/api/v1/me/password", `{"password":"123456789"}`, nil, c); w.Code != 422 {
-		t.Fatalf("9 characters: %d", w.Code)
+	c := sessionCookie(e.login("boss", "Boss-pass1"))
+	for pw, name := range map[string]string{
+		"Abcde1":   "too short",
+		"abcdefg1": "no capital",
+		"ABCDEFG1": "no small letter",
+		"Abcdefgh": "no digit",
+	} {
+		w := e.do("PUT", "/api/v1/me/password", `{"password":"`+pw+`"}`, nil, c)
+		if w.Code != 422 {
+			t.Fatalf("%s (%q): %d", name, pw, w.Code)
+		}
 	}
-	if w := e.do("PUT", "/api/v1/me/password", `{"password":"1234567890"}`, nil, c); w.Code != 200 {
-		t.Fatalf("10 characters: %d", w.Code)
+	// Exactly 8 characters with all three kinds is enough; Cyrillic counts as letters.
+	if w := e.do("PUT", "/api/v1/me/password", `{"password":"Abcdef12"}`, nil, c); w.Code != 200 {
+		t.Fatalf("8 characters: %d %s", w.Code, w.Body)
+	}
+	c = sessionCookie(e.login("boss", "Abcdef12"))
+	if w := e.do("PUT", "/api/v1/me/password", `{"password":"Пароль123"}`, nil, c); w.Code != 200 {
+		t.Fatalf("Cyrillic: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestExistingWeakPasswordsStillSignIn(t *testing.T) {
+	e := newEnv(t, nil)
+	seedBoss(t, e.st, "old", "weakpass") // a password from before the policy
+	if w := e.login("old", "weakpass"); w.Code != 200 {
+		t.Fatalf("sign-in must not enforce the policy on existing passwords: %d", w.Code)
 	}
 }
 
@@ -192,7 +213,7 @@ func deviceOf(w *httptest.ResponseRecorder) *http.Cookie {
 
 func TestSessionCookieWithoutItsDeviceTokenGetsNoAnswerAndIsRevoked(t *testing.T) {
 	e := newEnv(t, nil)
-	login := e.login("boss", "boss-pass")
+	login := e.login("boss", "Boss-pass1")
 	session, device := sessionCookie(login), deviceOf(login)
 	if device == nil || !device.HttpOnly || device.MaxAge != 604800 {
 		t.Fatalf("login must issue the device cookie: %+v", device)
@@ -214,7 +235,7 @@ func TestSessionCookieWithoutItsDeviceTokenGetsNoAnswerAndIsRevoked(t *testing.T
 
 func TestDeviceTokenOfAnotherSessionIsRejected(t *testing.T) {
 	e := newEnv(t, nil)
-	a, b := e.login("boss", "boss-pass"), e.login("boss", "boss-pass")
+	a, b := e.login("boss", "Boss-pass1"), e.login("boss", "Boss-pass1")
 	if !e.dropped("GET", "/api/v1/session", sessionCookie(a), deviceOf(b)) {
 		t.Fatal("a device token issued to another session must be ignored")
 	}
@@ -222,7 +243,7 @@ func TestDeviceTokenOfAnotherSessionIsRejected(t *testing.T) {
 
 func TestDeviceTokenRollsAndTheOldOneDiesAfterTheGrace(t *testing.T) {
 	e := newEnv(t, nil)
-	login := e.login("boss", "boss-pass")
+	login := e.login("boss", "Boss-pass1")
 	session, first := sessionCookie(login), deviceOf(login)
 
 	if w := e.do("GET", "/api/v1/session", "", nil, session, first); w.Code != 200 || deviceOf(w) != nil {
@@ -250,7 +271,7 @@ func TestDeviceTokenRollsAndTheOldOneDiesAfterTheGrace(t *testing.T) {
 
 func TestLostRotationResponseIsReissued(t *testing.T) {
 	e := newEnv(t, nil)
-	login := e.login("boss", "boss-pass")
+	login := e.login("boss", "Boss-pass1")
 	session, first := sessionCookie(login), deviceOf(login)
 	e.now = e.now.Add(deviceRotateEvery + time.Second)
 	e.do("GET", "/api/v1/session", "", nil, session, first) // the response with the new cookie never reached the browser
@@ -263,7 +284,7 @@ func TestLostRotationResponseIsReissued(t *testing.T) {
 
 func TestSessionWithoutDeviceRowFromBeforeThisReleaseIsInvalid(t *testing.T) {
 	e := newEnv(t, nil)
-	c := sessionCookie(e.login("boss", "boss-pass"))
+	c := sessionCookie(e.login("boss", "Boss-pass1"))
 	e.st.W.Exec("DELETE FROM session_devices")
 	if got := e.do("GET", "/api/v1/session", "", nil, &http.Cookie{Name: c.Name, Value: c.Value}).Code; got != 401 {
 		t.Fatalf("got %d, want 401", got)

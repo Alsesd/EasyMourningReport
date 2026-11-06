@@ -48,11 +48,11 @@ describe("AccountMenu", () => {
     await user.click(screen.getByRole("menuitem", { name: "Змінити пароль" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Зміна власного пароля" });
-    await user.type(screen.getByLabelText("Новий пароль"), "new-secret");
+    await user.type(screen.getByLabelText("Новий пароль"), "New-secret1");
     await user.click(screen.getByRole("button", { name: "Змінити пароль" }));
     expect(await screen.findByText("Ваш пароль змінено.")).toBeDefined();
     const put = vi.mocked(globalThis.fetch).mock.calls.find(([, init]) => init?.method === "PUT");
-    expect(JSON.parse(put?.[1]?.body as string)).toEqual({ password: "new-secret" });
+    expect(JSON.parse(put?.[1]?.body as string)).toEqual({ password: "New-secret1" });
 
     await user.keyboard("{Escape}");
     await waitFor(() => expect(dialog.isConnected).toBe(false));

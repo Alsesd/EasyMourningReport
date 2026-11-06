@@ -2,7 +2,6 @@
  * Ukrainian strings and formatting helpers shared by the platform and every module.
  * Modules extend this dictionary with their own strings (see modules/reports/i18n.ts).
  */
-import { MIN_PASSWORD_LENGTH } from "@/platform/passwordPolicy";
 
 export const ukPlatform = {
   appTitle: "Легкий звіт",
@@ -103,10 +102,9 @@ export const ukPlatform = {
     changePassword: "Змінити пароль",
     platformStaff: "Працівник платформи",
     title: "Зміна власного пароля",
-    description: "Введіть новий надійний пароль для свого облікового запису (мінімум 10 символів).",
+    description: "Введіть новий надійний пароль для свого облікового запису (мінімум 8 символів, малі й великі літери та цифри).",
     newPassword: "Новий пароль",
     placeholder: "Введіть новий пароль",
-    minChars: "Мінімум 10 символів",
     changeButton: "Змінити пароль",
     changed: "Ваш пароль змінено.",
     passkeys: "Біометрія та ключі доступу",
@@ -252,7 +250,7 @@ export const ukPlatform = {
     moveExistingHint: "Обліковий запис переходить із поточної організації. Ролі, що діяли лише там, замінюються роллю за замовчуванням.",
     noOtherEmployees: "В інших організаціях немає працівників.",
     employeeLoginShort: "Логін працівника має містити щонайменше 2 символи.",
-    employeePasswordShort: `Пароль працівника має містити щонайменше ${MIN_PASSWORD_LENGTH} символів.`,
+    employeePasswordShort: "Пароль працівника: щонайменше 8 символів, малі й великі літери та цифри.",
     employeeDuplicate: (login: string) => `Логін «${login}» повторюється.`,
     organisationCreated: (name: string, created: number, moved: number) => {
       const parts: string[] = [];

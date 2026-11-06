@@ -2,9 +2,7 @@ package platform
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"sort"
@@ -79,11 +77,27 @@ func CreateUser(tx *sql.Tx, login, passwordHash string, orgID *int64, now time.T
 	return uid, nil
 }
 
-// Seed ensures the built-in roles exist and, on an empty users table, creates the first admin.
-// The password banner goes to out only when an admin is created. With DEMO set, the module
-// demo hooks run in the same transaction.
-func Seed(tx *sql.Tx, grants map[string][]string, getenv func(string) string, out io.Writer, now time.Time, demo ...func(context.Context, *sql.Tx, time.Time) error) error {
-	roleIDs, err := EnsureBuiltInRoles(tx, grants)
+// EnsureAdminRole creates the platform administrator role when it is missing and returns its id. It is the
+// only role a new installation starts with: division roles are made by the administrator in the role editor.
+func EnsureAdminRole(tx *sql.Tx) (int64, error) {
+	var id int64
+	err := tx.QueryRow(`SELECT id FROM roles WHERE "key" = ?`, "platform_admin").Scan(&id)
+	if err == sql.ErrNoRows {
+		res, err := tx.Exec(`INSERT INTO roles ("key", name, scope) VALUES (?, ?, ?)`, "platform_admin", BuiltInRoles[0].Name, BuiltInRoles[0].Scope)
+		if err != nil {
+			return 0, err
+		}
+		return res.LastInsertId()
+	}
+	return id, err
+}
+
+// Seed makes sure the administrator role exists and, on an empty users table, creates the first admin and
+// nothing else: no divisions, no other roles, no data. The password banner goes to out only when an admin is
+// created. With DEMO set, the module demo hooks run in the same transaction. ADMIN_PASSWORD must satisfy the
+// password rules; without it a compliant random password is generated.
+func Seed(tx *sql.Tx, getenv func(string) string, out io.Writer, now time.Time, demo ...func(context.Context, *sql.Tx, time.Time) error) error {
+	adminRole, err := EnsureAdminRole(tx)
 	if err != nil {
 		return err
 	}
@@ -96,17 +110,17 @@ func Seed(tx *sql.Tx, grants map[string][]string, getenv func(string) string, ou
 	}
 	pw := getenv("ADMIN_PASSWORD")
 	if pw == "" {
-		b := make([]byte, 9)
-		if _, err := rand.Read(b); err != nil {
+		if pw, err = GeneratePassword(); err != nil {
 			return err
 		}
-		pw = base64.RawURLEncoding.EncodeToString(b)
+	} else if problem := PasswordProblem(pw); problem != "" {
+		return fmt.Errorf("ADMIN_PASSWORD не підходить: %s", problem)
 	}
 	hash, err := HashPassword(pw, nil)
 	if err != nil {
 		return err
 	}
-	if _, err := CreateUser(tx, "admin", hash, nil, now, roleIDs["platform_admin"]); err != nil {
+	if _, err := CreateUser(tx, "admin", hash, nil, now, adminRole); err != nil {
 		return err
 	}
 	if demoEnabled(getenv("DEMO")) {

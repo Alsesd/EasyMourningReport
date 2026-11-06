@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -33,7 +34,7 @@ func TestDemoSeedLogins(t *testing.T) {
 	e := newEnv(t, nil)
 	seedDemo(t, e)
 	for _, l := range []string{"store1", "store2"} {
-		s := e.as(l, l)
+		s := e.as(l, strings.ToUpper(l[:1])+l[1:]+"-demo")
 		if r := s.json("GET", "/api/v1/store/reports/2026-11", "", 200); r["status"] != "new" {
 			t.Fatalf("%s: %v", l, r)
 		}
@@ -52,7 +53,7 @@ func TestConcurrentSavesAndReads(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			login := fmt.Sprintf("store%d", i%2+1)
-			w := e.login(login, login)
+			w := e.login(login, strings.ToUpper(login[:1])+login[1:]+"-demo")
 			c := sessionCookie(w)
 			if c == nil {
 				note(fmt.Sprintf("login %d: %d", i, w.Code))
@@ -76,7 +77,7 @@ func TestConcurrentSavesAndReads(t *testing.T) {
 func TestStoreScope(t *testing.T) {
 	e := newEnv(t, nil)
 	seedDemo(t, e)
-	s1, s2 := e.as("store1", "store1"), e.as("store2", "store2")
+	s1, s2 := e.as("store1", "Store1-demo"), e.as("store2", "Store2-demo")
 	s1.json("PUT", "/api/v1/store/reports/2026-11", `{"action":"draft","quantities":[{"product_id":1,"price_cents":250,"quantity":3}]}`, 200)
 	if r := s2.json("GET", "/api/v1/store/reports/2026-11", "", 200); r["status"] != "new" || r["store_name"] != "Магазин 2" {
 		t.Fatalf("store2 sees %v", r)
@@ -89,7 +90,7 @@ func TestStoreScope(t *testing.T) {
 			t.Fatalf("%s: %d", p, r.Code)
 		}
 	}
-	boss := e.as("boss", "boss-pass")
+	boss := e.as("boss", "Boss-pass1")
 	if r := boss.do("PUT", "/api/v1/store/reports/2026-11", `{"action":"draft","quantities":[]}`); r.Code != http.StatusForbidden {
 		t.Fatalf("platform admin must not use store endpoints: %d", r.Code)
 	}
@@ -100,7 +101,7 @@ func TestSettingsOrderUkrainian(t *testing.T) {
 	for _, n := range []string{"Ґанок", "Їжак", "Іва", "Євген", "абетка", "Яр"} {
 		e.st.W.Exec("INSERT INTO organisations (name, archived) VALUES (?, 0)", n)
 	}
-	boss := e.as("boss", "boss-pass")
+	boss := e.as("boss", "Boss-pass1")
 	w := boss.do("GET", "/api/v1/reports/settings", "")
 	if w.Code != 200 {
 		t.Fatal(w.Code)
@@ -131,7 +132,7 @@ func TestBeforeDeleteBackupHoldsDeletedRows(t *testing.T) {
 		d.Backups = bk
 	})
 	seedDemo(t, e)
-	boss := e.as("boss", "boss-pass")
+	boss := e.as("boss", "Boss-pass1")
 	boss.json("DELETE", "/api/v1/admin/products/3", "", 200)
 	if n := count(e, "SELECT COUNT(*) FROM products WHERE id = 3"); n != 0 {
 		t.Fatal("product not deleted")

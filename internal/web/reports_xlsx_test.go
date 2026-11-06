@@ -22,7 +22,7 @@ func (e *env) upload(s session, field, filename string, content []byte) *httptes
 func TestImportEndpoint(t *testing.T) {
 	e := newEnv(t, nil)
 	seedDemo(t, e)
-	boss := e.as("boss", "boss-pass")
+	boss := e.as("boss", "Boss-pass1")
 	good, err := os.ReadFile("../../testdata/reports/xlsx/plain_header_en.xlsx")
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +76,7 @@ func TestImportEndpoint(t *testing.T) {
 		t.Fatal("a rejected import must not create products")
 	}
 	// Store users cannot import or export.
-	s1 := e.as("store1", "store1")
+	s1 := e.as("store1", "Store1-demo")
 	if w := e.upload(s1, "file", "ok.xlsx", good); w.Code != 403 {
 		t.Fatalf("store import: %d", w.Code)
 	}
@@ -88,9 +88,9 @@ func TestImportEndpoint(t *testing.T) {
 func TestExportEndpoint(t *testing.T) {
 	e := newEnv(t, nil)
 	seedDemo(t, e)
-	s1 := e.as("store1", "store1")
+	s1 := e.as("store1", "Store1-demo")
 	s1.json("PUT", "/api/v1/store/reports/2026-11", `{"action":"submit","quantities":[{"product_id":1,"price_cents":250,"quantity":4}]}`, 200)
-	boss := e.as("boss", "boss-pass")
+	boss := e.as("boss", "Boss-pass1")
 	w := boss.do("GET", "/api/v1/admin/summary.xlsx?period=2026-11&submitted_only=true", "")
 	if w.Code != 200 || w.Header().Get("Content-Type") != xlsxType {
 		t.Fatalf("%d %s", w.Code, w.Header().Get("Content-Type"))

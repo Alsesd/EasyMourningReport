@@ -27,7 +27,7 @@ type env struct {
 func newEnv(t *testing.T, mut func(*Deps)) *env {
 	t.Helper()
 	st := newContractStore(t, "")
-	seedBoss(t, st, "boss", "boss-pass")
+	seedBoss(t, st, "boss", "Boss-pass1")
 	e := &env{t: t, st: st, now: time.Date(2026, 11, 6, 10, 0, 0, 0, time.UTC)}
 	e.lim = NewLoginLimiter()
 	e.lim.Now = func() time.Time { return e.now }
@@ -150,7 +150,7 @@ func TestSignerRoundTripTamperForeign(t *testing.T) {
 
 func TestLoginSetsCookieAndSessionWorks(t *testing.T) {
 	e := newEnv(t, nil)
-	w := e.login("  BOSS ", "boss-pass") // logins are trimmed and case-insensitive
+	w := e.login("  BOSS ", "Boss-pass1") // logins are trimmed and case-insensitive
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -169,14 +169,14 @@ func TestLoginSetsCookieAndSessionWorks(t *testing.T) {
 
 func TestCookieSecureFlagFollowsConfig(t *testing.T) {
 	e := newEnv(t, func(d *Deps) { d.CookieSecure = true })
-	if c := sessionCookie(e.login("boss", "boss-pass")); c == nil || !c.Secure {
+	if c := sessionCookie(e.login("boss", "Boss-pass1")); c == nil || !c.Secure {
 		t.Fatalf("%+v", c)
 	}
 }
 
 func TestLogoutClearsCookieOnlyWhenThereWasOne(t *testing.T) {
 	e := newEnv(t, nil)
-	c := sessionCookie(e.login("boss", "boss-pass"))
+	c := sessionCookie(e.login("boss", "Boss-pass1"))
 	w := e.do("POST", "/api/v1/auth/logout", "", nil, c)
 	out := sessionCookie(w)
 	if w.Code != 200 || out == nil || out.MaxAge >= 0 {
@@ -189,7 +189,7 @@ func TestLogoutClearsCookieOnlyWhenThereWasOne(t *testing.T) {
 
 func TestCSRFGuard(t *testing.T) {
 	e := newEnv(t, nil)
-	body := `{"login":"boss","password":"boss-pass"}`
+	body := `{"login":"boss","password":"Boss-pass1"}`
 	w := e.do("POST", "/api/v1/auth/login", body, map[string]string{"Origin": ""})
 	if w.Code != 403 || w.Body.String() != "Відхилено запит без перевірки джерела." {
 		t.Fatalf("%d %q", w.Code, w.Body.String())
@@ -220,7 +220,7 @@ func TestRateLimit429(t *testing.T) {
 			t.Fatal(i, w.Code)
 		}
 	}
-	w := e.login("boss", "boss-pass") // correct password is refused while throttled
+	w := e.login("boss", "Boss-pass1") // correct password is refused while throttled
 	if w.Code != 429 || w.Header().Get("Cache-Control") != "no-store" || w.Header().Get("Retry-After") != "901" {
 		t.Fatalf("%d %v", w.Code, w.Header())
 	}
@@ -228,14 +228,14 @@ func TestRateLimit429(t *testing.T) {
 		t.Fatal(w.Body.String())
 	}
 	e.now = e.now.Add(15*time.Minute + time.Second)
-	if w := e.login("boss", "boss-pass"); w.Code != 200 {
+	if w := e.login("boss", "Boss-pass1"); w.Code != 200 {
 		t.Fatalf("window expiry: %d", w.Code)
 	}
 	// Success clears the pair counter.
 	for i := 0; i < 4; i++ {
 		e.login("boss", "bad")
 	}
-	e.login("boss", "boss-pass")
+	e.login("boss", "Boss-pass1")
 	for i := 0; i < 4; i++ {
 		if w := e.login("boss", "bad"); w.Code != 401 {
 			t.Fatalf("pair counter not cleared: %d", w.Code)
@@ -294,7 +294,7 @@ func TestSpoofedXFFDoesNotBypassRateLimit(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		e.do("POST", "/api/v1/auth/login", `{"login":"boss","password":"bad"}`, map[string]string{"X-Forwarded-For": "9.9.9." + string(rune('0'+i))})
 	}
-	w := e.do("POST", "/api/v1/auth/login", `{"login":"boss","password":"boss-pass"}`, map[string]string{"X-Forwarded-For": "9.9.9.99"})
+	w := e.do("POST", "/api/v1/auth/login", `{"login":"boss","password":"Boss-pass1"}`, map[string]string{"X-Forwarded-For": "9.9.9.99"})
 	if w.Code != 429 {
 		t.Fatalf("spoofed XFF bypassed the limit: %d", w.Code)
 	}
@@ -321,8 +321,8 @@ func TestAuditRowsText(t *testing.T) {
 	e := newEnv(t, nil)
 	e.login("Ghost ", "x")
 	e.login("boss", "bad")
-	c := sessionCookie(e.login("boss", "boss-pass"))
-	changed := e.do("PUT", "/api/v1/me/password", `{"password":"another-pass"}`, nil, c)
+	c := sessionCookie(e.login("boss", "Boss-pass1"))
+	changed := e.do("PUT", "/api/v1/me/password", `{"password":"Another-pass1"}`, nil, c)
 	e.do("POST", "/api/v1/auth/logout", "", nil, sessionCookie(changed)) // the old cookie died with the password change
 	got := e.audit()
 	ts := "2026-11-06 10:00:00.000000"
@@ -393,7 +393,7 @@ func TestDisabledAccountsAndArchivedOrganisations(t *testing.T) {
 
 func TestEffectivePermissions(t *testing.T) {
 	e := newEnv(t, nil)
-	r := e.login("boss", "boss-pass")
+	r := e.login("boss", "Boss-pass1")
 	var dto sessionDTO
 	json.Unmarshal(r.Body.Bytes(), &dto)
 	want := "platform.audit.view,platform.organisations.manage,platform.roles.manage,platform.system.manage,platform.users.manage,reports.catalog.manage,reports.review,reports.settings.manage,transport.orders.manage,transport.orders.view_all"

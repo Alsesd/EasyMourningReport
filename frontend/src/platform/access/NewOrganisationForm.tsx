@@ -10,7 +10,7 @@ import { Dices, Eye, EyeOff, Plus, X } from "lucide-react";
 import { accessApi } from "@/platform/access/api";
 import type { OrganisationDTO, RoleDTO } from "@/platform/api/types";
 import { ukPlatform as uk } from "@/platform/i18n";
-import { MIN_PASSWORD_LENGTH } from "@/platform/passwordPolicy";
+import { isAcceptablePassword } from "@/platform/passwordPolicy";
 import { Button } from "@/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/ui/Card";
 import { Input } from "@/ui/Input";
@@ -34,9 +34,19 @@ const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
 
 /** A readable random password (no look-alike characters) that satisfies the minimum length. */
 export function generatePassword(length = 12): string {
-  const bytes = new Uint32Array(length);
+  // Small and capital letters and a digit are required, so one of each goes in first and the rest is shuffled.
+  const sets = ["abcdefghjkmnpqrstuvwxyz", "ABCDEFGHJKLMNPQRSTUVWXYZ", "23456789"];
+  const bytes = new Uint32Array(length * 2);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join("");
+  const chars = Array.from({ length }, (_, i) => {
+    const set = i < sets.length ? sets[i] : ALPHABET;
+    return set[bytes[i] % set.length];
+  });
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = bytes[length + i] % (i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
 }
 
 const sharedOrganisationRoles = (roles: RoleDTO[]) => roles.filter((r) => r.scope === "organisation" && r.organisation_id == null);
@@ -93,7 +103,7 @@ export function NewOrganisationForm({
     for (const e of rows) {
       const login = e.login.trim().toLocaleLowerCase("uk-UA");
       if (login.length < 2) return setError(uk.access.employeeLoginShort);
-      if (e.password.length < MIN_PASSWORD_LENGTH) return setError(uk.access.employeePasswordShort);
+      if (!isAcceptablePassword(e.password)) return setError(uk.access.employeePasswordShort);
       if (seen.has(login)) return setError(uk.access.employeeDuplicate(e.login.trim()));
       seen.add(login);
     }

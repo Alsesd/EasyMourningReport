@@ -3,7 +3,7 @@
   "seed": {
     "platform_admin": {
       "login": "boss",
-      "password": "boss-pass"
+      "password": "Boss-pass1"
     }
   },
   "steps": [
@@ -14,7 +14,7 @@
       "path": "/api/v1/auth/login",
       "json": {
         "login": "boss",
-        "password": "boss-pass"
+        "password": "Boss-pass1"
       },
       "expect": {
         "status": 200,
@@ -95,7 +95,7 @@
         "name": "Shop A",
         "first_user": {
           "login": "clerk",
-          "password": "clerk-pass"
+          "password": "Clerk-pass1"
         }
       },
       "save": {
@@ -121,7 +121,7 @@
         "name": "Shop B",
         "first_user": {
           "login": "clerk_b",
-          "password": "clerk-b-pass"
+          "password": "Clerk-b-pass1"
         }
       },
       "expect": {
@@ -642,7 +642,7 @@
       "path": "/api/v1/auth/login",
       "json": {
         "login": "clerk",
-        "password": "clerk-pass"
+        "password": "Clerk-pass1"
       },
       "expect": {
         "status": 200,

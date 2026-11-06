@@ -14,7 +14,7 @@ import (
 
 func TestUpdateEndpointsWithoutAReleaseBuild(t *testing.T) {
 	e := newEnv(t, nil)
-	boss := sessionCookie(e.login("boss", "boss-pass"))
+	boss := sessionCookie(e.login("boss", "Boss-pass1"))
 	w := e.do("GET", "/api/v1/admin/update", "", nil, boss)
 	var st update.Status
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &st) != nil || st.Enabled {
@@ -54,7 +54,7 @@ func TestUpdateApplyThroughTheAPI(t *testing.T) {
 	u := &update.Updater{API: fake.URL, AllowHTTP: true, Exe: exe, GOOS: "linux", GOARCH: "amd64",
 		Build: update.Build{Tag: "auto-8", Commit: "aaa", BuiltAt: built}, Restart: func() { restarted <- struct{}{} }}
 	e := newEnv(t, func(d *Deps) { d.Updater = u })
-	boss := sessionCookie(e.login("boss", "boss-pass"))
+	boss := sessionCookie(e.login("boss", "Boss-pass1"))
 
 	var st update.Status
 	w := e.do("POST", "/api/v1/admin/update/check", "{}", nil, boss)

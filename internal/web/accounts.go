@@ -207,6 +207,9 @@ func (a *App) createOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 	}
 	var hash string
 	if fu != nil {
+		if problem := platform.PasswordProblem(fuPass); problem != "" {
+			return FormError{problem}
+		}
 		if hash, err = platform.HashPassword(fuPass, nil); err != nil {
 			return err
 		}
@@ -542,6 +545,9 @@ func (a *App) createUser(w http.ResponseWriter, r *http.Request, p *platform.Pri
 	if err := body.Err(); err != nil {
 		return err
 	}
+	if problem := platform.PasswordProblem(password); problem != "" {
+		return FormError{problem}
+	}
 	hash, err := platform.HashPassword(password, nil)
 	if err != nil {
 		return err
@@ -774,6 +780,9 @@ func (a *App) resetUserPassword(w http.ResponseWriter, r *http.Request, p *platf
 	pw := body.String("password", platform.MinPasswordLength, 256)
 	if err := body.Err(); err != nil {
 		return err
+	}
+	if problem := platform.PasswordProblem(pw); problem != "" {
+		return FormError{problem}
 	}
 	hash, err := platform.HashPassword(pw, nil)
 	if err != nil {

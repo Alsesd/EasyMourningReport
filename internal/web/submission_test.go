@@ -27,9 +27,9 @@ func submissionEnv(t *testing.T) (*env, *http.Cookie, *http.Cookie, string) {
 		t.Fatal(err)
 	}
 	org, _ := res.LastInsertId()
-	e.addUser("clerk", "Оксана Мельник", "clerk-pass", &org, "organisation", "reports.submit")
-	clerk := sessionCookie(e.login("clerk", "clerk-pass"))
-	boss := sessionCookie(e.login("boss", "boss-pass"))
+	e.addUser("clerk", "Оксана Мельник", "Clerk-pass1", &org, "organisation", "reports.submit")
+	clerk := sessionCookie(e.login("clerk", "Clerk-pass1"))
+	boss := sessionCookie(e.login("boss", "Boss-pass1"))
 	return e, clerk, boss, e.now.In(time.Local).Format("2006-01")
 }
 

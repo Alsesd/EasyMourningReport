@@ -67,7 +67,7 @@ func run(exe string, tunnel, updateTest bool) error {
 		enabled = "1"
 	}
 	// CRLF and a BOM on purpose: this is what Notepad produces.
-	env := "\xef\xbb\xbfADMIN_PASSWORD=smoke-pass\r\nPORT=" + port + "\r\nTUNNEL_ENABLED=" + enabled + "\r\n"
+	env := "\xef\xbb\xbfADMIN_PASSWORD=Smoke-pass1\r\nPORT=" + port + "\r\nTUNNEL_ENABLED=" + enabled + "\r\n"
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte(env), 0o644); err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func run(exe string, tunnel, updateTest bool) error {
 	step("administrator can sign in (password from .env with BOM + CRLF)")
 	jar, _ := cookiejar.New(nil)
 	client := &http.Client{Jar: jar, Timeout: 10 * time.Second}
-	req, _ := http.NewRequest("POST", base+"/api/v1/auth/login", bytes.NewReader([]byte(`{"login":"admin","password":"smoke-pass"}`)))
+	req, _ := http.NewRequest("POST", base+"/api/v1/auth/login", bytes.NewReader([]byte(`{"login":"admin","password":"Smoke-pass1"}`)))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Origin", base)
 	resp, err := client.Do(req)

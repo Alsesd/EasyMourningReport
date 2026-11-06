@@ -180,6 +180,9 @@ func (a *App) changeOwnPassword(w http.ResponseWriter, r *http.Request, p *platf
 	if err := body.Err(); err != nil {
 		return err
 	}
+	if problem := platform.PasswordProblem(pw); problem != "" {
+		return FormError{problem}
+	}
 	hash, err := platform.HashPassword(pw, nil)
 	if err != nil {
 		return err

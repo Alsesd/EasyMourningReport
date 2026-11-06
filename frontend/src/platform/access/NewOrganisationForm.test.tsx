@@ -76,9 +76,9 @@ describe("NewOrganisationForm", () => {
     const logins = await screen.findAllByLabelText("Логін");
     const passwords = screen.getAllByLabelText("Пароль");
     await userEvent.type(logins[0], "anna");
-    await userEvent.type(passwords[0], "long-enough-1");
+    await userEvent.type(passwords[0], "Long-enough-1");
     await userEvent.type(logins[1], "petro");
-    await userEvent.type(passwords[1], "long-enough-2");
+    await userEvent.type(passwords[1], "Long-enough-2");
     await waitFor(() => expect((screen.getAllByLabelText("Роль")[0] as HTMLSelectElement).options.length).toBe(2)); // only shared organisation roles
     fireEvent.change(screen.getAllByLabelText("Роль")[1], { target: { value: "2" } });
     fireEvent.click(screen.getByRole("button", { name: "Створити організацію" }));
@@ -104,7 +104,7 @@ describe("NewOrganisationForm", () => {
     await userEvent.type((await screen.findAllByLabelText("Логін")).at(-1)!, "ivan");
     await userEvent.type(screen.getAllByLabelText("Пароль").at(-1)!, "short");
     fireEvent.click(screen.getByRole("button", { name: "Створити організацію" }));
-    expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("щонайменше 10"));
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("щонайменше 8 символів"));
     expect(posts("/api/v1/organisations")).toHaveLength(0);
   });
 
@@ -114,7 +114,7 @@ describe("NewOrganisationForm", () => {
     await userEvent.type(screen.getByLabelText("Назва організації"), "Філія Захід");
     fireEvent.click(screen.getByRole("button", { name: "Додати працівника" }));
     await userEvent.type((await screen.findAllByLabelText("Логін"))[0], "taken");
-    await userEvent.type(screen.getAllByLabelText("Пароль")[0], "long-enough-1");
+    await userEvent.type(screen.getAllByLabelText("Пароль")[0], "Long-enough-1");
     fireEvent.click(screen.getByRole("button", { name: "Створити організацію" }));
     await waitFor(() => expect(done).toHaveBeenCalled());
     expect(done.mock.calls[0][0].failures).toEqual(["taken: Логін зайнятий."]);
@@ -130,6 +130,12 @@ describe("NewOrganisationForm", () => {
     expect(field.value.length).toBeGreaterThanOrEqual(10);
     expect(field.type).toBe("text");
     expect(generatePassword()).toMatch(/^[A-Za-z2-9]{12}$/);
+    for (let i = 0; i < 100; i++) {
+      const pw = generatePassword();
+      expect(pw).toMatch(/[a-z]/);
+      expect(pw).toMatch(/[A-Z]/);
+      expect(pw).toMatch(/[0-9]/);
+    }
     expect(generatePassword()).not.toBe(generatePassword());
   });
 

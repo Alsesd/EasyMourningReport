@@ -46,7 +46,7 @@ func TestTunnelEndpoints(t *testing.T) {
 	tun := fakeTunnel(t, "#!/bin/sh\nexec sleep 30\n")
 	e := newEnv(t, func(d *Deps) { d.Tunnel = tun })
 	seedDemo(t, e)
-	boss := e.as("boss", "boss-pass")
+	boss := e.as("boss", "Boss-pass1")
 
 	if st := boss.json("GET", "/api/v1/admin/tunnel", "", 200); st["state"] != "disabled" {
 		t.Fatalf("%v", st)
@@ -81,7 +81,7 @@ func TestTunnelEndpoints(t *testing.T) {
 		t.Fatalf("stop audit: %d", n)
 	}
 
-	s1 := e.as("store1", "store1")
+	s1 := e.as("store1", "Store1-demo")
 	for _, c := range [][2]string{{"GET", "/api/v1/admin/tunnel"}, {"POST", "/api/v1/admin/tunnel"}, {"PUT", "/api/v1/admin/tunnel/autostart"},
 		{"DELETE", "/api/v1/admin/tunnel"}, {"GET", "/api/v1/admin/backups"}, {"GET", "/api/v1/admin/system/health"}, {"GET", "/api/v1/admin/backup/download"}} {
 		if w := s1.do(c[0], c[1], `{}`); w.Code != 403 {
@@ -92,7 +92,7 @@ func TestTunnelEndpoints(t *testing.T) {
 
 func TestTunnelStartFailureIs503AndNotAudited(t *testing.T) {
 	e := newEnv(t, func(d *Deps) { d.Tunnel = fakeTunnel(t, "") })
-	boss := e.as("boss", "boss-pass")
+	boss := e.as("boss", "Boss-pass1")
 	w := boss.do("POST", "/api/v1/admin/tunnel", `{"confirm_public": true}`)
 	if w.Code != 503 || !strings.Contains(w.Body.String(), "cloudflared") {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
@@ -109,7 +109,7 @@ func TestBackupsListAndHealth(t *testing.T) {
 	os.WriteFile(filepath.Join(bk.Dir, "reports-20261101-010000.db"), make([]byte, 10), 0o644)
 	os.WriteFile(filepath.Join(bk.Dir, "reports-20261102-010000-snapshot.db"), make([]byte, 20), 0o644)
 	os.WriteFile(filepath.Join(bk.Dir, "other.txt"), []byte("x"), 0o644)
-	boss := e.as("boss", "boss-pass")
+	boss := e.as("boss", "Boss-pass1")
 
 	w := boss.do("GET", "/api/v1/admin/backups", "")
 	var list []map[string]any
@@ -143,11 +143,11 @@ func TestBackupsListAndHealth(t *testing.T) {
 
 func TestHealthWithoutBackups(t *testing.T) {
 	e := newEnv(t, nil)
-	h := e.as("boss", "boss-pass").json("GET", "/api/v1/admin/system/health", "", 200)
+	h := e.as("boss", "Boss-pass1").json("GET", "/api/v1/admin/system/health", "", 200)
 	if h["last_backup_at"] != nil || h["backups_count"].(float64) != 0 {
 		t.Fatalf("%v", h)
 	}
-	e.as("boss", "boss-pass").json("GET", "/api/v1/admin/backups", "", 200)
+	e.as("boss", "Boss-pass1").json("GET", "/api/v1/admin/backups", "", 200)
 }
 
 func TestBackupDownload(t *testing.T) {
@@ -155,7 +155,7 @@ func TestBackupDownload(t *testing.T) {
 	bk.Now = func() time.Time { return time.Now() }
 	e := newEnv(t, mut)
 	seedDemo(t, e)
-	boss := e.as("boss", "boss-pass")
+	boss := e.as("boss", "Boss-pass1")
 	for i := 0; i < 2; i++ { // repeat downloads with no change in between both succeed
 		w := boss.do("GET", "/api/v1/admin/backup/download", "")
 		if w.Code != 200 {
@@ -177,7 +177,7 @@ func TestBackupDownload(t *testing.T) {
 
 func TestBackupDownloadWithoutBackupsIs500(t *testing.T) {
 	e := newEnv(t, nil)
-	if w := e.as("boss", "boss-pass").do("GET", "/api/v1/admin/backup/download", ""); w.Code != 500 {
+	if w := e.as("boss", "Boss-pass1").do("GET", "/api/v1/admin/backup/download", ""); w.Code != 500 {
 		t.Fatalf("%d", w.Code)
 	}
 }
@@ -193,7 +193,7 @@ func TestOverviewByRole(t *testing.T) {
 	platform.CreateUser(tx, "manager", h, &org, e.now, roles["org_admin"])
 	tx.Commit()
 
-	admin := e.as("boss", "boss-pass").json("GET", "/api/v1/admin/overview", "", 200)
+	admin := e.as("boss", "Boss-pass1").json("GET", "/api/v1/admin/overview", "", 200)
 	acc := admin["accounts"].(map[string]any)
 	if acc["organisations"].(float64) != 2 || acc["users"].(float64) != 4 || acc["roles"].(float64) < 3 {
 		t.Fatalf("%v", acc)
@@ -219,7 +219,7 @@ func TestOverviewByRole(t *testing.T) {
 		t.Fatalf("%v", mgr)
 	}
 
-	store := e.as("store1", "store1").json("GET", "/api/v1/admin/overview", "", 200)
+	store := e.as("store1", "Store1-demo").json("GET", "/api/v1/admin/overview", "", 200)
 	if store["accounts"] != nil || store["tunnel"] != nil || len(store["modules"].([]any)) != 0 {
 		t.Fatalf("%v", store)
 	}

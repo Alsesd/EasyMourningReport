@@ -62,14 +62,14 @@ func TestDeletesOnAllSchemas(t *testing.T) {
 		}
 		t.Run(label, func(t *testing.T) {
 			e := newEnvSchema(t, schema)
-			boss := e.as("boss", "boss-pass")
-			org := boss.json("POST", "/api/v1/organisations", `{"name":"Shop","first_user":{"login":"clerk","password":"clerk-pass"}}`, 201)
+			boss := e.as("boss", "Boss-pass1")
+			org := boss.json("POST", "/api/v1/organisations", `{"name":"Shop","first_user":{"login":"clerk","password":"Clerk-pass1"}}`, 201)
 			oid := num(org["id"])
 			ids := func(path string) string { return strings.TrimRight(path, "/") }
 			_ = ids
 
 			// A user that still holds a role: Python answered 500 here.
-			u := boss.json("POST", "/api/v1/users", `{"login":"temp","password":"temp-pass-1234","organisation_id":`+itoa(int(oid))+`,"role_ids":[3]}`, 201)
+			u := boss.json("POST", "/api/v1/users", `{"login":"temp","password":"Temp-pass-1234","organisation_id":`+itoa(int(oid))+`,"role_ids":[3]}`, 201)
 			boss.json("DELETE", "/api/v1/users/"+itoa(int(num(u["id"]))), "", 200)
 			if n := count(e, "SELECT COUNT(*) FROM user_roles WHERE user_id = ?", num(u["id"])); n != 0 {
 				t.Fatalf("%d orphan user_roles", n)
@@ -78,7 +78,7 @@ func TestDeletesOnAllSchemas(t *testing.T) {
 			// A custom role with permissions, assigned to a user, then deleted.
 			role := boss.json("POST", "/api/v1/roles", `{"name":"Custom","scope":"organisation","organisation_id":`+itoa(int(oid))+`,"permissions":["reports.submit"]}`, 201)
 			rid := itoa(int(num(role["id"])))
-			boss.json("POST", "/api/v1/users", `{"login":"holder","password":"holder-pass-1234","organisation_id":`+itoa(int(oid))+`,"role_ids":[`+rid+`]}`, 201)
+			boss.json("POST", "/api/v1/users", `{"login":"holder","password":"Holder-pass-1234","organisation_id":`+itoa(int(oid))+`,"role_ids":[`+rid+`]}`, 201)
 			// Settings row of the organisation (a table without cascade on legacy schemas).
 			e.st.W.Exec("INSERT OR REPLACE INTO report_settings (organisation_id, calculation_enabled) VALUES (?, 1)", oid)
 			boss.json("DELETE", "/api/v1/roles/"+rid, "", 200)
@@ -151,7 +151,7 @@ func bossList(t *testing.T, s session, path string) []map[string]any {
 func newEnvSchema(t *testing.T, schema string) *env {
 	t.Helper()
 	st := newContractStore(t, schema)
-	seedBoss(t, st, "boss", "boss-pass")
+	seedBoss(t, st, "boss", "Boss-pass1")
 	e := &env{t: t, st: st, now: time.Date(2026, 11, 6, 10, 0, 0, 0, time.UTC), lim: NewLoginLimiter()}
 	e.h = New(Deps{Store: st, Assets: testAssets(), Registry: registry.Installed(), Secret: []byte("s"),
 		Now: func() time.Time { return e.now }, Limiter: e.lim})
@@ -176,7 +176,7 @@ func TestServedTimeAddsZ(t *testing.T) {
 
 func TestAuditLogEndpointFiltersAndBounds(t *testing.T) {
 	e := newEnv(t, nil)
-	boss := e.as("boss", "boss-pass")
+	boss := e.as("boss", "Boss-pass1")
 	e.login("nobody", "x")
 	var rows []map[string]any
 	w := boss.do("GET", "/api/v1/admin/logs?login=NOBO&action="+url.QueryEscape("невдалий вхід"), "")
@@ -202,12 +202,12 @@ func TestAuditLogEndpointFiltersAndBounds(t *testing.T) {
 
 func TestOrgManagerCannotEscalateOrCrossOrganisations(t *testing.T) {
 	e := newEnv(t, nil)
-	boss := e.as("boss", "boss-pass")
-	a := boss.json("POST", "/api/v1/organisations", `{"name":"A","first_user":{"login":"clerka","password":"clerk-pass"}}`, 201)
-	b := boss.json("POST", "/api/v1/organisations", `{"name":"B","first_user":{"login":"clerkb","password":"clerk-pass"}}`, 201)
+	boss := e.as("boss", "Boss-pass1")
+	a := boss.json("POST", "/api/v1/organisations", `{"name":"A","first_user":{"login":"clerka","password":"Clerk-pass1"}}`, 201)
+	b := boss.json("POST", "/api/v1/organisations", `{"name":"B","first_user":{"login":"clerkb","password":"Clerk-pass1"}}`, 201)
 	aid, bid := itoa(int(num(a["id"]))), itoa(int(num(b["id"])))
-	boss.json("POST", "/api/v1/users", `{"login":"mgr","password":"mgr-pass-1234","organisation_id":`+aid+`,"role_ids":[2]}`, 201)
-	mgr := e.as("mgr", "mgr-pass-1234")
+	boss.json("POST", "/api/v1/users", `{"login":"mgr","password":"Mgr-pass-1234","organisation_id":`+aid+`,"role_ids":[2]}`, 201)
+	mgr := e.as("mgr", "Mgr-pass-1234")
 
 	users := bossList(t, mgr, "/api/v1/users")
 	for _, u := range users {
@@ -216,7 +216,7 @@ func TestOrgManagerCannotEscalateOrCrossOrganisations(t *testing.T) {
 		}
 	}
 	// Creating "in organisation B" lands in A (the payload cannot widen the scope).
-	got := mgr.json("POST", "/api/v1/users", `{"login":"newbie","password":"newbie-pass-1234","organisation_id":`+bid+`,"role_ids":[3]}`, 201)
+	got := mgr.json("POST", "/api/v1/users", `{"login":"newbie","password":"Newbie-pass-1234","organisation_id":`+bid+`,"role_ids":[3]}`, 201)
 	if got["organisation"].(map[string]any)["name"] != "A" {
 		t.Fatalf("%v", got)
 	}
@@ -225,10 +225,10 @@ func TestOrgManagerCannotEscalateOrCrossOrganisations(t *testing.T) {
 	for _, u := range bossList(t, boss, "/api/v1/users?organisation_id="+bid) {
 		clerkb = u
 	}
-	mgr.json("PUT", "/api/v1/users/"+itoa(int(num(clerkb["id"])))+"/password", `{"password":"hacked-pass-1234"}`, 404)
+	mgr.json("PUT", "/api/v1/users/"+itoa(int(num(clerkb["id"])))+"/password", `{"password":"Hacked-pass-1234"}`, 404)
 	mgr.json("DELETE", "/api/v1/users/1", "", 404)
 	// Handing out the platform admin role is refused.
-	mgr.json("POST", "/api/v1/users", `{"login":"evil","password":"evil-pass-1234","role_ids":[1]}`, 422)
+	mgr.json("POST", "/api/v1/users", `{"login":"evil","password":"Evil-pass-1234","role_ids":[1]}`, 422)
 	if count(e, "SELECT COUNT(*) FROM users WHERE login = 'evil'") != 0 {
 		t.Fatal("escalation created a user")
 	}
