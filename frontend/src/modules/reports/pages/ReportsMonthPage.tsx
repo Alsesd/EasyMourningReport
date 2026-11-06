@@ -53,7 +53,7 @@ export default function ReportsMonthPage() {
       <PageHeader
         crumb={m.crumb}
         title={formatPeriodReadable(period)}
-        meta={reportsQuery.data ? `${m.submittedOf(sent, reports.length)}, ${m.notReported(missing)}` : undefined}
+        meta={reportsQuery.data ? (reports.length === 0 ? m.noDivisions : `${m.submittedOf(sent, reports.length)}, ${m.notReported(missing)}`) : undefined}
         actions={
           <>
             <PeriodPicker

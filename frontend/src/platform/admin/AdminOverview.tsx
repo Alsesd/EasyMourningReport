@@ -71,8 +71,32 @@ export function AdminOverview({ sections }: { sections: AdminSection[] }) {
 
   const tunnelTone: StateTone = tunnel?.state === "running" ? "ok" : tunnel?.state === "starting" ? "busy" : tunnel?.state === "error" ? "error" : "idle";
 
+  // A new installation holds only the administrator: say where to begin.
+  const firstSteps = accounts && accounts.organisations === 0 && (can("organisations") || can("roles"));
+
   return (
     <div className="space-y-10">
+      {firstSteps && (
+        <LedgerSection id="hub-first-steps" title={uk.hub.firstStepsTitle} description={uk.hub.firstStepsIntro}>
+          <ol className="divide-y divide-border">
+            {[
+              { id: "organisations", text: uk.hub.firstStepDivision },
+              { id: "roles", text: uk.hub.firstStepRoles },
+              { id: "users", text: uk.hub.firstStepUsers },
+            ]
+              .filter((step) => can(step.id))
+              .map((step, i) => (
+                <li key={step.id}>
+                  <Link to={sectionPath(step.id)} className="flex min-h-[52px] items-center gap-3 px-1 py-2.5 transition-colors hover:bg-surface-raised">
+                    <span className="figure grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border text-sm">{i + 1}</span>
+                    <span className="flex-1 text-[15px] text-text-main">{step.text}</span>
+                    <ChevronRight className="h-4 w-4 text-text-muted" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+          </ol>
+        </LedgerSection>
+      )}
       {accounts && (
         <LedgerSection id="hub-accounts" title={uk.hub.accountsTitle}>
           <Figures>

@@ -87,6 +87,7 @@ export const uk = {
     productsTitle: "Товари за місяць",
     productsDescription: "Кількість за товарами й підрозділами, як у файлі Excel.",
     submittedOf: (sent: number, total: number) => `Надіслано ${sent} з ${total}`,
+    noDivisions: "Підрозділів ще немає",
     notReported: (n: number) => (n === 0 ? "усі підрозділи звітували" : `без звіту: ${n}`),
     monthTotal: "Разом за місяць",
     positions: (n: number) => {

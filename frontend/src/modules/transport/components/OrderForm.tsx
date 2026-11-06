@@ -191,9 +191,11 @@ export function OrderForm({
 
       {field("order-notes", t.notes, <Input id="order-notes" value={draft.notes} maxLength={1000} onChange={(e) => set({ notes: e.target.value })} />)}
 
-      <Button type="submit" className="min-h-[44px] w-full sm:w-auto" disabled={save.isPending}>
-        {save.isPending ? t.saving : order ? t.saveChanges : t.save}
-      </Button>
+      <div className="sticky bottom-0 -mx-4 border-t border-border bg-surface px-4 py-3 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+        <Button type="submit" className="min-h-[44px] w-full sm:w-auto" disabled={save.isPending}>
+          {save.isPending ? t.saving : order ? t.saveChanges : t.save}
+        </Button>
+      </div>
     </form>
   );
 }
