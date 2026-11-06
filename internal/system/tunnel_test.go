@@ -346,3 +346,28 @@ func TestBundledBinaryComesBeforePath(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestTermuxPrefersPathThenBundled(t *testing.T) {
+	f := newFixture(t)
+	f.env["TERMUX_VERSION"] = "0.118"
+	f.tun.Bundled = func(dir string) (string, error) { return filepath.Join(dir, "bundled"), nil }
+	f.tun.LookPath = func(string) (string, error) { return "/data/data/com.termux/files/usr/bin/cloudflared", nil }
+	if got := f.tun.binary(); got != "/data/data/com.termux/files/usr/bin/cloudflared" {
+		t.Fatalf("Termux must prefer its own package, got %q", got)
+	}
+	f.tun.LookPath = func(string) (string, error) { return "", os.ErrNotExist }
+	if got := f.tun.binary(); got != filepath.Join(f.root, "tunnel", "bundled") {
+		t.Fatalf("falls back to the bundled copy, got %q", got)
+	}
+}
+
+func TestMissingCloudflaredMessageSaysWhatToDo(t *testing.T) {
+	f := newFixture(t)
+	if got := f.tun.Start("", false); !strings.Contains(got.Error, "scripts/build.sh") {
+		t.Fatalf("generic message: %q", got.Error)
+	}
+	f.env["TERMUX_VERSION"] = "0.118"
+	if got := f.tun.Start("", false); !strings.Contains(got.Error, "pkg install cloudflared") {
+		t.Fatalf("Termux message: %q", got.Error)
+	}
+}

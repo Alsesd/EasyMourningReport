@@ -4,6 +4,7 @@ package tunnelbin
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -21,5 +22,16 @@ func TestExtractIsIdempotent(t *testing.T) {
 	st2, _ := os.Stat(p2)
 	if !st1.ModTime().Equal(st2.ModTime()) || st1.Size() != int64(len(embedded)) {
 		t.Fatal("file was rewritten or has the wrong size")
+	}
+}
+
+// scripts/cloudflared.env is the single source of the pinned release for the build scripts.
+func TestVersionMatchesBuildScripts(t *testing.T) {
+	raw, err := os.ReadFile("../../scripts/cloudflared.env")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "CLOUDFLARED_VERSION=\""+Version+"\"") {
+		t.Fatalf("scripts/cloudflared.env does not pin cloudflared %s", Version)
 	}
 }

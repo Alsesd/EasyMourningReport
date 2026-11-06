@@ -10,7 +10,8 @@ Run from the repository root unless noted.
 cd frontend && npm ci && npm run build   # SPA -> internal/assets/static/app/ (embedded into the binary; gitignored)
 go run ./cmd/server                      # dev server on 127.0.0.1:8000 (build the SPA first)
 go vet ./cmd/... ./internal/... && go test ./cmd/... ./internal/...   # NOT ./... (it descends into node_modules)
-bash scripts/build_go.sh                 # single-file dist/legkyi.exe (windows) and dist/legkyi (linux), cloudflared bundled (-tags bundle)
+bash scripts/build.sh                    # both parts for THIS machine -> dist/legkyi (UI + cloudflared embedded; Termux ok)
+bash scripts/build_go.sh                 # release: dist/legkyi.exe, dist/legkyi, dist/legkyi-linux-arm64 (all bundled with cloudflared)
 
 cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 npm run dev                              # app at :5173, proxies /api etc. to :8000 (BACKEND_URL overrides)
@@ -30,7 +31,7 @@ npm run dev                              # app at :5173, proxies /api etc. to :8
 - **Writes:** one writer connection, all mutations inside `a.write(ctx, func(tx))`; use only the `*sql.Tx` inside (opening another transaction deadlocks).
 - **Fixtures:** `testdata/contracts/*.json` (HTTP scenarios), `testdata/reports/` (money, pricing, XLSX golden files), `testdata/passwords/`, `testdata/schema/` are frozen output of the Python implementation. Change them only when behaviour changes on purpose, and say why.
 - Database: SQLite in-process by design (docs/adr/0003-keep-sqlite.md).
-- Public access is Cloudflare Tunnel only, supervised by the app (`internal/system/tunnel.go`). Bundled builds (`-tags bundle`, `internal/tunnelbin`) embed a pinned cloudflared, extract it to `<data>/tunnel/` and turn the tunnel on once at first start; plain builds (Docker, `go run`) use `CLOUDFLARED_PATH` or PATH. Update the version and both SHA-256 in `scripts/build_go.sh` together with `tunnelbin.Version`. Data, `.env`, backups and the tunnel state live next to the exe when it is writable. Backups run in-app.
+- Public access is Cloudflare Tunnel only, supervised by the app (`internal/system/tunnel.go`). Bundled builds (`-tags bundle`, `internal/tunnelbin`) embed a pinned cloudflared, extract it to `<data>/tunnel/` and turn the tunnel on once at first start; plain builds (Docker, `go run`) use `CLOUDFLARED_PATH` or PATH. Pin the version and every SHA-256 in `scripts/cloudflared.env` (a test checks it matches `tunnelbin.Version`). Bundled targets: windows/amd64, linux/amd64, linux/arm64 (others fail to compile under the tag). On Termux the PATH `cloudflared` is preferred over the bundled one. Data, `.env`, backups and the tunnel state live next to the exe when it is writable. Backups run in-app.
 - Figures (money, quantities, months) use `.figure` / `font-mono`: Literata with tabular numerals, not a code font. Interface text is IBM Plex Sans. Pages are `ui/PageHeader` + `ui/LedgerSection` (ruled, flat; see docs/design-system.md). Months use `ui/PeriodPicker` (Ukrainian), on/off settings `ui/Switch`, never native month/file controls (they render in the browser's language).
 - Tailwind colours are CSS variables wrapped by `token()` in `tailwind.config.js` so opacity modifiers (`bg-primary/10`) work; keep new colours in that form.
 - `frontend/src/platform/api/schema.d.ts` is maintained by hand (no OpenAPI export any more). Update it with every API shape change.

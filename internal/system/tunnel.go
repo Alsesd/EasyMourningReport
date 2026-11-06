@@ -125,14 +125,31 @@ func (t *Tunnel) saveToken(token string) error {
 	return nil
 }
 
-// binary: a set CLOUDFLARED_PATH must point at a file (no fallback then); otherwise the bundled
-// copy, then cloudflared from PATH.
+// binary: a set CLOUDFLARED_PATH must point at a file (no fallback then). Otherwise the copy bundled in the
+// program and cloudflared from PATH, in that order; on Termux the PATH one (the Termux package, built for
+// Android's missing resolv.conf) comes first.
 func (t *Tunnel) binary() string {
 	if override := strings.TrimSpace(t.env("CLOUDFLARED_PATH")); override != "" {
 		if fileExists(override) {
 			return override
 		}
 		return ""
+	}
+	fromPath := func() string {
+		look := t.LookPath
+		if look == nil {
+			look = exec.LookPath
+		}
+		p, err := look("cloudflared")
+		if err != nil {
+			return ""
+		}
+		return p
+	}
+	if t.onTermux() {
+		if p := fromPath(); p != "" {
+			return p
+		}
 	}
 	if t.Bundled != nil {
 		p, err := t.Bundled(t.stateDir())
@@ -141,15 +158,18 @@ func (t *Tunnel) binary() string {
 		}
 		log.Printf("bundled cloudflared could not be extracted: %v", err)
 	}
-	look := t.LookPath
-	if look == nil {
-		look = exec.LookPath
+	return fromPath()
+}
+
+func (t *Tunnel) onTermux() bool { return t.env("TERMUX_VERSION") != "" }
+
+// missingMessage tells what to do when no cloudflared exists.
+func (t *Tunnel) missingMessage() string {
+	if t.onTermux() {
+		return "cloudflared не знайдено. Встановіть його командою: pkg install cloudflared"
 	}
-	p, err := look("cloudflared")
-	if err != nil {
-		return ""
-	}
-	return p
+	return "У цій збірці немає вбудованого cloudflared. Скористайтеся готовим файлом із релізу або зберіть програму через scripts/build.sh; " +
+		"можна також встановити cloudflared у PATH чи вказати CLOUDFLARED_PATH."
 }
 
 var metricsClient = &http.Client{Timeout: 500 * time.Millisecond}
@@ -285,7 +305,7 @@ func (t *Tunnel) Start(token string, autostart bool) TunnelStatus {
 	bin := t.binary()
 	if bin == "" {
 		t.mu.Unlock()
-		return t.failed("cloudflared не встановлено на цьому сервері.")
+		return t.failed(t.missingMessage())
 	}
 	args := []string{"tunnel", "--no-autoupdate", "--metrics", t.metricsAddr()}
 	var childEnv []string

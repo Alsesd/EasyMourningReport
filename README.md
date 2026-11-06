@@ -97,17 +97,26 @@ Open **Адміністрування → Система → Публічний 
 
 SQLite runs inside the app and needs no server. Each committed change is flushed to disk (`synchronous=FULL`), so a power cut loses no saved report. On local disks the database uses WAL mode; on shared folders (Docker Desktop host folders, network shares) it falls back to the classic rollback journal, which is safe there. Override with `SQLITE_JOURNAL_MODE=wal|delete`. Every start runs an integrity check, and every backup is verified. The reasoning, with load-test numbers, is in [ADR 0003](docs/adr/0003-keep-sqlite.md).
 
-## Android (Termux)
+## Build it yourself (any Linux machine, WSL, Termux)
 
-Download `legkyi-linux-arm64` (from the latest release, or build it with `scripts/build_go.sh`), then in Termux:
+One command builds both parts (web UI, then the Go program with the UI and cloudflared embedded) for the machine you are on:
 
 ```bash
-pkg install cloudflared                 # only if you want the public tunnel
-chmod +x legkyi-linux-arm64
-ADMIN_PASSWORD=choose-a-password TUNNEL_ENABLED=1 ./legkyi-linux-arm64
+bash scripts/build.sh      # -> dist/legkyi (one file)
 ```
 
-Open `http://127.0.0.1:8000`. Data is created next to the file; run `termux-wake-lock` so Android does not pause it. Put `TUNNEL_TOKEN=...` in a `.env` next to the file for a fixed address.
+It needs `go` 1.26+, `node`/`npm` 22+ and `curl`. In Termux: `pkg install git golang nodejs`, clone the repo, run the script, then `ADMIN_PASSWORD=choose-a-password ./dist/legkyi` and open `http://127.0.0.1:8000`. The script detects Android/Termux and ARM, and warns if your Go is older than the pinned patch release (the build still works; run `pkg upgrade golang` to get the newest fixes). `bash scripts/build_go.sh` is the release build for all platforms (Windows x64, Linux x64, Linux ARM64).
+
+## Android (Termux), prebuilt
+
+Download `legkyi-linux-arm64` from the latest release, then:
+
+```bash
+chmod +x legkyi-linux-arm64
+ADMIN_PASSWORD=choose-a-password ./legkyi-linux-arm64
+```
+
+cloudflared is inside the file. On Termux the program prefers the Termux package if you have it (`pkg install cloudflared`), because the temporary quick-tunnel address needs name lookup that plain Linux builds cannot do on Android; a tunnel with `TUNNEL_TOKEN` in `.env` works either way. Run `termux-wake-lock` so Android does not pause the app, and keep the file in Termux's home folder.
 
 ## Releasing
 
