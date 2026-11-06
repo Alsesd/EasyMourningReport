@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/platform/auth/AuthContext";
 import { ukPlatform as uk } from "@/platform/i18n";
@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/ui/ThemeToggle";
 import { MakerMark } from "@/ui/MakerMark";
 import { ApiError } from "@/platform/api/client";
 import { passkeysSupported } from "@/platform/auth/passkeys";
+import { autoBiometricSuppressed, biometricChoice, clearSuppressAutoBiometric, markFreshPasswordLogin, setBiometricChoice } from "@/platform/auth/biometricPref";
 import { AlertCircle, Eye, EyeOff, Fingerprint } from "lucide-react";
 import { returnPath } from "./returnPath";
 
@@ -25,6 +26,33 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handlePasskey = async () => {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      const newSession = await loginWithPasskey();
+      setBiometricChoice("on");
+      navigate(target(newSession), { replace: true });
+    } catch (err) {
+      if (err instanceof ApiError) setError(err.message);
+      else if (err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "AbortError")) setError(uk.auth.passkeyCancelled);
+      else setError(uk.auth.networkError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+
+  // A device that agreed to biometric sign-in offers it by itself, once per visit and never right after a sign-out.
+  const autoTried = useRef(false);
+  useEffect(() => {
+    if (isLoading || session || autoTried.current) return;
+    autoTried.current = true;
+    if (biometricChoice() !== "on" || !passkeysSupported() || autoBiometricSuppressed()) return;
+    void handlePasskey();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, session]);
 
   useEffect(() => {
     document.title = `${uk.auth.loginTitle} — ${uk.appTitle}`;
@@ -43,23 +71,9 @@ export function LoginPage() {
     return <Navigate to={target(session)} replace />;
   }
 
-  const handlePasskey = async () => {
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      const newSession = await loginWithPasskey();
-      navigate(target(newSession), { replace: true });
-    } catch (err) {
-      if (err instanceof ApiError) setError(err.message);
-      else if (err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "AbortError")) setError(uk.auth.passkeyCancelled);
-      else setError(uk.auth.networkError);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    clearSuppressAutoBiometric();
     if (!username.trim() || !password) {
       setError(uk.auth.credentialsRequired);
       return;
@@ -70,6 +84,7 @@ export function LoginPage() {
 
     try {
       const newSession = await login({ login: username.trim(), password });
+      markFreshPasswordLogin();
       navigate(target(newSession), { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {

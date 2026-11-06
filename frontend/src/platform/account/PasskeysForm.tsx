@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fingerprint, Trash2 } from "lucide-react";
 import { passkeyApi, passkeysSupported } from "@/platform/auth/passkeys";
+import { setBiometricChoice } from "@/platform/auth/biometricPref";
 import { formatDateTime, ukPlatform as uk } from "@/platform/i18n";
 import { Button } from "@/ui/Button";
 import { Input } from "@/ui/Input";
@@ -21,6 +22,7 @@ export function PasskeysForm() {
     mutationFn: () => passkeyApi.register(name.trim()),
     onSuccess: () => {
       setName("");
+      setBiometricChoice("on");
       setMessage({ text: uk.account.passkeyAdded, kind: "ok" });
       void refresh();
     },

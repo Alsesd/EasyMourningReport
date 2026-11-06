@@ -6,6 +6,7 @@ import { MakerMark } from "@/ui/MakerMark";
 import { ukPlatform as uk } from "@/platform/i18n";
 import { navFor } from "@/app/registry";
 import { AccountMenu } from "@/platform/account/AccountMenu";
+import { BiometricOffer } from "@/platform/account/BiometricOffer";
 import { HubRailNav } from "@/platform/admin/HubNav";
 import { HUB_PATH } from "@/platform/admin/sections";
 import { adminSectionsFor, useModuleRegistry } from "@/platform/modules";
@@ -109,6 +110,7 @@ export default function AdminLayout() {
         <main className="flex-1 px-4 pb-12 pt-6 print:p-0 sm:px-8 lg:px-12 lg:pt-10">
           <Outlet />
         </main>
+        <BiometricOffer />
       </div>
 
       {/* Mobile bottom navigation keeps the daily destinations within thumb reach. */}

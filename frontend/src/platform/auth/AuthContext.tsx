@@ -2,6 +2,7 @@ import React, { createContext, useContext } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/platform/api/client";
 import { passkeyApi } from "@/platform/auth/passkeys";
+import { suppressAutoBiometric } from "@/platform/auth/biometricPref";
 import type { SessionDTO, LoginDTO, MessageDTO } from "@/platform/api/types";
 
 interface AuthContextType {
@@ -72,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     },
     onSuccess: () => {
+      suppressAutoBiometric();
       queryClient.setQueryData(["session"], null);
       queryClient.clear();
     },

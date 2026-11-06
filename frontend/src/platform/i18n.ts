@@ -27,6 +27,12 @@ export const ukPlatform = {
     passkeyBusy: "Очікуємо підтвердження на пристрої…",
     passkeyOr: "або",
     passkeyCancelled: "Вхід за ключем доступу скасовано.",
+    biometricOfferTitle: "Входити за біометрією?",
+    biometricOfferText:
+      "Наступного разу на цьому пристрої вхід запропонує відбиток пальця або розпізнавання обличчя замість пароля. Пароль завжди залишається запасним способом.",
+    biometricEnable: "Увімкнути",
+    biometricLater: "Не зараз",
+    biometricDeviceName: "Цей пристрій",
   },
 
   nav: {
