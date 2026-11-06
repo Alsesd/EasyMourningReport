@@ -1,22 +1,24 @@
-/** Typed API surface for the public transport/tunnel connection. */
+/** Transport-order API owned by this module. */
 
 import { api } from "@/platform/api/client";
+import type { TransportOrderDTO, TransportOrderInputDTO, TransportStatusDTO } from "@/platform/api/types";
 
-export interface TunnelStatus {
-  enabled: boolean;
-  autostart: boolean;
-  has_token?: boolean;
-  state: string;
-  public_url: string;
-  login_url: string;
-  error: string;
+export interface OrderQuery {
+  date?: string;
+  from?: string;
+  to?: string;
+  status?: string;
+  organisation_id?: number;
 }
 
 export const transportApi = {
-  status: () => api.get<TunnelStatus>("/api/v1/admin/tunnel"),
-  start: (payload: { confirm_public: true; autostart: boolean; auth_key: string | null }) =>
-    api.post<TunnelStatus>("/api/v1/admin/tunnel", payload),
-  stop: () => api.delete<TunnelStatus>("/api/v1/admin/tunnel"),
-  setAutostart: (enabled: boolean) =>
-    api.put<TunnelStatus>("/api/v1/admin/tunnel/autostart", { enabled }),
+  status: () => api.get<TransportStatusDTO>("/api/v1/transport/status"),
+  orders: (params: OrderQuery) => api.get<TransportOrderDTO[]>("/api/v1/transport/orders", { params: { ...params } }),
+  order: (id: number) => api.get<TransportOrderDTO>(`/api/v1/transport/orders/${id}`),
+  create: (input: TransportOrderInputDTO) => api.post<TransportOrderDTO>("/api/v1/transport/orders", input),
+  update: (id: number, input: TransportOrderInputDTO) => api.put<TransportOrderDTO>(`/api/v1/transport/orders/${id}`, input),
+  cancel: (id: number) => api.post<TransportOrderDTO>(`/api/v1/transport/orders/${id}/cancel`, {}),
+  setBearers: (id: number, names: string[]) => api.put<TransportOrderDTO>(`/api/v1/transport/orders/${id}/bearers`, { names }),
+  setStatus: (id: number, status: string, note: string) =>
+    api.post<TransportOrderDTO>(`/api/v1/transport/orders/${id}/status`, { status, note }),
 };

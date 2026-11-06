@@ -1,5 +1,14 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["playwright"]
+# ///
+"""Browser smoke test: drives the real app (store clerk on mobile, admin on desktop).
+
+Usage:  go build -o dist/legkyi ./cmd/server   (after `npm run build` in frontend/)
+        CHROMIUM_PATH=/opt/pw-browsers/chromium uv run scripts/e2e_test.py
+LEGKYI_E2E_BINARY overrides the binary path (default dist/legkyi).
+"""
 import os
-import sys
 import time
 import shutil
 import subprocess
@@ -13,19 +22,23 @@ def run_tests():
 
     env = os.environ.copy()
     env["LEGKYI_DATA_DIR"] = test_dir
-    backend_path = str(Path(__file__).resolve().parents[1] / "backend")
-    env["PYTHONPATH"] = backend_path + os.pathsep + env.get("PYTHONPATH", "")
-    env["ADMIN_PASSWORD"] = "admin123"
+    env["ADMIN_PASSWORD"] = "Admin123pass"
     env["DEMO"] = "1"
+    env["AUTO_UPDATE"] = "0"  # a stamped CI build must never update itself during a test
     env["COOKIE_SECURE"] = "0"
     env["HOST"] = "127.0.0.1"
     env["PORT"] = "8888"
     env["TUNNEL_ENABLED"] = "0"  # The app's optional .env loader must not enable a real tunnel in tests.
-    env["BACKUP_SIDECAR_ENABLED"] = "0"
 
+    # The binary runs in the throwaway folder so a repository .env cannot point its data or backups
+    # at the real ones.
+    root = Path(__file__).resolve().parents[1]
+    go_binary = os.getenv("LEGKYI_E2E_BINARY") or str(root / "dist" / "legkyi")
+    env["LEGKYI_BACKUPS_DIR"] = os.path.join(test_dir, "backups")
+    command, workdir = [os.path.abspath(go_binary)], test_dir
     server_process = subprocess.Popen(
-        [sys.executable, "-m", "app"],
-        cwd=backend_path,
+        command,
+        cwd=workdir,
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -36,7 +49,8 @@ def run_tests():
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            # CHROMIUM_PATH lets the script reuse an already-installed browser instead of `playwright install`.
+            browser = p.chromium.launch(headless=True, executable_path=os.getenv("CHROMIUM_PATH") or None)
 
             # -------------------------------------------------------------
             # 1. Store Clerk Flow (Mobile viewport 390x844)
@@ -62,7 +76,7 @@ def run_tests():
 
             # Fill login form
             page.fill('#login-username', "store1")
-            page.fill('#login-password', "store1")
+            page.fill('#login-password', "Store1-demo")
             page.click('button[type="submit"]')
 
             # Wait for navigation to /report
@@ -74,12 +88,12 @@ def run_tests():
             print("Store report loaded with products!")
 
             # Verify store name
-            header_text = page.inner_text("h1")
+            header_text = page.inner_text("header")
             print("Header store name:", header_text)
-            assert "Магазин 1" in header_text
+            assert "Підрозділ 1" in header_text
 
             # Test quantity stepper (+ button)
-            plus_buttons = page.locator('button[aria-label="Збільшити кількість"]').all()
+            plus_buttons = page.locator('button[aria-label^="Збільшити кількість"]').all()
             print(f"Found {len(plus_buttons)} increment buttons")
             assert len(plus_buttons) >= 3
             plus_buttons[0].click()
@@ -108,15 +122,32 @@ def run_tests():
 
             page.wait_for_selector('text=Звіт надіслано й заблоковано', timeout=5000)
             print("Submit confirmed and locked!")
+            assert "Надіслав(ла): store1" in page.inner_text("main"), "the page must name the employee who submitted"
+            print("Report is signed by the submitting employee!")
 
             # Verify inputs are now disabled
             first_input = page.locator('input[inputmode="numeric"]').first
             assert first_input.is_disabled(), "Quantity input should be disabled after submission"
             print("Verified report is read-only after submission.")
 
-            # Logout
-            logout_btn = page.locator('button[aria-label="Вийти"]')
-            logout_btn.click()
+            # Transport desk: the same user places an order for today
+            page.click('a[aria-label="Транспорт"]')
+            page.wait_for_url("**/admin/transport", timeout=5000)
+            page.click('button:has-text("Нове замовлення")')
+            page.fill('#order-deceased', "Тестовий Т. Т.")
+            page.fill('#delivery-car', "АА 0001 АА")
+            page.fill('#delivery-departure', "вул. Квітуча, 5")
+            page.fill('#delivery-time', "0930")
+            page.fill('#delivery-destination', "Морг №1")
+            page.click('[role="dialog"] button:has-text("Надіслати")')
+            page.wait_for_selector('text=Замовлення надіслано', timeout=5000)
+            page.wait_for_selector('article:has-text("Тестовий Т. Т.")', timeout=5000)
+            assert page.locator('article:has-text("Тестовий Т. Т.") >> text=Надіслано').count() > 0
+            print("Desk placed a transport order!")
+
+            # Logout through the account menu
+            page.locator('button[aria-label^="Обліковий запис"]:visible').first.click()
+            page.get_by_role("menuitem", name="Вийти").click()
             page.wait_for_url("**/login", timeout=5000)
             print("Successfully logged out!")
             context.close()
@@ -133,30 +164,51 @@ def run_tests():
             admin_page.goto("http://127.0.0.1:8888/login")
             admin_page.wait_for_load_state("networkidle")
             admin_page.fill('#login-username', "admin")
-            admin_page.fill('#login-password', "admin123")
+            admin_page.fill('#login-password', "Admin123pass")
             admin_page.click('button[type="submit"]')
 
             admin_page.wait_for_url("**/admin/**", timeout=5000)
             print("Admin landed on:", admin_page.url)
-            admin_page.wait_for_selector('text=Зведена таблиця', timeout=5000)
-            print("Admin summary view loaded")
+            admin_page.wait_for_selector('text=Товари за місяць', timeout=5000)
+            print("Admin month view loaded")
+
+            # Dispatcher answers the desk's transport order
+            admin_page.goto("http://127.0.0.1:8888/admin/transport")
+            admin_page.wait_for_selector('article:has-text("Тестовий Т. Т.")', timeout=5000)
+            admin_page.locator('article:has-text("Тестовий Т. Т.") button:has-text("Прийняти")').click()
+            admin_page.fill('#status-note', "Авто виїде о 8:40")
+            admin_page.click('[role="dialog"] button:has-text("Застосувати")')
+            admin_page.wait_for_selector('article:has-text("Тестовий Т. Т.") >> text=Авто виїде о 8:40', timeout=5000)
+            print("Dispatcher replied to the transport order!")
+            admin_page.locator('article:has-text("демо 1") button:has-text("Призначити носіїв")').click()
+            admin_page.fill('[role="dialog"] input[aria-label="Носій 1"]', "Петренко О.")
+            admin_page.click('[role="dialog"] button:has-text("Зберегти")')
+            admin_page.wait_for_selector('article:has-text("демо 1") >> text=Петренко О.', timeout=5000)
+            admin_page.click('a:has-text("Схема виносу")')
+            admin_page.wait_for_url("**/admin/transport/schedule**", timeout=5000)
+            admin_page.wait_for_selector('tr:has-text("демо 1") >> text=Петренко О.', timeout=5000)
+            print("Dispatcher assigned bearers and the schedule shows them!")
+            admin_page.goto("http://127.0.0.1:8888/admin/reports")
+            admin_page.wait_for_load_state("networkidle")
 
             # Download XLSX test
             xlsx_link = admin_page.locator('a[href*="/admin/summary.xlsx"]')
             print("Found XLSX export link:", xlsx_link.get_attribute("href"))
 
             # Navigate to Reports
-            admin_page.click('a:has-text("Звіти")')
+            admin_page.click('a:visible:has-text("Звіти")')
             admin_page.wait_for_url("**/admin/reports**", timeout=5000)
-            admin_page.wait_for_selector('text=Магазин 1', timeout=5000)
+            admin_page.wait_for_selector('text=Підрозділ 1', timeout=5000)
             print("Navigated to Reports list, store 1 card visible")
 
             # Check store1 report card and click into detail
-            report_card = admin_page.locator('a:has-text("Магазин 1")').first
+            report_card = admin_page.locator('a:has-text("Підрозділ 1")').first
             report_card.click()
             admin_page.wait_for_url("**/admin/reports/**", timeout=5000)
-            admin_page.wait_for_selector('text=Магазин 1', timeout=5000)
+            admin_page.wait_for_selector('text=Підрозділ 1', timeout=5000)
             print("Navigated to Report Detail:", admin_page.url)
+            admin_page.wait_for_selector('text=Надіслав(ла): store1', timeout=5000)
+            print("Admin sees who submitted the report!")
 
             # Unlock report
             unlock_btn = admin_page.locator('button:has-text("Розблокувати")')
@@ -168,11 +220,14 @@ def run_tests():
                 admin_page.wait_for_selector('text=Звіт розблоковано', timeout=5000)
                 print("Report unlocked successfully!")
 
-            # Navigate to Settings
-            admin_page.click('a:has-text("Налаштування")')
-            admin_page.wait_for_url("**/admin/settings**", timeout=5000)
+            # Administration hub -> products (a section contributed by the reports module)
+            admin_page.click('aside a:has-text("Адміністрування")')
+            admin_page.wait_for_url("**/admin/manage", timeout=5000)
+            admin_page.wait_for_selector('text=Облікові записи', timeout=5000)
+            admin_page.locator('a:visible:has-text("Товари й ціни")').first.click()
+            admin_page.wait_for_url("**/admin/manage/products", timeout=5000)
             admin_page.wait_for_selector('button:has-text("Створити товар")', timeout=5000)
-            print("Navigated to Settings")
+            print("Navigated to the products section of the administration hub")
 
             # Add a new product
             admin_page.click('button:has-text("Створити товар")')
@@ -208,12 +263,11 @@ def run_tests():
             admin_page.wait_for_selector('text=Ціну оновлено', timeout=5000)
             print("Price update verified!")
 
-            # Navigate to Logs
-            admin_page.click('a:has-text("Журнал")')
-            admin_page.wait_for_url("**/admin/logs**", timeout=5000)
-            admin_page.wait_for_selector('text=Журнал аудиту', timeout=5000)
+            # Audit log section of the hub
+            admin_page.locator('nav[aria-label="Розділи адміністрування"] a:visible:has-text("Журнал дій")').first.click()
+            admin_page.wait_for_url("**/admin/manage/audit", timeout=5000)
             admin_page.wait_for_selector('text=Тестовий Чай', timeout=5000)
-            print("Navigated to Logs. Total logs rows:", admin_page.locator("tr, .rounded-card").count())
+            print("Navigated to Logs. Total logs rows:", admin_page.locator("#audit-entries li").count())
             assert admin_page.locator("text=Тестовий Чай").count() > 0, "Audit log should mention the created product"
             print("Audit log entry verified!")
 

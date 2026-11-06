@@ -3,40 +3,35 @@ reports.db
 backups/
 secret.key
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache/
-.coverage
-htmlcov/
-.venv/
-build/
+# Build output
 dist/
-*.spec
-*.egg-info/
+bin/
 
-# uv
-.uv/
-
-# Nix / direnv
+# Developer tooling and local artifacts (not part of the application)
+flake.nix
+flake.lock
 .direnv/
 .envrc
 result
+coverage/
+*.out
+*.test
+*.log
+*.tmp
+.env.*
+!.env.example
+tmp/
+scratch/
 
-# Downloaded runtime
-backend/app/static/alpine.min.js
-backend/app/static/app/
-
-# Frontend
+# Frontend (the Vite build is embedded into the Go binary)
+internal/assets/static/app/
 frontend/node_modules/
 frontend/dist/
 .agents/
 
 # Docker & local data
 data/
-
+app_storage/
 
 # IDE
 .idea/
@@ -51,4 +46,8 @@ Thumbs.db
 
 # Environment secrets (never commit)
 .env
-.agents/skills/
+
+# Claude Code (personal overrides)
+.claude/settings.local.json
+/server
+/smoke

@@ -2,16 +2,19 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "@/app/providers/ThemeContext";
+import { ThemeProvider } from "@/platform/theme/ThemeContext";
 import { AuthProvider } from "@/platform/auth/AuthContext";
 import StoreReportPage from "./StoreReportPage";
 import type { StoreReportDTO, SessionDTO } from "@/platform/api/types";
 
 const mockSession: SessionDTO = {
+  user_id: 5,
   login: "teststore",
-  role: "store",
-  store_id: 1,
-  store_name: "Тестовий магазин",
+  full_name: "",
+  organisation: { id: 1, name: "Тестовий магазин" },
+  roles: ["Магазин"],
+  permissions: ["reports.submit"],
+  modules: ["platform", "reports"],
   period: "2026-10",
 };
 
@@ -154,8 +157,7 @@ describe("StoreReportPage", () => {
     renderPage();
     await screen.findByText("Хліб пшеничний");
 
-    fireEvent.click(screen.getByRole("button", { name: /Картковий/i }));
-    expect((await screen.findAllByText("Кількість по розрахунку")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("по розрахунку").length).toBeGreaterThan(0);
 
     const plusButtons = screen.getAllByLabelText(/Збільшити кількість/i);
     fireEvent.click(plusButtons[1]);
@@ -209,16 +211,10 @@ describe("StoreReportPage", () => {
     });
   });
 
-  it("toggles viewMode between desktop table and cards", async () => {
+  it("names each quantity field after its product and price", async () => {
     renderPage();
     await screen.findByText("Хліб пшеничний");
-
-    const cardsBtn = screen.getByRole("button", { name: /Картковий/i });
-    fireEvent.click(cardsBtn);
-    expect(screen.getByText("Хліб пшеничний")).toBeDefined();
-
-    const tableBtn = screen.getByRole("button", { name: /Табличний/i });
-    fireEvent.click(tableBtn);
-    expect(screen.getByText("Хліб пшеничний")).toBeDefined();
+    expect(screen.getByRole("textbox", { name: "Кількість: Хліб пшеничний, 25,00\u00a0₴" })).toBeDefined();
+    expect(screen.getByText("заповнено 2 з 2")).toBeDefined();
   });
 });

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { BrowserRouter } from "react-router-dom";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "@/app/providers/ThemeContext";
+import { ThemeProvider } from "@/platform/theme/ThemeContext";
 import { AuthProvider } from "@/platform/auth/AuthContext";
 import { LoginPage } from "./LoginPage";
 
@@ -56,5 +56,37 @@ describe("LoginPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Приховати пароль" }));
     expect(passwordField.type).toBe("password");
+  });
+
+  it("returns to the page the user was sent away from after signing in", async () => {
+    const session = {
+      user_id: 1, login: "admin", full_name: "", organisation: null, roles: [],
+      permissions: ["platform.users.manage"], modules: [], period: "2026-10",
+    };
+    globalThis.fetch = vi.fn().mockImplementation((url: string) =>
+      Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(String(url).includes("/auth/login") ? session : null) }),
+    );
+    function Where() {
+      const { pathname } = useLocation();
+      return <p>at {pathname}</p>;
+    }
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <MemoryRouter initialEntries={[{ pathname: "/login", state: { from: { pathname: "/admin/manage/users", search: "" } } }]}>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="*" element={<Where />} />
+              </Routes>
+            </MemoryRouter>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    );
+    fireEvent.change(await screen.findByLabelText(/Логін/i), { target: { value: "admin" } });
+    fireEvent.change(screen.getByLabelText("Пароль"), { target: { value: "secret" } });
+    fireEvent.click(screen.getByRole("button", { name: /Увійти/i }));
+    await waitFor(() => expect(screen.getByText("at /admin/manage/users")).toBeDefined());
   });
 });

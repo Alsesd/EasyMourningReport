@@ -1,0 +1,2905 @@
+{
+  "description": "Product catalogue and price history, store reports, review, summary, settings.",
+  "seed": {
+    "platform_admin": {
+      "login": "boss",
+      "password": "Boss-pass1"
+    }
+  },
+  "steps": [
+    {
+      "name": "login boss",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "json": {
+        "login": "boss",
+        "password": "Boss-pass1"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "user_id": 1,
+          "login": "boss",
+          "full_name": "",
+          "organisation": null,
+          "roles": [
+            "Адміністратор"
+          ],
+          "permissions": [
+            "platform.audit.view",
+            "platform.organisations.manage",
+            "platform.roles.manage",
+            "platform.system.manage",
+            "platform.users.manage",
+            "reports.catalog.manage",
+            "reports.review",
+            "reports.settings.manage",
+            "transport.orders.manage",
+            "transport.orders.view_all"
+          ],
+          "modules": [
+            "platform",
+            "reports",
+            "transport"
+          ],
+          "period": "<current-period>"
+        }
+      }
+    },
+    {
+      "name": "session period",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/session",
+      "save": {
+        "period": "period"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "user_id": 1,
+          "login": "boss",
+          "full_name": "",
+          "organisation": null,
+          "roles": [
+            "Адміністратор"
+          ],
+          "permissions": [
+            "platform.audit.view",
+            "platform.organisations.manage",
+            "platform.roles.manage",
+            "platform.system.manage",
+            "platform.users.manage",
+            "reports.catalog.manage",
+            "reports.review",
+            "reports.settings.manage",
+            "transport.orders.manage",
+            "transport.orders.view_all"
+          ],
+          "modules": [
+            "platform",
+            "reports",
+            "transport"
+          ],
+          "period": "<current-period>"
+        }
+      }
+    },
+    {
+      "name": "create org",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/organisations",
+      "json": {
+        "name": "Shop A",
+        "first_user": {
+          "login": "clerk",
+          "password": "Clerk-pass1"
+        }
+      },
+      "save": {
+        "org": "id"
+      },
+      "expect": {
+        "status": 201,
+        "json": {
+          "id": 1,
+          "name": "Shop A",
+          "archived": false,
+          "user_count": 1,
+          "usage": {}
+        }
+      }
+    },
+    {
+      "name": "create org 2",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/organisations",
+      "json": {
+        "name": "Shop B",
+        "first_user": {
+          "login": "clerk_b",
+          "password": "Clerk-b-pass1"
+        }
+      },
+      "expect": {
+        "status": 201,
+        "json": {
+          "id": 2,
+          "name": "Shop B",
+          "archived": false,
+          "user_count": 1,
+          "usage": {}
+        }
+      }
+    },
+    {
+      "name": "products empty",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/products?period={period}",
+      "expect": {
+        "status": 200,
+        "json": []
+      }
+    },
+    {
+      "name": "product create",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/admin/products",
+      "json": {
+        "name": "  Wreath   big ",
+        "price": "25,5"
+      },
+      "save": {
+        "p1": "id"
+      },
+      "expect": {
+        "status": 201,
+        "json": {
+          "id": 1,
+          "name": "Wreath big",
+          "price_cents": 2550,
+          "active": true,
+          "archived": false,
+          "used_count": 0,
+          "month_prices_cents": [
+            2550
+          ],
+          "price_history": [
+            {
+              "period": "0000-00",
+              "price_cents": 2550
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "product create 2",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/admin/products",
+      "json": {
+        "name": "Candle",
+        "price": "0.125"
+      },
+      "save": {
+        "p2": "id"
+      },
+      "expect": {
+        "status": 201,
+        "json": {
+          "id": 2,
+          "name": "Candle",
+          "price_cents": 12,
+          "active": true,
+          "archived": false,
+          "used_count": 0,
+          "month_prices_cents": [
+            12
+          ],
+          "price_history": [
+            {
+              "period": "0000-00",
+              "price_cents": 12
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "product create 3",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/admin/products",
+      "json": {
+        "name": "Ribbon",
+        "price": "10"
+      },
+      "save": {
+        "p3": "id"
+      },
+      "expect": {
+        "status": 201,
+        "json": {
+          "id": 3,
+          "name": "Ribbon",
+          "price_cents": 1000,
+          "active": true,
+          "archived": false,
+          "used_count": 0,
+          "month_prices_cents": [
+            1000
+          ],
+          "price_history": [
+            {
+              "period": "0000-00",
+              "price_cents": 1000
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "product duplicate",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/admin/products",
+      "json": {
+        "name": "candle",
+        "price": "3"
+      },
+      "expect": {
+        "status": 201,
+        "json": {
+          "id": 4,
+          "name": "candle",
+          "price_cents": 300,
+          "active": true,
+          "archived": false,
+          "used_count": 0,
+          "month_prices_cents": [
+            300
+          ],
+          "price_history": [
+            {
+              "period": "0000-00",
+              "price_cents": 300
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "product duplicate exact",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/admin/products",
+      "json": {
+        "name": "Candle",
+        "price": "3"
+      },
+      "expect": {
+        "status": 201,
+        "json": {
+          "id": 5,
+          "name": "Candle",
+          "price_cents": 300,
+          "active": true,
+          "archived": false,
+          "used_count": 0,
+          "month_prices_cents": [
+            300
+          ],
+          "price_history": [
+            {
+              "period": "0000-00",
+              "price_cents": 300
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "product bad price",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/admin/products",
+      "json": {
+        "name": "Bad",
+        "price": "abc"
+      },
+      "expect": {
+        "status": 422,
+        "json": {
+          "detail": "Некоректна ціна. Приклад: 25.50",
+          "code": "validation_error"
+        }
+      }
+    },
+    {
+      "name": "product negative price",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/admin/products",
+      "json": {
+        "name": "Bad",
+        "price": "-1"
+      },
+      "expect": {
+        "status": 422,
+        "json": {
+          "detail": "Некоректна ціна. Приклад: 25.50",
+          "code": "validation_error"
+        }
+      }
+    },
+    {
+      "name": "product huge price",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/admin/products",
+      "json": {
+        "name": "Bad",
+        "price": "10000001"
+      },
+      "expect": {
+        "status": 422,
+        "json": {
+          "detail": "Некоректна ціна. Приклад: 25.50",
+          "code": "validation_error"
+        }
+      }
+    },
+    {
+      "name": "product rename and deactivate",
+      "as": "boss",
+      "method": "PUT",
+      "path": "/api/v1/admin/products/{p3}",
+      "json": {
+        "name": "Ribbon gold",
+        "price": "10",
+        "active": false
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "id": 3,
+          "name": "Ribbon gold",
+          "price_cents": 1000,
+          "active": false,
+          "archived": false,
+          "used_count": 0,
+          "month_prices_cents": [
+            1000
+          ],
+          "price_history": [
+            {
+              "period": "0000-00",
+              "price_cents": 1000
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "product activate",
+      "as": "boss",
+      "method": "PUT",
+      "path": "/api/v1/admin/products/{p3}",
+      "json": {
+        "name": "Ribbon gold",
+        "price": "10",
+        "active": true
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "id": 3,
+          "name": "Ribbon gold",
+          "price_cents": 1000,
+          "active": true,
+          "archived": false,
+          "used_count": 0,
+          "month_prices_cents": [
+            1000
+          ],
+          "price_history": [
+            {
+              "period": "0000-00",
+              "price_cents": 1000
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "product price change",
+      "as": "boss",
+      "method": "PUT",
+      "path": "/api/v1/admin/products/{p1}/price",
+      "json": {
+        "price": "30"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "id": 1,
+          "name": "Wreath big",
+          "price_cents": 3000,
+          "active": true,
+          "archived": false,
+          "used_count": 0,
+          "month_prices_cents": [
+            2550,
+            3000
+          ],
+          "price_history": [
+            {
+              "period": "0000-00",
+              "price_cents": 2550
+            },
+            {
+              "period": "<current-period>",
+              "price_cents": 3000
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "product price change back",
+      "as": "boss",
+      "method": "PUT",
+      "path": "/api/v1/admin/products/{p1}/price",
+      "json": {
+        "price": "25.50"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "id": 1,
+          "name": "Wreath big",
+          "price_cents": 2550,
+          "active": true,
+          "archived": false,
+          "used_count": 0,
+          "month_prices_cents": [
+            2550,
+            3000,
+            2550
+          ],
+          "price_history": [
+            {
+              "period": "0000-00",
+              "price_cents": 2550
+            },
+            {
+              "period": "<current-period>",
+              "price_cents": 3000
+            },
+            {
+              "period": "2026-11_1",
+              "price_cents": 2550
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "product missing",
+      "as": "boss",
+      "method": "PUT",
+      "path": "/api/v1/admin/products/9999/price",
+      "json": {
+        "price": "1"
+      },
+      "expect": {
+        "status": 404,
+        "json": {
+          "detail": "Товар не знайдено."
+        }
+      }
+    },
+    {
+      "name": "products list",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/products?period={period}",
+      "expect": {
+        "status": 200,
+        "json": [
+          {
+            "id": 2,
+            "name": "Candle",
+            "price_cents": 12,
+            "active": true,
+            "archived": false,
+            "used_count": 0,
+            "month_prices_cents": [
+              12
+            ],
+            "price_history": [
+              {
+                "period": "0000-00",
+                "price_cents": 12
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "name": "Candle",
+            "price_cents": 300,
+            "active": true,
+            "archived": false,
+            "used_count": 0,
+            "month_prices_cents": [
+              300
+            ],
+            "price_history": [
+              {
+                "period": "0000-00",
+                "price_cents": 300
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "name": "Ribbon gold",
+            "price_cents": 1000,
+            "active": true,
+            "archived": false,
+            "used_count": 0,
+            "month_prices_cents": [
+              1000
+            ],
+            "price_history": [
+              {
+                "period": "0000-00",
+                "price_cents": 1000
+              }
+            ]
+          },
+          {
+            "id": 1,
+            "name": "Wreath big",
+            "price_cents": 2550,
+            "active": true,
+            "archived": false,
+            "used_count": 0,
+            "month_prices_cents": [
+              2550,
+              3000,
+              2550
+            ],
+            "price_history": [
+              {
+                "period": "0000-00",
+                "price_cents": 2550
+              },
+              {
+                "period": "<current-period>",
+                "price_cents": 3000
+              },
+              {
+                "period": "2026-11_1",
+                "price_cents": 2550
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "name": "candle",
+            "price_cents": 300,
+            "active": true,
+            "archived": false,
+            "used_count": 0,
+            "month_prices_cents": [
+              300
+            ],
+            "price_history": [
+              {
+                "period": "0000-00",
+                "price_cents": 300
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "products bad period",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/products?period=2026-13",
+      "expect": {
+        "status": 400,
+        "json": {
+          "detail": "Період має мати вигляд 2026-10"
+        }
+      }
+    },
+    {
+      "name": "clerk forbidden catalogue",
+      "as": "anon",
+      "method": "GET",
+      "path": "/api/v1/admin/products",
+      "expect": {
+        "status": 401,
+        "json": {
+          "detail": "Увійдіть у систему."
+        }
+      }
+    },
+    {
+      "name": "login clerk",
+      "as": "clerk",
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "json": {
+        "login": "clerk",
+        "password": "Clerk-pass1"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "user_id": 2,
+          "login": "clerk",
+          "full_name": "",
+          "organisation": {
+            "id": 1,
+            "name": "Shop A"
+          },
+          "roles": [
+            "Підрозділ"
+          ],
+          "permissions": [
+            "reports.submit"
+          ],
+          "modules": [
+            "platform",
+            "reports",
+            "transport"
+          ],
+          "period": "<current-period>"
+        }
+      }
+    },
+    {
+      "name": "clerk forbidden catalogue (role)",
+      "as": "clerk",
+      "method": "GET",
+      "path": "/api/v1/admin/products",
+      "expect": {
+        "status": 403,
+        "json": {
+          "detail": "Недостатньо прав для цієї дії."
+        }
+      }
+    },
+    {
+      "name": "clerk forbidden summary",
+      "as": "clerk",
+      "method": "GET",
+      "path": "/api/v1/admin/summary?period={period}",
+      "expect": {
+        "status": 403,
+        "json": {
+          "detail": "Недостатньо прав для цієї дії."
+        }
+      }
+    },
+    {
+      "name": "store report new",
+      "as": "clerk",
+      "method": "GET",
+      "path": "/api/v1/store/reports/{period}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "report_id": null,
+          "store_name": "Shop A",
+          "period": "<current-period>",
+          "status": "new",
+          "read_only": false,
+          "calculation_enabled": false,
+          "rows": [
+            {
+              "id": 2,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 12,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "name": "Ribbon gold",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 1000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 1,
+              "name": "Wreath big",
+              "repriced": true,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 2550,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "old",
+                  "sum_cents": 0
+                },
+                {
+                  "price_cents": 3000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "new",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "name": "candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            }
+          ],
+          "inactive_rows": [],
+          "inactive_total_cents": 0,
+          "total_cents": 0,
+          "available_periods": [
+            "<current-period>"
+          ]
+        }
+      }
+    },
+    {
+      "name": "store report bad period",
+      "as": "clerk",
+      "method": "GET",
+      "path": "/api/v1/store/reports/2026-1",
+      "expect": {
+        "status": 400,
+        "json": {
+          "detail": "Період має мати вигляд 2026-10"
+        }
+      }
+    },
+    {
+      "name": "store draft save",
+      "as": "clerk",
+      "method": "PUT",
+      "path": "/api/v1/store/reports/{period}",
+      "json": {
+        "action": "draft",
+        "quantities": [
+          {
+            "product_id": "{p1}",
+            "price_cents": 2550,
+            "quantity": 3
+          },
+          {
+            "product_id": "{p2}",
+            "price_cents": 12,
+            "quantity": 10
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "report_id": 1,
+          "store_name": "Shop A",
+          "period": "<current-period>",
+          "status": "draft",
+          "read_only": false,
+          "calculation_enabled": false,
+          "rows": [
+            {
+              "id": 2,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 120,
+              "inputs": [
+                {
+                  "price_cents": 12,
+                  "quantity": 10,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 120
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "name": "Ribbon gold",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 1000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 1,
+              "name": "Wreath big",
+              "repriced": true,
+              "sum_cents": 7650,
+              "inputs": [
+                {
+                  "price_cents": 2550,
+                  "quantity": 3,
+                  "quantity_calc": 0,
+                  "label": "old",
+                  "sum_cents": 7650
+                },
+                {
+                  "price_cents": 3000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "new",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "name": "candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            }
+          ],
+          "inactive_rows": [],
+          "inactive_total_cents": 0,
+          "total_cents": 7770,
+          "available_periods": [
+            "<current-period>"
+          ]
+        }
+      }
+    },
+    {
+      "name": "store draft negative quantity",
+      "as": "clerk",
+      "method": "PUT",
+      "path": "/api/v1/store/reports/{period}",
+      "json": {
+        "action": "draft",
+        "quantities": [
+          {
+            "product_id": "{p1}",
+            "price_cents": 2550,
+            "quantity": -1
+          }
+        ]
+      },
+      "expect": {
+        "status": 422,
+        "json": {
+          "detail": "Некоректні дані запиту.",
+          "errors": [
+            {
+              "loc": [
+                "body",
+                "quantities",
+                "0",
+                "quantity"
+              ],
+              "msg": "Input should be greater than or equal to 0",
+              "type": "greater_than_equal"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "store draft unknown product",
+      "as": "clerk",
+      "method": "PUT",
+      "path": "/api/v1/store/reports/{period}",
+      "json": {
+        "action": "draft",
+        "quantities": [
+          {
+            "product_id": 9999,
+            "price_cents": 100,
+            "quantity": 1
+          }
+        ]
+      },
+      "expect": {
+        "status": 409,
+        "json": {
+          "detail": "Список товарів або ціни змінилися. Оновіть звіт і повторіть збереження."
+        }
+      }
+    },
+    {
+      "name": "store draft stale price",
+      "as": "clerk",
+      "method": "PUT",
+      "path": "/api/v1/store/reports/{period}",
+      "json": {
+        "action": "draft",
+        "quantities": [
+          {
+            "product_id": "{p1}",
+            "price_cents": 1,
+            "quantity": 1
+          }
+        ]
+      },
+      "expect": {
+        "status": 409,
+        "json": {
+          "detail": "Список товарів або ціни змінилися. Оновіть звіт і повторіть збереження."
+        }
+      }
+    },
+    {
+      "name": "store report after draft",
+      "as": "clerk",
+      "method": "GET",
+      "path": "/api/v1/store/reports/{period}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "report_id": 1,
+          "store_name": "Shop A",
+          "period": "<current-period>",
+          "status": "draft",
+          "read_only": false,
+          "calculation_enabled": false,
+          "rows": [
+            {
+              "id": 2,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 120,
+              "inputs": [
+                {
+                  "price_cents": 12,
+                  "quantity": 10,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 120
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "name": "Ribbon gold",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 1000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 1,
+              "name": "Wreath big",
+              "repriced": true,
+              "sum_cents": 7650,
+              "inputs": [
+                {
+                  "price_cents": 2550,
+                  "quantity": 3,
+                  "quantity_calc": 0,
+                  "label": "old",
+                  "sum_cents": 7650
+                },
+                {
+                  "price_cents": 3000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "new",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "name": "candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            }
+          ],
+          "inactive_rows": [],
+          "inactive_total_cents": 0,
+          "total_cents": 7770,
+          "available_periods": [
+            "<current-period>"
+          ]
+        }
+      }
+    },
+    {
+      "name": "store submit",
+      "as": "clerk",
+      "method": "PUT",
+      "path": "/api/v1/store/reports/{period}",
+      "json": {
+        "action": "submit",
+        "quantities": [
+          {
+            "product_id": "{p1}",
+            "price_cents": 2550,
+            "quantity": 3
+          },
+          {
+            "product_id": "{p2}",
+            "price_cents": 12,
+            "quantity": 10
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "report_id": 1,
+          "store_name": "Shop A",
+          "period": "<current-period>",
+          "status": "submitted",
+          "read_only": true,
+          "calculation_enabled": false,
+          "rows": [
+            {
+              "id": 2,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 120,
+              "inputs": [
+                {
+                  "price_cents": 12,
+                  "quantity": 10,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 120
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "name": "Ribbon gold",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 1000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 1,
+              "name": "Wreath big",
+              "repriced": true,
+              "sum_cents": 7650,
+              "inputs": [
+                {
+                  "price_cents": 2550,
+                  "quantity": 3,
+                  "quantity_calc": 0,
+                  "label": "old",
+                  "sum_cents": 7650
+                },
+                {
+                  "price_cents": 3000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "new",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "name": "candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            }
+          ],
+          "inactive_rows": [],
+          "inactive_total_cents": 0,
+          "total_cents": 7770,
+          "available_periods": [
+            "<current-period>"
+          ],
+          "submission": {
+            "by": "clerk",
+            "signed_at": "<time>"
+          }
+        }
+      }
+    },
+    {
+      "name": "store edit after submit",
+      "as": "clerk",
+      "method": "PUT",
+      "path": "/api/v1/store/reports/{period}",
+      "json": {
+        "action": "draft",
+        "quantities": []
+      },
+      "expect": {
+        "status": 409,
+        "json": {
+          "detail": "Звіт надіслано й заблоковано адміністратором."
+        }
+      }
+    },
+    {
+      "name": "store report after submit",
+      "as": "clerk",
+      "method": "GET",
+      "path": "/api/v1/store/reports/{period}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "report_id": 1,
+          "store_name": "Shop A",
+          "period": "<current-period>",
+          "status": "submitted",
+          "read_only": true,
+          "calculation_enabled": false,
+          "rows": [
+            {
+              "id": 2,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 120,
+              "inputs": [
+                {
+                  "price_cents": 12,
+                  "quantity": 10,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 120
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "name": "Ribbon gold",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 1000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 1,
+              "name": "Wreath big",
+              "repriced": true,
+              "sum_cents": 7650,
+              "inputs": [
+                {
+                  "price_cents": 2550,
+                  "quantity": 3,
+                  "quantity_calc": 0,
+                  "label": "old",
+                  "sum_cents": 7650
+                },
+                {
+                  "price_cents": 3000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "new",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "name": "candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            }
+          ],
+          "inactive_rows": [],
+          "inactive_total_cents": 0,
+          "total_cents": 7770,
+          "available_periods": [
+            "<current-period>"
+          ],
+          "submission": {
+            "by": "clerk",
+            "signed_at": "<time>"
+          }
+        }
+      }
+    },
+    {
+      "name": "admin reports list",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/reports?period={period}",
+      "expect": {
+        "status": 200,
+        "json": [
+          {
+            "store_id": 1,
+            "store_name": "Shop A",
+            "store_archived": false,
+            "report_id": 1,
+            "period": "<current-period>",
+            "status": "submitted",
+            "total_cents": 7770,
+            "item_count": 2,
+            "submission": {
+              "by": "clerk",
+              "signed_at": "<time>"
+            }
+          },
+          {
+            "store_id": 2,
+            "store_name": "Shop B",
+            "store_archived": false,
+            "report_id": null,
+            "period": "<current-period>",
+            "status": "none",
+            "total_cents": 0,
+            "item_count": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "admin summary",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/summary?period={period}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "period": "<current-period>",
+          "submitted_only": false,
+          "stores": [
+            {
+              "id": 1,
+              "name": "Shop A",
+              "archived": false,
+              "calculation_enabled": false
+            },
+            {
+              "id": 2,
+              "name": "Shop B",
+              "archived": false,
+              "calculation_enabled": false
+            }
+          ],
+          "rows": [
+            {
+              "name": "Candle",
+              "note": "",
+              "price_cents": 12,
+              "label": "",
+              "cells": [
+                10,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 10,
+              "calculation_quantity": 0,
+              "sum_cents": 120
+            },
+            {
+              "name": "Candle",
+              "note": "",
+              "price_cents": 300,
+              "label": "",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            },
+            {
+              "name": "Ribbon gold",
+              "note": "",
+              "price_cents": 1000,
+              "label": "",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            },
+            {
+              "name": "Wreath big",
+              "note": "25.50 · стара ціна",
+              "price_cents": 2550,
+              "label": "old",
+              "cells": [
+                3,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 3,
+              "calculation_quantity": 0,
+              "sum_cents": 7650
+            },
+            {
+              "name": "Wreath big",
+              "note": "30.00 · нова ціна",
+              "price_cents": 3000,
+              "label": "new",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            },
+            {
+              "name": "candle",
+              "note": "",
+              "price_cents": 300,
+              "label": "",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            }
+          ],
+          "store_totals_cents": [
+            7770,
+            0
+          ],
+          "grand_total_cents": 7770
+        }
+      }
+    },
+    {
+      "name": "admin summary submitted only",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/summary?period={period}&submitted_only=true",
+      "expect": {
+        "status": 200,
+        "json": {
+          "period": "<current-period>",
+          "submitted_only": true,
+          "stores": [
+            {
+              "id": 1,
+              "name": "Shop A",
+              "archived": false,
+              "calculation_enabled": false
+            },
+            {
+              "id": 2,
+              "name": "Shop B",
+              "archived": false,
+              "calculation_enabled": false
+            }
+          ],
+          "rows": [
+            {
+              "name": "Candle",
+              "note": "",
+              "price_cents": 12,
+              "label": "",
+              "cells": [
+                10,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 10,
+              "calculation_quantity": 0,
+              "sum_cents": 120
+            },
+            {
+              "name": "Candle",
+              "note": "",
+              "price_cents": 300,
+              "label": "",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            },
+            {
+              "name": "Ribbon gold",
+              "note": "",
+              "price_cents": 1000,
+              "label": "",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            },
+            {
+              "name": "Wreath big",
+              "note": "25.50 · стара ціна",
+              "price_cents": 2550,
+              "label": "old",
+              "cells": [
+                3,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 3,
+              "calculation_quantity": 0,
+              "sum_cents": 7650
+            },
+            {
+              "name": "Wreath big",
+              "note": "30.00 · нова ціна",
+              "price_cents": 3000,
+              "label": "new",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            },
+            {
+              "name": "candle",
+              "note": "",
+              "price_cents": 300,
+              "label": "",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            }
+          ],
+          "store_totals_cents": [
+            7770,
+            0
+          ],
+          "grand_total_cents": 7770
+        }
+      }
+    },
+    {
+      "name": "admin summary xlsx",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/summary.xlsx?period={period}",
+      "expect": {
+        "status": 200,
+        "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      }
+    },
+    {
+      "name": "admin report detail",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/reports/1",
+      "expect": {
+        "status": 200,
+        "json": {
+          "report_id": 1,
+          "store_id": 1,
+          "store_name": "Shop A",
+          "store_archived": false,
+          "calculation_enabled": false,
+          "period": "<current-period>",
+          "status": "submitted",
+          "total_cents": 7770,
+          "item_count": 2,
+          "rows": [
+            {
+              "id": 2,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 120,
+              "inputs": [
+                {
+                  "price_cents": 12,
+                  "quantity": 10,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 120
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "name": "Ribbon gold",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 1000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 1,
+              "name": "Wreath big",
+              "repriced": true,
+              "sum_cents": 7650,
+              "inputs": [
+                {
+                  "price_cents": 2550,
+                  "quantity": 3,
+                  "quantity_calc": 0,
+                  "label": "old",
+                  "sum_cents": 7650
+                },
+                {
+                  "price_cents": 3000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "new",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "name": "candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            }
+          ],
+          "inactive_rows": [],
+          "inactive_total_cents": 0,
+          "submission": {
+            "by": "clerk",
+            "signed_at": "<time>"
+          }
+        }
+      }
+    },
+    {
+      "name": "admin report missing",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/reports/9999",
+      "expect": {
+        "status": 404,
+        "json": {
+          "detail": "Звіт не знайдено."
+        }
+      }
+    },
+    {
+      "name": "admin unlock report",
+      "as": "boss",
+      "method": "PATCH",
+      "path": "/api/v1/admin/reports/1",
+      "json": {
+        "status": "draft"
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "report_id": 1,
+          "store_id": 1,
+          "store_name": "Shop A",
+          "store_archived": false,
+          "calculation_enabled": false,
+          "period": "<current-period>",
+          "status": "draft",
+          "total_cents": 7770,
+          "item_count": 2,
+          "submission": {
+            "by": "clerk",
+            "signed_at": "<time>"
+          }
+        }
+      }
+    },
+    {
+      "name": "admin lock invalid status",
+      "as": "boss",
+      "method": "PATCH",
+      "path": "/api/v1/admin/reports/1",
+      "json": {
+        "status": "locked"
+      },
+      "expect": {
+        "status": 422,
+        "json": {
+          "detail": "Некоректні дані запиту.",
+          "errors": [
+            {
+              "loc": [
+                "body",
+                "status"
+              ],
+              "msg": "Input should be 'draft' or 'submitted'",
+              "type": "literal_error"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "store edit after unlock",
+      "as": "clerk",
+      "method": "PUT",
+      "path": "/api/v1/store/reports/{period}",
+      "json": {
+        "action": "draft",
+        "quantities": [
+          {
+            "product_id": "{p1}",
+            "price_cents": 2550,
+            "quantity": 4
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "report_id": 1,
+          "store_name": "Shop A",
+          "period": "<current-period>",
+          "status": "draft",
+          "read_only": false,
+          "calculation_enabled": false,
+          "rows": [
+            {
+              "id": 2,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 12,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "name": "Ribbon gold",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 1000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 1,
+              "name": "Wreath big",
+              "repriced": true,
+              "sum_cents": 10200,
+              "inputs": [
+                {
+                  "price_cents": 2550,
+                  "quantity": 4,
+                  "quantity_calc": 0,
+                  "label": "old",
+                  "sum_cents": 10200
+                },
+                {
+                  "price_cents": 3000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "new",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "name": "candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            }
+          ],
+          "inactive_rows": [],
+          "inactive_total_cents": 0,
+          "total_cents": 10200,
+          "available_periods": [
+            "<current-period>"
+          ],
+          "submission": {
+            "by": "clerk",
+            "signed_at": "<time>"
+          }
+        }
+      }
+    },
+    {
+      "name": "report settings list",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/reports/settings",
+      "expect": {
+        "status": 200,
+        "json": [
+          {
+            "organisation_id": 1,
+            "organisation_name": "Shop A",
+            "archived": false,
+            "calculation_enabled": false,
+            "reports_count": 1
+          },
+          {
+            "organisation_id": 2,
+            "organisation_name": "Shop B",
+            "archived": false,
+            "calculation_enabled": false,
+            "reports_count": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "report settings enable calculation",
+      "as": "boss",
+      "method": "PUT",
+      "path": "/api/v1/reports/settings/{org}",
+      "json": {
+        "calculation_enabled": true
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "organisation_id": 1,
+          "organisation_name": "Shop A",
+          "archived": false,
+          "calculation_enabled": true,
+          "reports_count": 1
+        }
+      }
+    },
+    {
+      "name": "report settings missing org",
+      "as": "boss",
+      "method": "PUT",
+      "path": "/api/v1/reports/settings/9999",
+      "json": {
+        "calculation_enabled": true
+      },
+      "expect": {
+        "status": 404,
+        "json": {
+          "detail": "Підрозділ не знайдено."
+        }
+      }
+    },
+    {
+      "name": "store report with calculation",
+      "as": "clerk",
+      "method": "GET",
+      "path": "/api/v1/store/reports/{period}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "report_id": 1,
+          "store_name": "Shop A",
+          "period": "<current-period>",
+          "status": "draft",
+          "read_only": false,
+          "calculation_enabled": true,
+          "rows": [
+            {
+              "id": 2,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 12,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "name": "Ribbon gold",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 1000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 1,
+              "name": "Wreath big",
+              "repriced": true,
+              "sum_cents": 10200,
+              "inputs": [
+                {
+                  "price_cents": 2550,
+                  "quantity": 4,
+                  "quantity_calc": 0,
+                  "label": "old",
+                  "sum_cents": 10200
+                },
+                {
+                  "price_cents": 3000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "new",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "name": "candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            }
+          ],
+          "inactive_rows": [],
+          "inactive_total_cents": 0,
+          "total_cents": 10200,
+          "available_periods": [
+            "<current-period>"
+          ],
+          "submission": {
+            "by": "clerk",
+            "signed_at": "<time>"
+          }
+        }
+      }
+    },
+    {
+      "name": "store save with calculation",
+      "as": "clerk",
+      "method": "PUT",
+      "path": "/api/v1/store/reports/{period}",
+      "json": {
+        "action": "draft",
+        "quantities": [
+          {
+            "product_id": "{p1}",
+            "price_cents": 2550,
+            "quantity": 4,
+            "quantity_calc": 2
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "json": {
+          "report_id": 1,
+          "store_name": "Shop A",
+          "period": "<current-period>",
+          "status": "draft",
+          "read_only": false,
+          "calculation_enabled": true,
+          "rows": [
+            {
+              "id": 2,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 12,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 5,
+              "name": "Candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 3,
+              "name": "Ribbon gold",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 1000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 1,
+              "name": "Wreath big",
+              "repriced": true,
+              "sum_cents": 10200,
+              "inputs": [
+                {
+                  "price_cents": 2550,
+                  "quantity": 4,
+                  "quantity_calc": 2,
+                  "label": "old",
+                  "sum_cents": 10200
+                },
+                {
+                  "price_cents": 3000,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "new",
+                  "sum_cents": 0
+                }
+              ]
+            },
+            {
+              "id": 4,
+              "name": "candle",
+              "repriced": false,
+              "sum_cents": 0,
+              "inputs": [
+                {
+                  "price_cents": 300,
+                  "quantity": 0,
+                  "quantity_calc": 0,
+                  "label": "",
+                  "sum_cents": 0
+                }
+              ]
+            }
+          ],
+          "inactive_rows": [],
+          "inactive_total_cents": 0,
+          "total_cents": 10200,
+          "available_periods": [
+            "<current-period>"
+          ],
+          "submission": {
+            "by": "clerk",
+            "signed_at": "<time>"
+          }
+        }
+      }
+    },
+    {
+      "name": "admin summary with calculation",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/summary?period={period}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "period": "<current-period>",
+          "submitted_only": false,
+          "stores": [
+            {
+              "id": 1,
+              "name": "Shop A",
+              "archived": false,
+              "calculation_enabled": true
+            },
+            {
+              "id": 2,
+              "name": "Shop B",
+              "archived": false,
+              "calculation_enabled": false
+            }
+          ],
+          "rows": [
+            {
+              "name": "Candle",
+              "note": "",
+              "price_cents": 12,
+              "label": "",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            },
+            {
+              "name": "Candle",
+              "note": "",
+              "price_cents": 300,
+              "label": "",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            },
+            {
+              "name": "Ribbon gold",
+              "note": "",
+              "price_cents": 1000,
+              "label": "",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            },
+            {
+              "name": "Wreath big",
+              "note": "25.50 · стара ціна",
+              "price_cents": 2550,
+              "label": "old",
+              "cells": [
+                4,
+                0
+              ],
+              "calculation_cells": [
+                2,
+                0
+              ],
+              "quantity": 4,
+              "calculation_quantity": 2,
+              "sum_cents": 10200
+            },
+            {
+              "name": "Wreath big",
+              "note": "30.00 · нова ціна",
+              "price_cents": 3000,
+              "label": "new",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            },
+            {
+              "name": "candle",
+              "note": "",
+              "price_cents": 300,
+              "label": "",
+              "cells": [
+                0,
+                0
+              ],
+              "calculation_cells": [
+                0,
+                0
+              ],
+              "quantity": 0,
+              "calculation_quantity": 0,
+              "sum_cents": 0
+            }
+          ],
+          "store_totals_cents": [
+            10200,
+            0
+          ],
+          "grand_total_cents": 10200
+        }
+      }
+    },
+    {
+      "name": "store older period",
+      "as": "clerk",
+      "method": "GET",
+      "path": "/api/v1/store/reports/2026-09",
+      "expect": {
+        "status": 404,
+        "json": {
+          "detail": "Звіту за 2026-09 немає."
+        }
+      }
+    },
+    {
+      "name": "archive used product",
+      "as": "boss",
+      "method": "DELETE",
+      "path": "/api/v1/admin/products/{p1}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "id": 1,
+          "archived": true,
+          "deleted": false,
+          "message": "«Wreath big» переміщено в архів. Дані звітів збережено."
+        }
+      }
+    },
+    {
+      "name": "delete unused product",
+      "as": "boss",
+      "method": "DELETE",
+      "path": "/api/v1/admin/products/{p3}",
+      "expect": {
+        "status": 200,
+        "json": {
+          "id": 3,
+          "archived": false,
+          "deleted": true,
+          "message": "Товар «Ribbon gold» остаточно видалено."
+        }
+      }
+    },
+    {
+      "name": "restore product",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/admin/products/{p1}/restore",
+      "expect": {
+        "status": 200,
+        "json": {
+          "id": 1,
+          "name": "Wreath big",
+          "price_cents": 2550,
+          "active": true,
+          "archived": false,
+          "used_count": 1,
+          "month_prices_cents": [
+            2550,
+            3000,
+            2550
+          ],
+          "price_history": [
+            {
+              "period": "0000-00",
+              "price_cents": 2550
+            },
+            {
+              "period": "<current-period>",
+              "price_cents": 3000
+            },
+            {
+              "period": "2026-11_1",
+              "price_cents": 2550
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "products final",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/products?period={period}",
+      "expect": {
+        "status": 200,
+        "json": [
+          {
+            "id": 2,
+            "name": "Candle",
+            "price_cents": 12,
+            "active": true,
+            "archived": false,
+            "used_count": 0,
+            "month_prices_cents": [
+              12
+            ],
+            "price_history": [
+              {
+                "period": "0000-00",
+                "price_cents": 12
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "name": "Candle",
+            "price_cents": 300,
+            "active": true,
+            "archived": false,
+            "used_count": 0,
+            "month_prices_cents": [
+              300
+            ],
+            "price_history": [
+              {
+                "period": "0000-00",
+                "price_cents": 300
+              }
+            ]
+          },
+          {
+            "id": 1,
+            "name": "Wreath big",
+            "price_cents": 2550,
+            "active": true,
+            "archived": false,
+            "used_count": 1,
+            "month_prices_cents": [
+              2550,
+              3000,
+              2550
+            ],
+            "price_history": [
+              {
+                "period": "0000-00",
+                "price_cents": 2550
+              },
+              {
+                "period": "<current-period>",
+                "price_cents": 3000
+              },
+              {
+                "period": "2026-11_1",
+                "price_cents": 2550
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "name": "candle",
+            "price_cents": 300,
+            "active": true,
+            "archived": false,
+            "used_count": 0,
+            "month_prices_cents": [
+              300
+            ],
+            "price_history": [
+              {
+                "period": "0000-00",
+                "price_cents": 300
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "import not xlsx",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/admin/products/import",
+      "multipart": {
+        "filename": "x.txt",
+        "path": "files/empty.txt"
+      },
+      "expect": {
+        "status": 400,
+        "json": {
+          "detail": "Завантажте файл Excel у форматі .xlsx"
+        }
+      }
+    },
+    {
+      "name": "transport status",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/transport/status",
+      "expect": {
+        "status": 200,
+        "json": {
+          "ready": true,
+          "message": "Замовлення транспорту: створюйте записи на день і стежте за відповіддю диспетчера."
+        }
+      }
+    },
+    {
+      "name": "health probe",
+      "as": "anon",
+      "method": "GET",
+      "path": "/healthz",
+      "expect": {
+        "status": 200,
+        "json": {
+          "status": "ok"
+        }
+      }
+    },
+    {
+      "name": "unknown api path is json 404",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/nope",
+      "expect": {
+        "status": 404,
+        "json": {
+          "detail": "Not Found"
+        }
+      }
+    },
+    {
+      "name": "unknown api path outside v1",
+      "as": "anon",
+      "method": "GET",
+      "path": "/api/nope",
+      "expect": {
+        "status": 404,
+        "content_type": "text/html"
+      }
+    },
+    {
+      "name": "manifest",
+      "as": "anon",
+      "method": "GET",
+      "path": "/manifest.webmanifest",
+      "expect": {
+        "status": 200,
+        "content_type": "application/manifest+json"
+      }
+    },
+    {
+      "name": "service worker",
+      "as": "anon",
+      "method": "GET",
+      "path": "/sw.js",
+      "expect": {
+        "status": 200,
+        "content_type": "application/javascript"
+      }
+    },
+    {
+      "name": "offline page",
+      "as": "anon",
+      "method": "GET",
+      "path": "/offline",
+      "expect": {
+        "status": 200,
+        "content_type": "text/html"
+      }
+    },
+    {
+      "name": "spa deep link",
+      "as": "anon",
+      "method": "GET",
+      "path": "/admin/reports",
+      "expect": {
+        "status": 200,
+        "content_type": "text/html"
+      }
+    },
+    {
+      "name": "post to spa path",
+      "as": "anon",
+      "method": "POST",
+      "path": "/admin/reports",
+      "expect": {
+        "status": 405,
+        "content_type": "text/html"
+      }
+    },
+    {
+      "name": "final audit log",
+      "as": "boss",
+      "method": "GET",
+      "path": "/api/v1/admin/logs?limit=500",
+      "expect": {
+        "status": 200,
+        "json": [
+          {
+            "id": 22,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "відновлено товар",
+            "detail": "Wreath big",
+            "ip": "testclient"
+          },
+          {
+            "id": 21,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "видалено товар",
+            "detail": "Ribbon gold",
+            "ip": "testclient"
+          },
+          {
+            "id": 20,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "архівовано товар",
+            "detail": "Wreath big · рядків у звітах: 1",
+            "ip": "testclient"
+          },
+          {
+            "id": 19,
+            "ts": "<time>",
+            "login": "clerk",
+            "role": "Підрозділ",
+            "action": "збережено звіт",
+            "detail": "Shop A · 2026-11",
+            "ip": "testclient"
+          },
+          {
+            "id": 18,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "змінено налаштування звітів",
+            "detail": "Shop A: режим «По розрахунку» увімкнено",
+            "ip": "testclient"
+          },
+          {
+            "id": 17,
+            "ts": "<time>",
+            "login": "clerk",
+            "role": "Підрозділ",
+            "action": "збережено звіт",
+            "detail": "Shop A · 2026-11",
+            "ip": "testclient"
+          },
+          {
+            "id": 16,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "розблоковано звіт",
+            "detail": "Shop A · 2026-11",
+            "ip": "testclient"
+          },
+          {
+            "id": 15,
+            "ts": "<time>",
+            "login": "clerk",
+            "role": "Підрозділ",
+            "action": "надіслано звіт",
+            "detail": "Shop A · 2026-11",
+            "ip": "testclient"
+          },
+          {
+            "id": 14,
+            "ts": "<time>",
+            "login": "clerk",
+            "role": "Підрозділ",
+            "action": "збережено звіт",
+            "detail": "Shop A · 2026-11",
+            "ip": "testclient"
+          },
+          {
+            "id": 13,
+            "ts": "<time>",
+            "login": "clerk",
+            "role": "Підрозділ",
+            "action": "вхід",
+            "detail": "",
+            "ip": "testclient"
+          },
+          {
+            "id": 12,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "змінено ціну товару",
+            "detail": "Wreath big · 25.50 → 25.50 з 2026-11",
+            "ip": "testclient"
+          },
+          {
+            "id": 11,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "змінено ціну товару",
+            "detail": "Wreath big · 25.50 → 30.00 з 2026-11",
+            "ip": "testclient"
+          },
+          {
+            "id": 10,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "змінено товар",
+            "detail": "Ribbon gold · увімкнено",
+            "ip": "testclient"
+          },
+          {
+            "id": 9,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "змінено товар",
+            "detail": "Ribbon gold · назва «Ribbon» → «Ribbon gold»; вимкнено",
+            "ip": "testclient"
+          },
+          {
+            "id": 8,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "додано товар",
+            "detail": "Candle · 3.00",
+            "ip": "testclient"
+          },
+          {
+            "id": 7,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "додано товар",
+            "detail": "candle · 3.00",
+            "ip": "testclient"
+          },
+          {
+            "id": 6,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "додано товар",
+            "detail": "Ribbon · 10.00",
+            "ip": "testclient"
+          },
+          {
+            "id": 5,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "додано товар",
+            "detail": "Candle · 0.12",
+            "ip": "testclient"
+          },
+          {
+            "id": 4,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "додано товар",
+            "detail": "Wreath big · 25.50",
+            "ip": "testclient"
+          },
+          {
+            "id": 3,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "додано підрозділ",
+            "detail": "Shop B · логін clerk_b",
+            "ip": "testclient"
+          },
+          {
+            "id": 2,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "додано підрозділ",
+            "detail": "Shop A · логін clerk",
+            "ip": "testclient"
+          },
+          {
+            "id": 1,
+            "ts": "<time>",
+            "login": "boss",
+            "role": "Адміністратор",
+            "action": "вхід",
+            "detail": "",
+            "ip": "testclient"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+name: Auto release
+
+# Every push to main that changes the program publishes a release, which running programs pick up on their
+# own (see "Оновлення програми" in the admin area). Docs-only pushes are ignored. Runs only on the main branch,
+# so this takes effect once the work is merged there.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".claude/**"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: ./.github/workflows/release.yml
+    secrets: inherit # the code-signing certificate, when the repository has one
+    with:
+      version: auto-${{ github.run_number }}
+      publish: true
+      prerelease: false

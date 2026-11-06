@@ -1,4 +1,5 @@
 import "@testing-library/react";
+import { afterEach } from "vitest";
 
 // In-memory Storage mock
 class LocalStorageMock implements Storage {
@@ -52,4 +53,9 @@ Object.defineProperty(window, "matchMedia", {
     removeEventListener: () => {},
     dispatchEvent: () => false,
   }),
+});
+
+// Each test starts with empty storage, so offline drafts and view preferences never leak between tests.
+afterEach(() => {
+  mockStorage.clear();
 });

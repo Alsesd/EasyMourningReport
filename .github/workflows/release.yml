@@ -1,0 +1,211 @@
+name: Release exe
+
+# Run by hand (Actions → "Release exe" → Run workflow) or by auto-release.yml on every push to main.
+# Builds the single-file legkyi.exe (UI + cloudflared inside), tests it on Linux and on a real Windows
+# runner, and publishes a GitHub release. Untick "publish" to only build and test.
+on:
+  # A pull request to main runs the whole build and test gate (Linux, the Windows exe, the self-update smoke test)
+  # and never publishes: publishing needs a manual run or auto-release.yml.
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to create, e.g. Soup.V6"
+        required: true
+        type: string
+      publish:
+        description: "Publish a GitHub release (untick to only build and test)"
+        required: true
+        type: boolean
+        default: true
+      prerelease:
+        description: "Mark the release as a pre-release"
+        required: true
+        type: boolean
+        default: false
+
+  # Called by auto-release.yml on every push to main.
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      publish:
+        type: boolean
+        required: true
+        default: true
+      prerelease:
+        type: boolean
+        required: true
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    env:
+      SIGN_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate the tag and refuse an existing one
+        if: inputs.publish
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! printf '%s' "$VERSION" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'; then
+            echo "::error::Tag must be 1-64 characters: letters, digits, dot, dash, underscore."; exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag $VERSION already exists. Choose a new version."; exit 1
+          fi
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Frontend checks
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Go checks
+        run: |
+          go vet ./cmd/... ./internal/...
+          go test ./cmd/... ./internal/...
+
+      - name: Build exe and Linux binary (cloudflared bundled)
+        env:
+          # Stamps the tag, commit and time into the programs so they can find newer releases.
+          LEGKYI_VERSION: ${{ inputs.version || format('pr-{0}', github.run_number) }}
+        run: SKIP_FRONTEND=1 bash scripts/build_go.sh
+
+      # Optional code signing (untested): runs only when the repository has the secrets WINDOWS_CERT_PFX (base64 of a
+      # .pfx) and WINDOWS_CERT_PASSWORD. Without them the exe stays unsigned (SmartScreen may warn).
+      - name: Sign legkyi.exe (only if a certificate secret exists)
+        if: env.SIGN_PFX != ''
+        env:
+          SIGN_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          SIGN_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osslsigncode
+          printf '%s' "$SIGN_PFX" | base64 -d > cert.pfx
+          osslsigncode sign -pkcs12 cert.pfx -pass "$SIGN_PASSWORD" -n "Легкий звіт" \
+            -t http://timestamp.digicert.com -in dist/legkyi.exe -out dist/legkyi-signed.exe
+          mv dist/legkyi-signed.exe dist/legkyi.exe
+          rm -f cert.pfx
+
+      - name: Bundled build tests
+        run: go test -tags bundle ./internal/tunnelbin
+
+      - name: Smoke test (Linux binary, with tunnel process)
+        run: |
+          go run ./cmd/smoke -exe dist/legkyi
+          go run ./cmd/smoke -exe dist/legkyi -tunnel
+          go run ./cmd/smoke -exe dist/legkyi -update
+
+      - name: Browser end-to-end test (Linux binary)
+        env:
+          CHROMIUM_PATH: /usr/bin/google-chrome
+          LEGKYI_E2E_BINARY: dist/legkyi
+        run: uv run scripts/e2e_test.py
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum legkyi.exe legkyi legkyi-linux-arm64 > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: legkyi-build
+          path: |
+            dist/legkyi.exe
+            dist/legkyi
+            dist/legkyi-linux-arm64
+            dist/NOTICE.txt
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  windows:
+    name: Test legkyi.exe on Windows
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v4
+        with:
+          name: legkyi-build
+          path: dist
+
+      - name: Checksum matches the build job
+        shell: bash
+        working-directory: dist
+        run: sha256sum --check --ignore-missing SHA256SUMS.txt
+
+      - name: Smoke test (starts the exe in an empty folder)
+        run: go run ./cmd/smoke -exe dist/legkyi.exe
+
+      - name: Smoke test with the bundled cloudflared (forced kill must take it down too)
+        run: go run ./cmd/smoke -exe dist/legkyi.exe -tunnel
+
+      # The exe replaces itself while running (rename to .old, new file, restart) against a fake GitHub on this machine.
+      - name: Smoke test of the self-update (Windows swap and restart)
+        run: go run ./cmd/smoke -exe dist/legkyi.exe -update
+
+  release:
+    name: Publish release
+    needs: [build, windows]
+    if: inputs.publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: legkyi-build
+          path: dist
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          if ! printf '%s' "$VERSION" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'; then
+            echo "::error::Invalid tag"; exit 1
+          fi
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          cat > notes.md <<'EON'
+          **legkyi.exe** is one file: copy it to a writable folder and start it. The database, backups, secret key and tunnel state are created next to it; put a `.env` there to configure it (see `.env.example` in the repository).
+          The first start prints the administrator password in the console. The Cloudflare Tunnel starts automatically; set `TUNNEL_TOKEN` in `.env` for a stable address.
+          `legkyi` is the same program for Linux (x86-64); `legkyi-linux-arm64` is for Android/Termux and ARM servers (install `cloudflared` separately and run with `TUNNEL_ENABLED=1`). Checksums are in `SHA256SUMS.txt`. The exe is not code-signed, so SmartScreen may warn.
+          EON
+          gh release create "$VERSION" \
+            dist/legkyi.exe dist/legkyi dist/legkyi-linux-arm64 dist/SHA256SUMS.txt dist/NOTICE.txt \
+            --target "$TARGET_SHA" \
+            --title "$VERSION" \
+            --notes-file notes.md --generate-notes \
+            "${flags[@]}"
