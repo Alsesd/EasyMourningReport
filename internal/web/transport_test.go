@@ -79,13 +79,13 @@ func (d *desks) post(c *http.Cookie, method, path string, body any) *httptest.Re
 }
 
 func order(date, name string, parts ...string) map[string]any {
-	o := map[string]any{"service_date": date, "deceased": name}
+	o := map[string]any{"service_date": date, "deceased": name, "car_number": "АА 1111 АА", "departure": "вул. Квітуча, 5"}
 	for _, p := range parts {
 		switch {
 		case strings.HasPrefix(p, "d"): // delivery at HH:MM
-			o["delivery"] = map[string]any{"car_number": "АА 1111 АА", "time": p[1:], "destination": "Морг"}
+			o["delivery"] = map[string]any{"time": p[1:], "destination": "Морг"}
 		case strings.HasPrefix(p, "c"): // carriers at HH:MM
-			o["carriers"] = map[string]any{"count": 6, "time": p[1:], "from": "вул. Квітуча, 5", "cemetery_number": "3", "stops": []string{"Церква"}}
+			o["carriers"] = map[string]any{"count": 6, "time": p[1:], "cemetery_number": "3", "stops": []string{"Церква"}}
 		}
 	}
 	return o
@@ -206,14 +206,33 @@ func TestDesksSeeOnlyTheirOwnOrders(t *testing.T) {
 
 func TestOrderValidation(t *testing.T) {
 	d := newDesks(t)
+	crew := func(over map[string]any) map[string]any {
+		c := map[string]any{"count": 6, "time": "09:00", "cemetery_number": "3", "stops": []string{"Церква"}}
+		for k, v := range over {
+			c[k] = v
+		}
+		return map[string]any{"service_date": day, "deceased": "X", "car_number": "АА 1", "departure": "A", "carriers": c}
+	}
+	noCar := order(day, "X", "d09:00")
+	delete(noCar, "car_number")
+	noDeparture := order(day, "X", "d09:00")
+	noDeparture["departure"] = "  "
 	bad := map[string]map[string]any{
-		"no parts":     {"service_date": day, "deceased": "X"},
+		"no parts":     {"service_date": day, "deceased": "X", "car_number": "АА 1", "departure": "A"},
+		"no car":       noCar,
+		"no departure": noDeparture,
 		"bad date":     order("2026-13-45", "X", "d09:00"),
 		"bad time":     order(day, "X", "d25:99"),
 		"empty name":   order(day, "", "d09:00"),
-		"zero men":     {"service_date": day, "deceased": "X", "carriers": map[string]any{"count": 0, "time": "09:00", "from": "A"}},
-		"too many men": {"service_date": day, "deceased": "X", "carriers": map[string]any{"count": 99, "time": "09:00", "from": "A"}},
-		"five men":     {"service_date": day, "deceased": "X", "carriers": map[string]any{"count": 5, "time": "09:00", "from": "A"}},
+		"zero men":     crew(map[string]any{"count": 0}),
+		"too many men": crew(map[string]any{"count": 99}),
+		"five men":     crew(map[string]any{"count": 5}),
+		"no stops":     crew(map[string]any{"stops": []string{}}),
+		"blank stop":   crew(map[string]any{"stops": []string{" "}}),
+		"no cemetery":  crew(map[string]any{"cemetery_number": ""}),
+	}
+	if w := d.post(d.a, "POST", "/api/v1/transport/orders", crew(nil)); w.Code != 200 {
+		t.Fatalf("a complete crew order must pass: %d %s", w.Code, w.Body)
 	}
 	for name, body := range bad {
 		if w := d.post(d.a, "POST", "/api/v1/transport/orders", body); w.Code != 422 {

@@ -8,11 +8,13 @@ Order desks (organisation employees) fill in the day's table of transport orders
 
 One order per deceased, with two optional parts (at least one is required). Delivery and carriers of the same deceased live in the same order, so they are always listed together.
 
-| Part | Fields |
+| Level | Fields (all required unless marked) |
 |---|---|
-| Delivery | car number, time, final destination, optional transit stops |
-| Carriers («винос»: bearers) | crew size (**4 or 6** men), time, departure place, transit stops (for the ceremony), cemetery number; the **dispatcher assigns the bearers by name** (at most the crew size) |
-| Order | service day (`YYYY-MM-DD`), deceased, note, organisation, **submitting employee** (id and a name snapshot: full name, else login) |
+| Order | service day (`YYYY-MM-DD`), deceased, **car number and departure place (common to both parts: one car does both for one deceased)**, note (optional), organisation, **submitting employee** (id and a name snapshot: full name, else login) |
+| Delivery (optional part) | time, final destination, transit stops (optional) |
+| Carriers («винос»: bearers; optional part) | crew size (**4 or 6**), time, **transit stops (at least one: e.g. the house of mourning, the church)**, **cemetery number**; the **dispatcher assigns the bearers by name** (at most the crew size) |
+
+At least one of delivery and carriers is required. The route has to be in the order: the stops and the cemetery of a carrying order are mandatory, so a stop that is made but was not ordered is the desk's omission and visible in the history.
 
 The day list is ordered by the earliest time of each order (then by id). Times are 24-hour `HH:MM`.
 

@@ -15,8 +15,8 @@ const base: SessionDTO = {
 const dispatcher: SessionDTO = { ...base, user_id: 2, login: "boss", organisation: null, permissions: ["transport.orders.manage"] };
 
 const order = (over: Partial<TransportOrderDTO>): TransportOrderDTO => ({
-  id: 1, organisation: { id: 3, name: "Філія А" }, service_date: todayIso(), deceased: "Іваненко І. І.", notes: "",
-  status: "submitted", reply_note: "", delivery: { car_number: "АА 1111 АА", time: "09:30", destination: "Морг", stops: [] },
+  id: 1, organisation: { id: 3, name: "Філія А" }, service_date: todayIso(), deceased: "Іваненко І. І.", notes: "", car_number: "АА 1111 АА", departure: "вул. Квітуча, 5",
+  status: "submitted", reply_note: "", delivery: { time: "09:30", destination: "Морг", stops: [] },
   carriers: null, sort_time: "09:30", submitted_by: "Оксана", created_at: "", updated_at: "", can_edit: true, next_statuses: [], events: [], ...over,
 });
 
@@ -40,7 +40,7 @@ describe("TransportPage", () => {
 
   it("shows a desk its orders in time order with delivery and carriers together", async () => {
     vi.spyOn(transportApi, "orders").mockResolvedValue([
-      order({ id: 1, deceased: "Ранній", sort_time: "08:30", carriers: { count: 6, time: "08:30", from: "вул. Квітуча, 5", cemetery_number: "3", stops: ["Церква"] } }),
+      order({ id: 1, deceased: "Ранній", sort_time: "08:30", carriers: { count: 6, time: "08:30", cemetery_number: "3", stops: ["Церква"] } }),
       order({ id: 2, deceased: "Пізній", sort_time: "12:00", status: "accepted", reply_note: "Авто виїде о 11:20", can_edit: false }),
     ]);
     renderPage(base);
@@ -68,13 +68,14 @@ describe("TransportPage", () => {
     expect(create).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText("Прізвище та ініціали померлого"), { target: { value: "Петренко П. П." } });
-    fireEvent.change(screen.getByLabelText("Номер авто"), { target: { value: "ВС 5555 ВС" } });
+    fireEvent.change(screen.getByLabelText(/Номер авто/), { target: { value: "ВС 5555 ВС" } });
+    fireEvent.change(screen.getByLabelText(/Звідки забирає/), { target: { value: "вул. Квітуча, 5" } });
     fireEvent.change(screen.getByLabelText("Час"), { target: { value: "0930" } });
     fireEvent.change(screen.getByLabelText("Кінцевий пункт"), { target: { value: "Кладовище №2" } });
     fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
     const sent = create.mock.calls[0][0];
-    expect(sent).toMatchObject({ deceased: "Петренко П. П.", carriers: null, delivery: { car_number: "ВС 5555 ВС", time: "09:30", destination: "Кладовище №2" } });
+    expect(sent).toMatchObject({ deceased: "Петренко П. П.", car_number: "ВС 5555 ВС", departure: "вул. Квітуча, 5", carriers: null, delivery: { time: "09:30", destination: "Кладовище №2" } });
   });
 
   it("a dispatcher replies with a status and a note", async () => {
@@ -120,7 +121,7 @@ describe("TransportPage", () => {
   it("a dispatcher names the bearers of the ordered crew", async () => {
     const carrying = order({
       can_edit: false,
-      carriers: { count: 4, time: "12:00", from: "вул. Квітуча, 5", cemetery_number: "3", stops: [], bearers: [] },
+      carriers: { count: 4, time: "12:00", cemetery_number: "3", stops: ["Церква"], bearers: [] },
     });
     vi.spyOn(transportApi, "orders").mockResolvedValue([carrying]);
     const setBearers = vi.spyOn(transportApi, "setBearers").mockResolvedValue(carrying);
@@ -144,5 +145,26 @@ describe("TransportPage", () => {
     fireEvent.click(toggle);
     const select = (await screen.findByLabelText("Бригада виносу")) as HTMLSelectElement;
     expect([...select.options].map((o) => o.value)).toEqual(["4", "6"]);
+  });
+
+  it("requires a stop and the cemetery for the bearers, so the route is in the order", async () => {
+    vi.spyOn(transportApi, "orders").mockResolvedValue([]);
+    const create = vi.spyOn(transportApi, "create").mockResolvedValue(order({}));
+    renderPage(base);
+    fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
+    fireEvent.change(screen.getByLabelText("Прізвище та ініціали померлого"), { target: { value: "Петренко П. П." } });
+    fireEvent.change(screen.getByLabelText(/Номер авто/), { target: { value: "ВС 5555 ВС" } });
+    fireEvent.change(screen.getByLabelText(/Звідки забирає/), { target: { value: "Морг" } });
+    fireEvent.click(screen.getAllByRole("switch", { name: "Доставка" })[0]); // delivery off
+    fireEvent.click(screen.getAllByRole("switch", { name: "Винос" })[0]); // bearers on
+    fireEvent.change(await screen.findByLabelText("Час"), { target: { value: "1130" } });
+    fireEvent.change(screen.getByLabelText("Номер кладовища"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
+    expect((await screen.findByRole("status")).textContent).toMatch(/хоча б одну зупинку/);
+    expect(create).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Зупинка 1"), { target: { value: "Дім жалоби" } });
+    fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0][0]).toMatchObject({ delivery: null, carriers: { count: 6, time: "11:30", cemetery_number: "3", stops: ["Дім жалоби"] } });
   });
 });

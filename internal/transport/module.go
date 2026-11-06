@@ -99,10 +99,12 @@ func seed(ctx context.Context, tx *sql.Tx, now time.Time) error {
 	for i, u := range users {
 		in := Input{ServiceDate: day, Deceased: fmt.Sprintf("Іваненко І. І. (демо %d)", i+1)}
 		if i == 0 {
-			in.Delivery = &Delivery{CarNumber: "АА 1234 ВВ", Time: "09:30", Destination: "Міський морг"}
-			in.Carriers = &Carriers{Count: 6, Time: "12:00", From: "вул. Квітуча, 5", CemeteryNumber: "3", Stops: []string{"Церква Св. Миколая"}}
+			in.CarNumber, in.Departure = "АА 1234 ВВ", "вул. Квітуча, 5"
+			in.Delivery = &Delivery{Time: "09:30", Destination: "Міський морг"}
+			in.Carriers = &Carriers{Count: 6, Time: "12:00", CemeteryNumber: "3", Stops: []string{"Дім жалоби", "Церква Св. Миколая"}}
 		} else {
-			in.Delivery = &Delivery{CarNumber: "ВС 5678 АА", Time: "11:15", Destination: "Кладовище №2"}
+			in.CarNumber, in.Departure = "ВС 5678 АА", "Міський морг"
+			in.Delivery = &Delivery{Time: "11:15", Destination: "Кладовище №2"}
 		}
 		if _, err := CreateOrder(ctx, tx, u.org, u.uid, u.login, in, now); err != nil {
 			return err

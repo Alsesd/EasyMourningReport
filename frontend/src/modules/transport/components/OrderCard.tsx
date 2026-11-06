@@ -52,13 +52,15 @@ export function OrderCard({
             {showOrganisation && <>{order.organisation.name} · </>}
             {t.submittedBy}: {order.submitted_by}
           </p>
+          <p className="text-sm text-text-main">
+            {t.car}: <span className="figure">{order.car_number}</span> · {t.departurePlace}: {order.departure}
+          </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {d && (
             <section aria-label={t.delivery} className="space-y-1.5 border-l-2 border-border pl-3">
               <h4 className="text-sm font-semibold text-text-main">{t.delivery}</h4>
               <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                <Detail label={t.car}><span className="figure">{d.car_number}</span></Detail>
                 <Detail label={t.time}><span className="figure">{d.time}</span></Detail>
                 <div className="col-span-2"><Detail label={t.destination}>{d.destination}</Detail></div>
                 {d.stops.length > 0 && <div className="col-span-2"><Detail label={t.stops}>{d.stops.join(" → ")}</Detail></div>}
@@ -71,7 +73,6 @@ export function OrderCard({
               <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
                 <Detail label={t.men}><span className="figure">{c.count}</span></Detail>
                 <Detail label={t.time}><span className="figure">{c.time}</span></Detail>
-                <div className="col-span-2"><Detail label={t.departure}>{c.from}</Detail></div>
                 {c.stops.length > 0 && <div className="col-span-2"><Detail label={t.stops}>{c.stops.join(" → ")}</Detail></div>}
                 {c.cemetery_number && <Detail label={t.cemetery}><span className="figure">{c.cemetery_number}</span></Detail>}
                 <div className="col-span-2">

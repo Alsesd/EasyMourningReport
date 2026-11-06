@@ -6,10 +6,10 @@ import { uk } from "@/modules/transport/i18n";
 const t = uk.transport;
 
 /** The ordered list of transit stops (for the ceremony) of one part of an order. */
-export function StopsEditor({ stops, onChange, idPrefix }: { stops: string[]; onChange: (stops: string[]) => void; idPrefix: string }) {
+export function StopsEditor({ stops, onChange, idPrefix, label }: { stops: string[]; onChange: (stops: string[]) => void; idPrefix: string; label: string }) {
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-text-main">{t.stops}</p>
+      <p className="text-sm font-medium text-text-main">{label}</p>
       {stops.map((stop, i) => (
         <div key={i} className="flex items-center gap-2">
           <Input

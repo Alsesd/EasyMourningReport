@@ -19,7 +19,6 @@ type transportStatusDTO struct {
 }
 
 type deliveryDTO struct {
-	CarNumber   string   `json:"car_number"`
 	Time        string   `json:"time"`
 	Destination string   `json:"destination"`
 	Stops       []string `json:"stops"`
@@ -28,7 +27,6 @@ type deliveryDTO struct {
 type carriersDTO struct {
 	Count          int      `json:"count"`
 	Time           string   `json:"time"`
-	From           string   `json:"from"`
 	CemeteryNumber string   `json:"cemetery_number"`
 	Stops          []string `json:"stops"`
 	Bearers        []string `json:"bearers"`
@@ -48,6 +46,8 @@ type transportOrderDTO struct {
 	ServiceDate  string          `json:"service_date"`
 	Deceased     string          `json:"deceased"`
 	Notes        string          `json:"notes"`
+	CarNumber    string          `json:"car_number"`
+	Departure    string          `json:"departure"`
 	Status       string          `json:"status"`
 	ReplyNote    string          `json:"reply_note"`
 	Delivery     *deliveryDTO    `json:"delivery"`
@@ -94,17 +94,17 @@ func seesAll(p *platform.Principal) bool {
 func (a *App) orderDTO(o transport.Order, p *platform.Principal, events []transport.Event) transportOrderDTO {
 	d := transportOrderDTO{
 		ID: o.ID, Organisation: organisationRef{o.OrganisationID, o.OrganisationName},
-		ServiceDate: o.ServiceDate, Deceased: o.Deceased, Notes: o.Notes, Status: o.Status, ReplyNote: o.ReplyNote,
+		ServiceDate: o.ServiceDate, Deceased: o.Deceased, Notes: o.Notes, CarNumber: o.CarNumber, Departure: o.Departure, Status: o.Status, ReplyNote: o.ReplyNote,
 		SortTime: o.SortTime(), SubmittedBy: o.SubmittedByName,
 		CreatedAt: servedTimeOf(time.Unix(o.CreatedAt, 0)), UpdatedAt: servedTimeOf(time.Unix(o.UpdatedAt, 0)),
 		CanEdit:      p.User.Org != nil && o.Status == transport.Submitted && p.Can(transport.Create),
 		NextStatuses: []string{}, Events: []orderEventDTO{},
 	}
 	if o.Delivery != nil {
-		d.Delivery = &deliveryDTO{o.Delivery.CarNumber, o.Delivery.Time, o.Delivery.Destination, o.Delivery.Stops}
+		d.Delivery = &deliveryDTO{o.Delivery.Time, o.Delivery.Destination, o.Delivery.Stops}
 	}
 	if o.Carriers != nil {
-		d.Carriers = &carriersDTO{o.Carriers.Count, o.Carriers.Time, o.Carriers.From, o.Carriers.CemeteryNumber, o.Carriers.Stops, o.Carriers.Bearers}
+		d.Carriers = &carriersDTO{o.Carriers.Count, o.Carriers.Time, o.Carriers.CemeteryNumber, o.Carriers.Stops, o.Carriers.Bearers}
 	}
 	if p.Can(transport.Manage) {
 		d.NextStatuses = append(d.NextStatuses, transport.ManagerNext[o.Status]...)
@@ -212,6 +212,17 @@ func stopsOf(b *Body) []string {
 	return out
 }
 
+// reqString reads a required text field; blanks do not count as an answer.
+func reqString(b *Body, name string, max int) string {
+	v := strings.TrimSpace(b.String(name, 1, max))
+	if v == "" {
+		if _, present := b.fields[name]; present {
+			b.fail(name, "Поле обов’язкове", "value_error")
+		}
+	}
+	return v
+}
+
 func timeField(b *Body, name string) string {
 	t := strings.TrimSpace(b.String(name, 1, 5))
 	if t != "" && !transport.ValidTime(t) {
@@ -228,17 +239,18 @@ func parseOrder(r *http.Request) (transport.Input, error) {
 	}
 	in := transport.Input{
 		ServiceDate: strings.TrimSpace(body.String("service_date", 10, 10)),
-		Deceased:    strings.TrimSpace(body.String("deceased", 1, 200)),
+		Deceased:    reqString(body, "deceased", 200),
 		Notes:       strings.TrimSpace(body.OptString("notes", "", 1000)),
+		CarNumber:   reqString(body, "car_number", 30),
+		Departure:   reqString(body, "departure", 300),
 	}
 	if in.ServiceDate != "" && !transport.ValidDate(in.ServiceDate) {
 		body.fail("service_date", "Дата має мати вигляд 2026-10-31", "value_error")
 	}
 	if d := body.Object("delivery"); d != nil {
 		in.Delivery = &transport.Delivery{
-			CarNumber:   strings.TrimSpace(d.String("car_number", 1, 30)),
 			Time:        timeField(d, "time"),
-			Destination: strings.TrimSpace(d.String("destination", 1, 300)),
+			Destination: reqString(d, "destination", 300),
 			Stops:       stopsOf(d),
 		}
 	}
@@ -250,9 +262,11 @@ func parseOrder(r *http.Request) (transport.Input, error) {
 		in.Carriers = &transport.Carriers{
 			Count:          int(n),
 			Time:           timeField(c, "time"),
-			From:           strings.TrimSpace(c.String("from", 1, 300)),
-			CemeteryNumber: strings.TrimSpace(c.OptString("cemetery_number", "", 50)),
+			CemeteryNumber: reqString(c, "cemetery_number", 50),
 			Stops:          stopsOf(c),
+		}
+		if len(in.Carriers.Stops) == 0 { // the route must be in the order: a stop that was not ordered is a fault
+			c.fail("stops", "Вкажіть хоча б одну зупинку (наприклад, дім жалоби чи церкву)", "value_error")
 		}
 	}
 	if err := body.Err(); err != nil {

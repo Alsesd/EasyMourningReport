@@ -1407,7 +1407,6 @@ export interface components {
         };
         /** TransportDeliveryDTO: the transport of the deceased */
         TransportDeliveryDTO: {
-            car_number: string;
             /** HH:MM, 24-hour */
             time: string;
             destination: string;
@@ -1419,10 +1418,8 @@ export interface components {
             count: 4 | 6;
             /** HH:MM, 24-hour */
             time: string;
-            /** Departure place */
-            from: string;
             cemetery_number: string;
-            /** Transit stops (for the ceremony) */
+            /** Transit stops (for the ceremony), at least one */
             stops: string[];
             /** The men the dispatcher assigned (at most `count`); empty until assigned. Ignored on input. */
             bearers?: string[];
@@ -1443,6 +1440,10 @@ export interface components {
             service_date: string;
             deceased: string;
             notes: string;
+            /** The car, common to delivery and carriers */
+            car_number: string;
+            /** Where the car picks the deceased up, common to delivery and carriers */
+            departure: string;
             status: "submitted" | "accepted" | "in_progress" | "done" | "rejected" | "cancelled";
             /** The dispatcher's reply shown to the desk */
             reply_note: string;
@@ -1465,6 +1466,8 @@ export interface components {
             service_date: string;
             deceased: string;
             notes: string;
+            car_number: string;
+            departure: string;
             delivery: components["schemas"]["TransportDeliveryDTO"] | null;
             carriers: components["schemas"]["TransportCarriersDTO"] | null;
         };
