@@ -4,6 +4,7 @@ import { ApiError } from "@/platform/api/client";
 import { reportsApi } from "@/modules/reports/api";
 import { Link } from "react-router-dom";
 import { AccountMenu } from "@/platform/account/AccountMenu";
+import { NotificationBell } from "@/platform/notifications/NotificationBell";
 import { useAuth } from "@/platform/auth/AuthContext";
 import { navItemsFor, useModuleRegistry } from "@/platform/modules";
 import type { StoreReportDTO, ReportLineDTO, ReportSaveDTO } from "@/platform/api/types";
@@ -296,6 +297,7 @@ export default function StoreReportPage() {
             )}
             <MakerMark />
             <ThemeToggle />
+            <NotificationBell />
             <AccountMenu />
           </div>
         </div>

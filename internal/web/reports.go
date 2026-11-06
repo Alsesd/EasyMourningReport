@@ -794,6 +794,12 @@ func (a *App) saveStoreReport(w http.ResponseWriter, r *http.Request, p *platfor
 		if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), auditAction, p.User.Org.Name+" · "+selected); err != nil {
 			return err
 		}
+		if action == "submit" {
+			if err := a.notifyHolders(ctx, tx, p.User.ID, 0, []string{reports.Review}, "report.submitted", "Звіт надіслано",
+				platform.JoinNames(p.User.Org.Name, selected), "/admin/reports/"+itoa(int(rep.ID))); err != nil {
+				return err
+			}
+		}
 		rep.Status = status
 		dto, err = a.storeReportDTO(ctx, tx, p, selected, rep)
 		return err

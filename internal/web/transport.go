@@ -312,7 +312,14 @@ func (a *App) createTransportOrder(w http.ResponseWriter, r *http.Request, p *pl
 		if id, err = transport.CreateOrder(r.Context(), tx, p.User.Org.ID, p.User.ID, name, in, a.now()); err != nil {
 			return err
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "створено замовлення транспорту", in.Deceased+" · "+in.ServiceDate+militaryMark(in.Military))
+		if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "створено замовлення транспорту", in.Deceased+" · "+in.ServiceDate+militaryMark(in.Military)); err != nil {
+			return err
+		}
+		title := "Нове замовлення транспорту"
+		if in.Military {
+			title = "Нове ВІЙСЬКОВЕ замовлення транспорту"
+		}
+		return a.notifyHolders(r.Context(), tx, p.User.ID, 0, []string{transport.Manage}, "transport.new", title, orderLine(p.User.Org.Name, in), "/admin/transport")
 	})
 	if err != nil {
 		return err
@@ -352,7 +359,13 @@ func (a *App) updateTransportOrder(w http.ResponseWriter, r *http.Request, p *pl
 		if err := transport.UpdateOrder(r.Context(), tx, id, p.User.ID, name, in, a.now()); err != nil {
 			return err
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено замовлення транспорту", in.Deceased+" · "+in.ServiceDate+militaryMark(in.Military))
+		if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено замовлення транспорту", in.Deceased+" · "+in.ServiceDate+militaryMark(in.Military)); err != nil {
+			return err
+		}
+		if o.Status == transport.Bumped { // sent again after the car was taken: the dispatchers should look again
+			return a.notifyHolders(r.Context(), tx, p.User.ID, 0, []string{transport.Manage}, "transport.new", "Замовлення надіслано знову", orderLine(p.User.Org.Name, in), "/admin/transport")
+		}
+		return nil
 	})
 	if err != nil {
 		return err
@@ -383,7 +396,11 @@ func (a *App) cancelTransportOrder(w http.ResponseWriter, r *http.Request, p *pl
 		if err := transport.SetOrderStatus(r.Context(), tx, id, transport.Cancelled, "", p.User.ID, name, a.now()); err != nil {
 			return err
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "скасовано замовлення транспорту", o.Deceased+" · "+o.ServiceDate)
+		if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "скасовано замовлення транспорту", o.Deceased+" · "+o.ServiceDate); err != nil {
+			return err
+		}
+		return a.notifyHolders(r.Context(), tx, p.User.ID, 0, []string{transport.Manage}, "transport.cancelled", "Замовлення скасовано",
+			platform.JoinNames(o.OrganisationName, o.Deceased, o.ServiceDate), "/admin/transport")
 	})
 	if err != nil {
 		return err
@@ -426,8 +443,15 @@ func (a *App) setTransportOrderStatus(w http.ResponseWriter, r *http.Request, p 
 		if err := transport.SetOrderStatus(r.Context(), tx, id, status, note, p.User.ID, name, a.now()); err != nil {
 			return err
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено статус замовлення транспорту",
-			o.OrganisationName+" · "+o.Deceased+" → "+status)
+		if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено статус замовлення транспорту",
+			o.OrganisationName+" · "+o.Deceased+" → "+status); err != nil {
+			return err
+		}
+		if o.SubmittedByID == p.User.ID {
+			return nil
+		}
+		return a.notify(tx, []int64{o.SubmittedByID}, "transport.status", "Замовлення «"+o.Deceased+"»: "+statusLabel(status),
+			platform.JoinNames(note, o.ServiceDate), "/admin/transport")
 	})
 	if err != nil {
 		return err
@@ -548,6 +572,30 @@ func (a *App) claimCars(ctx context.Context, tx *sql.Tx, in transport.Input, exc
 			o.OrganisationName+" · "+o.Deceased+" · "+c.Car+" → військове замовлення"); err != nil {
 			return err
 		}
+		if err := a.notify(tx, []int64{o.SubmittedByID}, "transport.bumped", "Авто знято з вашого замовлення",
+			platform.JoinNames(o.Deceased, o.ServiceDate, "авто "+c.Car+" передано військовому замовленню"), "/admin/transport"); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// orderLine is the one-line summary of an order for a notification: desk, deceased, day and the earliest time.
+func orderLine(org string, in transport.Input) string {
+	o := transport.Order{Delivery: in.Delivery, Carriers: in.Carriers}
+	return platform.JoinNames(org, in.Deceased, in.ServiceDate+" "+o.SortTime())
+}
+
+func statusLabel(s string) string {
+	switch s {
+	case transport.Accepted:
+		return "прийнято"
+	case transport.InProgress:
+		return "виконується"
+	case transport.Done:
+		return "виконано"
+	case transport.Rejected:
+		return "відхилено"
+	}
+	return s
 }

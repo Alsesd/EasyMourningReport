@@ -6,6 +6,7 @@ import { MakerMark } from "@/ui/MakerMark";
 import { ukPlatform as uk } from "@/platform/i18n";
 import { navFor } from "@/app/registry";
 import { AccountMenu } from "@/platform/account/AccountMenu";
+import { NotificationBell } from "@/platform/notifications/NotificationBell";
 import { HubRailNav } from "@/platform/admin/HubNav";
 import { HUB_PATH } from "@/platform/admin/sections";
 import { adminSectionsFor, useModuleRegistry } from "@/platform/modules";
@@ -86,7 +87,10 @@ export default function AdminLayout() {
         <div className="space-y-2 border-t border-border px-3 py-4">
           <AccountMenu variant="sidebar" />
           <div className="flex items-center justify-between gap-2 px-1">
-            <ThemeToggle />
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              <NotificationBell />
+            </div>
             <MakerMark />
           </div>
         </div>
@@ -102,6 +106,7 @@ export default function AdminLayout() {
           <div className="flex shrink-0 items-center gap-1">
             <MakerMark />
             <ThemeToggle />
+            <NotificationBell />
             <AccountMenu />
           </div>
         </header>

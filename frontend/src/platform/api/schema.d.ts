@@ -146,6 +146,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications": {
+        parameters: { query?: { limit?: number }; header?: never; path?: never; cookie?: never };
+        /** The signed-in user's own notifications, newest first, and the unread count */
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["NotificationsDTO"] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        /** Mark all of the user's notifications read; answers with the refreshed list */
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["NotificationsDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{nid}/read": {
+        parameters: { query?: never; header?: never; path: { nid: number }; cookie?: never };
+        get?: never;
+        put?: never;
+        /** Mark one of the user's own notifications read (another user's id changes nothing); answers with the refreshed list */
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["NotificationsDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/sessions": {
         parameters: { query?: { user_id?: number }; header?: never; path?: never; cookie?: never };
         get: { responses: { 200: { content: { "application/json": components["schemas"]["AdminSessionDTO"][] } } } };
@@ -947,6 +983,25 @@ export interface components {
             detail: string;
             /** Ip */
             ip: string;
+        };
+        /** NotificationDTO: one message in the user's bell */
+        NotificationDTO: {
+            id: number;
+            /** e.g. transport.new, transport.status, transport.bumped, transport.cancelled, transport.reminder, report.submitted */
+            kind: string;
+            title: string;
+            body: string;
+            /** In-app path to open */
+            link: string;
+            /** Format: date-time */
+            created_at: string;
+            read: boolean;
+        };
+        /** NotificationsDTO */
+        NotificationsDTO: {
+            /** Unread in all, not only in the returned page */
+            unread: number;
+            items: components["schemas"]["NotificationDTO"][];
         };
         /** BackupDTO */
         BackupDTO: {

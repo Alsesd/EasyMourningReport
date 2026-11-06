@@ -120,6 +120,22 @@ var goOwned = []string{
 		at INTEGER NOT NULL,
 		PRIMARY KEY (report_id, kind)
 	)`,
+	// In-app notifications (the bell): one row per recipient. read_at is 0 while unread. dedupe_key makes a
+	// reminder idempotent per user (a restart or a second evaluation inserts nothing); it is '' for events.
+	// Rows change on every read and are pruned, so backups do not count them as a data change.
+	`CREATE TABLE IF NOT EXISTS notifications (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+		kind TEXT NOT NULL,
+		title TEXT NOT NULL,
+		body TEXT NOT NULL DEFAULT '',
+		link TEXT NOT NULL DEFAULT '',
+		dedupe_key TEXT NOT NULL DEFAULT '',
+		created_at INTEGER NOT NULL,
+		read_at INTEGER NOT NULL DEFAULT 0
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_notifications_user ON notifications (user_id, id)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS ux_notifications_dedupe ON notifications (user_id, dedupe_key) WHERE dedupe_key != ''`,
 }
 
 // goOwnedColumns are columns added to Go-owned tables after their first release. CREATE TABLE IF NOT EXISTS does
@@ -143,7 +159,7 @@ func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
 }
 
 // GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
-var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions"}
+var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions", "notifications"}
 
 type object struct {
 	kind, name, table, sql string

@@ -49,7 +49,7 @@ func structure(t *testing.T, db *sql.DB) string {
 	t.Helper()
 	var tables []string
 	// Tables owned by the Go program are not part of the Python shape being compared.
-	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('user_sessions', 'session_devices', 'passkeys', 'transport_orders', 'transport_order_stops', 'transport_order_events', 'report_submissions') ORDER BY name")
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('user_sessions', 'session_devices', 'passkeys', 'transport_orders', 'transport_order_stops', 'transport_order_events', 'report_submissions', 'notifications') ORDER BY name")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -356,6 +356,8 @@ func TestBackupIgnoresSessionOnlyChanges(t *testing.T) {
 	must("INSERT INTO user_sessions (token_hash, user_id, created_at, expires_at) VALUES ('h', (SELECT id FROM users LIMIT 1), 1, 2)")
 	must("INSERT INTO session_devices (token_hash, device_hash, rotated_at) VALUES ('h', 'd', 1)")
 	must("UPDATE session_devices SET last_seen = 99")
+	must("INSERT INTO notifications (user_id, kind, title, created_at) VALUES ((SELECT id FROM users LIMIT 1), 'x', 'hello', 1)")
+	must("UPDATE notifications SET read_at = 5")
 	if got, _ := b.Run(""); got != "" {
 		t.Fatalf("a session write alone made a copy: %s", got)
 	}

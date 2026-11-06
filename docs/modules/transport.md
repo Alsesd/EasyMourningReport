@@ -44,7 +44,14 @@ A car (its number, compared without case and spaces) is **locked for 2 hours** (
 
 `submitted` (Надіслано) → `accepted` (Прийнято) → `in_progress` (Виконується) → `done` (Виконано). A dispatcher may also set `rejected` (Відхилено, a reason is required) from any open status, including `bumped`. `bumped` (Авто знято) is set only by a military order; the desk may edit or cancel it. A desk may `cancel` (Скасовано) only while the order is `submitted` or `bumped`; once the dispatcher has replied, the desk can neither edit nor cancel. `done`, `rejected` and `cancelled` are final. Every change is stored in the order's history (who, when, status, note) and in the audit log.
 
-The desks' "notification" is the page itself: the list refreshes every 15 seconds and shows the status and the reply note.
+The list refreshes every 15 seconds and shows the status and the reply note. On top of that, the bell (see `docs/architecture.md`, Notifications) tells people:
+
+| Event | Who is told |
+|---|---|
+| New order; order sent again after being bumped; a desk cancels | dispatchers (`manage`), except the person who did it |
+| Dispatcher sets accepted / in progress / done / rejected | the employee who submitted the order |
+| Car taken by a military order (`bumped`) | the employee who submitted the bumped order |
+| 14:30 (`TRANSPORT_REMINDER_AT`, in `APP_TIMEZONE`): the organisation has no order for tomorrow that holds or has done a car (cancelled, rejected and bumped ones do not count) | every employee of that organisation with `create`; once per person and day |
 
 ## API
 

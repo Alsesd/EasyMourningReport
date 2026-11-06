@@ -18,6 +18,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata" // zone data inside the program: Europe/Kyiv resolves on Windows and minimal images too
 
 	"legkyi/internal/assets"
 	"legkyi/internal/config"
@@ -153,14 +154,22 @@ func serve(exe string) (bool, error) {
 			log.Printf("WARNING: Cloudflare Access is on but there is no TUNNEL_TOKEN. A quick tunnel (trycloudflare.com) cannot be put behind Access, so all tunnel traffic will be refused. Use a named tunnel with your own domain.")
 		}
 	}
-	handler := web.New(web.Deps{Access: access,
+	deps := web.Deps{Access: access,
 		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret, Backups: backups,
 		BackupEveryMin: cfg.BackupEveryM, Tunnel: tun,
 		CookieSecure: os.Getenv("COOKIE_SECURE") == "1",
 		PasskeyRPID:  strings.TrimSpace(os.Getenv("PASSKEY_RP_ID")), Updater: updater,
 		// Only the local cloudflared may set the client address (X-Forwarded-For).
 		Trusted: web.ParseTrustedHosts(orEnv("FORWARDED_ALLOW_IPS", "127.0.0.1")),
-	})
+	}
+	handler := web.New(deps)
+	// Background jobs (reminder to the desks that have no transport order for tomorrow, notification pruning).
+	// TRANSPORT_REMINDER_AT is "HH:MM" in APP_TIMEZONE (default 14:30, Europe/Kyiv); "off" disables the reminder.
+	schedDone := make(chan struct{})
+	go func() {
+		defer close(schedDone)
+		web.RunScheduler(ctx, deps, schedulerConfig())
+	}()
 	srv := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Host, cfg.Port),
 		Handler:           handler,
@@ -194,6 +203,7 @@ func serve(exe string) (bool, error) {
 	tun.Shutdown()
 	stop()
 	<-loopDone
+	<-schedDone
 	if err := st.Checkpoint(); err != nil {
 		log.Printf("checkpoint failed: %v", err)
 	}
@@ -289,4 +299,21 @@ func announceTunnel(ctx context.Context, tun *system.Tunnel) {
 		}
 	}
 	log.Printf("tunnel is still starting; see Адміністрування → Система")
+}
+
+// schedulerConfig reads the reminder time and the zone it is evaluated in. The zone is explicit because the
+// program often runs on a machine set to UTC while the desks work on Kyiv time.
+func schedulerConfig() web.SchedulerConfig {
+	cfg := web.SchedulerConfig{ReminderAt: strings.TrimSpace(orEnv("TRANSPORT_REMINDER_AT", "14:30"))}
+	if strings.EqualFold(cfg.ReminderAt, "off") {
+		cfg.ReminderAt = ""
+	}
+	name := strings.TrimSpace(orEnv("APP_TIMEZONE", "Europe/Kyiv"))
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		log.Printf("APP_TIMEZONE %q is not a known time zone (%v): using the machine's local time", name, err)
+		loc = time.Local
+	}
+	cfg.Loc = loc
+	return cfg
 }
