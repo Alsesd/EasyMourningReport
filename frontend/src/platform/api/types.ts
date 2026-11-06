@@ -25,6 +25,7 @@ export type UpdateStatusDTO = Schemas["UpdateStatusDTO"];
 export type TunnelStatusDTO = Schemas["TunnelStatusDTO"];
 export type TunnelStartDTO = Schemas["TunnelStartDTO"];
 export type BackupDTO = Schemas["BackupDTO"];
+export type PushKeyDTO = Schemas["PushKeyDTO"];
 export type NotificationDTO = Schemas["NotificationDTO"];
 export type NotificationsDTO = Schemas["NotificationsDTO"];
 export type SystemHealthDTO = Schemas["SystemHealthDTO"];

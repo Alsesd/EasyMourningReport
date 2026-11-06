@@ -154,7 +154,15 @@ func serve(exe string) (bool, error) {
 			log.Printf("WARNING: Cloudflare Access is on but there is no TUNNEL_TOKEN. A quick tunnel (trycloudflare.com) cannot be put behind Access, so all tunnel traffic will be refused. Use a named tunnel with your own domain.")
 		}
 	}
-	deps := web.Deps{Access: access,
+	// Web Push key pair: created once in the data folder (vapid.key, 0600) or taken from VAPID_PRIVATE_KEY. Without
+	// it the bell still works in the open app, but nothing reaches a closed one.
+	var pusher *platform.PushSender
+	if vapid, err := platform.LoadVAPIDKey(os.Getenv, cfg.DataDir); err != nil {
+		log.Printf("Web Push is off: %v", err)
+	} else {
+		pusher = &platform.PushSender{Key: vapid, Subject: orEnv("VAPID_SUBJECT", "https://github.com/alsesd/easymourningreport")}
+	}
+	deps := web.Deps{Access: access, Push: pusher,
 		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret, Backups: backups,
 		BackupEveryMin: cfg.BackupEveryM, Tunnel: tun,
 		CookieSecure: os.Getenv("COOKIE_SECURE") == "1",
@@ -165,6 +173,11 @@ func serve(exe string) (bool, error) {
 	handler := web.New(deps)
 	// Background jobs (the modules' daily reminders, notification pruning).
 	// REMINDER_AT is "HH:MM" in APP_TIMEZONE (default 14:30, Europe/Kyiv); "off" disables the reminder.
+	pushDone := make(chan struct{})
+	go func() {
+		defer close(pushDone)
+		web.RunPushDispatcher(ctx, deps)
+	}()
 	schedDone := make(chan struct{})
 	go func() {
 		defer close(schedDone)
@@ -204,6 +217,7 @@ func serve(exe string) (bool, error) {
 	stop()
 	<-loopDone
 	<-schedDone
+	<-pushDone
 	if err := st.Checkpoint(); err != nil {
 		log.Printf("checkpoint failed: %v", err)
 	}

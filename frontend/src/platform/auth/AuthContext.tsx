@@ -1,3 +1,4 @@
+import { dropPushSubscription } from "@/platform/device/push";
 import React, { createContext, useContext } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/platform/api/client";
@@ -66,6 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
+      // This browser must stop receiving the signed-in person's messages before the session ends.
+      await dropPushSubscription().catch(() => undefined);
       try {
         await api.post<MessageDTO>("/api/v1/auth/logout");
       } catch {

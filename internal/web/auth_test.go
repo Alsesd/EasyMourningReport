@@ -22,7 +22,11 @@ type env struct {
 	lim *LoginLimiter
 	// bare: do not add the device cookie a browser would send (tests of a copied session cookie).
 	bare bool
+	// deps is what the handler was built from, for tests that call App methods directly.
+	deps Deps
 }
+
+func (e *env) depsForTest() Deps { return e.deps }
 
 func newEnv(t *testing.T, mut func(*Deps)) *env {
 	t.Helper()
@@ -36,6 +40,7 @@ func newEnv(t *testing.T, mut func(*Deps)) *env {
 	if mut != nil {
 		mut(&d)
 	}
+	e.deps = d
 	e.h = New(d)
 	return e
 }

@@ -146,6 +146,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/push/key": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        /** The server's VAPID public key (base64url); empty when Web Push is not configured */
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["PushKeyDTO"] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/push/subscriptions": {
+        parameters: { query?: { endpoint?: string }; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        /** Body: a browser PushSubscription (`{endpoint, keys: {p256dh, auth}}`). The endpoint must be https at a known push service; `404` when Web Push is not configured, `422` for a bad subscription. A browser used by someone else moves to the caller */
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["MessageDTO"] } } } };
+        /** Delete the caller's own subscription with this `endpoint` (idempotent) */
+        delete: { responses: { 200: { content: { "application/json": components["schemas"]["MessageDTO"] } } } };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications": {
         parameters: { query?: { limit?: number }; header?: never; path?: never; cookie?: never };
         /** The signed-in user's own notifications, newest first, and the unread count */
@@ -983,6 +1008,11 @@ export interface components {
             detail: string;
             /** Ip */
             ip: string;
+        };
+        /** PushKeyDTO */
+        PushKeyDTO: {
+            /** VAPID public key, base64url of the uncompressed P-256 point; "" when push is not configured */
+            public_key: string;
         };
         /** NotificationDTO: one message in the user's bell */
         NotificationDTO: {

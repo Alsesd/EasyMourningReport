@@ -52,6 +52,9 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | POST | `/admin/update/apply` | `platform.system.manage` | Start installing the newest release in the background and restart; returns at once with `state: downloading`; `409` when there is nothing newer or an install is running |
 | DELETE | `/admin/tunnel` | `platform.system.manage` | Disconnect now (autostart preference unchanged) |
 | GET | `/admin/backups?limit=20` | `platform.system.manage` | Newest backups: name, size, time |
+| GET | `/push/key` | any signed-in user | The server's VAPID public key (base64url); `""` when Web Push is not configured |
+| POST | `/push/subscriptions` | any signed-in user | A browser `PushSubscription` (`{endpoint, keys: {p256dh, auth}}`). The endpoint must be https on port 443 at a known push service (Google, Mozilla, Apple, Windows), never an IP address; `422` for a bad subscription, `404` when push is off. A browser registered by someone else moves to the caller |
+| DELETE | `/push/subscriptions?endpoint=` | any signed-in user | Remove the caller's own subscription (idempotent; the page does it before signing out) |
 | GET | `/notifications?limit=30` | any signed-in user | The caller's own notifications, newest first, with the unread count across all |
 | POST | `/notifications/{id}/read` | any signed-in user | Mark one of the caller's notifications read (someone else's id changes nothing); answers with the refreshed list |
 | POST | `/notifications/read-all` | any signed-in user | Mark all of the caller's notifications read; answers with the refreshed list |

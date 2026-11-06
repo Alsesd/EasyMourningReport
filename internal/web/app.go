@@ -34,10 +34,11 @@ type Deps struct {
 	Limiter        *LoginLimiter
 	Backups        *store.Backups // before-delete snapshots (nil in tests)
 	BackupEveryMin int
-	Tunnel         *system.Tunnel  // nil gets a disabled one in New
-	Access         *AccessConfig   // nil: no Cloudflare Access check
-	Updater        *update.Updater // nil: updates are not available (tests, development builds)
-	PasskeyRPID    string          // PASSKEY_RP_ID: pins the WebAuthn relying party id (default: the host the browser is on)
+	Tunnel         *system.Tunnel       // nil gets a disabled one in New
+	Access         *AccessConfig        // nil: no Cloudflare Access check
+	Updater        *update.Updater      // nil: updates are not available (tests, development builds)
+	Push           *platform.PushSender // Web Push (nil: not configured; the bell still works in the open app)
+	PasskeyRPID    string               // PASSKEY_RP_ID: pins the WebAuthn relying party id (default: the host the browser is on)
 }
 
 // App holds the dependencies handlers share.
@@ -73,6 +74,7 @@ func New(d Deps) http.Handler {
 	app.mountReports(rt)
 	app.mountTransport(rt)
 	app.mountNotifications(rt)
+	app.mountPush(rt)
 	app.mountSystem(rt)
 	srv := &Server{DB: d.Store, Assets: d.Assets, API: rt}
 	secure := func(r *http.Request) bool { return cookieSecure(d.CookieSecure, d.Trusted, r) }

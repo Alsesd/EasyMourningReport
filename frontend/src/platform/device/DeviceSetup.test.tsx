@@ -4,6 +4,7 @@ import { DeviceSetup } from "./DeviceSetup";
 import { AuthProvider } from "@/platform/auth/AuthContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { captureInstallPrompt } from "./installPrompt";
+import { syncPushSubscription } from "./push";
 import type { SessionDTO } from "@/platform/api/types";
 
 const session: SessionDTO = {
@@ -11,7 +12,9 @@ const session: SessionDTO = {
   roles: [], permissions: [], modules: [], period: "2026-11",
 };
 
-function renderSetup(onAllowed?: () => void, signedIn = true) {
+vi.mock("./push", () => ({ syncPushSubscription: vi.fn(() => Promise.resolve()), dropPushSubscription: vi.fn(() => Promise.resolve()) }));
+
+function renderSetup(signedIn = true) {
   vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(signedIn
     ? { ok: true, status: 200, json: () => Promise.resolve(session) }
     : { ok: false, status: 401, json: () => Promise.resolve({ detail: "no" }) })));
@@ -19,7 +22,7 @@ function renderSetup(onAllowed?: () => void, signedIn = true) {
   return render(
     <QueryClientProvider client={client}>
       <AuthProvider>
-        <DeviceSetup onNotificationsAllowed={onAllowed} />
+        <DeviceSetup />
       </AuthProvider>
     </QueryClientProvider>,
   );
@@ -44,16 +47,15 @@ describe("DeviceSetup", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("offers notifications after sign-in and asks the browser from the click", async () => {
-    const onAllowed = vi.fn();
-    renderSetup(onAllowed);
+    renderSetup();
     fireEvent.click(await screen.findByRole("button", { name: "Увімкнути сповіщення" }));
     await waitFor(() => expect(FakeNotification.requestPermission).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(onAllowed).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(syncPushSubscription).toHaveBeenCalled()); // registers the browser for Web Push
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); // nothing left to offer
   });
 
   it("says nothing to a signed-out visitor or to a device that already decided", async () => {
-    renderSetup(undefined, false);
+    renderSetup(false);
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByRole("dialog")).toBeNull();
   });

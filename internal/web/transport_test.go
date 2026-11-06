@@ -47,8 +47,10 @@ func (e *env) addUser(login, full, pass string, org *int64, scope string, perms 
 	}
 }
 
-func newDesks(t *testing.T) *desks {
-	e := newEnv(t, nil)
+func newDesks(t *testing.T) *desks { return newDesksWith(t, nil) }
+
+func newDesksWith(t *testing.T, mut func(*Deps)) *desks {
+	e := newEnv(t, mut)
 	var d desks
 	d.e = e
 	for i, name := range []string{"Філія А", "Філія Б"} {

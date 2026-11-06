@@ -40,3 +40,5 @@ Accounts whose password hash was upgraded cannot sign in to the Python release (
 - The exe is unsigned unless you add a certificate (SmartScreen warning). Anyone who can read the program's folder can read `reports.db`, `secret.key` and the saved tunnel token.
 - `style-src` allows inline styles because the UI sets style attributes; scripts are strictly limited to the app's own files.
 - No password complexity rules beyond length. A passkey is a second way in, not a second factor: an account with a password can still sign in with the password alone.
+
+- **Web Push:** the VAPID private key is `<data>/vapid.key` (0600, created once; or `VAPID_PRIVATE_KEY`). It is kept out of the database on purpose, so a backup never carries a key that can send as this server; losing it only means browsers must subscribe again. Subscriptions hold each browser's public key and auth secret (not credentials of this server), are owned by the user signed in on that browser, and are deleted at sign-out. The server only POSTs to https push-service hosts on an allowlist (no IP addresses, no other ports), so a registered endpoint cannot be used to reach internal addresses.

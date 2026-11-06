@@ -26,7 +26,7 @@ const SnapshotKeep = 10
 // read marks and reminder bookkeeping). A change in them alone is not a reason for a new copy.
 var volatileTables = map[string]bool{
 	"user_sessions": true, "session_devices": true, "passkeys": true,
-	"notifications": true, "notification_reminders": true,
+	"notifications": true, "notification_reminders": true, "push_subscriptions": true,
 }
 
 // Backups makes a consistent copy, verified. Retention counts regular copies (Keep) and snapshots (SnapshotKeep)

@@ -11,6 +11,7 @@ import { ukPlatform as uk } from "@/platform/i18n";
 import { useDialogSlot } from "@/platform/device/dialogSlot";
 import { canPromptInstall, isIosTab, isStandalone, promptInstall, subscribeInstall } from "@/platform/device/installPrompt";
 import { notificationPermission, notificationsSupported } from "@/platform/device/notify";
+import { syncPushSubscription } from "@/platform/device/push";
 import { Button } from "@/ui/Button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/Dialog";
 
@@ -34,10 +35,7 @@ const setLater = () => {
   }
 };
 
-/** Called after the person allowed notifications, so the server can reach this device while the app is closed. */
-export type OnAllowed = () => void;
-
-export function DeviceSetup({ onNotificationsAllowed }: { onNotificationsAllowed?: OnAllowed }) {
+export function DeviceSetup() {
   const { isAuthenticated } = useAuth();
   const installable = useSyncExternalStore(subscribeInstall, canPromptInstall, () => false);
   const [permission, setPermission] = useState(notificationPermission);
@@ -50,6 +48,11 @@ export function DeviceSetup({ onNotificationsAllowed }: { onNotificationsAllowed
     return () => window.removeEventListener("appinstalled", done);
   }, []);
 
+  // With notifications allowed, register this browser for Web Push (on every signed-in load: subscriptions rotate).
+  useEffect(() => {
+    if (isAuthenticated && permission === "granted") syncPushSubscription().catch(() => undefined);
+  }, [isAuthenticated, permission]);
+
   const needNotifications = notificationsSupported() && permission === "default";
   const needInstall = !installed && (installable || isIosTab());
   const want = isAuthenticated && !skipped && (needNotifications || needInstall);
@@ -57,9 +60,7 @@ export function DeviceSetup({ onNotificationsAllowed }: { onNotificationsAllowed
 
   const enable = async () => {
     // Directly from the click: browsers (iPhone above all) ignore a request that is not.
-    const result = await Notification.requestPermission();
-    setPermission(result);
-    if (result === "granted") onNotificationsAllowed?.();
+    setPermission(await Notification.requestPermission());
   };
   const install = async () => {
     const outcome = await promptInstall();

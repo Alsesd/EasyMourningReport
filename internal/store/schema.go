@@ -132,9 +132,22 @@ var goOwned = []string{
 		link TEXT NOT NULL DEFAULT '',
 		dedupe_key TEXT NOT NULL DEFAULT '',
 		created_at INTEGER NOT NULL,
-		read_at INTEGER NOT NULL DEFAULT 0
+		read_at INTEGER NOT NULL DEFAULT 0,
+		pushed_at INTEGER NOT NULL DEFAULT 0
 	)`,
 	`CREATE INDEX IF NOT EXISTS ix_notifications_user ON notifications (user_id, id)`,
+	// Web Push subscriptions: one row per browser. The endpoint identifies the browser; whoever signs in on it owns
+	// it (a shared device is reassigned, and signing out deletes it). p256dh and auth are the browser's public key
+	// and secret for message encryption, not credentials of this server.
+	`CREATE TABLE IF NOT EXISTS push_subscriptions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+		endpoint TEXT NOT NULL UNIQUE,
+		p256dh TEXT NOT NULL,
+		auth TEXT NOT NULL,
+		created_at INTEGER NOT NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_push_subscriptions_user ON push_subscriptions (user_id)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS ux_notifications_dedupe ON notifications (user_id, dedupe_key) WHERE dedupe_key != ''`,
 }
 
@@ -142,6 +155,8 @@ var goOwned = []string{
 // not touch an existing table, so each one is added once with ALTER TABLE (a constant default keeps old rows valid).
 var goOwnedColumns = []struct{ table, column, def string }{
 	{"transport_orders", "is_military", "INTEGER NOT NULL DEFAULT 0"},
+	// pushed_at: 0 = not yet handed to the push dispatcher (a stale row is retired by the dispatcher, never sent).
+	{"notifications", "pushed_at", "INTEGER NOT NULL DEFAULT 0"},
 }
 
 func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
@@ -159,7 +174,7 @@ func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
 }
 
 // GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
-var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions", "notifications"}
+var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions", "notifications", "push_subscriptions"}
 
 type object struct {
 	kind, name, table, sql string
