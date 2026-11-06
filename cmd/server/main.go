@@ -20,6 +20,7 @@ import (
 	"legkyi/internal/platform"
 	"legkyi/internal/registry"
 	"legkyi/internal/store"
+	"legkyi/internal/system"
 	"legkyi/internal/web"
 )
 
@@ -86,8 +87,13 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	tun := &system.Tunnel{Root: cfg.DataDir, Port: cfg.Port}
+	if started := tun.StartIfEnabled(); started != nil && started.State == "error" {
+		log.Printf("tunnel did not start: %s", started.Error)
+	}
 	handler := web.New(web.Deps{
 		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret, Backups: backups,
+		BackupEveryMin: cfg.BackupEveryM, Tunnel: tun,
 		CookieSecure: os.Getenv("COOKIE_SECURE") == "1",
 		// Only the local cloudflared may set the client address (X-Forwarded-For).
 		Trusted: web.ParseTrustedHosts(orEnv("FORWARDED_ALLOW_IPS", "127.0.0.1")),
@@ -105,10 +111,11 @@ func run() error {
 	case <-ctx.Done():
 	case serveErr = <-errc:
 	}
-	// Shutdown order: HTTP, (tunnel: Slice 6), loop, checkpoint, final backup.
+	// Shutdown order (as lifecycle.py): HTTP, tunnel, loop, checkpoint, final backup.
 	sctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(sctx)
+	tun.Shutdown()
 	stop()
 	<-loopDone
 	if err := st.Checkpoint(); err != nil {

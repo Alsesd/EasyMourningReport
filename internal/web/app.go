@@ -17,20 +17,23 @@ import (
 	"legkyi/internal/platform"
 	"legkyi/internal/registry"
 	"legkyi/internal/store"
+	"legkyi/internal/system"
 )
 
 // Deps is everything the HTTP layer needs. New builds the exact stack production serves,
 // and the contract-replay tests build it the same way.
 type Deps struct {
-	Store        *store.Store
-	Assets       fs.FS
-	Registry     *registry.Registry
-	Secret       []byte
-	CookieSecure bool
-	Trusted      *TrustedHosts
-	Now          func() time.Time
-	Limiter      *LoginLimiter
-	Backups      *store.Backups // before-delete snapshots (nil in tests)
+	Store          *store.Store
+	Assets         fs.FS
+	Registry       *registry.Registry
+	Secret         []byte
+	CookieSecure   bool
+	Trusted        *TrustedHosts
+	Now            func() time.Time
+	Limiter        *LoginLimiter
+	Backups        *store.Backups // before-delete snapshots (nil in tests)
+	BackupEveryMin int
+	Tunnel         *system.Tunnel // nil gets a disabled one in New
 }
 
 // App holds the dependencies handlers share.
@@ -53,11 +56,15 @@ func New(d Deps) http.Handler {
 	if d.Trusted == nil {
 		d.Trusted = ParseTrustedHosts("127.0.0.1")
 	}
+	if d.Tunnel == nil { // never reads the real environment: tests get a tunnel that cannot start
+		d.Tunnel = &system.Tunnel{Root: filepath.Join(filepath.Dir(d.Store.Path), "tunnel-root"), Getenv: func(string) string { return "" }}
+	}
 	app := &App{Deps: d}
 	rt := &Router{}
 	app.mountPlatform(rt)
 	app.mountAccounts(rt)
 	app.mountReports(rt)
+	app.mountSystem(rt)
 	srv := &Server{DB: d.Store, Assets: d.Assets, API: rt}
 	return sessionMiddleware(Signer{Secret: d.Secret, Now: d.Now}, d.CookieSecure, sameOriginGuard(srv))
 }

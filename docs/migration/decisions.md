@@ -102,3 +102,23 @@ The locked Starlette writes the session cookie only when the session changes (lo
   rows, `#,##0.00`, bold header and totals). Checked against an openpyxl read-back of the Python output for six
   states, and the Go files were read back with openpyxl once. excelize writes the autofilter ref with `$`.
 - Contract harness now supports `multipart` steps. **Ledger is empty: 135/135 steps pass on all three schemas.**
+
+## Slice 6 outcome (system)
+- New package `internal/system`: `Tunnel` (cloudflared supervisor) and `ReadHealth`. Web handlers in
+  `internal/web/system.go`: `/admin/tunnel` (GET/POST/DELETE, `/autostart`), `/admin/backups`,
+  `/admin/system/health`, `/admin/backup/download`, `/admin/overview`.
+- Route parity: every `@router`/`@app` route in `backend/app` (outside tests) now has a Go counterpart (the
+  PWA files, `/healthz` and the SPA fallback live in `Server`; the module `/status` is `/transport/status`).
+- `core.Module.Overview` is the per-module overview hook; the reports module supplies its two figures.
+- Tunnel details beyond Python: one goroutine waits per child (no double `Wait`); stop sends SIGTERM, falls back
+  to `Kill` (Windows) and after 5 s; the log of the previous child is closed and truncated on restart; the token
+  file is `chmod 0600` even when it already existed; a set but missing `CLOUDFLARED_PATH` does not fall back to
+  PATH; a whitespace-only token means "no token"; the mutex is not held while asking the metrics endpoint.
+- `/admin/backups?limit=` is parsed like Pydantic (not an integer → 422) and clamped to 1..200.
+- The download streams with the write deadline cleared (the `http.Server` sets none anyway).
+- Tests run a fake cloudflared (`/bin/sh` scripts) with an httptest metrics endpoint; no real tunnel is opened.
+- `GOOS=windows go build ./cmd/server` passes.
+- **Manual step (needs the owner's OK, not done):** a real Quick Tunnel publishes the app on the internet.
+  Run it only with a throwaway data folder and a non-default password, for example:
+  `nix shell nixpkgs#cloudflared --command bash -c 'LEGKYI_DATA_DIR=$(mktemp -d) ADMIN_PASSWORD=<strong> TUNNEL_ENABLED=1 ./legkyi'`
+  (no `DEMO=1`: the demo logins are `store1/store1`).

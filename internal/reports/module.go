@@ -29,5 +29,6 @@ var Module = core.Module{
 	},
 	DefaultGrants:     map[string][]string{"store": {Submit}},
 	Seed:              SeedDemo,
+	Overview:          Overview,
 	OrganisationUsage: UsagePerOrganisation,
 }
