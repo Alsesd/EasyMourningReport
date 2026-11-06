@@ -18,6 +18,7 @@ import (
 	"legkyi/internal/assets"
 	"legkyi/internal/config"
 	"legkyi/internal/platform"
+	"legkyi/internal/registry"
 	"legkyi/internal/store"
 	"legkyi/internal/web"
 )
@@ -81,9 +82,19 @@ func run() error {
 		backupLoop(ctx, backups, time.Duration(cfg.BackupEveryM)*time.Minute)
 	}()
 
+	secret, err := web.LoadSecret(os.Getenv, cfg.DataDir)
+	if err != nil {
+		return err
+	}
+	handler := web.New(web.Deps{
+		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret,
+		CookieSecure: os.Getenv("COOKIE_SECURE") == "1",
+		// Only the local cloudflared may set the client address (X-Forwarded-For).
+		Trusted: web.ParseTrustedHosts(orEnv("FORWARDED_ALLOW_IPS", "127.0.0.1")),
+	})
 	srv := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Host, cfg.Port),
-		Handler:           &web.Server{DB: st, Assets: assets.FS()},
+		Handler:           handler,
 		ReadHeaderTimeout: 15 * time.Second,
 	}
 	errc := make(chan error, 1)
@@ -118,7 +129,7 @@ func seed(st *store.Store) error {
 		return err
 	}
 	defer tx.Rollback()
-	if err := platform.Seed(tx, os.Getenv, os.Stdout, time.Now()); err != nil {
+	if err := platform.Seed(tx, registry.Installed().DefaultGrants(), os.Getenv, os.Stdout, time.Now()); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -137,4 +148,11 @@ func backupLoop(ctx context.Context, b *store.Backups, every time.Duration) {
 			}
 		}
 	}
+}
+
+func orEnv(k, d string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return d
 }

@@ -24,7 +24,7 @@ func seeded(t *testing.T, env map[string]string) (*store.Store, string) {
 	run := func() {
 		tx, _ := s.W.Begin()
 		defer tx.Rollback()
-		if err := Seed(tx, func(k string) string { return env[k] }, &out, time.Date(2026, 1, 2, 3, 4, 5, 678900000, time.UTC)); err != nil {
+		if err := Seed(tx, map[string][]string{"store": {"reports.submit"}}, func(k string) string { return env[k] }, &out, time.Date(2026, 1, 2, 3, 4, 5, 678900000, time.UTC)); err != nil {
 			t.Fatal(err)
 		}
 		tx.Commit()

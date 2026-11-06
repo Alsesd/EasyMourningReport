@@ -6,7 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"os"
+	"sort"
 	"time"
 )
 
@@ -20,17 +20,18 @@ var BuiltInRoles = []builtIn{
 	{"store", "Магазин", "organisation"},
 }
 
-// DefaultGrants mirrors Module.default_grants of the registered modules (reports only today).
-var DefaultGrants = map[string][]string{
-	"store": {"reports.submit"},
-}
-
 // SQLTimeFormat is the naive-UTC text format SQLAlchemy writes for DATETIME columns.
 const SQLTimeFormat = "2006-01-02 15:04:05.000000"
 
-// Seed ensures the built-in roles exist and, on an empty users table, creates the first admin.
-// It reports the generated password through out (the Python banner) only when one is created.
-func Seed(tx *sql.Tx, getenv func(string) string, out io.Writer, now time.Time) error {
+func sortedCopy(in []string) []string {
+	out := append([]string(nil), in...)
+	sort.Strings(out)
+	return out
+}
+
+// EnsureBuiltInRoles creates any missing built-in role (newly created ones get the modules'
+// default grants) and returns role ids by key.
+func EnsureBuiltInRoles(tx *sql.Tx, grants map[string][]string) (map[string]int64, error) {
 	roleIDs := map[string]int64{}
 	for _, r := range BuiltInRoles {
 		var id int64
@@ -38,20 +39,51 @@ func Seed(tx *sql.Tx, getenv func(string) string, out io.Writer, now time.Time) 
 		if err == sql.ErrNoRows {
 			res, err := tx.Exec(`INSERT INTO roles ("key", name, scope) VALUES (?, ?, ?)`, r.Key, r.Name, r.Scope)
 			if err != nil {
-				return fmt.Errorf("create role %s: %w", r.Key, err)
+				return nil, fmt.Errorf("create role %s: %w", r.Key, err)
 			}
 			if id, err = res.LastInsertId(); err != nil {
-				return err
+				return nil, err
 			}
-			for _, code := range DefaultGrants[r.Key] {
+			for _, code := range sortedCopy(grants[r.Key]) {
 				if _, err := tx.Exec("INSERT INTO role_permissions (role_id, permission) VALUES (?, ?)", id, code); err != nil {
-					return err
+					return nil, err
 				}
 			}
 		} else if err != nil {
-			return err
+			return nil, err
 		}
 		roleIDs[r.Key] = id
+	}
+	return roleIDs, nil
+}
+
+// CreateUser inserts an active user and links the given roles.
+func CreateUser(tx *sql.Tx, login, passwordHash string, orgID *int64, now time.Time, roleIDs ...int64) (int64, error) {
+	res, err := tx.Exec(
+		"INSERT INTO users (login, password_hash, full_name, active, organisation_id, created_at) VALUES (?, ?, '', 1, ?, ?)",
+		login, passwordHash, orgID, now.UTC().Format(SQLTimeFormat))
+	if err != nil {
+		return 0, err
+	}
+	uid, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	for _, rid := range roleIDs {
+		if _, err := tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", uid, rid); err != nil {
+			return 0, err
+		}
+	}
+	return uid, nil
+}
+
+// Seed ensures the built-in roles exist and, on an empty users table, creates the first admin.
+// The password banner goes to out only when an admin is created. DEMO=1 data belongs to the
+// reports module and is not seeded yet.
+func Seed(tx *sql.Tx, grants map[string][]string, getenv func(string) string, out io.Writer, now time.Time) error {
+	roleIDs, err := EnsureBuiltInRoles(tx, grants)
+	if err != nil {
+		return err
 	}
 	var any int
 	if err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM users)").Scan(&any); err != nil {
@@ -72,23 +104,9 @@ func Seed(tx *sql.Tx, getenv func(string) string, out io.Writer, now time.Time) 
 	if err != nil {
 		return err
 	}
-	res, err := tx.Exec(
-		"INSERT INTO users (login, password_hash, full_name, active, organisation_id, created_at) VALUES ('admin', ?, '', 1, NULL, ?)",
-		hash, now.UTC().Format(SQLTimeFormat))
-	if err != nil {
-		return err
-	}
-	uid, err := res.LastInsertId()
-	if err != nil {
-		return err
-	}
-	if _, err := tx.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", uid, roleIDs["platform_admin"]); err != nil {
+	if _, err := CreateUser(tx, "admin", hash, nil, now, roleIDs["platform_admin"]); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "\n*** ПЕРШИЙ ЗАПУСК: логін 'admin', пароль '%s'. Змініть його на сторінці «Налаштування». ***\n\n", pw)
-	// DEMO=1 seeding belongs to the reports module (Slice 3/4); not ported yet.
-	if getenv("DEMO") != "" {
-		fmt.Fprintln(os.Stderr, "DEMO seeding is not ported yet")
-	}
 	return nil
 }

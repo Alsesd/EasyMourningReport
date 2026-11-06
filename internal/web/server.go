@@ -17,7 +17,8 @@ type Pinger interface{ Ping() error }
 // (later slices) the /api/v1 modules, and the SPA fallback strictly last.
 type Server struct {
 	DB     Pinger
-	Assets fs.FS // contains "static/..."
+	Assets fs.FS        // contains "static/..."
+	API    http.Handler // /api/v1 router (nil: every /api/v1 path is a JSON 404)
 }
 
 type route func(w http.ResponseWriter, r *http.Request)
@@ -43,8 +44,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(p, "/static/"):
 		s.only(w, r, get, s.static)
 	case isAPIPath(p):
-		// Module routers register here in later slices; unknown /api/v1 paths are JSON 404s.
-		httpError(w, r, http.StatusNotFound)
+		if s.API == nil {
+			httpError(w, r, http.StatusNotFound)
+			return
+		}
+		s.API.ServeHTTP(w, r)
 	default:
 		s.only(w, r, get, s.spaFallback)
 	}

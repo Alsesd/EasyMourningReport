@@ -1,0 +1,174 @@
+package web
+
+import (
+	"database/sql"
+	"net/http"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"legkyi/internal/platform"
+)
+
+func normLogin(raw string) string { return strings.ToLower(strings.TrimSpace(raw)) }
+
+// currentPeriod is the server's local calendar month, YYYY-MM.
+func currentPeriod() string { return time.Now().Format("2006-01") }
+
+type organisationRef struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// sessionDTO follows the Pydantic SessionDTO field order.
+type sessionDTO struct {
+	UserID       int64            `json:"user_id"`
+	Login        string           `json:"login"`
+	FullName     string           `json:"full_name"`
+	Organisation *organisationRef `json:"organisation"`
+	Roles        []string         `json:"roles"`
+	Permissions  []string         `json:"permissions"`
+	Modules      []string         `json:"modules"`
+	Period       string           `json:"period"`
+}
+
+type messageDTO struct {
+	Message string `json:"message"`
+}
+
+func (a *App) sessionDTO(p *platform.Principal) sessionDTO {
+	u := p.User
+	d := sessionDTO{
+		UserID: u.ID, Login: u.Login, FullName: u.FullName,
+		Roles: []string{}, Permissions: []string{}, Modules: a.Registry.Names(), Period: currentPeriod(),
+	}
+	if u.Org != nil {
+		d.Organisation = &organisationRef{u.Org.ID, u.Org.Name}
+	}
+	for _, r := range u.Roles {
+		d.Roles = append(d.Roles, r.Name)
+	}
+	sort.Strings(d.Roles)
+	for c := range p.Permissions {
+		d.Permissions = append(d.Permissions, c)
+	}
+	sort.Strings(d.Permissions)
+	return d
+}
+
+func (a *App) mountPlatform(rt *Router) {
+	rt.Handle("GET", "/session", a.authed(nil, func(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
+		writeJSON(w, http.StatusOK, a.sessionDTO(p))
+		return nil
+	}))
+	rt.Handle("POST", "/auth/login", a.handle(a.login))
+	rt.Handle("POST", "/auth/logout", a.handle(a.logout))
+	rt.Handle("PUT", "/me/password", a.authed(nil, a.changeOwnPassword))
+}
+
+func (a *App) login(w http.ResponseWriter, r *http.Request) error {
+	body, err := ReadBody(r)
+	if err != nil {
+		return err
+	}
+	loginRaw := body.String("login", 1, 100)
+	password := body.String("password", 1, 256)
+	if err := body.Err(); err != nil {
+		return err
+	}
+	ctx := r.Context()
+	key, ip := normLogin(loginRaw), a.Trusted.ClientIP(r)
+	if wait := a.Limiter.RetryAfter(ip, key); wait > 0 {
+		return HTTPError{Status: 429, Detail: "Забагато невдалих спроб. Спробуйте пізніше.",
+			Headers: map[string]string{"Retry-After": strconv.Itoa(wait), "Cache-Control": "no-store"}}
+	}
+	user, err := platform.LoadUserByLogin(ctx, a.Store.R, key)
+	if err != nil {
+		return err
+	}
+	if user == nil || !platform.CheckPassword(password, user.PasswordHash) {
+		a.Limiter.RecordFailure(ip, key)
+		name := key
+		if name == "" {
+			name = "?"
+		}
+		if err := a.audit(r, ip, name, "", "невдалий вхід", ""); err != nil {
+			return err
+		}
+		return HTTPError{Status: 401, Detail: "Неправильний логін або пароль"}
+	}
+	if !user.CanSignIn() {
+		a.Limiter.RecordFailure(ip, key)
+		reason := "обліковий запис вимкнено"
+		if user.Active {
+			reason = "організація в архіві"
+		}
+		if err := a.audit(r, ip, user.Login, user.RoleLabel(), "невдалий вхід", reason); err != nil {
+			return err
+		}
+		return HTTPError{Status: 403, Detail: "Цей обліковий запис вимкнено. Зверніться до адміністратора."}
+	}
+	a.Limiter.Clear(ip, key)
+	if err := a.audit(r, ip, user.Login, user.RoleLabel(), "вхід", ""); err != nil {
+		return err
+	}
+	SessionFrom(r).Set(user.ID)
+	p, err := platform.PrincipalFor(ctx, a.Store.R, user, a.Registry.Codes)
+	if err != nil {
+		return err
+	}
+	writeJSON(w, http.StatusOK, a.sessionDTO(p))
+	return nil
+}
+
+func (a *App) logout(w http.ResponseWriter, r *http.Request) error {
+	s := SessionFrom(r)
+	if s.UID != 0 {
+		if user, err := platform.LoadUserByID(r.Context(), a.Store.R, s.UID); err != nil {
+			return err
+		} else if user != nil {
+			if err := a.audit(r, a.Trusted.ClientIP(r), user.Login, user.RoleLabel(), "вихід", ""); err != nil {
+				return err
+			}
+		}
+	}
+	s.Clear()
+	writeJSON(w, http.StatusOK, messageDTO{"Ви вийшли із системи."})
+	return nil
+}
+
+func (a *App) changeOwnPassword(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
+	body, err := ReadBody(r)
+	if err != nil {
+		return err
+	}
+	pw := body.String("password", 6, 256)
+	if err := body.Err(); err != nil {
+		return err
+	}
+	hash, err := platform.HashPassword(pw, nil)
+	if err != nil {
+		return err
+	}
+	ip := a.Trusted.ClientIP(r)
+	err = a.write(r.Context(), func(tx *sql.Tx) error {
+		if _, err := tx.Exec("UPDATE users SET password_hash = ? WHERE id = ?", hash, p.User.ID); err != nil {
+			return err
+		}
+		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено власний пароль", "")
+	})
+	if err != nil {
+		return err
+	}
+	writeJSON(w, http.StatusOK, messageDTO{"Ваш пароль змінено."})
+	return nil
+}
+
+// audit writes one audit row in its own committed transaction (used by sign-in/out, where
+// failed logins must be recorded even though the request itself fails).
+func (a *App) audit(r *http.Request, ip, login, role, action, detail string) error {
+	return a.write(r.Context(), func(tx *sql.Tx) error {
+		return platform.Audit(tx, a.now(), ip, login, role, action, detail)
+	})
+}
