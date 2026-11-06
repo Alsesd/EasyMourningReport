@@ -481,3 +481,24 @@ func TestADispatcherMayBelongToADivision(t *testing.T) {
 		t.Fatalf("a plain desk is still limited to its division: %+v", got)
 	}
 }
+
+func TestHandlingOtherDivisionsOrdersNeverMeansRewritingThem(t *testing.T) {
+	d := newDesks(t)
+	d.e.addUser("dual", "Двоєдина", "Dual-pass1", &d.orgA, "organisation", "transport.orders.create", "transport.orders.manage")
+	dual := sessionCookie(d.e.login("dual", "Dual-pass1"))
+	foreign := d.create(d.b, order(day, "Чужий", "d09:00"))
+	id := itoa(int(foreign.ID))
+	if w := d.post(dual, "PUT", "/api/v1/transport/orders/"+id, order(day, "Підміна", "d10:00")); w.Code != 404 {
+		t.Fatalf("editing another division's order: %d", w.Code)
+	}
+	if w := d.post(dual, "POST", "/api/v1/transport/orders/"+id+"/cancel", map[string]any{}); w.Code != 404 {
+		t.Fatalf("cancelling another division's order: %d", w.Code)
+	}
+	// Reading and replying are what manage is for.
+	if w := d.post(dual, "POST", "/api/v1/transport/orders/"+id+"/status", map[string]any{"status": "accepted", "note": ""}); w.Code != 200 {
+		t.Fatalf("replying: %d", w.Code)
+	}
+	if got := d.list(d.b, "date="+day); got[0].Deceased != "Чужий" || got[0].Status != "accepted" {
+		t.Fatalf("the order stayed as the owner wrote it: %+v", got[0])
+	}
+}

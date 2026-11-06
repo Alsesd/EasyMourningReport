@@ -118,10 +118,21 @@ func (a *App) orderDTO(o transport.Order, p *platform.Principal, events []transp
 	return d
 }
 
-// loadOrder resolves an order the caller may see; other organisations' orders answer 404.
+// loadOrder resolves an order the caller may see; other divisions' orders answer 404 unless the caller may
+// see every division's orders.
 func (a *App) loadOrder(r *http.Request, q core.Querier, p *platform.Principal, id int64) (transport.Order, error) {
+	return a.findOrder(r, q, p, id, seesAll(p))
+}
+
+// loadOwnOrder resolves an order of the caller's own division only. Editing and cancelling use it: seeing every
+// division's orders (manage, view_all) never lets someone rewrite another division's order.
+func (a *App) loadOwnOrder(r *http.Request, q core.Querier, p *platform.Principal, id int64) (transport.Order, error) {
+	return a.findOrder(r, q, p, id, false)
+}
+
+func (a *App) findOrder(r *http.Request, q core.Querier, p *platform.Principal, id int64, all bool) (transport.Order, error) {
 	o, err := transport.GetOrder(r.Context(), q, id)
-	if errors.Is(err, transport.ErrNotFound) || (err == nil && !seesAll(p) && (p.User.Org == nil || o.OrganisationID != p.User.Org.ID)) {
+	if errors.Is(err, transport.ErrNotFound) || (err == nil && !all && (p.User.Org == nil || o.OrganisationID != p.User.Org.ID)) {
 		return o, HTTPError{Status: 404, Detail: "Замовлення не знайдено."}
 	}
 	return o, err
@@ -322,7 +333,7 @@ func (a *App) updateTransportOrder(w http.ResponseWriter, r *http.Request, p *pl
 	}
 	ip, name := a.Trusted.ClientIP(r), displayName(p.User)
 	err = a.write(r.Context(), func(tx *sql.Tx) error {
-		o, err := a.loadOrder(r, tx, p, id)
+		o, err := a.loadOwnOrder(r, tx, p, id)
 		if err != nil {
 			return err
 		}
@@ -353,7 +364,7 @@ func (a *App) cancelTransportOrder(w http.ResponseWriter, r *http.Request, p *pl
 	}
 	ip, name := a.Trusted.ClientIP(r), displayName(p.User)
 	err := a.write(r.Context(), func(tx *sql.Tx) error {
-		o, err := a.loadOrder(r, tx, p, id)
+		o, err := a.loadOwnOrder(r, tx, p, id)
 		if err != nil {
 			return err
 		}
