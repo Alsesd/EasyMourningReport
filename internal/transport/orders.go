@@ -6,6 +6,7 @@ import (
 	"errors"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -246,17 +247,44 @@ func ListOrders(ctx context.Context, q core.Querier, f Filter) ([]Order, error) 
 	for i := range out {
 		attachStops(&out[i], stops[out[i].ID])
 	}
+	sortChronologically(out)
+	return out, nil
+}
+
+// groupKey ties together the orders of one deceased from one organisation on one day: a desk that adds the
+// missing part after the dispatcher has replied has to place a second order, which must stay next to the first.
+func groupKey(o Order) string {
+	name := strings.Join(strings.Fields(strings.ToLower(o.Deceased)), " ")
+	return o.ServiceDate + "\x00" + strconv.FormatInt(o.OrganisationID, 10) + "\x00" + name
+}
+
+// sortChronologically orders by day, then by the earliest time of each deceased's group, keeping the orders of
+// one group together (earliest first), then by id.
+func sortChronologically(out []Order) {
+	first := map[string]string{}
+	for _, o := range out {
+		k := groupKey(o)
+		if t, ok := first[k]; !ok || (o.SortTime() != "" && o.SortTime() < t) {
+			first[k] = o.SortTime()
+		}
+	}
 	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i], out[j]
 		if a.ServiceDate != b.ServiceDate {
 			return a.ServiceDate < b.ServiceDate
+		}
+		ka, kb := groupKey(a), groupKey(b)
+		if ka != kb {
+			if ta, tb := first[ka], first[kb]; ta != tb {
+				return ta < tb
+			}
+			return ka < kb
 		}
 		if ta, tb := a.SortTime(), b.SortTime(); ta != tb {
 			return ta < tb
 		}
 		return a.ID < b.ID
 	})
-	return out, nil
 }
 
 // OrderEvents returns the history of one order, oldest first.
@@ -363,7 +391,10 @@ func UpdateOrder(ctx context.Context, tx *sql.Tx, id, userID int64, userName str
 
 // SetOrderStatus records a new status with the reply note shown to the desk.
 func SetOrderStatus(ctx context.Context, tx *sql.Tx, id int64, status, note string, userID int64, userName string, now time.Time) error {
-	if _, err := tx.ExecContext(ctx, "UPDATE transport_orders SET status = ?, reply_note = ?, updated_at = ? WHERE id = ?", status, note, now.Unix(), id); err != nil {
+	// An empty note keeps the previous reply the desk is reading ("Авто виїде о 8:40" stays after "Виїхали");
+	// the history event below records exactly what was entered.
+	if _, err := tx.ExecContext(ctx, "UPDATE transport_orders SET status = ?, reply_note = CASE WHEN ? = '' THEN reply_note ELSE ? END, updated_at = ? WHERE id = ?",
+		status, note, note, now.Unix(), id); err != nil {
 		return err
 	}
 	return addEvent(ctx, tx, id, now, userID, userName, "status", status, note)

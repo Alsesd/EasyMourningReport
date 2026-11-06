@@ -135,6 +135,9 @@ func (a *App) listTransportOrders(w http.ResponseWriter, r *http.Request, p *pla
 	if date == "" && from == "" && to == "" {
 		date = a.today()
 	}
+	if date == "" && (from == "" || to == "") {
+		return HTTPError{Status: 400, Detail: "Вкажіть обидві дати діапазону: from і to."}
+	}
 	if date != "" {
 		from, to = date, date
 	}

@@ -4,7 +4,7 @@
  * the reply status and read the history. Delivery and carriers of one deceased share a row.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { transportApi, type OrderQuery } from "@/modules/transport/api";
@@ -16,6 +16,7 @@ import { TP } from "@/modules/transport/permissions";
 import { useAuth } from "@/platform/auth/AuthContext";
 import type { TransportOrderDTO } from "@/platform/api/types";
 import { Button } from "@/ui/Button";
+import { useConfirm } from "@/ui/ConfirmDialog";
 import { DayPicker } from "@/ui/DayPicker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/ui/Dialog";
 import { LedgerSection } from "@/ui/LedgerSection";
@@ -47,6 +48,16 @@ function HistoryList({ id }: { id: number }) {
   );
 }
 
+/** Today's date that follows the clock: a page left open overnight moves to the new day unless a day was picked. */
+function useToday(): string {
+  const [today, setToday] = useState(todayIso());
+  useEffect(() => {
+    const id = window.setInterval(() => setToday(todayIso()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return today;
+}
+
 export default function TransportPage() {
   const { can } = useAuth();
   const queryClient = useQueryClient();
@@ -55,9 +66,14 @@ export default function TransportPage() {
   const manage = can(TP.manage);
 
   const [mode, setMode] = useState<"day" | "history">("day");
-  const [day, setDay] = useState(todayIso());
-  const [from, setFrom] = useState(shiftDay(todayIso(), -7));
-  const [to, setTo] = useState(todayIso());
+  const today = useToday();
+  const [pickedDay, setDay] = useState<string | null>(null);
+  const [pickedFrom, setFrom] = useState<string | null>(null);
+  const [pickedTo, setTo] = useState<string | null>(null);
+  const day = pickedDay ?? today;
+  const from = pickedFrom ?? shiftDay(today, -7);
+  const to = pickedTo ?? today;
+  const { ask, dialog: confirmDialog } = useConfirm(uk.common.cancel);
   const [status, setStatus] = useState("");
   const [message, setMessage] = useState<NoticeMessage | null>(null);
   const [editing, setEditing] = useState<TransportOrderDTO | "new" | null>(null);
@@ -73,16 +89,21 @@ export default function TransportPage() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["transport"] });
   const notify = (text: string) => setMessage({ text, kind: "ok" });
 
-  const cancel = async (o: TransportOrderDTO) => {
-    if (!window.confirm(t.cancelConfirm)) return;
-    try {
-      await transportApi.cancel(o.id);
-      notify(t.cancelled);
-    } catch (err) {
-      setMessage({ text: (err as Error).message, kind: "err" });
-    }
-    void refresh();
-  };
+  const cancel = (o: TransportOrderDTO) =>
+    ask({
+      title: t.cancelOrder,
+      description: `${t.cancelConfirm} ${o.deceased}, ${formatDayReadable(o.service_date)}, ${o.sort_time}.`,
+      actionLabel: t.cancelOrder,
+      onConfirm: async () => {
+        try {
+          await transportApi.cancel(o.id);
+          notify(t.cancelled);
+        } catch (err) {
+          setMessage({ text: (err as Error).message, kind: "err" });
+        }
+        void refresh();
+      },
+    });
 
   const list = orders.data ?? [];
   const emptyText = mode === "history" ? t.emptyHistory : desk && !staff ? t.emptyDesk : t.empty;
@@ -179,6 +200,8 @@ export default function TransportPage() {
           ))
         )}
       </LedgerSection>
+
+      {confirmDialog}
 
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">

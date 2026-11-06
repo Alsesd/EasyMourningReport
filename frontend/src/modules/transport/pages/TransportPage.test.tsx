@@ -101,4 +101,19 @@ describe("TransportPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Застосувати" }));
     await waitFor(() => expect(setStatus).toHaveBeenCalledWith(1, "rejected", "Немає вільних авто"));
   });
+
+  it("asks in a Ukrainian dialog before cancelling and then cancels", async () => {
+    vi.spyOn(transportApi, "orders").mockResolvedValue([order({})]);
+    const cancel = vi.spyOn(transportApi, "cancel").mockResolvedValue(order({ status: "cancelled", can_edit: false }));
+    const nativeConfirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", nativeConfirm);
+    renderPage(base);
+    const card = await screen.findByRole("article", { name: /Іваненко/ });
+    fireEvent.click(within(card).getByRole("button", { name: /Скасувати замовлення/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(cancel).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Скасувати замовлення" }));
+    await waitFor(() => expect(cancel).toHaveBeenCalledWith(1));
+    expect(nativeConfirm).not.toHaveBeenCalled();
+  });
 });

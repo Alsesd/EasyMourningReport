@@ -265,6 +265,10 @@ func TestDispatcherRepliesAndDeskFollowsTheStatus(t *testing.T) {
 		if w := status(d.boss, st, ""); w.Code != 200 {
 			t.Fatalf("%s: %d %s", st, w.Code, w.Body)
 		}
+		// Later steps without a note must not erase the dispatcher's reply the desk is reading.
+		if got := d.list(d.a, "date="+day)[0]; got.ReplyNote != "Авто виїде о 8:40" || got.Status != st {
+			t.Fatalf("after %s the desk sees %+v", st, got)
+		}
 	}
 	if w := status(d.boss, "in_progress", ""); w.Code != 409 {
 		t.Fatalf("a finished order stays finished: %d", w.Code)
@@ -316,5 +320,33 @@ func TestOrganisationWithTransportOrdersIsArchivedNotDeleted(t *testing.T) {
 	w := d.e.do("DELETE", "/api/v1/organisations/"+itoa(int(d.orgA)), "", nil, d.boss)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"archived":true`) {
 		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+}
+
+func TestOrdersOfOneDeceasedStayTogether(t *testing.T) {
+	d := newDesks(t)
+	d.create(d.a, order(day, "Іваненко І. І.", "d09:00"))
+	d.create(d.a, order(day, "Мартинюк М. М.", "d10:00"))
+	// The carriers part is ordered later, as a second order of the same deceased (different spacing and case).
+	d.create(d.a, order(day, "  іваненко  і. і. ", "c14:00"))
+	// Another desk's deceased with the same name is a different person's order.
+	d.create(d.b, order(day, "Іваненко І. І.", "d09:30"))
+	var got []string
+	for _, o := range d.list(d.boss, "date="+day) {
+		got = append(got, o.Organisation.Name+":"+strings.TrimSpace(o.Deceased)+"@"+o.SortTime)
+	}
+	want := "Філія А:Іваненко І. І.@09:00|Філія А:іваненко  і. і.@14:00|Філія Б:Іваненко І. І.@09:30|Філія А:Мартинюк М. М.@10:00"
+	if strings.Join(got, "|") != want {
+		t.Fatalf("got  %v\nwant %s", got, want)
+	}
+}
+
+func TestRangeNeedsBothDates(t *testing.T) {
+	d := newDesks(t)
+	if w := d.e.do("GET", "/api/v1/transport/orders?from=2026-01-01", "", nil, d.boss); w.Code != 400 {
+		t.Fatalf("%d", w.Code)
+	}
+	if w := d.e.do("GET", "/api/v1/transport/orders?from=2026-01-01&to=2027-03-01", "", nil, d.boss); w.Code != 400 {
+		t.Fatalf("over 400 days: %d", w.Code)
 	}
 }
