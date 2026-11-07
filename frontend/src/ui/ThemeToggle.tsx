@@ -54,7 +54,7 @@ export function ThemeToggle({ className, placement = "down" }: { className?: str
           role="menu"
           aria-orientation="vertical"
           aria-labelledby="theme-toggle"
-          className={cn("absolute w-60 z-50", placement === "up" ? "bottom-full left-0 mb-1.5 origin-bottom-left" : "right-0 mt-1.5 origin-top-right", "rounded-control border border-border bg-surface py-1 shadow-overlay focus:outline-none")}
+          className={cn("z-50 max-h-[calc(100dvh-6rem)] overflow-y-auto", placement === "up" ? "absolute bottom-full left-0 mb-1.5 w-60 origin-bottom-left" : "fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-1.5 sm:w-60 sm:origin-top-right", "rounded-control border border-border bg-surface py-1 shadow-overlay focus:outline-none")}
         >
           {options.map((opt) => {
             const Icon = opt.icon;

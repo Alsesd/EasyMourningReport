@@ -238,7 +238,10 @@ describe("TransportPage", () => {
   it("marks today's orders urgent and keeps an order for next week in work", async () => {
     const today = todayIso();
     const week = shiftDay(today, 7);
-    vi.spyOn(transportApi, "orders").mockResolvedValue([order({ id: 1, deceased: "Сьогоднішній" })]);
+    vi.spyOn(transportApi, "orders").mockResolvedValue([
+      order({ id: 1, deceased: "Сьогоднішній" }),
+      order({ id: 2, deceased: "Вже виконаний", status: "done", can_edit: false }),
+    ]);
     vi.spyOn(transportApi, "days").mockResolvedValue([
       { date: today, total: 1, open: 1, attention: 0, by_status: { submitted: 1 } },
       { date: week, total: 1, open: 1, attention: 0, by_status: { accepted: 1 } },
@@ -246,6 +249,10 @@ describe("TransportPage", () => {
     renderPage(base);
     const card = await screen.findByRole("article", { name: /Сьогоднішній/ });
     expect(within(card).getByText("Терміново · сьогодні")).toBeDefined();
+    // A closed order of today names its day without urgency.
+    const done = screen.getByRole("article", { name: /Вже виконаний/ });
+    expect(within(done).queryByText(/Терміново/)).toBeNull();
+    expect(within(done).getByText("Сьогодні")).toBeDefined();
     // The order a week ahead is listed under "ahead" and opens its day.
     const ahead = await screen.findByRole("button", { name: /через 7 днів/ });
     fireEvent.click(ahead);
