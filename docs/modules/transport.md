@@ -53,7 +53,7 @@ The list refreshes every 15 seconds and shows the status and the reply note. On 
 | Car taken by a military order (`bumped`) | the employee who submitted the bumped order |
 | 14:30 (`REMINDER_AT`, in `APP_TIMEZONE`): the organisation has no order for tomorrow that holds or has done a car (cancelled, rejected and bumped ones do not count) | every employee of that organisation with `create`; once per person and day |
 
-Why 14:30: desks must place the next day's order by **15:00**; the reminder gives them half an hour. The cutoff itself is not enforced by the server (a later order is still accepted).
+The 14:30 time is only a default for the reminder (`REMINDER_AT`). There is no cutoff for orders: the server accepts an order for any day at any time.
 
 ## API
 

@@ -17,7 +17,7 @@ type: project
   timing badge per order (Терміново · сьогодні / Завтра / Післязавтра / Через N днів / Не закрито), groups «У роботі»
   (submitted, accepted, in_progress, bumped) vs «Закриті». Stored status codes unchanged; `in_progress` reads «В дорозі».
   Saving an order for another day jumps to that day. Open question for the user: a stored «оформлено/оплачено» status.
-  Daily reminder (`DailyReminder`) to desks without an order for tomorrow. **Business rule (user, 2026-11-06): orders for the next day must be placed by 15:00; that is why the reminder fires at 14:30** (keep `REMINDER_AT` default 14:30). The cutoff itself is not enforced in code; ask before blocking late orders.
+  Daily reminder (`DailyReminder`) to desks without an order for tomorrow. **Owner (2026-11-07): there is no 15:00 cutoff for orders**; `REMINDER_AT` (default 14:30) is just the reminder time. Never block late orders.
 - **Notifications** (platform): `notifications` table, `platform.Notify/Recipients`, API list/read/read-all (own rows only);
   scheduler `web.RunScheduler` runs module reminders at `REMINDER_AT` (default 14:30) in `APP_TIMEZONE` (Europe/Kyiv),
   prunes old rows. Frontend bell polls every 20 s; device notifications go through the service worker (new Notification() throws on Android). **Web Push** (platform/webpush.go, web/push.go, sw.js): VAPID key in `<data>/vapid.key`, `push_subscriptions` table, dispatcher polls `pushed_at=0` every 3 s outside the write tx, stale rows (>10 min) retired unsent, allowlist of push hosts. `DeviceSetup` (first sign-in) asks notifications + install; shares a dialog slot with BiometricOffer. Real phone delivery was NOT tested in the sandbox.
