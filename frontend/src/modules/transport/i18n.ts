@@ -261,6 +261,7 @@ export const uk = {
     // Dispatcher board
     boardTitle: "Рейси на день",
     boardHint: "Замовлення й рейси за автомобілями, у порядку часу.",
+    idleCars: "Вільні авто",
     boardEmpty: "На цей день немає ні замовлень, ні рейсів.",
     laneUnassigned: "Авто не призначено",
     laneEmpty: "Без завантаження",
@@ -273,6 +274,7 @@ export const uk = {
     runNotes: "Примітка",
     runStops: "Маршрут",
     runNeedStop: "Додайте хоча б одну зупинку.",
+    runStopNeedLines: (n: number) => `Зупинка ${n}: додайте хоча б один товар.`,
     runNeedCar: "Оберіть авто для рейсу.",
     runAddStop: "Додати зупинку",
     runStopOrg: (n: number) => `Зупинка ${n}: підрозділ`,

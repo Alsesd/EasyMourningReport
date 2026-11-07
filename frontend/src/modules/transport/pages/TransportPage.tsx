@@ -5,6 +5,8 @@
 
 import { useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { BoardPanel } from "@/modules/transport/components/BoardPanel";
+import { ProductsPanel } from "@/modules/transport/components/ProductsPanel";
 import { FleetPanel } from "@/modules/transport/components/FleetPanel";
 import { OrdersPanel } from "@/modules/transport/components/OrdersPanel";
 import { uk } from "@/modules/transport/i18n";
@@ -79,6 +81,8 @@ export default function TransportPage() {
       {current && (
         <div role="tabpanel" id={`transport-panel-${current.id}`} aria-labelledby={`transport-tab-${current.id}`} tabIndex={-1} className="focus-visible:outline-none">
           {current.id === "orders" && <OrdersPanel />}
+          {current.id === "products" && <ProductsPanel />}
+          {current.id === "board" && <BoardPanel />}
           {current.id === "fleet" && <FleetPanel />}
         </div>
       )}
