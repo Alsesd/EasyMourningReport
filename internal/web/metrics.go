@@ -70,6 +70,34 @@ func (b *jobBoard) get(name string) (jobState, bool) {
 	return s, ok
 }
 
+// ---- push counters -----------------------------------------------------------------------------------------------
+
+// pushStats counts what the dispatcher did since the start: browsers reached, subscriptions found gone (and
+// forgotten) and sends that failed, with the last failure's text. The failures are in the error log too.
+type pushStats struct {
+	mu         sync.Mutex
+	sent, gone int64
+	failed     int64
+	lastFail   string
+	lastFailAt time.Time
+}
+
+var pushCounts = &pushStats{}
+
+func (p *pushStats) record(err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	switch err {
+	case nil:
+		p.sent++
+	case platform.ErrSubscriptionGone:
+		p.gone++
+	default:
+		p.failed++
+		p.lastFail, p.lastFailAt = system.RedactURLs(err.Error()), time.Now()
+	}
+}
+
 // ---- HTTP counters ----------------------------------------------------------------------------------------------
 
 type httpMetrics struct {
@@ -251,6 +279,11 @@ type metricsDTO struct {
 		Platform  string `json:"platform"`
 		StartedAt string `json:"started_at"`
 		UptimeSec int64  `json:"uptime_sec"`
+		// For a build without a release tag (go build in a git checkout): the revision the compiler recorded.
+		VCSCommit   string `json:"vcs_commit"`
+		VCSModified bool   `json:"vcs_modified"` // uncommitted changes were in the tree
+		SQLite      string `json:"sqlite"`       // the engine version
+		SQLiteDrv   string `json:"sqlite_driver"`
 	} `json:"build"`
 	Runtime struct {
 		Goroutines int    `json:"goroutines"`
@@ -291,9 +324,14 @@ type metricsDTO struct {
 	} `json:"backups"`
 	Jobs []jobDTO `json:"jobs"`
 	Push struct {
-		Configured    bool `json:"configured"`
-		Subscriptions int  `json:"subscriptions"`
-		Backlog       int  `json:"backlog"` // notifications waiting to be pushed (older ones are retired unsent)
+		Configured    bool    `json:"configured"`
+		Subscriptions int     `json:"subscriptions"`
+		Backlog       int     `json:"backlog"` // notifications waiting to be pushed (older ones are retired unsent)
+		Sent          int64   `json:"sent"`    // browsers reached since the start
+		Gone          int64   `json:"gone"`    // subscriptions the browser had cancelled (forgotten)
+		Failed        int64   `json:"failed"`  // sends that failed
+		LastFailure   string  `json:"last_failure"`
+		LastFailureAt *string `json:"last_failure_at"`
 	} `json:"push"`
 	Sessions struct {
 		Live  int `json:"live"`
@@ -343,6 +381,9 @@ func (a *App) metrics(w http.ResponseWriter, r *http.Request, _ *platform.Princi
 	}
 	m.Build.Go, m.Build.Platform = runtime.Version(), runtime.GOOS+"/"+runtime.GOARCH
 	m.Build.StartedAt, m.Build.UptimeSec = servedTimeOf(processStart), int64(now.Sub(processStart).Seconds())
+
+	m.Build.VCSCommit, m.Build.VCSModified, m.Build.SQLiteDrv = buildVCS()
+	_ = a.Store.R.QueryRowContext(ctx, "SELECT sqlite_version()").Scan(&m.Build.SQLite)
 
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
@@ -413,6 +454,13 @@ func (a *App) metrics(w http.ResponseWriter, r *http.Request, _ *platform.Princi
 	}
 
 	m.Push.Configured = a.Push != nil
+	pushCounts.mu.Lock()
+	m.Push.Sent, m.Push.Gone, m.Push.Failed, m.Push.LastFailure = pushCounts.sent, pushCounts.gone, pushCounts.failed, pushCounts.lastFail
+	if !pushCounts.lastFailAt.IsZero() {
+		t := servedTimeOf(pushCounts.lastFailAt.UTC())
+		m.Push.LastFailureAt = &t
+	}
+	pushCounts.mu.Unlock()
 	nowUnix := a.now().Unix()
 	_ = a.Store.R.QueryRowContext(ctx, "SELECT COUNT(*) FROM push_subscriptions").Scan(&m.Push.Subscriptions)
 	_ = a.Store.R.QueryRowContext(ctx, "SELECT COUNT(*) FROM notifications WHERE pushed_at = 0 AND created_at > ?", a.now().Add(-pushFreshness).Unix()).Scan(&m.Push.Backlog)
@@ -476,4 +524,30 @@ func (a *App) logs(w http.ResponseWriter, r *http.Request, _ *platform.Principal
 	}
 	writeJSON(w, http.StatusOK, out)
 	return nil
+}
+
+// buildVCS reads what the Go toolchain stamped into the binary: the git revision (short), whether the tree was
+// dirty, and the version of the SQLite driver module. All empty when the build carries no such information.
+func buildVCS() (commit string, modified bool, driver string) {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return
+	}
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			commit = s.Value
+			if len(commit) > 8 {
+				commit = commit[:8]
+			}
+		case "vcs.modified":
+			modified = s.Value == "true"
+		}
+	}
+	for _, d := range bi.Deps {
+		if d.Path == "modernc.org/sqlite" {
+			driver = d.Version
+		}
+	}
+	return
 }

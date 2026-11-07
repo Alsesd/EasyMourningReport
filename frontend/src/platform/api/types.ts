@@ -33,6 +33,7 @@ export type SystemMetricsDTO = Schemas["SystemMetricsDTO"];
 export type DashboardDTO = Schemas["DashboardDTO"];
 export type DashboardBlockDTO = Schemas["DashboardBlockDTO"];
 export type SystemLogsDTO = Schemas["SystemLogsDTO"];
+export type TestNotificationDTO = Schemas["TestNotificationDTO"];
 export type IntegrityDTO = Schemas["IntegrityDTO"];
 export type AdminOverviewDTO = Schemas["AdminOverviewDTO"];
 

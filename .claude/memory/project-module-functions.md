@@ -49,3 +49,10 @@ type: project
   `server error: METHOD /path: cause` and hands the cause to the `counted` middleware (health page «Останній збій»); panics are
   recovered into a logged 500. Page: health section «Журнал помилок і попереджень» (`GET /admin/system/logs`). Log lines stay
   informational; only a 5xx of the last 24 h and failed jobs turn the summary red. Cloudflared writes to its own file, not into this log.
+- **Push check + versions** (2026-11-07): `POST /notifications/test` (bell button «Надіслати тестове сповіщення») lets each person check
+  their own device with the app closed; the reply says whether the server pushes and how many of their devices subscribed. Dispatcher
+  counters (`pushCounts`: sent/gone/failed + last failure) are on the health page. Delivery on a real phone was still NEVER verified
+  in the sandbox. Only reminder that exists: «no order for tomorrow» at 14:30 plus order-event notifications; nothing reminds about
+  an order due today or nags the dispatcher about unclosed orders (ask the user). Health page shows the release tag, or «без тега
+  релізу» + git revision for local builds (never stamp `update.Tag` on dev builds: it switches self-update on), and the stack
+  (Go, SQLite engine+driver, React, Vite, Tailwind; front-end versions injected by `vite.config.ts` as `__APP_STACK__`).

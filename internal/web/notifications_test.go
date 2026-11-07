@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -212,5 +213,36 @@ func TestParseClockAndPruning(t *testing.T) {
 	}
 	if n := count(d.e, "SELECT COUNT(*) FROM notifications WHERE title = 'unread ancient'"); n != 0 {
 		t.Fatal("a row past the long limit was kept")
+	}
+}
+
+func TestTestNotificationReachesOnlyTheCaller(t *testing.T) {
+	d := newDesks(t)
+	post := func(c *http.Cookie) *httptest.ResponseRecorder { return d.post(c, "POST", "/api/v1/notifications/test", map[string]any{}) }
+	if w := d.e.do("POST", "/api/v1/notifications/test", "{}", nil); w.Code != 401 {
+		t.Fatalf("signed in only: %d", w.Code)
+	}
+	w := post(d.a)
+	var out struct {
+		PushConfigured bool `json:"push_configured"`
+		Devices        int  `json:"devices"`
+	}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &out) != nil || out.PushConfigured || out.Devices != 0 {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	post(d.a) // the same minute: not a second one
+	count := func(c *http.Cookie) int {
+		var l struct{ Items []struct{ Kind string } }
+		json.Unmarshal(d.e.do("GET", "/api/v1/notifications", "", nil, c).Body.Bytes(), &l)
+		n := 0
+		for _, i := range l.Items {
+			if i.Kind == "test" {
+				n++
+			}
+		}
+		return n
+	}
+	if count(d.a) != 1 || count(d.b) != 0 {
+		t.Fatalf("one test notification, for the caller only: %d / %d", count(d.a), count(d.b))
 	}
 }

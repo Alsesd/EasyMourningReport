@@ -4,14 +4,14 @@ import { formatBytes } from "./BackupSection";
 import { backupTone, diskTone, formatUptime, httpTone, issues, jobTone } from "./healthStatus";
 
 const metrics = (over: Partial<SystemMetricsDTO> = {}): SystemMetricsDTO => ({
-  build: { version: "Soup.V1.5", commit: "abcd1234", built_at: "", go: "go1.25", platform: "linux/amd64", started_at: "2026-11-07T08:00:00Z", uptime_sec: 3600 },
+  build: { version: "Soup.V1.5", commit: "abcd1234", built_at: "", go: "go1.25", platform: "linux/amd64", started_at: "2026-11-07T08:00:00Z", uptime_sec: 3600, vcs_commit: "", vcs_modified: false, sqlite: "3.50.0", sqlite_driver: "v1.40.0" },
   runtime: { goroutines: 20, heap_bytes: 1 << 20, sys_bytes: 2 << 20, gc_runs: 3 },
   db: { file_bytes: 1 << 20, wal_bytes: 0, page_size: 4096, page_count: 256, freelist_count: 0, journal_mode: "wal", tables: { users: 4 } },
   integrity: { verdict: "ok", ok: true, checked_at: "2026-11-07T08:00:00Z" },
   disk: { known: true, free_bytes: 50 * 1024 ** 3, total_bytes: 100 * 1024 ** 3 },
   backups: { count: 5, every_min: 60, last_copy_at: null, last_run_at: "2026-11-07T08:00:00Z", last_error: "", run_overdue: false, configured: true, total_bytes: 1, snapshots: 0, newest_bytes: 1 },
   jobs: [{ name: "scheduler", label: "Планувальник", last_run: "2026-11-07T08:00:00Z", error: "", runs: 10, fails: 0, stale: false }],
-  push: { configured: false, subscriptions: 0, backlog: 0 },
+  push: { configured: false, subscriptions: 0, backlog: 0, sent: 0, gone: 0, failed: 0, last_failure: "", last_failure_at: null },
   sessions: { live: 2, users: 2 },
   http: { ok: 100, client_errors: 5, server_errors: 0, requests: 105, since_sec: 3600, server_error_pct: 0, last_server_error: null },
   ...over,

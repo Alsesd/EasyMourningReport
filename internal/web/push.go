@@ -170,7 +170,9 @@ func (a *App) pushPass(ctx context.Context) (int, error) {
 		it.p.Body = clip(it.p.Body, 300)
 		payload, _ := json.Marshal(it.p)
 		for _, sub := range subs {
-			switch err := a.Push.Send(ctx, sub, payload); err {
+			err := a.Push.Send(ctx, sub, payload)
+			pushCounts.record(err)
+			switch err {
 			case nil:
 			case platform.ErrSubscriptionGone:
 				if werr := a.write(ctx, func(tx *sql.Tx) error { return platform.ForgetPushEndpoint(tx, sub.Endpoint) }); werr != nil {

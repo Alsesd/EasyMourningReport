@@ -1,4 +1,5 @@
 /// <reference types="vitest" />
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
@@ -9,9 +10,21 @@ const backend = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
 // Keep the Host header: the backend's same-origin guard compares it with the browser's Origin.
 const toBackend = { target: backend, changeOrigin: false };
 
+/** The installed version of a package (not the range in package.json), shown on the administrator's health page. */
+const installed = (name: string): string => {
+  try {
+    return JSON.parse(readFileSync(path.resolve(__dirname, "node_modules", name, "package.json"), "utf8")).version as string;
+  } catch {
+    return "";
+  }
+};
+
 export default defineConfig(({ command }) => ({
   plugins: [react()],
   base: command === "build" ? "/static/app/" : "/",
+  define: {
+    __APP_STACK__: JSON.stringify({ react: installed("react"), vite: installed("vite"), tailwind: installed("tailwindcss") }),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

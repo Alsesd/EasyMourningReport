@@ -569,6 +569,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/test": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["TestNotificationDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard": {
         parameters: { query?: { period?: string }; header?: never; path?: never; cookie?: never };
         get: { responses: { 200: { content: { "application/json": components["schemas"]["DashboardDTO"] } } } };
@@ -1570,6 +1581,8 @@ export interface components {
              */
             calculation_enabled: boolean;
         };
+        /** TestNotificationDTO: a test notification was sent to the caller; whether the server can push and how many of their devices subscribed */
+        TestNotificationDTO: { push_configured: boolean; devices: number };
         /** DashboardDTO: the management dashboard, blocks supplied by the modules the caller may see */
         DashboardDTO: { period: string; blocks: components["schemas"]["DashboardBlockDTO"][] };
         DashboardBlockDTO: {
@@ -1592,7 +1605,10 @@ export interface components {
         };
         /** SystemMetricsDTO: technical health of the running program (GET /admin/system/metrics) */
         SystemMetricsDTO: {
-            build: { version: string; commit: string; built_at: string; go: string; platform: string; started_at: string; uptime_sec: number };
+            build: {
+                version: string; commit: string; built_at: string; go: string; platform: string; started_at: string; uptime_sec: number;
+                vcs_commit: string; vcs_modified: boolean; sqlite: string; sqlite_driver: string;
+            };
             runtime: { goroutines: number; heap_bytes: number; sys_bytes: number; gc_runs: number };
             db: { file_bytes: number; wal_bytes: number; page_size: number; page_count: number; freelist_count: number; journal_mode: string; tables: { [table: string]: number } };
             integrity: components["schemas"]["IntegrityDTO"];
@@ -1602,7 +1618,10 @@ export interface components {
                 run_overdue: boolean; configured: boolean; total_bytes: number; snapshots: number; newest_bytes: number;
             };
             jobs: { name: string; label: string; last_run: string | null; error: string; runs: number; fails: number; stale: boolean }[];
-            push: { configured: boolean; subscriptions: number; backlog: number };
+            push: {
+                configured: boolean; subscriptions: number; backlog: number;
+                sent: number; gone: number; failed: number; last_failure: string; last_failure_at: string | null;
+            };
             sessions: { live: number; users: number };
             http: {
                 ok: number; client_errors: number; server_errors: number; requests: number; since_sec: number; server_error_pct: number;

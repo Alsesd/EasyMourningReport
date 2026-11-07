@@ -6,14 +6,14 @@ import { systemApi } from "@/platform/system/api";
 import type { SystemMetricsDTO } from "@/platform/api/types";
 
 const base: SystemMetricsDTO = {
-  build: { version: "", commit: "", built_at: "", go: "go1.25", platform: "linux/amd64", started_at: "2026-11-07T08:00:00Z", uptime_sec: 120 },
+  build: { version: "", commit: "", built_at: "", go: "go1.25", platform: "linux/amd64", started_at: "2026-11-07T08:00:00Z", uptime_sec: 120, vcs_commit: "", vcs_modified: false, sqlite: "3.50.0", sqlite_driver: "v1.40.0" },
   runtime: { goroutines: 12, heap_bytes: 2 << 20, sys_bytes: 4 << 20, gc_runs: 1 },
   db: { file_bytes: 1 << 20, wal_bytes: 0, page_size: 4096, page_count: 256, freelist_count: 0, journal_mode: "wal", tables: { users: 4 } },
   integrity: { verdict: "ok", ok: true, checked_at: "2026-11-07T08:00:00Z" },
   disk: { known: false, free_bytes: 0, total_bytes: 0 },
   backups: { count: 2, every_min: 60, last_copy_at: null, last_run_at: null, last_error: "", run_overdue: false, configured: true, total_bytes: 10, snapshots: 0, newest_bytes: 5 },
   jobs: [{ name: "push", label: "Push-сповіщення — не налаштовано", last_run: null, error: "", runs: 0, fails: 0, stale: false }],
-  push: { configured: false, subscriptions: 0, backlog: 0 },
+  push: { configured: false, subscriptions: 0, backlog: 0, sent: 0, gone: 0, failed: 0, last_failure: "", last_failure_at: null },
   sessions: { live: 1, users: 1 },
   http: { ok: 10, client_errors: 2, server_errors: 0, requests: 12, since_sec: 120, server_error_pct: 0, last_server_error: null },
 };

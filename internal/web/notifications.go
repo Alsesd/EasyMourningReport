@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	"legkyi/internal/platform"
@@ -29,6 +30,7 @@ type notificationsDTO struct {
 // mountNotifications: every signed-in user has a bell; a user only ever reads and marks their own rows.
 func (a *App) mountNotifications(rt *Router) {
 	rt.Handle("GET", "/notifications", a.authed(nil, a.listNotifications))
+	rt.Handle("POST", "/notifications/test", a.authed(nil, a.testNotification))
 	rt.Handle("POST", "/notifications/read-all", a.authed(nil, a.readAllNotifications))
 	rt.Handle("POST", "/notifications/{nid}/read", a.authed(nil, a.readNotification))
 }
@@ -59,6 +61,30 @@ func (a *App) markNotifications(w http.ResponseWriter, r *http.Request, p *platf
 		return err
 	}
 	return a.listNotifications(w, r, p)
+}
+
+type testNotificationDTO struct {
+	PushConfigured bool `json:"push_configured"` // the server can send Web Push at all
+	Devices        int  `json:"devices"`         // this user's devices that subscribed to it
+}
+
+// testNotification sends the caller a notification (bell and, where the device subscribed, Web Push), so a person can
+// check that their own phone receives messages with the app closed. Once a minute at most (deduplicated).
+func (a *App) testNotification(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
+	now := a.now()
+	if err := a.write(r.Context(), func(tx *sql.Tx) error {
+		return platform.Notify(tx, now, []int64{p.User.ID}, "test", "Тестове сповіщення",
+			"Якщо ви бачите це на заблокованому екрані чи коли програма закрита, сповіщення на цьому пристрої працюють.", "/",
+			"test-"+strconv.FormatInt(now.Unix()/60, 10))
+	}); err != nil {
+		return err
+	}
+	out := testNotificationDTO{PushConfigured: a.Push != nil}
+	if err := a.Store.R.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?", p.User.ID).Scan(&out.Devices); err != nil {
+		return err
+	}
+	writeJSON(w, http.StatusOK, out)
+	return nil
 }
 
 func (a *App) readAllNotifications(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {

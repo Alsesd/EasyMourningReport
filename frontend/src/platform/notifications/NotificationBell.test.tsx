@@ -92,6 +92,18 @@ describe("NotificationBell", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Сповіщення" }));
     fireEvent.click(await screen.findByRole("button", { name: "Показувати сповіщення на цьому пристрої" }));
     await waitFor(() => expect(FakeNotification.requestPermission).toHaveBeenCalled());
-    expect(await screen.findByText(/увімкнено/)).toBeDefined();
+    expect(await screen.findByText(/дозволено/)).toBeDefined();
+  });
+
+  it("sends a test notification and says whether this device can receive it with the app closed", async () => {
+    vi.spyOn(notificationsApi, "list").mockResolvedValue({ unread: 0, items: [] });
+    const test = vi.spyOn(notificationsApi, "test").mockResolvedValueOnce({ push_configured: true, devices: 0 }).mockResolvedValueOnce({ push_configured: true, devices: 2 });
+    renderBell();
+    fireEvent.click(await screen.findByRole("button", { name: "Сповіщення" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Надіслати тестове сповіщення" }));
+    expect((await screen.findByRole("status")).textContent).toMatch(/ще не підписаний на push/);
+    fireEvent.click(screen.getByRole("button", { name: "Надіслати тестове сповіщення" }));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toMatch(/пристроїв з push: 2/));
+    expect(test).toHaveBeenCalledTimes(2);
   });
 });

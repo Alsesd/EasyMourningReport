@@ -32,6 +32,15 @@ export function NotificationBell({ className }: { className?: string }) {
   });
   const set = (next: NotificationsDTO) => queryClient.setQueryData(["notifications"], next);
   const read = useMutation({ mutationFn: (id: number) => notificationsApi.read(id), onSuccess: set });
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const sendTest = useMutation({
+    mutationFn: () => notificationsApi.test(),
+    onSuccess: (r) => {
+      setTestResult(r.push_configured ? t.testSent(r.devices) : t.testNoPush);
+      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+    onError: (err: Error) => setTestResult(err.message),
+  });
   const readAll = useMutation({ mutationFn: () => notificationsApi.readAll(), onSuccess: set });
 
   // Device notifications for messages that arrive while the page is open. The first answer only sets the
@@ -99,6 +108,12 @@ export function NotificationBell({ className }: { className?: string }) {
               </Button>
             )}
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={sendTest.isPending} onClick={() => sendTest.mutate()}>
+              {sendTest.isPending ? t.sendingTest : t.sendTest}
+            </Button>
+          </div>
+          {testResult && <p role="status" className="text-xs text-text-main">{testResult}</p>}
           {permission === "default" && <p className="text-xs text-text-muted">{t.deviceHint}</p>}
           {permission === "granted" && <p className="text-xs text-text-muted">{t.deviceOn}</p>}
           {permission === "denied" && <p className="text-xs text-text-muted">{t.deviceDenied}</p>}

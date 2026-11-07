@@ -1,7 +1,9 @@
 /** «Стан програми»: technical health for the administrator. Business figures live on the management dashboard. */
 
 import { useState } from "react";
+import { version as reactVersion } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { SystemMetricsDTO } from "@/platform/api/types";
 import { systemApi } from "@/platform/system/api";
 import { formatBytes } from "@/platform/system/BackupSection";
 import { backupTone, diskTone, formatUptime, httpTone, issues, jobTone } from "@/platform/system/healthStatus";
@@ -12,6 +14,18 @@ import { LedgerSection } from "@/ui/LedgerSection";
 import { StateDot } from "@/ui/StateDot";
 
 const h = uk.system.health;
+
+/** The parts the program is built from: the server side from the program itself, the front end from its bundle. */
+function stackRows(m: SystemMetricsDTO): [string, string][] {
+  const front = typeof __APP_STACK__ !== "undefined" ? __APP_STACK__ : { react: "", vite: "", tailwind: "" };
+  return [
+    [h.stackGo, m.build.go.replace(/^go/, "")],
+    [h.stackSqlite, [m.build.sqlite, m.build.sqlite_driver && `(${m.build.sqlite_driver})`].filter(Boolean).join(" ")],
+    [h.stackReact, reactVersion || front.react],
+    [h.stackVite, front.vite],
+    [h.stackTailwind, front.tailwind],
+  ];
+}
 const REFRESH_MS = 30000;
 
 export default function HealthSection() {
@@ -49,10 +63,22 @@ export default function HealthSection() {
 
       <LedgerSection id="health-program" title={h.program}>
         <Figures>
-          <Stat label={h.version} value={m.build.version || h.devBuild} hint={[m.build.commit, m.build.platform, m.build.go].filter(Boolean).join(" · ")} />
+          <Stat
+            label={h.version}
+            value={<span className={m.build.version ? "" : "text-[1.375rem]"}>{m.build.version || h.noTag}</span>}
+            hint={[m.build.commit || m.build.vcs_commit, !m.build.version && m.build.vcs_modified ? h.dirty : "", m.build.platform].filter(Boolean).join(" · ")}
+          />
           <Stat label={h.uptime} value={formatUptime(m.build.uptime_sec)} hint={formatDateTime(m.build.started_at)} />
           <Stat label={h.memory} value={formatBytes(m.runtime.heap_bytes)} hint={`${h.goroutines}: ${m.runtime.goroutines}`} />
         </Figures>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-1 px-1 py-4 text-sm sm:grid-cols-5" aria-label={h.stack}>
+          {stackRows(m).map(([label, value]) => (
+            <div key={label} className="min-w-0">
+              <dt className="truncate text-xs text-text-muted">{label}</dt>
+              <dd className="figure break-words text-text-main">{value || "—"}</dd>
+            </div>
+          ))}
+        </dl>
       </LedgerSection>
 
       <LedgerSection id="health-db" title={h.database}>
@@ -137,7 +163,11 @@ export default function HealthSection() {
             label={h.push}
             tone={m.push.configured ? "ok" : "idle"}
             state={m.push.configured ? h.pushValue(m.push.subscriptions, m.push.backlog) : h.pushOff}
+            detail={m.push.configured ? h.pushSent(m.push.sent, m.push.failed, m.push.gone) : undefined}
           />
+          {m.push.last_failure && (
+            <StateRow label={h.pushLastFailure} tone="busy" state={m.push.last_failure_at ? formatDateTime(m.push.last_failure_at) : ""} detail={m.push.last_failure} />
+          )}
         </div>
       </LedgerSection>
 
