@@ -51,14 +51,14 @@ export function HubSectionPicker({ sections, current }: { sections: AdminSection
   const grouped = groupSections(sections);
   const CurrentIcon = current?.icon ?? LayoutDashboard;
   const item =
-    "flex min-h-[48px] cursor-pointer items-center gap-3 rounded-control px-3 text-[15px] text-text-main outline-none data-[highlighted]:bg-surface-raised";
+    "flex min-h-[48px] cursor-pointer items-center gap-3 rounded-control px-3 text-[0.9375rem] text-text-main outline-none data-[highlighted]:bg-surface-raised";
 
   return (
     <div className="sticky top-[60px] z-20 -mx-4 border-b border-border bg-page/95 px-4 py-2 sm:-mx-8 sm:px-8 lg:hidden">
       <DropdownMenu.Root open={open} onOpenChange={setOpen}>
         <DropdownMenu.Trigger
           aria-label={`${uk.hub.menuLabel}: ${current?.label ?? uk.hub.overview}`}
-          className="flex min-h-[48px] w-full items-center gap-3 rounded-control border border-border bg-surface px-3 text-left text-[15px] font-medium text-text-main"
+          className="flex min-h-[48px] w-full items-center gap-3 rounded-control border border-border bg-surface px-3 text-left text-[0.9375rem] font-medium text-text-main"
         >
           <CurrentIcon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate">{current?.label ?? uk.hub.overview}</span>

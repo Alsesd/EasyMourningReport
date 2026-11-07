@@ -1,4 +1,4 @@
-package web
+package reports
 
 import (
 	"context"
@@ -7,22 +7,22 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"legkyi/internal/core"
-	"legkyi/internal/platform"
-	"legkyi/internal/reports"
 )
 
 var periodRE = regexp.MustCompile(`^\d{4}-(0[1-9]|1[0-2])$`)
 
 // parsePeriod: empty means the current local month; otherwise YYYY-MM or a 400.
-func (a *App) parsePeriod(p string) (string, error) {
+func (a *api) parsePeriod(p string) (string, error) {
 	if p == "" {
 		p = a.currentPeriod()
 	}
 	if !periodRE.MatchString(p) {
-		return "", HTTPError{Status: 400, Detail: "Період має мати вигляд 2026-10"}
+		return "", core.HTTPError{Status: 400, Detail: "Період має мати вигляд 2026-10"}
 	}
 	return p, nil
 }
@@ -82,13 +82,13 @@ type signedDTO struct {
 	Locked     *signatureDTO `json:"locked,omitempty"`
 }
 
-func signedOf(status string, s reports.Signatures) signedDTO {
+func signedOf(status string, s Signatures) signedDTO {
 	var d signedDTO
-	conv := func(x *reports.Signature) *signatureDTO {
+	conv := func(x *Signature) *signatureDTO {
 		if x == nil {
 			return nil
 		}
-		return &signatureDTO{By: x.ByName, At: servedTimeOf(x.At)}
+		return &signatureDTO{By: x.ByName, At: core.ServedTime(x.At)}
 	}
 	d.Submission = conv(s.Submitted)
 	if status == "submitted" && s.Locked != nil && (s.Submitted == nil || s.Locked.At.After(s.Submitted.At)) {
@@ -180,56 +180,90 @@ type reportSettingsDTO struct {
 	ReportsCount       int    `json:"reports_count"`
 }
 
-func (a *App) mountReports(rt *Router) {
-	cm := []string{reports.CatalogManage}
-	rt.Handle("GET", "/admin/products", a.authed(cm, a.listProducts))
-	rt.Handle("POST", "/admin/products", a.authed(cm, a.createProduct))
-	rt.Handle("PUT", "/admin/products/{pid}/price", a.authed(cm, a.updateProductPrice))
-	rt.Handle("PUT", "/admin/products/{pid}", a.authed(cm, a.updateProduct))
-	rt.Handle("DELETE", "/admin/products/{pid}", a.authed(cm, a.deleteProduct))
-	rt.Handle("POST", "/admin/products/{pid}/restore", a.authed(cm, a.restoreProduct))
-	rt.Handle("POST", "/admin/products/import", a.authed(cm, a.importProducts))
+// api holds the platform services the handlers use (core.Services is all the module gets from the shell).
+type api struct{ core.Services }
 
-	rt.Handle("GET", "/store/reports/{period}", a.member([]string{reports.Submit}, a.readStoreReport))
-	rt.Handle("PUT", "/store/reports/{period}", a.member([]string{reports.Submit}, a.saveStoreReport))
+func (a *api) orgOr404(ctx context.Context, q core.Querier, id int64) (*core.Org, error) {
+	o, err := a.Organisation(ctx, q, id)
+	if err != nil {
+		return nil, err
+	}
+	if o == nil {
+		return nil, core.HTTPError{Status: 404, Detail: "Підрозділ не знайдено."}
+	}
+	return o, nil
+}
 
-	rv := []string{reports.Review}
-	rt.Handle("GET", "/admin/reports", a.authed(rv, a.listAdminReports))
-	rt.Handle("GET", "/admin/reports/{rid}", a.authed(rv, a.readAdminReport))
-	rt.Handle("PATCH", "/admin/reports/{rid}", a.authed(rv, a.updateAdminReportStatus))
-	rt.Handle("GET", "/admin/summary", a.authed(rv, a.readSummary))
-	rt.Handle("GET", "/admin/summary.xlsx", a.authed(rv, a.exportSummary))
+type mutationDTO struct {
+	ID       int64  `json:"id"`
+	Archived bool   `json:"archived"`
+	Deleted  bool   `json:"deleted"`
+	Message  string `json:"message"`
+}
 
-	sm := []string{reports.SettingsManage}
-	rt.Handle("GET", "/reports/settings", a.authed(sm, a.listReportSettings))
-	rt.Handle("PUT", "/reports/settings/{oid}", a.authed(sm, a.updateReportSettings))
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
 
+func (a *api) currentPeriod() string { return a.Now().In(time.Local).Format("2006-01") }
+
+// routes lists the module's endpoints; the shell registers each behind its permission check.
+func routes(s core.Services) []core.Route {
+	a := &api{s}
+	cm := []string{CatalogManage}
+	rv := []string{Review}
+	sm := []string{SettingsManage}
+	sub := []string{Submit}
+	return []core.Route{
+		{Method: "GET", Path: "/admin/products", Codes: cm, Handler: a.listProducts},
+		{Method: "POST", Path: "/admin/products", Codes: cm, Handler: a.createProduct},
+		{Method: "PUT", Path: "/admin/products/{pid}/price", Codes: cm, Handler: a.updateProductPrice},
+		{Method: "PUT", Path: "/admin/products/{pid}", Codes: cm, Handler: a.updateProduct},
+		{Method: "DELETE", Path: "/admin/products/{pid}", Codes: cm, Handler: a.deleteProduct},
+		{Method: "POST", Path: "/admin/products/{pid}/restore", Codes: cm, Handler: a.restoreProduct},
+		{Method: "POST", Path: "/admin/products/import", Codes: cm, Handler: a.importProducts},
+
+		{Method: "GET", Path: "/store/reports/{period}", Codes: sub, Member: true, Handler: a.readStoreReport},
+		{Method: "PUT", Path: "/store/reports/{period}", Codes: sub, Member: true, Handler: a.saveStoreReport},
+
+		{Method: "GET", Path: "/admin/reports", Codes: rv, Handler: a.listAdminReports},
+		{Method: "GET", Path: "/admin/reports/{rid}", Codes: rv, Handler: a.readAdminReport},
+		{Method: "PATCH", Path: "/admin/reports/{rid}", Codes: rv, Handler: a.updateAdminReportStatus},
+		{Method: "GET", Path: "/admin/summary", Codes: rv, Handler: a.readSummary},
+		{Method: "GET", Path: "/admin/summary.xlsx", Codes: rv, Handler: a.exportSummary},
+
+		{Method: "GET", Path: "/reports/settings", Codes: sm, Handler: a.listReportSettings},
+		{Method: "PUT", Path: "/reports/settings/{oid}", Codes: sm, Handler: a.updateReportSettings},
+	}
 }
 
 // --- products ------------------------------------------------------------------------
 
-func (a *App) productDTO(p reports.Product, used int, period string, history map[int64]reports.History) productDTO {
-	h := reports.HistoryOf(history, p)
+func (a *api) productDTO(p Product, used int, period string, history map[int64]History) productDTO {
+	h := HistoryOf(history, p)
 	d := productDTO{ID: p.ID, Name: p.Name, PriceCents: p.PriceCents, Active: p.Active, Archived: p.Archived,
-		UsedCount: used, MonthPricesCents: reports.MonthPriceTimeline(h, period), PriceHistory: []pricePointDTO{}}
+		UsedCount: used, MonthPricesCents: MonthPriceTimeline(h, period), PriceHistory: []pricePointDTO{}}
 	for _, pt := range h {
 		d.PriceHistory = append(d.PriceHistory, pricePointDTO{pt.Period, pt.Cents})
 	}
 	return d
 }
 
-func (a *App) oneProductDTO(ctx context.Context, q core.Querier, id int64, withUsage bool) (productDTO, error) {
-	p, err := reports.LoadProduct(ctx, q, id)
+func (a *api) oneProductDTO(ctx context.Context, q core.Querier, id int64, withUsage bool) (productDTO, error) {
+	p, err := LoadProduct(ctx, q, id)
 	if err != nil || p == nil {
 		return productDTO{}, err
 	}
-	history, err := reports.LoadHistory(ctx, q)
+	history, err := LoadHistory(ctx, q)
 	if err != nil {
 		return productDTO{}, err
 	}
 	used := 0
 	if withUsage {
-		u, err := reports.ProductUsage(ctx, q)
+		u, err := ProductUsage(ctx, q)
 		if err != nil {
 			return productDTO{}, err
 		}
@@ -238,21 +272,21 @@ func (a *App) oneProductDTO(ctx context.Context, q core.Querier, id int64, withU
 	return a.productDTO(*p, used, a.currentPeriod(), history), nil
 }
 
-func (a *App) listProducts(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	period, err := a.parsePeriod(Query(r).String("period"))
+func (a *api) listProducts(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	period, err := a.parsePeriod(core.Query(r).String("period"))
 	if err != nil {
 		return err
 	}
 	ctx := r.Context()
-	used, err := reports.ProductUsage(ctx, a.Store.R)
+	used, err := ProductUsage(ctx, a.Read)
 	if err != nil {
 		return err
 	}
-	history, err := reports.LoadHistory(ctx, a.Store.R)
+	history, err := LoadHistory(ctx, a.Read)
 	if err != nil {
 		return err
 	}
-	products, err := reports.LoadProducts(ctx, a.Store.R, "")
+	products, err := LoadProducts(ctx, a.Read, "")
 	if err != nil {
 		return err
 	}
@@ -260,19 +294,19 @@ func (a *App) listProducts(w http.ResponseWriter, r *http.Request, p *platform.P
 	for _, pr := range products {
 		out = append(out, a.productDTO(pr, used[pr.ID], period, history))
 	}
-	writeJSON(w, http.StatusOK, out)
+	core.WriteJSON(w, http.StatusOK, out)
 	return nil
 }
 
 func formErr(err error) error {
-	if err == reports.ErrBadPrice {
-		return FormError{err.Error()}
+	if err == ErrBadPrice {
+		return core.FormError{Message: err.Error()}
 	}
 	return err
 }
 
-func (a *App) createProduct(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	body, err := ReadBody(r)
+func (a *api) createProduct(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	body, err := core.ReadBody(r)
 	if err != nil {
 		return err
 	}
@@ -281,14 +315,14 @@ func (a *App) createProduct(w http.ResponseWriter, r *http.Request, p *platform.
 	if err := body.Err(); err != nil {
 		return err
 	}
-	ip := a.Trusted.ClientIP(r)
+	ip := a.ClientIP(r)
 	var id int64
-	err = a.write(r.Context(), func(tx *sql.Tx) error {
-		name, err := platform.CleanName(rawName, "Назва")
+	err = a.Write(r.Context(), func(tx *sql.Tx) error {
+		name, err := core.CleanName(rawName, "Назва")
 		if err != nil {
 			return err
 		}
-		cents, err := reports.ToCents(rawPrice)
+		cents, err := ToCents(rawPrice)
 		if err != nil {
 			return formErr(err)
 		}
@@ -297,52 +331,52 @@ func (a *App) createProduct(w http.ResponseWriter, r *http.Request, p *platform.
 			return err
 		}
 		id, _ = res.LastInsertId()
-		if _, err := tx.ExecContext(r.Context(), "INSERT INTO product_prices (product_id, period, price_cents) VALUES (?, ?, ?)", id, reports.BasePeriod, cents); err != nil {
+		if _, err := tx.ExecContext(r.Context(), "INSERT INTO product_prices (product_id, period, price_cents) VALUES (?, ?, ?)", id, BasePeriod, cents); err != nil {
 			return err
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "додано товар", name+" · "+reports.FormatMoney(cents))
+		return a.Audit(tx, ip, p, "додано товар", name+" · "+FormatMoney(cents))
 	})
 	if err != nil {
 		return err
 	}
-	d, err := a.oneProductDTO(r.Context(), a.Store.R, id, false)
+	d, err := a.oneProductDTO(r.Context(), a.Read, id, false)
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusCreated, d)
+	core.WriteJSON(w, http.StatusCreated, d)
 	return nil
 }
 
 // changePrice applies a price change for the current month inside the caller's transaction.
-func (a *App) changePrice(ctx context.Context, tx *sql.Tx, pr *reports.Product, cents int64, ip string, p *platform.Principal) error {
+func (a *api) changePrice(ctx context.Context, tx *sql.Tx, pr *Product, cents int64, ip string, p *core.Caller) error {
 	period := a.currentPeriod()
-	all, err := reports.LoadHistory(ctx, tx)
+	all, err := LoadHistory(ctx, tx)
 	if err != nil {
 		return err
 	}
-	hist := reports.HistoryOf(all, *pr)
-	nh, prev, now, err := reports.ApplyPriceChange(hist, period, cents)
+	hist := HistoryOf(all, *pr)
+	nh, prev, now, err := ApplyPriceChange(hist, period, cents)
 	if err != nil {
 		return err
 	}
 	if !samePricePoints(nh, hist) {
-		if err := reports.SaveHistory(ctx, tx, pr.ID, nh); err != nil {
+		if err := SaveHistory(ctx, tx, pr.ID, nh); err != nil {
 			return err
 		}
-		latest, err := reports.LatestPrice(nh)
+		latest, err := LatestPrice(nh)
 		if err != nil {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, "UPDATE products SET price_cents = ? WHERE id = ?", latest, pr.ID); err != nil {
 			return err
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено ціну товару",
-			pr.Name+" · "+reports.FormatMoney(prev)+" → "+reports.FormatMoney(now)+" з "+period)
+		return a.Audit(tx, ip, p, "змінено ціну товару",
+			pr.Name+" · "+FormatMoney(prev)+" → "+FormatMoney(now)+" з "+period)
 	}
 	return nil
 }
 
-func samePricePoints(a, b reports.History) bool {
+func samePricePoints(a, b History) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -354,13 +388,13 @@ func samePricePoints(a, b reports.History) bool {
 	return true
 }
 
-func productOr404(ctx context.Context, q core.Querier, id int64, allowArchived bool) (*reports.Product, error) {
-	pr, err := reports.LoadProduct(ctx, q, id)
+func productOr404(ctx context.Context, q core.Querier, id int64, allowArchived bool) (*Product, error) {
+	pr, err := LoadProduct(ctx, q, id)
 	if err != nil {
 		return nil, err
 	}
 	if pr == nil || (pr.Archived && !allowArchived) {
-		return nil, HTTPError{Status: 404, Detail: "Товар не знайдено."}
+		return nil, core.HTTPError{Status: 404, Detail: "Товар не знайдено."}
 	}
 	return pr, nil
 }
@@ -388,27 +422,27 @@ func pyString(raw json.RawMessage) string {
 	return ""
 }
 
-func (a *App) updateProductPrice(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	pm := Query(r)
+func (a *api) updateProductPrice(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	pm := core.Query(r)
 	pid := pm.PathInt("pid")
 	if err := pm.Err(); err != nil {
 		return err
 	}
-	body, err := ReadBody(r)
+	body, err := core.ReadBody(r)
 	if err != nil {
 		return err
 	}
-	ip := a.Trusted.ClientIP(r)
-	err = a.write(r.Context(), func(tx *sql.Tx) error {
+	ip := a.ClientIP(r)
+	err = a.Write(r.Context(), func(tx *sql.Tx) error {
 		pr, err := productOr404(r.Context(), tx, pid, false)
 		if err != nil {
 			return err
 		}
-		raw := strings.TrimSpace(pyString(body.fields["price"]))
+		raw := strings.TrimSpace(pyString(body.Raw("price")))
 		if raw == "" {
-			return HTTPError{Status: 400, Detail: "Вкажіть нову ціну."}
+			return core.HTTPError{Status: 400, Detail: "Вкажіть нову ціну."}
 		}
-		cents, err := reports.ToCents(raw)
+		cents, err := ToCents(raw)
 		if err != nil {
 			return formErr(err)
 		}
@@ -417,21 +451,21 @@ func (a *App) updateProductPrice(w http.ResponseWriter, r *http.Request, p *plat
 	if err != nil {
 		return err
 	}
-	d, err := a.oneProductDTO(r.Context(), a.Store.R, pid, true)
+	d, err := a.oneProductDTO(r.Context(), a.Read, pid, true)
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, d)
+	core.WriteJSON(w, http.StatusOK, d)
 	return nil
 }
 
-func (a *App) updateProduct(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	pm := Query(r)
+func (a *api) updateProduct(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	pm := core.Query(r)
 	pid := pm.PathInt("pid")
 	if err := pm.Err(); err != nil {
 		return err
 	}
-	body, err := ReadBody(r)
+	body, err := core.ReadBody(r)
 	if err != nil {
 		return err
 	}
@@ -441,18 +475,18 @@ func (a *App) updateProduct(w http.ResponseWriter, r *http.Request, p *platform.
 	if err := body.Err(); err != nil {
 		return err
 	}
-	ip := a.Trusted.ClientIP(r)
-	err = a.write(r.Context(), func(tx *sql.Tx) error {
+	ip := a.ClientIP(r)
+	err = a.Write(r.Context(), func(tx *sql.Tx) error {
 		ctx := r.Context()
 		pr, err := productOr404(ctx, tx, pid, false)
 		if err != nil {
 			return err
 		}
-		name, err := platform.CleanName(rawName, "Назва")
+		name, err := core.CleanName(rawName, "Назва")
 		if err != nil {
 			return err
 		}
-		cents, err := reports.ToCents(rawPrice)
+		cents, err := ToCents(rawPrice)
 		if err != nil {
 			return formErr(err)
 		}
@@ -474,48 +508,48 @@ func (a *App) updateProduct(w http.ResponseWriter, r *http.Request, p *platform.
 			return err
 		}
 		if len(changed) > 0 {
-			return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено товар", name+" · "+strings.Join(changed, "; "))
+			return a.Audit(tx, ip, p, "змінено товар", name+" · "+strings.Join(changed, "; "))
 		}
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	d, err := a.oneProductDTO(r.Context(), a.Store.R, pid, true)
+	d, err := a.oneProductDTO(r.Context(), a.Read, pid, true)
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, d)
+	core.WriteJSON(w, http.StatusOK, d)
 	return nil
 }
 
-func (a *App) deleteProduct(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	pm := Query(r)
+func (a *api) deleteProduct(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	pm := core.Query(r)
 	pid := pm.PathInt("pid")
 	if err := pm.Err(); err != nil {
 		return err
 	}
 	ctx := r.Context()
-	ip := a.Trusted.ClientIP(r)
-	if _, err := productOr404(ctx, a.Store.R, pid, true); err != nil {
+	ip := a.ClientIP(r)
+	if _, err := productOr404(ctx, a.Read, pid, true); err != nil {
 		return err
 	}
-	usage, err := reports.ProductUsage(ctx, a.Store.R)
+	usage, err := ProductUsage(ctx, a.Read)
 	if err != nil {
 		return err
 	}
-	if usage[pid] == 0 && a.Backups != nil { // snapshot before a permanent delete, outside the writer
-		if _, err := a.Backups.Run("before-delete"); err != nil {
+	if usage[pid] == 0 { // snapshot before a permanent delete, outside the writer
+		if err := a.Snapshot("before-delete"); err != nil {
 			return err
 		}
 	}
 	var out mutationDTO
-	err = a.write(ctx, func(tx *sql.Tx) error {
+	err = a.Write(ctx, func(tx *sql.Tx) error {
 		pr, err := productOr404(ctx, tx, pid, true)
 		if err != nil {
 			return err
 		}
-		usage, err := reports.ProductUsage(ctx, tx)
+		usage, err := ProductUsage(ctx, tx)
 		if err != nil {
 			return err
 		}
@@ -523,7 +557,7 @@ func (a *App) deleteProduct(w http.ResponseWriter, r *http.Request, p *platform.
 			if _, err := tx.ExecContext(ctx, "UPDATE products SET archived = 1, active = 0 WHERE id = ?", pid); err != nil {
 				return err
 			}
-			if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "архівовано товар", pr.Name+" · рядків у звітах: "+itoa(used)); err != nil {
+			if err := a.Audit(tx, ip, p, "архівовано товар", pr.Name+" · рядків у звітах: "+strconv.Itoa(used)); err != nil {
 				return err
 			}
 			out = mutationDTO{ID: pid, Archived: true, Message: "«" + pr.Name + "» переміщено в архів. Дані звітів збережено."}
@@ -535,7 +569,7 @@ func (a *App) deleteProduct(w http.ResponseWriter, r *http.Request, p *platform.
 		if _, err := tx.ExecContext(ctx, "DELETE FROM products WHERE id = ?", pid); err != nil {
 			return err
 		}
-		if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "видалено товар", pr.Name); err != nil {
+		if err := a.Audit(tx, ip, p, "видалено товар", pr.Name); err != nil {
 			return err
 		}
 		out = mutationDTO{ID: pid, Deleted: true, Message: "Товар «" + pr.Name + "» остаточно видалено."}
@@ -544,18 +578,18 @@ func (a *App) deleteProduct(w http.ResponseWriter, r *http.Request, p *platform.
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, out)
+	core.WriteJSON(w, http.StatusOK, out)
 	return nil
 }
 
-func (a *App) restoreProduct(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	pm := Query(r)
+func (a *api) restoreProduct(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	pm := core.Query(r)
 	pid := pm.PathInt("pid")
 	if err := pm.Err(); err != nil {
 		return err
 	}
-	ip := a.Trusted.ClientIP(r)
-	err := a.write(r.Context(), func(tx *sql.Tx) error {
+	ip := a.ClientIP(r)
+	err := a.Write(r.Context(), func(tx *sql.Tx) error {
 		pr, err := productOr404(r.Context(), tx, pid, true)
 		if err != nil {
 			return err
@@ -563,22 +597,22 @@ func (a *App) restoreProduct(w http.ResponseWriter, r *http.Request, p *platform
 		if _, err := tx.ExecContext(r.Context(), "UPDATE products SET archived = 0, active = 1 WHERE id = ?", pid); err != nil {
 			return err
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "відновлено товар", pr.Name)
+		return a.Audit(tx, ip, p, "відновлено товар", pr.Name)
 	})
 	if err != nil {
 		return err
 	}
-	d, err := a.oneProductDTO(r.Context(), a.Store.R, pid, true)
+	d, err := a.oneProductDTO(r.Context(), a.Read, pid, true)
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, d)
+	core.WriteJSON(w, http.StatusOK, d)
 	return nil
 }
 
 // --- report line DTOs -------------------------------------------------------------------
 
-func lineDTOs(rows []reports.LineRow) []reportLineDTO {
+func lineDTOs(rows []LineRow) []reportLineDTO {
 	out := make([]reportLineDTO, 0, len(rows))
 	for _, row := range rows {
 		d := reportLineDTO{ID: row.ID, Name: row.Name, Repriced: row.Repriced, SumCents: row.Sum, Inputs: []reportInputDTO{}}
@@ -590,7 +624,7 @@ func lineDTOs(rows []reports.LineRow) []reportLineDTO {
 	return out
 }
 
-func inactiveDTOs(rows []reports.InactiveRow) []inactiveLineDTO {
+func inactiveDTOs(rows []InactiveRow) []inactiveLineDTO {
 	out := make([]inactiveLineDTO, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, inactiveLineDTO{r.Name, r.Archived, r.Lines, r.Sum})
@@ -600,23 +634,23 @@ func inactiveDTOs(rows []reports.InactiveRow) []inactiveLineDTO {
 
 // --- store: monthly report ----------------------------------------------------------------
 
-func (a *App) storeReportDTO(ctx context.Context, q core.Querier, p *platform.Principal, period string, rep *reports.Report) (storeReportDTO, error) {
-	orgID := p.User.Org.ID
-	enabled, err := reports.CalculationEnabled(ctx, q, orgID)
+func (a *api) storeReportDTO(ctx context.Context, q core.Querier, p *core.Caller, period string, rep *Report) (storeReportDTO, error) {
+	orgID := p.Org.ID
+	enabled, err := CalculationEnabled(ctx, q, orgID)
 	if err != nil {
 		return storeReportDTO{}, err
 	}
-	var items []reports.Item
+	var items []Item
 	if rep != nil {
-		if items, err = reports.LoadItems(ctx, q, rep.ID); err != nil {
+		if items, err = LoadItems(ctx, q, rep.ID); err != nil {
 			return storeReportDTO{}, err
 		}
 	}
-	rows, inactive, inactiveTotal, err := reports.BuildLines(ctx, q, period, items, enabled)
+	rows, inactive, inactiveTotal, err := BuildLines(ctx, q, period, items, enabled)
 	if err != nil {
 		return storeReportDTO{}, err
 	}
-	known, err := reports.StorePeriods(ctx, q, orgID)
+	known, err := StorePeriods(ctx, q, orgID)
 	if err != nil {
 		return storeReportDTO{}, err
 	}
@@ -626,13 +660,13 @@ func (a *App) storeReportDTO(ctx context.Context, q core.Querier, p *platform.Pr
 		periods = append(periods, k)
 	}
 	sort.Strings(periods)
-	d := storeReportDTO{StoreName: p.User.Org.Name, Period: period, Status: "new", CalculationEnabled: enabled,
+	d := storeReportDTO{StoreName: p.Org.Name, Period: period, Status: "new", CalculationEnabled: enabled,
 		Rows: lineDTOs(rows), InactiveRows: inactiveDTOs(inactive), InactiveTotalCents: inactiveTotal, AvailablePeriods: periods}
 	for _, r := range rows {
 		d.TotalCents += r.Sum
 	}
 	if rep != nil {
-		sigs, err := reports.SignaturesOf(ctx, q, rep.ID)
+		sigs, err := SignaturesOf(ctx, q, rep.ID)
 		if err != nil {
 			return storeReportDTO{}, err
 		}
@@ -646,28 +680,28 @@ func (a *App) storeReportDTO(ctx context.Context, q core.Querier, p *platform.Pr
 	return d, nil
 }
 
-func (a *App) readStoreReport(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	selected, err := a.parsePeriod(Param(r, "period"))
+func (a *api) readStoreReport(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	selected, err := a.parsePeriod(core.Param(r, "period"))
 	if err != nil {
 		return err
 	}
 	ctx := r.Context()
-	known, err := reports.StorePeriods(ctx, a.Store.R, p.User.Org.ID)
+	known, err := StorePeriods(ctx, a.Read, p.Org.ID)
 	if err != nil {
 		return err
 	}
 	if selected != a.currentPeriod() && !known[selected] {
-		return HTTPError{Status: 404, Detail: "Звіту за " + selected + " немає."}
+		return core.HTTPError{Status: 404, Detail: "Звіту за " + selected + " немає."}
 	}
-	rep, err := reports.FindReport(ctx, a.Store.R, p.User.Org.ID, selected)
+	rep, err := FindReport(ctx, a.Read, p.Org.ID, selected)
 	if err != nil {
 		return err
 	}
-	d, err := a.storeReportDTO(ctx, a.Store.R, p, selected, rep)
+	d, err := a.storeReportDTO(ctx, a.Read, p, selected, rep)
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, d)
+	core.WriteJSON(w, http.StatusOK, d)
 	return nil
 }
 
@@ -676,12 +710,12 @@ type saveLine struct {
 	calc                *int64
 }
 
-func (a *App) saveStoreReport(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	selected, err := a.parsePeriod(Param(r, "period"))
+func (a *api) saveStoreReport(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	selected, err := a.parsePeriod(core.Param(r, "period"))
 	if err != nil {
 		return err
 	}
-	body, err := ReadBody(r)
+	body, err := core.ReadBody(r)
 	if err != nil {
 		return err
 	}
@@ -698,23 +732,23 @@ func (a *App) saveStoreReport(w http.ResponseWriter, r *http.Request, p *platfor
 	if err := body.Err(); err != nil {
 		return err
 	}
-	orgID, ip := p.User.Org.ID, a.Trusted.ClientIP(r)
+	orgID, ip := p.Org.ID, a.ClientIP(r)
 	var dto storeReportDTO
-	err = a.write(r.Context(), func(tx *sql.Tx) error {
+	err = a.Write(r.Context(), func(tx *sql.Tx) error {
 		ctx := r.Context()
-		known, err := reports.StorePeriods(ctx, tx, orgID)
+		known, err := StorePeriods(ctx, tx, orgID)
 		if err != nil {
 			return err
 		}
 		if selected != a.currentPeriod() && !known[selected] {
-			return HTTPError{Status: 403, Detail: "Звіту за " + selected + " не існує."}
+			return core.HTTPError{Status: 403, Detail: "Звіту за " + selected + " не існує."}
 		}
-		rep, err := reports.FindReport(ctx, tx, orgID, selected)
+		rep, err := FindReport(ctx, tx, orgID, selected)
 		if err != nil {
 			return err
 		}
 		if rep != nil && rep.Status == "submitted" {
-			return HTTPError{Status: 409, Detail: "Звіт надіслано й заблоковано адміністратором."}
+			return core.HTTPError{Status: 409, Detail: "Звіт надіслано й заблоковано адміністратором."}
 		}
 		if rep == nil {
 			res, err := tx.ExecContext(ctx, "INSERT INTO reports (store_id, period, status) VALUES (?, ?, 'draft')", orgID, selected)
@@ -722,17 +756,17 @@ func (a *App) saveStoreReport(w http.ResponseWriter, r *http.Request, p *platfor
 				return err
 			}
 			id, _ := res.LastInsertId()
-			rep = &reports.Report{ID: id, StoreID: orgID, Period: selected, Status: "draft"}
+			rep = &Report{ID: id, StoreID: orgID, Period: selected, Status: "draft"}
 		}
-		items, err := reports.LoadItems(ctx, tx, rep.ID)
+		items, err := LoadItems(ctx, tx, rep.ID)
 		if err != nil {
 			return err
 		}
-		history, err := reports.LoadHistory(ctx, tx)
+		history, err := LoadHistory(ctx, tx)
 		if err != nil {
 			return err
 		}
-		active, err := reports.LoadProducts(ctx, tx, "WHERE active != 0 AND archived = 0")
+		active, err := LoadProducts(ctx, tx, "WHERE active != 0 AND archived = 0")
 		if err != nil {
 			return err
 		}
@@ -740,7 +774,7 @@ func (a *App) saveStoreReport(w http.ResponseWriter, r *http.Request, p *platfor
 		editable := map[int64]bool{}
 		for _, pr := range active {
 			set := map[int64]bool{}
-			for _, c := range reports.OfferedPrices(reports.HistoryOf(history, pr), selected) {
+			for _, c := range OfferedPrices(HistoryOf(history, pr), selected) {
 				set[c] = true
 			}
 			allowed[pr.ID], editable[pr.ID] = set, true
@@ -757,7 +791,7 @@ func (a *App) saveStoreReport(w http.ResponseWriter, r *http.Request, p *platfor
 		for _, l := range lines {
 			key := [2]int64{l.product, l.price}
 			if seen[key] {
-				return HTTPError{Status: 422, Detail: "Повторюється рядок товару/ціни."}
+				return core.HTTPError{Status: 422, Detail: "Повторюється рядок товару/ціни."}
 			}
 			seen[key] = true
 			calc := existingCalc[key]
@@ -768,7 +802,7 @@ func (a *App) saveStoreReport(w http.ResponseWriter, r *http.Request, p *platfor
 				continue
 			}
 			if !allowed[l.product][l.price] {
-				return HTTPError{Status: 409, Detail: "Список товарів або ціни змінилися. Оновіть звіт і повторіть збереження."}
+				return core.HTTPError{Status: 409, Detail: "Список товарів або ціни змінилися. Оновіть звіт і повторіть збереження."}
 			}
 			if quantities[l.product] == nil {
 				quantities[l.product] = map[int64][2]int64{}
@@ -776,7 +810,7 @@ func (a *App) saveStoreReport(w http.ResponseWriter, r *http.Request, p *platfor
 			quantities[l.product][l.price] = [2]int64{l.qty, calc}
 		}
 		// Rows of inactive/archived products are read-only in the UI and stay untouched.
-		if err := reports.ReplaceEditableItems(ctx, tx, rep.ID, editable, items, quantities); err != nil {
+		if err := ReplaceEditableItems(ctx, tx, rep.ID, editable, items, quantities); err != nil {
 			return err
 		}
 		status, auditAction := "draft", "збережено звіт"
@@ -787,12 +821,18 @@ func (a *App) saveStoreReport(w http.ResponseWriter, r *http.Request, p *platfor
 			return err
 		}
 		if action == "submit" { // the store employee's signature
-			if err := reports.RecordSignature(ctx, tx, rep.ID, p.User.ID, displayName(p.User), reports.KindStore, a.now()); err != nil {
+			if err := RecordSignature(ctx, tx, rep.ID, p.ID, p.DisplayName(), KindStore, a.Now()); err != nil {
 				return err
 			}
 		}
-		if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), auditAction, p.User.Org.Name+" · "+selected); err != nil {
+		if err := a.Audit(tx, ip, p, auditAction, p.Org.Name+" · "+selected); err != nil {
 			return err
+		}
+		if action == "submit" {
+			if err := a.NotifyHolders(ctx, tx, p.ID, 0, []string{Review}, "report.submitted", "Звіт надіслано",
+				core.JoinNames(p.Org.Name, selected), "/admin/reports/"+strconv.Itoa(int(rep.ID))); err != nil {
+				return err
+			}
 		}
 		rep.Status = status
 		dto, err = a.storeReportDTO(ctx, tx, p, selected, rep)
@@ -801,14 +841,14 @@ func (a *App) saveStoreReport(w http.ResponseWriter, r *http.Request, p *platfor
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, dto)
+	core.WriteJSON(w, http.StatusOK, dto)
 	return nil
 }
 
 // --- review ------------------------------------------------------------------------------
 
-func (a *App) listAdminReports(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	selected, err := a.parsePeriod(Query(r).String("period"))
+func (a *api) listAdminReports(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	selected, err := a.parsePeriod(core.Query(r).String("period"))
 	if err != nil {
 		return err
 	}
@@ -820,7 +860,7 @@ func (a *App) listAdminReports(w http.ResponseWriter, r *http.Request, p *platfo
 		count  int
 	}
 	byStore := map[int64]rep{}
-	rows, err := a.Store.R.QueryContext(ctx, `SELECT r.store_id, r.id, r.status, COALESCE(SUM(i.quantity * i.unit_price_cents), 0), COUNT(i.id)
+	rows, err := a.Read.QueryContext(ctx, `SELECT r.store_id, r.id, r.status, COALESCE(SUM(i.quantity * i.unit_price_cents), 0), COUNT(i.id)
 		FROM reports r LEFT JOIN report_items i ON i.report_id = r.id WHERE r.period = ? GROUP BY r.id`, selected)
 	if err != nil {
 		return err
@@ -835,11 +875,11 @@ func (a *App) listAdminReports(w http.ResponseWriter, r *http.Request, p *platfo
 		byStore[sid] = x
 	}
 	rows.Close()
-	subs, err := reports.SignaturesForPeriod(ctx, a.Store.R, selected)
+	subs, err := SignaturesForPeriod(ctx, a.Read, selected)
 	if err != nil {
 		return err
 	}
-	orgs, err := a.Store.R.QueryContext(ctx, "SELECT id, name, archived FROM organisations ORDER BY name")
+	orgs, err := a.Read.QueryContext(ctx, "SELECT id, name, archived FROM organisations ORDER BY name")
 	if err != nil {
 		return err
 	}
@@ -866,29 +906,29 @@ func (a *App) listAdminReports(w http.ResponseWriter, r *http.Request, p *platfo
 		}
 		out = append(out, d)
 	}
-	writeJSON(w, http.StatusOK, out)
+	core.WriteJSON(w, http.StatusOK, out)
 	return orgs.Err()
 }
 
-func (a *App) adminReportHeader(ctx context.Context, q core.Querier, rep *reports.Report) (adminReportDTO, []reports.Item, error) {
-	items, err := reports.LoadItems(ctx, q, rep.ID)
+func (a *api) adminReportHeader(ctx context.Context, q core.Querier, rep *Report) (adminReportDTO, []Item, error) {
+	items, err := LoadItems(ctx, q, rep.ID)
 	if err != nil {
 		return adminReportDTO{}, nil, err
 	}
-	org, err := platform.LoadOrganisation(ctx, q, rep.StoreID)
+	org, err := a.Organisation(ctx, q, rep.StoreID)
 	if err != nil {
 		return adminReportDTO{}, nil, err
 	}
-	enabled, err := reports.CalculationEnabled(ctx, q, rep.StoreID)
+	enabled, err := CalculationEnabled(ctx, q, rep.StoreID)
 	if err != nil {
 		return adminReportDTO{}, nil, err
 	}
 	d := adminReportDTO{ReportID: rep.ID, StoreID: rep.StoreID, StoreName: "?", CalculationEnabled: enabled,
-		Period: rep.Period, Status: rep.Status, TotalCents: reports.ReportTotal(items), ItemCount: len(items)}
+		Period: rep.Period, Status: rep.Status, TotalCents: ReportTotal(items), ItemCount: len(items)}
 	if org != nil {
 		d.StoreName, d.StoreArchived = org.Name, org.Archived
 	}
-	sigs, err := reports.SignaturesOf(ctx, q, rep.ID)
+	sigs, err := SignaturesOf(ctx, q, rep.ID)
 	if err != nil {
 		return adminReportDTO{}, nil, err
 	}
@@ -896,47 +936,47 @@ func (a *App) adminReportHeader(ctx context.Context, q core.Querier, rep *report
 	return d, items, nil
 }
 
-func reportOr404(ctx context.Context, q core.Querier, id int64) (*reports.Report, error) {
-	rep, err := reports.GetReport(ctx, q, id)
+func reportOr404(ctx context.Context, q core.Querier, id int64) (*Report, error) {
+	rep, err := GetReport(ctx, q, id)
 	if err != nil {
 		return nil, err
 	}
 	if rep == nil {
-		return nil, HTTPError{Status: 404, Detail: "Звіт не знайдено."}
+		return nil, core.HTTPError{Status: 404, Detail: "Звіт не знайдено."}
 	}
 	return rep, nil
 }
 
-func (a *App) readAdminReport(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	pm := Query(r)
+func (a *api) readAdminReport(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	pm := core.Query(r)
 	rid := pm.PathInt("rid")
 	if err := pm.Err(); err != nil {
 		return err
 	}
 	ctx := r.Context()
-	rep, err := reportOr404(ctx, a.Store.R, rid)
+	rep, err := reportOr404(ctx, a.Read, rid)
 	if err != nil {
 		return err
 	}
-	head, items, err := a.adminReportHeader(ctx, a.Store.R, rep)
+	head, items, err := a.adminReportHeader(ctx, a.Read, rep)
 	if err != nil {
 		return err
 	}
-	rows, inactive, total, err := reports.BuildLines(ctx, a.Store.R, rep.Period, items, head.CalculationEnabled)
+	rows, inactive, total, err := BuildLines(ctx, a.Read, rep.Period, items, head.CalculationEnabled)
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, adminReportDetailDTO{head, lineDTOs(rows), inactiveDTOs(inactive), total})
+	core.WriteJSON(w, http.StatusOK, adminReportDetailDTO{head, lineDTOs(rows), inactiveDTOs(inactive), total})
 	return nil
 }
 
-func (a *App) updateAdminReportStatus(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	pm := Query(r)
+func (a *api) updateAdminReportStatus(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	pm := core.Query(r)
 	rid := pm.PathInt("rid")
 	if err := pm.Err(); err != nil {
 		return err
 	}
-	body, err := ReadBody(r)
+	body, err := core.ReadBody(r)
 	if err != nil {
 		return err
 	}
@@ -944,9 +984,9 @@ func (a *App) updateAdminReportStatus(w http.ResponseWriter, r *http.Request, p 
 	if err := body.Err(); err != nil {
 		return err
 	}
-	ip := a.Trusted.ClientIP(r)
+	ip := a.ClientIP(r)
 	var head adminReportDTO
-	err = a.write(r.Context(), func(tx *sql.Tx) error {
+	err = a.Write(r.Context(), func(tx *sql.Tx) error {
 		ctx := r.Context()
 		rep, err := reportOr404(ctx, tx, rid)
 		if err != nil {
@@ -960,7 +1000,7 @@ func (a *App) updateAdminReportStatus(w http.ResponseWriter, r *http.Request, p 
 		// An administrator's lock is recorded as such (it is not a store's submission) and never replaces the
 		// employee's signature; locking a report that is already submitted changes nothing.
 		if target == "submitted" && was != "submitted" {
-			if err := reports.RecordSignature(ctx, tx, rep.ID, p.User.ID, displayName(p.User), reports.KindAdmin, a.now()); err != nil {
+			if err := RecordSignature(ctx, tx, rep.ID, p.ID, p.DisplayName(), KindAdmin, a.Now()); err != nil {
 				return err
 			}
 		}
@@ -971,17 +1011,17 @@ func (a *App) updateAdminReportStatus(w http.ResponseWriter, r *http.Request, p 
 		if target == "submitted" {
 			action = "заблоковано звіт"
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), action, head.StoreName+" · "+rep.Period)
+		return a.Audit(tx, ip, p, action, head.StoreName+" · "+rep.Period)
 	})
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, head)
+	core.WriteJSON(w, http.StatusOK, head)
 	return nil
 }
 
-func (a *App) readSummary(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	pm := Query(r)
+func (a *api) readSummary(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	pm := core.Query(r)
 	submittedOnly := pm.Bool("submitted_only", false)
 	if err := pm.Err(); err != nil {
 		return err
@@ -990,7 +1030,7 @@ func (a *App) readSummary(w http.ResponseWriter, r *http.Request, p *platform.Pr
 	if err != nil {
 		return err
 	}
-	s, err := reports.BuildSummary(r.Context(), a.Store.R, selected, submittedOnly)
+	s, err := BuildSummary(r.Context(), a.Read, selected, submittedOnly)
 	if err != nil {
 		return err
 	}
@@ -1002,18 +1042,18 @@ func (a *App) readSummary(w http.ResponseWriter, r *http.Request, p *platform.Pr
 	for _, row := range s.Rows {
 		d.Rows = append(d.Rows, summaryRowDTO{row.Name, row.Note, row.Price, row.Label, row.Cells, row.CalculationCells, row.Qty, row.CalcQty, row.Sum})
 	}
-	writeJSON(w, http.StatusOK, d)
+	core.WriteJSON(w, http.StatusOK, d)
 	return nil
 }
 
 // --- per-organisation settings ---------------------------------------------------------------
 
-func (a *App) settingsDTOs(ctx context.Context, q core.Querier, only *int64) ([]reportSettingsDTO, error) {
-	enabled, err := reports.CalculationEnabledIDs(ctx, q)
+func (a *api) settingsDTOs(ctx context.Context, q core.Querier, only *int64) ([]reportSettingsDTO, error) {
+	enabled, err := CalculationEnabledIDs(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	counts, err := reports.UsagePerOrganisation(ctx, q)
+	counts, err := UsagePerOrganisation(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -1041,22 +1081,22 @@ func (a *App) settingsDTOs(ctx context.Context, q core.Querier, only *int64) ([]
 	return out, rows.Err()
 }
 
-func (a *App) listReportSettings(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	l, err := a.settingsDTOs(r.Context(), a.Store.R, nil)
+func (a *api) listReportSettings(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	l, err := a.settingsDTOs(r.Context(), a.Read, nil)
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, l)
+	core.WriteJSON(w, http.StatusOK, l)
 	return nil
 }
 
-func (a *App) updateReportSettings(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	pm := Query(r)
+func (a *api) updateReportSettings(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	pm := core.Query(r)
 	oid := pm.PathInt("oid")
 	if err := pm.Err(); err != nil {
 		return err
 	}
-	body, err := ReadBody(r)
+	body, err := core.ReadBody(r)
 	if err != nil {
 		return err
 	}
@@ -1064,37 +1104,37 @@ func (a *App) updateReportSettings(w http.ResponseWriter, r *http.Request, p *pl
 	if err := body.Err(); err != nil {
 		return err
 	}
-	ip := a.Trusted.ClientIP(r)
-	err = a.write(r.Context(), func(tx *sql.Tx) error {
+	ip := a.ClientIP(r)
+	err = a.Write(r.Context(), func(tx *sql.Tx) error {
 		ctx := r.Context()
-		org, err := orgOr404(ctx, tx, oid)
+		org, err := a.orgOr404(ctx, tx, oid)
 		if err != nil {
 			return err
 		}
-		cur, err := reports.CalculationEnabled(ctx, tx, oid)
+		cur, err := CalculationEnabled(ctx, tx, oid)
 		if err != nil {
 			return err
 		}
 		if cur == enable {
 			return nil
 		}
-		if err := reports.SetCalculationEnabled(ctx, tx, oid, enable); err != nil {
+		if err := SetCalculationEnabled(ctx, tx, oid, enable); err != nil {
 			return err
 		}
 		state := "вимкнено"
 		if enable {
 			state = "увімкнено"
 		}
-		return platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "змінено налаштування звітів",
+		return a.Audit(tx, ip, p, "змінено налаштування звітів",
 			org.Name+": режим «По розрахунку» "+state)
 	})
 	if err != nil {
 		return err
 	}
-	l, err := a.settingsDTOs(r.Context(), a.Store.R, &oid)
+	l, err := a.settingsDTOs(r.Context(), a.Read, &oid)
 	if err != nil || len(l) == 0 {
 		return err
 	}
-	writeJSON(w, http.StatusOK, l[0])
+	core.WriteJSON(w, http.StatusOK, l[0])
 	return nil
 }

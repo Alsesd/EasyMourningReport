@@ -231,3 +231,20 @@ func (e *env) json2401(t *testing.T) {
 		t.Fatalf("anonymous overview: %d", w.Code)
 	}
 }
+
+func TestListedBackupDownloadOnlyServesListedNames(t *testing.T) {
+	bk, mut := withBackups(t)
+	e := newEnv(t, mut)
+	os.MkdirAll(bk.Dir, 0o755)
+	os.WriteFile(filepath.Join(bk.Dir, "reports-20261101-010000Z.db"), []byte("SQLite format 3 data"), 0o644)
+	boss := e.as("boss", "Boss-pass1")
+	w := boss.do("GET", "/api/v1/admin/backups/reports-20261101-010000Z.db/download", "")
+	if w.Code != 200 || !strings.Contains(w.Header().Get("Content-Disposition"), "reports-20261101-010000Z.db") {
+		t.Fatalf("%d %v", w.Code, w.Header())
+	}
+	for _, bad := range []string{"..%2Fsecret.key", "reports-x.db", "other.txt"} {
+		if w := boss.do("GET", "/api/v1/admin/backups/"+bad+"/download", ""); w.Code != 404 {
+			t.Fatalf("%s: %d", bad, w.Code)
+		}
+	}
+}

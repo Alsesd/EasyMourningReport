@@ -165,7 +165,7 @@ export default function AdminReportDetailPage() {
                       )}
                     </p>
                   </div>
-                  <span className="figure shrink-0 text-right text-[17px] text-text-main">{formatCurrency(line.sum_cents)}</span>
+                  <span className="figure shrink-0 text-right text-[1.0625rem] text-text-main">{formatCurrency(line.sum_cents)}</span>
                 </li>
               );
             })}

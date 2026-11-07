@@ -1,10 +1,12 @@
 /** One order of the day as a ruled row: time, the deceased, delivery and carriers together, the reply and the actions. */
 
-import { History, Pencil, Users, X } from "lucide-react";
+import { History, Pencil, Shield, Users, X } from "lucide-react";
 import type { TransportOrderDTO } from "@/platform/api/types";
 import { uk, formatDayReadable } from "@/modules/transport/i18n";
 import { Button } from "@/ui/Button";
-import { OrderStatus } from "./StatusPill";
+import { OrderStatus, OrderTiming } from "./StatusPill";
+import { isOpen } from "@/modules/transport/timing";
+import { cn } from "@/ui/utils";
 
 const t = uk.transport;
 
@@ -12,7 +14,7 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
   return (
     <div className="min-w-0">
       <dt className="text-xs text-text-muted">{label}</dt>
-      <dd className="break-words text-[15px] text-text-main">{children}</dd>
+      <dd className="break-words text-[0.9375rem] text-text-main">{children}</dd>
     </div>
   );
 }
@@ -21,6 +23,7 @@ export function OrderCard({
   order,
   showOrganisation,
   showDay,
+  today,
   onEdit,
   onCancel,
   onAction,
@@ -30,6 +33,8 @@ export function OrderCard({
   order: TransportOrderDTO;
   showOrganisation: boolean;
   showDay: boolean;
+  /** Today's date: the order shows when it is due relative to it. */
+  today: string;
   onEdit?: (o: TransportOrderDTO) => void;
   onCancel?: (o: TransportOrderDTO) => void;
   onAction?: (o: TransportOrderDTO, status: string) => void;
@@ -39,7 +44,10 @@ export function OrderCard({
   const d = order.delivery;
   const c = order.carriers;
   return (
-    <article className="grid gap-3 border-b border-border px-1 py-4 md:grid-cols-[5.5rem_1fr_16rem]" aria-label={`${order.deceased}, ${order.sort_time}`}>
+    <article
+      className={cn("grid gap-3 border-b border-border px-1 py-4 md:grid-cols-[5.5rem_1fr_16rem]", !isOpen(order.status) && "opacity-70")}
+      aria-label={`${order.deceased}, ${order.sort_time}`}
+    >
       <div>
         <p className="figure text-2xl font-semibold text-text-main">{order.sort_time}</p>
         {showDay && <p className="text-xs text-text-muted">{formatDayReadable(order.service_date)}</p>}
@@ -47,7 +55,9 @@ export function OrderCard({
 
       <div className="min-w-0 space-y-3">
         <div>
-          <h3 className="font-serif text-lg font-semibold leading-snug text-text-main">{order.deceased}</h3>
+          <h3 className="font-serif text-lg font-semibold leading-snug text-text-main">
+            {order.deceased}
+          </h3>
           <p className="text-sm text-text-muted">
             {showOrganisation && <>{order.organisation.name} · </>}
             {t.submittedBy}: {order.submitted_by}
@@ -88,7 +98,16 @@ export function OrderCard({
       </div>
 
       <div className="space-y-2 md:text-right">
-        <OrderStatus status={order.status} />
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+          {order.military && (
+            <span className="inline-flex items-center gap-1 rounded-control bg-text-main px-2 py-0.5 text-xs font-semibold text-page">
+              <Shield className="h-3.5 w-3.5" aria-hidden="true" />
+              {t.militaryBadge}
+            </span>
+          )}
+          <OrderTiming serviceDate={order.service_date} status={order.status} today={today} />
+          <OrderStatus status={order.status} />
+        </div>
         <p className="text-sm text-text-muted" aria-label={t.reply}>
           {order.reply_note || (order.status === "submitted" ? t.noReply : "")}
         </p>

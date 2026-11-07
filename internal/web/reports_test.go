@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"legkyi/internal/platform"
 	"legkyi/internal/reports"
 	"legkyi/internal/store"
 )
@@ -22,7 +23,7 @@ func seedDemo(t *testing.T, e *env) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := reports.SeedDemo(context.Background(), tx, e.now); err != nil {
+	if err := reports.SeedDemo(context.Background(), tx, e.now, platform.DemoTools()); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {

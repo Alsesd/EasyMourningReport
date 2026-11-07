@@ -18,6 +18,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata" // zone data inside the program: Europe/Kyiv resolves on Windows and minimal images too
 
 	"legkyi/internal/assets"
 	"legkyi/internal/config"
@@ -31,6 +32,9 @@ import (
 )
 
 func main() {
+	// The log keeps its own record of warnings and errors for the health page (and a file, once the data folder is known).
+	logRing = system.NewLogRing(os.Stderr, 400)
+	log.SetOutput(logRing)
 	relaunch, exe, err := run()
 	if err == nil && relaunch {
 		// The previous run has closed the database and the tunnel; start the new program in its place.
@@ -45,6 +49,9 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+// logRing is the writer behind the standard logger (see main).
+var logRing *system.LogRing
 
 func run() (relaunch bool, exe string, err error) {
 	exe, err = os.Executable() // read once: after an update the running file is gone from this path
@@ -73,6 +80,11 @@ func serve(exe string) (bool, error) {
 		log.Printf("WARNING: %s is not writable, so data (database, backups, secret) is kept in %s instead. Move the program to a writable folder to keep everything next to it.", appDir, cfg.DataDir)
 	}
 	restrictFiles(cfg.DataDir, cfg.BackupsDir)
+	// Warnings and errors also go to <data>/logs/legkyi.log (about 1 MB, one rotation), so they survive a restart.
+	if err := logRing.AttachFile(filepath.Join(cfg.DataDir, "logs", "legkyi.log"), 1<<20); err != nil {
+		log.Printf("warning: the error log is kept in memory only: %v", err)
+	}
+	defer logRing.Close()
 	journal := config.JournalMode(cfg.JournalWant, cfg.DataDir, runtime.GOOS, "/proc/mounts")
 	if err := os.MkdirAll(cfg.BackupsDir, 0o755); err != nil {
 		log.Printf("[STORAGE WARNING] backups directory %s: %v", cfg.BackupsDir, err)
@@ -153,14 +165,35 @@ func serve(exe string) (bool, error) {
 			log.Printf("WARNING: Cloudflare Access is on but there is no TUNNEL_TOKEN. A quick tunnel (trycloudflare.com) cannot be put behind Access, so all tunnel traffic will be refused. Use a named tunnel with your own domain.")
 		}
 	}
-	handler := web.New(web.Deps{Access: access,
+	// Web Push key pair: created once in the data folder (vapid.key, 0600) or taken from VAPID_PRIVATE_KEY. Without
+	// it the bell still works in the open app, but nothing reaches a closed one.
+	var pusher *platform.PushSender
+	if vapid, err := platform.LoadVAPIDKey(os.Getenv, cfg.DataDir); err != nil {
+		log.Printf("Web Push is off: %v", err)
+	} else {
+		pusher = &platform.PushSender{Key: vapid, Subject: orEnv("VAPID_SUBJECT", "https://github.com/alsesd/easymourningreport")}
+	}
+	deps := web.Deps{Access: access, Push: pusher, Logs: logRing,
 		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret, Backups: backups,
 		BackupEveryMin: cfg.BackupEveryM, Tunnel: tun,
 		CookieSecure: os.Getenv("COOKIE_SECURE") == "1",
 		PasskeyRPID:  strings.TrimSpace(os.Getenv("PASSKEY_RP_ID")), Updater: updater,
 		// Only the local cloudflared may set the client address (X-Forwarded-For).
 		Trusted: web.ParseTrustedHosts(orEnv("FORWARDED_ALLOW_IPS", "127.0.0.1")),
-	})
+	}
+	handler := web.New(deps)
+	// Background jobs (the modules' daily reminders, notification pruning).
+	// REMINDER_AT is "HH:MM" in APP_TIMEZONE (default 14:30, Europe/Kyiv); "off" disables the reminder.
+	pushDone := make(chan struct{})
+	go func() {
+		defer close(pushDone)
+		web.RunPushDispatcher(ctx, deps)
+	}()
+	schedDone := make(chan struct{})
+	go func() {
+		defer close(schedDone)
+		web.RunScheduler(ctx, deps, schedulerConfig())
+	}()
 	srv := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Host, cfg.Port),
 		Handler:           handler,
@@ -194,6 +227,8 @@ func serve(exe string) (bool, error) {
 	tun.Shutdown()
 	stop()
 	<-loopDone
+	<-schedDone
+	<-pushDone
 	if err := st.Checkpoint(); err != nil {
 		log.Printf("checkpoint failed: %v", err)
 	}
@@ -289,4 +324,21 @@ func announceTunnel(ctx context.Context, tun *system.Tunnel) {
 		}
 	}
 	log.Printf("tunnel is still starting; see Адміністрування → Система")
+}
+
+// schedulerConfig reads the reminder time and the zone it is evaluated in. The zone is explicit because the
+// program often runs on a machine set to UTC while the desks work on Kyiv time.
+func schedulerConfig() web.SchedulerConfig {
+	cfg := web.SchedulerConfig{ReminderAt: strings.TrimSpace(orEnv("REMINDER_AT", "14:30"))}
+	if strings.EqualFold(cfg.ReminderAt, "off") {
+		cfg.ReminderAt = ""
+	}
+	name := strings.TrimSpace(orEnv("APP_TIMEZONE", "Europe/Kyiv"))
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		log.Printf("APP_TIMEZONE %q is not a known time zone (%v): using the machine's local time", name, err)
+		loc = time.Local
+	}
+	cfg.Loc = loc
+	return cfg
 }

@@ -100,6 +100,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transport/days": {
+        parameters: { query?: { date?: string; from?: string; to?: string; organisation_id?: number }; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["TransportDayDTO"][] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transport/orders/{oid}": {
         parameters: { query?: never; header?: never; path: { oid: number }; cookie?: never };
         get: { responses: { 200: { content: { "application/json": components["schemas"]["TransportOrderDTO"] } } } };
@@ -140,6 +151,67 @@ export interface paths {
         put?: never;
         /** Body `{status: "accepted" | "in_progress" | "done" | "rejected", note?: string}`; rejecting needs a note */
         post: { responses: { 200: { content: { "application/json": components["schemas"]["TransportOrderDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/push/key": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        /** The server's VAPID public key (base64url); empty when Web Push is not configured */
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["PushKeyDTO"] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/push/subscriptions": {
+        parameters: { query?: { endpoint?: string }; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        /** Body: a browser PushSubscription (`{endpoint, keys: {p256dh, auth}}`). The endpoint must be https at a known push service; `404` when Web Push is not configured, `422` for a bad subscription. A browser used by someone else moves to the caller */
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["MessageDTO"] } } } };
+        /** Delete the caller's own subscription with this `endpoint` (idempotent) */
+        delete: { responses: { 200: { content: { "application/json": components["schemas"]["MessageDTO"] } } } };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications": {
+        parameters: { query?: { limit?: number }; header?: never; path?: never; cookie?: never };
+        /** The signed-in user's own notifications, newest first, and the unread count */
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["NotificationsDTO"] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        /** Mark all of the user's notifications read; answers with the refreshed list */
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["NotificationsDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{nid}/read": {
+        parameters: { query?: never; header?: never; path: { nid: number }; cookie?: never };
+        get?: never;
+        put?: never;
+        /** Mark one of the user's own notifications read (another user's id changes nothing); answers with the refreshed list */
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["NotificationsDTO"] } } } };
         delete?: never;
         options?: never;
         head?: never;
@@ -491,6 +563,61 @@ export interface paths {
         get: operations["get_backups_api_v1_admin_backups_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/test": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["TestNotificationDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard": {
+        parameters: { query?: { period?: string }; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["DashboardDTO"] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/logs": {
+        parameters: { query?: { level?: "error" | "warning"; limit?: number }; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["SystemLogsDTO"] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/metrics": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["SystemMetricsDTO"] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/integrity-check": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["IntegrityDTO"] } } } };
         delete?: never;
         options?: never;
         head?: never;
@@ -947,6 +1074,30 @@ export interface components {
             detail: string;
             /** Ip */
             ip: string;
+        };
+        /** PushKeyDTO */
+        PushKeyDTO: {
+            /** VAPID public key, base64url of the uncompressed P-256 point; "" when push is not configured */
+            public_key: string;
+        };
+        /** NotificationDTO: one message in the user's bell */
+        NotificationDTO: {
+            id: number;
+            /** e.g. transport.new, transport.status, transport.bumped, transport.cancelled, transport.reminder, report.submitted */
+            kind: string;
+            title: string;
+            body: string;
+            /** In-app path to open */
+            link: string;
+            /** Format: date-time */
+            created_at: string;
+            read: boolean;
+        };
+        /** NotificationsDTO */
+        NotificationsDTO: {
+            /** Unread in all, not only in the returned page */
+            unread: number;
+            items: components["schemas"]["NotificationDTO"][];
         };
         /** BackupDTO */
         BackupDTO: {
@@ -1430,6 +1581,53 @@ export interface components {
              */
             calculation_enabled: boolean;
         };
+        /** TestNotificationDTO: a test notification was sent to the caller; whether the server can push and how many of their devices subscribed */
+        TestNotificationDTO: { push_configured: boolean; devices: number };
+        /** DashboardDTO: the management dashboard, blocks supplied by the modules the caller may see */
+        DashboardDTO: { period: string; blocks: components["schemas"]["DashboardBlockDTO"][] };
+        DashboardBlockDTO: {
+            key: string;
+            title: string;
+            description: string;
+            tiles: { label: string; value: number; unit: "count" | "money_cents" | "percent" | "minutes"; hint: string; tone: "" | "alert" }[];
+            series: { title: string; unit: "count" | "money_cents" | "percent" | "minutes"; note: string; points: { label: string; value: number; partial: boolean }[] }[];
+            lists: { title: string; unit: "count" | "money_cents" | "percent" | "minutes"; rows: { label: string; value: number; hint: string }[] }[];
+        };
+        /** IntegrityDTO: the database quick_check verdict (cached for ten minutes, forced by POST) */
+        IntegrityDTO: { verdict: string; ok: boolean; checked_at: string };
+        /** SystemLogsDTO: recent warnings and errors of the program (repeats merged, URLs reduced to their host) */
+        SystemLogsDTO: {
+            entries: { at: string; level: "error" | "warning"; message: string; count: number }[];
+            errors_24h: number;
+            warnings_24h: number;
+            /** entries are mirrored to a file and survive a restart */
+            persisted: boolean;
+        };
+        /** SystemMetricsDTO: technical health of the running program (GET /admin/system/metrics) */
+        SystemMetricsDTO: {
+            build: {
+                version: string; commit: string; built_at: string; go: string; platform: string; started_at: string; uptime_sec: number;
+                vcs_commit: string; vcs_modified: boolean; sqlite: string; sqlite_driver: string;
+            };
+            runtime: { goroutines: number; heap_bytes: number; sys_bytes: number; gc_runs: number };
+            db: { file_bytes: number; wal_bytes: number; page_size: number; page_count: number; freelist_count: number; journal_mode: string; tables: { [table: string]: number } };
+            integrity: components["schemas"]["IntegrityDTO"];
+            disk: { known: boolean; free_bytes: number; total_bytes: number };
+            backups: {
+                count: number; every_min: number; last_copy_at: string | null; last_run_at: string | null; last_error: string;
+                run_overdue: boolean; configured: boolean; total_bytes: number; snapshots: number; newest_bytes: number;
+            };
+            jobs: { name: string; label: string; last_run: string | null; error: string; runs: number; fails: number; stale: boolean }[];
+            push: {
+                configured: boolean; subscriptions: number; backlog: number;
+                sent: number; gone: number; failed: number; last_failure: string; last_failure_at: string | null;
+            };
+            sessions: { live: number; users: number };
+            http: {
+                ok: number; client_errors: number; server_errors: number; requests: number; since_sec: number; server_error_pct: number;
+                last_server_error: { at: string; method: string; path: string; status: number; message: string } | null;
+            };
+        };
         /** SystemHealthDTO */
         SystemHealthDTO: {
             /** Database Ok */
@@ -1480,6 +1678,19 @@ export interface components {
             status: string;
             note: string;
         };
+        /** TransportDayDTO: order counts of one day for the date strip (only days with orders are listed) */
+        TransportDayDTO: {
+            /** YYYY-MM-DD */
+            date: string;
+            total: number;
+            /** still being worked on: submitted, accepted, in_progress, bumped */
+            open: number;
+            /** waiting for the caller: submitted for a dispatcher, bumped for a desk */
+            attention: number;
+            /** open military orders of the day */
+            military_open: number;
+            by_status: { [status: string]: number };
+        };
         /** TransportOrderDTO: one deceased; delivery and carriers of the same deceased share the order */
         TransportOrderDTO: {
             id: number;
@@ -1490,7 +1701,10 @@ export interface components {
             notes: string;
             /** One car does both parts (shown as one run) */
             same_car: boolean;
-            status: "submitted" | "accepted" | "in_progress" | "done" | "rejected" | "cancelled";
+            /** An order for the army: it has priority and takes a busy car from an ordinary order */
+            military: boolean;
+            /** bumped: a military order took the car; the desk edits the order to send it again */
+            status: "submitted" | "accepted" | "in_progress" | "done" | "rejected" | "cancelled" | "bumped";
             /** The dispatcher's reply shown to the desk */
             reply_note: string;
             delivery: components["schemas"]["TransportDeliveryDTO"] | null;
@@ -1512,6 +1726,8 @@ export interface components {
             service_date: string;
             deceased: string;
             notes: string;
+            /** Military order: priority over the car (a busy car is taken from an ordinary order) */
+            military?: boolean;
             delivery: components["schemas"]["TransportDeliveryDTO"] | null;
             carriers: components["schemas"]["TransportCarriersDTO"] | null;
         };

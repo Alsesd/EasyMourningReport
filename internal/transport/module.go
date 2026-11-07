@@ -29,11 +29,14 @@ var Module = core.Module{
 	},
 	AuditActions: []string{
 		"створено замовлення транспорту", "змінено замовлення транспорту",
-		"скасовано замовлення транспорту", "змінено статус замовлення транспорту", "призначено носіїв замовлення транспорту",
+		"скасовано замовлення транспорту", "знято авто із замовлення транспорту", "змінено статус замовлення транспорту", "призначено носіїв замовлення транспорту",
 	},
 	OrganisationUsage: usage,
 	Seed:              seed,
+	DailyReminder:     remindMissingOrders,
+	Routes:            routes,
 	Overview:          overview,
+	Dashboard:         Dashboard,
 }
 
 func usage(ctx context.Context, q core.Querier) (map[int64]int, error) {
@@ -72,7 +75,7 @@ func overview(ctx context.Context, q core.Querier, can func(codes ...string) boo
 }
 
 // seed adds two demo orders for the demo shops and lets the demo shop role place orders.
-func seed(ctx context.Context, tx *sql.Tx, now time.Time) error {
+func seed(ctx context.Context, tx *sql.Tx, now time.Time, _ core.SeedTools) error {
 	if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO role_permissions (role_id, permission)
 		SELECT id, ? FROM roles WHERE "key" = 'store'`, Create); err != nil {
 		return err

@@ -1,6 +1,6 @@
 # Transport module
 
-**Backend:** `internal/transport/` (domain, SQL) and `internal/web/transport.go` (HTTP) · **Frontend:** `frontend/src/modules/transport/`
+**Backend:** `internal/transport/` (domain, SQL, HTTP handlers in `http.go`) · **Frontend:** `frontend/src/modules/transport/`
 
 Order desks (organisation employees) fill in the day's table of transport orders; dispatchers (platform staff) see every desk's orders in one chronological list, reply with a status and read the history.
 
@@ -34,11 +34,26 @@ A role is a plain set of permissions and the user's division is the scope of wha
 
 The desk orders a crew of 4 or 6. A dispatcher (`manage`) names the men for each carrying order (`PUT /orders/{id}/bearers`, not for rejected or cancelled orders; a desk edit keeps the names but cuts them to a smaller crew). «Схема виносу» on the day view opens a page for printing: carrying orders only, earliest carrying time first, with deceased, organisation, departure place and stops, cemetery, and who carries (a missing crew is flagged). The menu and sidebar are hidden when printing.
 
+## Car occupancy and military orders
+
+A car (its number, compared without case and spaces) is **locked for 2 hours** (`transport.CarLock`) around every part of an active order (`submitted`, `accepted`, `in_progress`): another order that puts the same car on the road less than 2 hours before or after it is refused with `409` and a message naming the busy window (`10:00–12:00`; exactly 2 hours apart is free). The lock crosses midnight. Both parts of an order count; the delivery and carrying of one order never clash with each other, and an edit never clashes with the order's own old content. `done`, `rejected`, `cancelled` and `bumped` orders hold no car. The check runs in the same transaction as the write (one writer), on create and on every edit.
+
+**Military order** (`military: true`, the «Військове замовлення» switch in the form; shown with a badge): it has priority. If the car is taken by an ordinary order, that order is **bumped**: its status becomes `bumped` («Авто знято»), the reply note says why, the history gets a `bumped` event and the audit log «знято авто із замовлення транспорту». The desk keeps the order, can edit it (another car or time: it goes back to `submitted`) or cancel it. A military order is refused (`409`, nothing is bumped) when the car is already taken by **another military order** or the order on it is **`in_progress`** (the car is out). The flag is stored with the order, audited («· військове») and visible to everyone who sees the order. Any desk with `create` may set it.
+
 ## Statuses
 
-`submitted` (Надіслано) → `accepted` (Прийнято) → `in_progress` (Виконується) → `done` (Виконано). A dispatcher may also set `rejected` (Відхилено, a reason is required) from any open status. A desk may `cancel` (Скасовано) only while the order is `submitted`; once the dispatcher has replied, the desk can neither edit nor cancel. `done`, `rejected` and `cancelled` are final. Every change is stored in the order's history (who, when, status, note) and in the audit log.
+`submitted` (Надіслано) → `accepted` (Прийнято) → `in_progress` (Виконується) → `done` (Виконано). A dispatcher may also set `rejected` (Відхилено, a reason is required) from any open status, including `bumped`. `bumped` (Авто знято) is set only by a military order; the desk may edit or cancel it. A desk may `cancel` (Скасовано) only while the order is `submitted` or `bumped`; once the dispatcher has replied, the desk can neither edit nor cancel. `done`, `rejected` and `cancelled` are final. Every change is stored in the order's history (who, when, status, note) and in the audit log.
 
-The desks' "notification" is the page itself: the list refreshes every 15 seconds and shows the status and the reply note.
+The list refreshes every 15 seconds and shows the status and the reply note. On top of that, the bell (see `docs/architecture.md`, Notifications) tells people:
+
+| Event | Who is told |
+|---|---|
+| New order; order sent again after being bumped; a desk cancels | dispatchers (`manage`), except the person who did it |
+| Dispatcher sets accepted / in progress / done / rejected | the employee who submitted the order |
+| Car taken by a military order (`bumped`) | the employee who submitted the bumped order |
+| 14:30 (`REMINDER_AT`, in `APP_TIMEZONE`): the organisation has no order for tomorrow that holds or has done a car (cancelled, rejected and bumped ones do not count) | every employee of that organisation with `create`; once per person and day |
+
+Why 14:30: desks must place the next day's order by **15:00**; the reminder gives them half an hour. The cutoff itself is not enforced by the server (a later order is still accepted).
 
 ## API
 

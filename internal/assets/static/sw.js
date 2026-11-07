@@ -1,5 +1,5 @@
 // Versioned app-shell service worker: caches app shell & static assets, falls back to /offline when disconnected.
-const CACHE = "legkyi-zvit-v22";
+const CACHE = "legkyi-zvit-v23";
 const PRECACHE = [
   "/offline",
   "/static/icon-192.png",
@@ -56,4 +56,35 @@ self.addEventListener("fetch", event => {
       })
     );
   }
+});
+
+// Web Push: the server sends {id, title, body, link}. Chrome requires every push to show a notification. The tag is
+// the same one the open page uses ("legkyi-<id>"), so a message never appears twice.
+self.addEventListener("push", event => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = {}; }
+  const title = data.title || "Легкий звіт";
+  event.waitUntil(self.registration.showNotification(title, {
+    body: data.body || "",
+    tag: "legkyi-" + (data.id || "msg"),
+    icon: "/static/icon-192.png",
+    badge: "/static/icon-192.png",
+    data: { link: data.link || "/", id: data.id || 0 }
+  }));
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const link = (event.notification.data && event.notification.data.link) || "/";
+  event.waitUntil((async () => {
+    const wins = await clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const w of wins) {
+      if ("focus" in w) {
+        await w.focus();
+        if ("navigate" in w) { try { await w.navigate(link); } catch (e) { /* cross-scope */ } }
+        return;
+      }
+    }
+    if (clients.openWindow) await clients.openWindow(link);
+  })());
 });

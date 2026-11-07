@@ -45,7 +45,7 @@ This document records the current browser behavior and points to the code that o
 
 | Behavior | Current implementation |
 |---|---|
-| JSON API and authentication endpoints | `internal/web/*.go` (routes registered per area, e.g. `accounts.go`, `reports.go`), mounted by `internal/web/server.go` |
+| JSON API and authentication endpoints | `internal/web/*.go` (routes registered per area, e.g. `accounts.go`; module endpoints live in `internal/<module>/http.go`), mounted by `internal/web/server.go` |
 | REST API error envelopes and minimal non-API error page | `internal/web/errors.go` |
 | Offline page, PWA endpoints and `/healthz` | `internal/web/server.go`, `internal/assets/static/` |
 | Last-resort SPA routing after API/PWA routes | `internal/web/server.go` |

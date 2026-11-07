@@ -6,5 +6,6 @@
 import type { AppModule } from "@/platform/modules";
 import { reportsModule } from "@/modules/reports/module";
 import { transportModule } from "@/modules/transport/module";
+import { managementModule } from "@/modules/management/module";
 
-export const installedModules: AppModule[] = [reportsModule, transportModule];
+export const installedModules: AppModule[] = [reportsModule, transportModule, managementModule];

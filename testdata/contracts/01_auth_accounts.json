@@ -123,6 +123,7 @@
             "Адміністратор"
           ],
           "permissions": [
+            "management.dashboard.view",
             "platform.audit.view",
             "platform.organisations.manage",
             "platform.roles.manage",
@@ -137,7 +138,8 @@
           "modules": [
             "platform",
             "reports",
-            "transport"
+            "transport",
+            "management"
           ],
           "period": "<current-period>"
         }
@@ -159,6 +161,7 @@
             "Адміністратор"
           ],
           "permissions": [
+            "management.dashboard.view",
             "platform.audit.view",
             "platform.organisations.manage",
             "platform.roles.manage",
@@ -173,7 +176,8 @@
           "modules": [
             "platform",
             "reports",
-            "transport"
+            "transport",
+            "management"
           ],
           "period": "<current-period>"
         }
@@ -290,6 +294,14 @@
             "scope": "platform",
             "module": "transport",
             "module_title": "Транспорт"
+          },
+          {
+            "code": "management.dashboard.view",
+            "description": "Дивитися бізнес-показники: виручку, звіти підрозділів, замовлення транспорту. Лише перегляд: змінювати дані це право не дозволяє.",
+            "label": "Показники для керівництва",
+            "module": "management",
+            "module_title": "Керівництво",
+            "scope": "platform"
           }
         ]
       }
@@ -310,6 +322,7 @@
             "organisation_id": null,
             "organisation_name": null,
             "permissions": [
+              "management.dashboard.view",
               "platform.audit.view",
               "platform.organisations.manage",
               "platform.roles.manage",
@@ -550,7 +563,8 @@
           "modules": [
             "platform",
             "reports",
-            "transport"
+            "transport",
+            "management"
           ],
           "period": "<current-period>"
         }
@@ -580,7 +594,8 @@
           "modules": [
             "platform",
             "reports",
-            "transport"
+            "transport",
+            "management"
           ],
           "period": "<current-period>"
         }
@@ -706,7 +721,8 @@
           "modules": [
             "platform",
             "reports",
-            "transport"
+            "transport",
+            "management"
           ],
           "period": "<current-period>"
         }
@@ -884,7 +900,8 @@
           "modules": [
             "platform",
             "reports",
-            "transport"
+            "transport",
+            "management"
           ],
           "period": "<current-period>"
         }
@@ -1462,7 +1479,8 @@
           "modules": [
             "platform",
             "reports",
-            "transport"
+            "transport",
+            "management"
           ],
           "period": "<current-period>"
         }
@@ -1714,6 +1732,7 @@
           "створено замовлення транспорту",
           "змінено замовлення транспорту",
           "скасовано замовлення транспорту",
+          "знято авто із замовлення транспорту",
           "змінено статус замовлення транспорту",
           "призначено носіїв замовлення транспорту"
         ]

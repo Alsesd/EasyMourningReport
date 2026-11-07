@@ -28,6 +28,17 @@ describe("module registry", () => {
     expect(new Set(sections).size).toBe(sections.length);
   });
 
+  it("opens the management dashboard only with its own view permission, not with the rights to edit", () => {
+    const has = (codes: string[]) => navFor(codes).some((n) => n.id === "dashboard");
+    expect(has(["management.dashboard.view"])).toBe(true);
+    for (const code of ["reports.review", "transport.orders.manage", "transport.orders.view_all", "platform.system.manage"]) expect(has([code])).toBe(false);
+    expect(navFor(["management.dashboard.view"]).map((n) => n.id)).toEqual(["dashboard"]);
+    const route = appModules.flatMap((m) => m.routes).find((r) => r.path === "dashboard");
+    expect(route?.permissions).toEqual(["management.dashboard.view"]);
+    // A user who holds only this permission has no other page: the dashboard is where they land.
+    expect(landingPathFor(session(["management.dashboard.view"]))).toBe("/admin/dashboard");
+  });
+
   it("builds navigation from permissions", () => {
     expect(navFor(["reports.submit"]).map((n) => n.id)).toEqual(["report"]);
     expect(navFor(["reports.review", "platform.audit.view"]).map((n) => n.id)).toEqual(["reports", "admin"]);

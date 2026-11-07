@@ -9,6 +9,12 @@ import (
 	"testing"
 )
 
+// The wire contract of the import/export endpoints, restated here so the HTTP tests do not reach into the module.
+const (
+	maxImportBytes = 10 * 1024 * 1024
+	xlsxType       = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
 func (e *env) upload(s session, field, filename string, content []byte) *httptest.ResponseRecorder {
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)

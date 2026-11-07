@@ -78,6 +78,7 @@ var goOwned = []string{
 		carriers_count INTEGER NOT NULL DEFAULT 0,
 		carriers_time TEXT NOT NULL DEFAULT '',
 		cemetery_number TEXT NOT NULL DEFAULT '',
+		is_military INTEGER NOT NULL DEFAULT 0,
 		status TEXT NOT NULL,
 		reply_note TEXT NOT NULL DEFAULT '',
 		created_by_id INTEGER,
@@ -119,10 +120,61 @@ var goOwned = []string{
 		at INTEGER NOT NULL,
 		PRIMARY KEY (report_id, kind)
 	)`,
+	// In-app notifications (the bell): one row per recipient. read_at is 0 while unread. dedupe_key makes a
+	// reminder idempotent per user (a restart or a second evaluation inserts nothing); it is '' for events.
+	// Rows change on every read and are pruned, so backups do not count them as a data change.
+	`CREATE TABLE IF NOT EXISTS notifications (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+		kind TEXT NOT NULL,
+		title TEXT NOT NULL,
+		body TEXT NOT NULL DEFAULT '',
+		link TEXT NOT NULL DEFAULT '',
+		dedupe_key TEXT NOT NULL DEFAULT '',
+		created_at INTEGER NOT NULL,
+		read_at INTEGER NOT NULL DEFAULT 0,
+		pushed_at INTEGER NOT NULL DEFAULT 0
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_notifications_user ON notifications (user_id, id)`,
+	// Web Push subscriptions: one row per browser. The endpoint identifies the browser; whoever signs in on it owns
+	// it (a shared device is reassigned, and signing out deletes it). p256dh and auth are the browser's public key
+	// and secret for message encryption, not credentials of this server.
+	`CREATE TABLE IF NOT EXISTS push_subscriptions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+		endpoint TEXT NOT NULL UNIQUE,
+		p256dh TEXT NOT NULL,
+		auth TEXT NOT NULL,
+		created_at INTEGER NOT NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_push_subscriptions_user ON push_subscriptions (user_id)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS ux_notifications_dedupe ON notifications (user_id, dedupe_key) WHERE dedupe_key != ''`,
+}
+
+// goOwnedColumns are columns added to Go-owned tables after their first release. CREATE TABLE IF NOT EXISTS does
+// not touch an existing table, so each one is added once with ALTER TABLE (a constant default keeps old rows valid).
+var goOwnedColumns = []struct{ table, column, def string }{
+	{"transport_orders", "is_military", "INTEGER NOT NULL DEFAULT 0"},
+	// pushed_at: 0 = not yet handed to the push dispatcher (a stale row is retired by the dispatcher, never sent).
+	{"notifications", "pushed_at", "INTEGER NOT NULL DEFAULT 0"},
+}
+
+func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
+	var n int
+	if err := tx.QueryRow("SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?", c.table, c.column).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	if _, err := tx.Exec("ALTER TABLE " + c.table + " ADD COLUMN " + c.column + " " + c.def); err != nil {
+		return fmt.Errorf("add column %s.%s: %w", c.table, c.column, err)
+	}
+	return nil
 }
 
 // GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
-var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions"}
+var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions", "notifications", "push_subscriptions"}
 
 type object struct {
 	kind, name, table, sql string
@@ -207,6 +259,11 @@ func (s *Store) EnsureSchema() error {
 	for _, ddl := range goOwned {
 		if _, err := tx.Exec(ddl); err != nil {
 			return fmt.Errorf("go-owned schema: %w", err)
+		}
+	}
+	for _, c := range goOwnedColumns {
+		if err := addColumn(tx, c); err != nil {
+			return err
 		}
 	}
 	if fresh {

@@ -1,0 +1,80 @@
+import { describe, it, expect, afterEach, vi } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import HealthSection from "./HealthSection";
+import { systemApi } from "@/platform/system/api";
+import type { SystemMetricsDTO } from "@/platform/api/types";
+
+const base: SystemMetricsDTO = {
+  build: { version: "", commit: "", built_at: "", go: "go1.25", platform: "linux/amd64", started_at: "2026-11-07T08:00:00Z", uptime_sec: 120, vcs_commit: "", vcs_modified: false, sqlite: "3.50.0", sqlite_driver: "v1.40.0" },
+  runtime: { goroutines: 12, heap_bytes: 2 << 20, sys_bytes: 4 << 20, gc_runs: 1 },
+  db: { file_bytes: 1 << 20, wal_bytes: 0, page_size: 4096, page_count: 256, freelist_count: 0, journal_mode: "wal", tables: { users: 4 } },
+  integrity: { verdict: "ok", ok: true, checked_at: "2026-11-07T08:00:00Z" },
+  disk: { known: false, free_bytes: 0, total_bytes: 0 },
+  backups: { count: 2, every_min: 60, last_copy_at: null, last_run_at: null, last_error: "", run_overdue: false, configured: true, total_bytes: 10, snapshots: 0, newest_bytes: 5 },
+  jobs: [{ name: "push", label: "Push-сповіщення — не налаштовано", last_run: null, error: "", runs: 0, fails: 0, stale: false }],
+  push: { configured: false, subscriptions: 0, backlog: 0, sent: 0, gone: 0, failed: 0, last_failure: "", last_failure_at: null },
+  sessions: { live: 1, users: 1 },
+  http: { ok: 10, client_errors: 2, server_errors: 0, requests: 12, since_sec: 120, server_error_pct: 0, last_server_error: null },
+};
+
+function renderPage(m: SystemMetricsDTO) {
+  vi.spyOn(systemApi, "metrics").mockResolvedValue(m);
+  if (!vi.isMockFunction(systemApi.logs)) vi.spyOn(systemApi, "logs").mockResolvedValue({ entries: [], errors_24h: 0, warnings_24h: 0, persisted: true });
+  vi.spyOn(systemApi, "tunnel").mockResolvedValue({ state: "idle" } as never);
+  vi.spyOn(systemApi, "update").mockResolvedValue({ state: "idle", available: false, current: "", latest: "" } as never);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <HealthSection />
+    </QueryClientProvider>,
+  );
+}
+
+describe("HealthSection", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("says everything is fine for a healthy program", async () => {
+    renderPage(base);
+    expect(await screen.findByText("Усе гаразд")).toBeDefined();
+    expect(screen.getByText("Запити з моменту запуску")).toBeDefined();
+  });
+
+  it("flags a failed integrity check and lets the administrator re-run it", async () => {
+    const recheck = vi.spyOn(systemApi, "recheckIntegrity").mockResolvedValue({ verdict: "ok", ok: true, checked_at: "" });
+    renderPage({ ...base, integrity: { verdict: "page 7 corrupt", ok: false, checked_at: "2026-11-07T08:00:00Z" } });
+    expect(await screen.findByText("Потребує уваги: 1")).toBeDefined();
+    expect(screen.getByText("Перевірка не пройдена")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Перевірити зараз" }));
+    await waitFor(() => expect(recheck).toHaveBeenCalled());
+  });
+
+  it("flags a backup job that has not run in time", async () => {
+    renderPage({ ...base, backups: { ...base.backups, run_overdue: true, last_run_at: "2026-11-05T08:00:00Z" } });
+    expect(await screen.findByText("Потребує уваги: 1")).toBeDefined();
+    expect(screen.getByText("Давно не запускалась")).toBeDefined();
+  });
+
+  it("shows what went wrong, not only how often: the cause of the last fault and the log lines", async () => {
+    const logs = vi.spyOn(systemApi, "logs").mockResolvedValue({
+      entries: [
+        { at: "2026-11-07T09:00:00Z", level: "error", message: "server error: POST /api/v1/transport/orders: database is locked", count: 3 },
+        { at: "2026-11-07T08:00:00Z", level: "warning", message: "WARNING: not writable", count: 1 },
+      ],
+      errors_24h: 3,
+      warnings_24h: 1,
+      persisted: true,
+    });
+    renderPage({
+      ...base,
+      http: { ...base.http, server_errors: 3, last_server_error: { at: new Date().toISOString(), method: "POST", path: "/api/v1/transport/orders", status: 500, message: "database is locked" } },
+    });
+    expect(await screen.findByText("500 POST /api/v1/transport/orders")).toBeDefined();
+    expect(screen.getAllByText("database is locked").length).toBeGreaterThan(0);
+    expect(await screen.findByText("server error: POST /api/v1/transport/orders: database is locked")).toBeDefined();
+    expect(screen.getByText("×3")).toBeDefined();
+    expect(screen.getByText("За добу: помилок 3, попереджень 1")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Попередження" }));
+    await waitFor(() => expect(logs).toHaveBeenLastCalledWith("warning"));
+  });
+});

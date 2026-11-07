@@ -139,7 +139,10 @@ describe("AdminHubPage", () => {
     renderAt(admin, "/admin/manage/backups");
     expect(await screen.findByText("Цілісність перевірено")).toBeDefined();
     expect(await screen.findByText("reports-20261030-100000.db")).toBeDefined();
-    expect(screen.getByRole("link", { name: /Завантажити свіжу копію/ }).getAttribute("href")).toBe("/api/v1/admin/backup/download");
+    expect(screen.getByRole("link", { name: /Створити копію й завантажити/ }).getAttribute("href")).toBe("/api/v1/admin/backup/download");
+    expect(screen.getByRole("link", { name: /Завантажити копію reports-20261030-100000\.db/ }).getAttribute("href")).toBe(
+      "/api/v1/admin/backups/reports-20261030-100000.db/download",
+    );
   });
 
   it("redirects old settings bookmarks to the matching section", async () => {

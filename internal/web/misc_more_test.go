@@ -9,7 +9,7 @@ import (
 )
 
 func TestValidationErrorsReadAsText(t *testing.T) {
-	if (validationError{}).Error() == "" || (FormError{"x"}).Error() != "x" || (HTTPError{Detail: "d"}).Error() != "d" {
+	if (validationError{}).Error() == "" || (FormError{Message: "x"}).Error() != "x" || (HTTPError{Detail: "d"}).Error() != "d" {
 		t.Fatal("error texts")
 	}
 }

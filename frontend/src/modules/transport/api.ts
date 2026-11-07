@@ -1,7 +1,7 @@
 /** Transport-order API owned by this module. */
 
 import { api } from "@/platform/api/client";
-import type { TransportOrderDTO, TransportOrderInputDTO, TransportStatusDTO } from "@/platform/api/types";
+import type { TransportDayDTO, TransportOrderDTO, TransportOrderInputDTO, TransportStatusDTO } from "@/platform/api/types";
 
 export interface OrderQuery {
   date?: string;
@@ -14,6 +14,9 @@ export interface OrderQuery {
 export const transportApi = {
   status: () => api.get<TransportStatusDTO>("/api/v1/transport/status"),
   orders: (params: OrderQuery) => api.get<TransportOrderDTO[]>("/api/v1/transport/orders", { params: { ...params } }),
+  /** Order counts per day of a range (only days with orders), for the date strip. */
+  days: (params: { from: string; to: string; organisation_id?: number }) =>
+    api.get<TransportDayDTO[]>("/api/v1/transport/days", { params: { ...params } }),
   order: (id: number) => api.get<TransportOrderDTO>(`/api/v1/transport/orders/${id}`),
   create: (input: TransportOrderInputDTO) => api.post<TransportOrderDTO>("/api/v1/transport/orders", input),
   update: (id: number, input: TransportOrderInputDTO) => api.put<TransportOrderDTO>(`/api/v1/transport/orders/${id}`, input),

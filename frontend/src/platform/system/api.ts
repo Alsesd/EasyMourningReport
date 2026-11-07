@@ -4,6 +4,9 @@ import { api } from "@/platform/api/client";
 import type {
   AdminOverviewDTO,
   BackupDTO,
+  IntegrityDTO,
+  SystemLogsDTO,
+  SystemMetricsDTO,
   SystemHealthDTO,
   TunnelStartDTO,
   TunnelStatusDTO,
@@ -18,9 +21,13 @@ export const systemApi = {
     api.put<TunnelStatusDTO>("/api/v1/admin/tunnel/autostart", { enabled }),
   backups: (limit = 10) => api.get<BackupDTO[]>("/api/v1/admin/backups", { params: { limit } }),
   health: () => api.get<SystemHealthDTO>("/api/v1/admin/system/health"),
+  metrics: () => api.get<SystemMetricsDTO>("/api/v1/admin/system/metrics"),
+  logs: (level: "" | "error" | "warning") => api.get<SystemLogsDTO>("/api/v1/admin/system/logs", { params: { level: level || undefined, limit: 100 } }),
+  recheckIntegrity: () => api.post<IntegrityDTO>("/api/v1/admin/system/integrity-check", {}),
   overview: () => api.get<AdminOverviewDTO>("/api/v1/admin/overview"),
   update: () => api.get<UpdateStatusDTO>("/api/v1/admin/update"),
   checkUpdate: () => api.post<UpdateStatusDTO>("/api/v1/admin/update/check", {}),
   applyUpdate: () => api.post<UpdateStatusDTO>("/api/v1/admin/update/apply", {}),
   backupDownloadUrl: "/api/v1/admin/backup/download",
+  backupFileUrl: (name: string) => `/api/v1/admin/backups/${encodeURIComponent(name)}/download`,
 };

@@ -11,6 +11,7 @@ internal/
 ├── platform/              # accounts rules, principal and permissions, bootstrap (roles, first admin), passwords
 ├── reports/               # feature module: catalogue, price history, money, XLSX import/export, seed
 ├── transport/             # transport orders (also a template for new modules)
+├── management/            # management dashboard: no data of its own, one view-only permission
 ├── system/                # cloudflared supervisor and database health
 ├── update/                # self-update from GitHub Releases (check, verify, swap, restart)
 ├── registry/              # platform + installed modules (the only package that imports modules)
@@ -42,8 +43,9 @@ frontend/src/
 | `OrganisationUsage` | Records held per organisation id. An organisation with data in any module is archived instead of deleted |
 | `Seed` | Demo data for `DEMO=1` on an empty database |
 | `Overview` | Figures for the «Адміністрування» overview, filtered by the caller's permissions |
+| `Dashboard` | Blocks for the management dashboard: tiles, bar series and ranked lists with a unit (`count`, `money_cents`, `percent`, `minutes`; the client formats). The shell collects them for the `management` module (`core.Services.Dashboard`); the module itself decides nothing about access |
 
-Routes are registered in `internal/web` (`rt.Handle(method, pattern, a.authed(codes, handler))`), and the module is listed in `internal/registry/registry.go`.
+A module lists its endpoints in `core.Module.Routes` (`internal/<module>/http.go`: `core.Route{Method, Path, Codes, Member, Handler}`); `internal/web/modules.go` registers each one behind `a.authed(codes, ...)` / `a.member(codes, ...)`, so a module cannot add an unprotected route. Handlers receive a `core.Caller` and `core.Services` (the shell builds both). The module is listed in `internal/registry/registry.go`.
 
 **Frontend** (`src/platform/modules.ts`). A module exports an `AppModule` from `module.tsx` with:
 
@@ -62,7 +64,7 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 
 ### Adding a module, e.g. transport orders
 
-1. Backend: copy `internal/transport` to a new package, declare the permissions and `core.Module`, add the tables to `internal/store/schema/fresh.sql` and an idempotent create step in `internal/store/schema.go`, write repo functions and handlers in `internal/web/` with `a.authed(...)` / `a.member(...)`. Scope organisation data with the principal's organisation. Add tests, and list the module in `internal/registry/registry.go`.
+1. Backend: copy `internal/transport` to a new package, declare the permissions and `core.Module`, add the tables to `internal/store/schema/fresh.sql` and an idempotent create step in `internal/store/schema.go`, write repo functions and HTTP handlers in the module package and list them in `Module.Routes` (`Codes`, `Member`). Scope organisation data with the principal's organisation. Add tests, and list the module in `internal/registry/registry.go`.
 2. Frontend: add pages under `src/modules/<name>/pages/` and list them in `module.tsx` and `src/modules/index.ts`. Mirror the permission codes in `permissions.ts`.
 3. Update `src/platform/api/schema.d.ts` and `types.ts` by hand, and `docs/API.md`.
 4. Grant the new permissions to roles in «Адміністрування → Ролі». Optionally set `DefaultGrants` for built-in roles.
@@ -97,7 +99,13 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 
 SQLite runs inside the app process (decision and load-test numbers: [ADR 0003](adr/0003-keep-sqlite.md)). Every connection uses `synchronous=FULL`, foreign keys, and WAL on local disks or the rollback journal on shared folders (`internal/store/open.go`, `internal/config`). `LEGKYI_DATA_DIR` and `LEGKYI_BACKUPS_DIR` set the persistent folders; Compose bind-mounts them from `./app_storage/data` and `./app_storage/backups`. A single writer connection runs each mutation in one immediate transaction; reads use a separate pool.
 
-Backups (`internal/store/backup.go`) run inside the app: at start-up, every `BACKUP_EVERY_MIN` minutes when the database or its WAL changed, on demand, and at shutdown. Each one is a verified single file (`VACUUM INTO` plus `quick_check`), and the newest `BACKUP_KEEP` are kept. Start-up runs `PRAGMA quick_check` (logged only).
+Backups (`internal/store/backup.go`) run inside the app: at start-up, every `BACKUP_EVERY_MIN` minutes when the **data** changed, on demand, and at shutdown. "Changed" is a content fingerprint of every table except the volatile ones (`user_sessions`, `session_devices`, `passkeys`, `notifications`), so sign-ins, token rolling and read marks alone never make a copy; right after start-up, before there is a fingerprint, the file times decide. Each copy is a verified single file (`VACUUM INTO` plus `quick_check`) named `reports-YYYYMMDD-HHMMSSZ[-tag].db` in **UTC** (older names without `Z` are read as local time), ordered by that time. The newest `BACKUP_KEEP` regular copies are kept; download snapshots (`-snapshot`, taken by every download) have their own cap of 10 and never push regular copies out. Start-up runs `PRAGMA quick_check` (logged only).
+
+Notifications (`internal/platform/notifications.go`, `internal/web/notifications.go`): a Go-owned `notifications` table, one row per recipient, written in the same transaction as the event (new/cancelled/bumped transport orders, status replies, submitted reports). Recipients are resolved by effective permission code, so the shell never names a module. `RunScheduler` (a minute loop started by `cmd/server`) sends the reminder to desks without an order for tomorrow at `REMINDER_AT` (default `14:30`, `off` disables) in `APP_TIMEZONE` (default `Europe/Kyiv`; zone data is embedded), idempotent per user and day by a dedupe key, and prunes old rows (read: 30 days, any: 180). The UI polls the bell every 20 s and raises device notifications through the service worker while the app is open.
+
+**Web Push** (reaches a closed app; `internal/platform/webpush.go`, `internal/web/push.go`, `sw.js`): stdlib-only RFC 8030/8291 (aes128gcm, checked against the RFC's worked example in a test) and RFC 8292 (VAPID). The key pair lives in `<data>/vapid.key` (0600, created once, never regenerated: a new key would invalidate every subscription) or `VAPID_PRIVATE_KEY`; it is a file and not a table so a backup never holds a key that can send as this server. `VAPID_SUBJECT` is the contact URL pushed services see (default: the project's GitHub URL; never a personal e-mail). Subscriptions (`push_subscriptions`, Go-owned) belong to whoever is signed in on that browser: re-sent on every signed-in load, deleted before sign-out, reassigned when another person registers the same browser. The server POSTs only to https endpoints on a push-service allowlist (SSRF guard). Delivery is never inside a write transaction: `RunPushDispatcher` polls every 3 s for notifications with `pushed_at = 0`, claims them, then sends; rows older than 10 minutes are retired unsent so a restart or the new column never floods phones with history; a 404/410 deletes the subscription. Works in Chrome, Edge and Firefox (desktop and Android); on iPhone only for the app added to the Home Screen (iOS 16.4+). Needs HTTPS (the tunnel) and outbound internet to the push services.
+
+First sign-in on a device: `DeviceSetup` (one dialog, never stacked with the biometric offer) asks to enable notifications and to install the app; each button calls the browser straight from its click, because browsers only show those prompts after a tap. "Later" asks again after a week. Installing always shows the browser's own confirmation.
 
 Schema: `internal/store/schema/fresh.sql` holds the DDL of a fresh database, and any missing table is created on start. The migrations of the Python releases are not ported. Start-up checks that `schema_migrations` already contains `platform.0001_organisations_and_roles` and the reports migrations; a database that predates them must first be started once with the last Python release (commit `92564ef`). `testdata/schema/*.sql` are snapshots of fresh and legacy-migrated databases, and `internal/store/store_test.go` verifies Go leaves them unchanged and that a fresh Go database has the same schema.
 

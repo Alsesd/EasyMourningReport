@@ -7,7 +7,7 @@ import { transportApi } from "@/modules/transport/api";
 import type { TransportOrderDTO } from "@/platform/api/types";
 
 const carry = (id: number, time: string, over: Partial<TransportOrderDTO> = {}): TransportOrderDTO => ({
-  id, organisation: { id: 1, name: "Філія А" }, service_date: "2026-11-06", deceased: `Покійний ${id}`, notes: "", same_car: true, status: "accepted",
+  id, organisation: { id: 1, name: "Філія А" }, service_date: "2026-11-06", deceased: `Покійний ${id}`, notes: "", same_car: true, military: false, status: "accepted",
   reply_note: "", delivery: null, sort_time: time, submitted_by: "x", created_at: "", updated_at: "", can_edit: false, next_statuses: [], events: [],
   carriers: { car_number: "АА 1", departure: `Адреса ${id}`, count: 4, time, cemetery_number: "3", stops: ["Церква"], bearers: ["Петренко О.", "Коваль І."] }, ...over,
 });

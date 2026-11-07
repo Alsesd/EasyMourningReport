@@ -1,4 +1,4 @@
-package web
+package reports
 
 import (
 	"database/sql"
@@ -9,8 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"legkyi/internal/platform"
-	"legkyi/internal/reports"
+	"legkyi/internal/core"
 )
 
 const (
@@ -23,7 +22,7 @@ type importResultDTO struct {
 }
 
 func missingFile() error {
-	return validationError{[]FieldError{{Loc: []any{"body", "file"}, Msg: "Field required", Type: "missing"}}}
+	return core.ValidationError{Errs: []core.FieldError{{Loc: []any{"body", "file"}, Msg: "Field required", Type: "missing"}}}
 }
 
 // uploadedFile returns the multipart part named "file", or a 422 like FastAPI's File(...).
@@ -43,14 +42,14 @@ func uploadedFile(r *http.Request) (*multipart.Part, error) {
 	}
 }
 
-func (a *App) importProducts(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
+func (a *api) importProducts(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
 	r.Body = http.MaxBytesReader(w, r.Body, 4*maxImportBytes)
 	part, err := uploadedFile(r)
 	if err != nil {
 		return err
 	}
 	if !strings.HasSuffix(strings.ToLower(part.FileName()), ".xlsx") {
-		return HTTPError{Status: 400, Detail: "Завантажте файл Excel у форматі .xlsx"}
+		return core.HTTPError{Status: 400, Detail: "Завантажте файл Excel у форматі .xlsx"}
 	}
 	payload, err := io.ReadAll(io.LimitReader(part, maxImportBytes+1))
 	var tooBig *http.MaxBytesError
@@ -60,19 +59,19 @@ func (a *App) importProducts(w http.ResponseWriter, r *http.Request, p *platform
 		return err
 	}
 	if len(payload) == 0 || len(payload) > maxImportBytes {
-		return HTTPError{Status: 400, Detail: "Файл порожній або перевищує 10 МБ"}
+		return core.HTTPError{Status: 400, Detail: "Файл порожній або перевищує 10 МБ"}
 	}
-	rows, err := reports.ParseProductsXLSX(payload)
-	var fail *reports.ImportFailure
+	rows, err := ParseProductsXLSX(payload)
+	var fail *ImportFailure
 	if errors.As(err, &fail) {
-		return HTTPError{Status: 400, Detail: fail.Detail}
+		return core.HTTPError{Status: 400, Detail: fail.Detail}
 	}
 	if err != nil {
 		return err
 	}
-	ip := a.Trusted.ClientIP(r)
+	ip := a.ClientIP(r)
 	var message string
-	err = a.write(r.Context(), func(tx *sql.Tx) error {
+	err = a.Write(r.Context(), func(tx *sql.Tx) error {
 		ctx := r.Context()
 		existing := map[string]bool{}
 		rs, err := tx.QueryContext(ctx, "SELECT name FROM products")
@@ -85,42 +84,42 @@ func (a *App) importProducts(w http.ResponseWriter, r *http.Request, p *platform
 				rs.Close()
 				return err
 			}
-			existing[platform.NormName(n)] = true
+			existing[core.NormName(n)] = true
 		}
 		if err := rs.Err(); err != nil {
 			rs.Close()
 			return err
 		}
 		rs.Close()
-		create, skipped := reports.PlanImport(rows, existing)
+		create, skipped := PlanImport(rows, existing)
 		for _, row := range create {
 			res, err := tx.ExecContext(ctx, "INSERT INTO products (name, price_cents, active, archived) VALUES (?, ?, 1, 0)", row.Name, row.Cents)
 			if err != nil {
 				return err
 			}
 			id, _ := res.LastInsertId()
-			if _, err := tx.ExecContext(ctx, "INSERT INTO product_prices (product_id, period, price_cents) VALUES (?, ?, ?)", id, reports.BasePeriod, row.Cents); err != nil {
+			if _, err := tx.ExecContext(ctx, "INSERT INTO product_prices (product_id, period, price_cents) VALUES (?, ?, ?)", id, BasePeriod, row.Cents); err != nil {
 				return err
 			}
 		}
 		if len(create) > 0 {
 			detail := "створено: " + strconv.Itoa(len(create)) + ", пропущено дублікатів: " + strconv.Itoa(skipped)
-			if err := platform.Audit(tx, a.now(), ip, p.User.Login, p.User.RoleLabel(), "масово додано товари", detail); err != nil {
+			if err := a.Audit(tx, ip, p, "масово додано товари", detail); err != nil {
 				return err
 			}
 		}
-		message = reports.ImportMessage(len(create), skipped)
+		message = ImportMessage(len(create), skipped)
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, importResultDTO{message})
+	core.WriteJSON(w, http.StatusOK, importResultDTO{message})
 	return nil
 }
 
-func (a *App) exportSummary(w http.ResponseWriter, r *http.Request, p *platform.Principal) error {
-	pm := Query(r)
+func (a *api) exportSummary(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	pm := core.Query(r)
 	submittedOnly := pm.Bool("submitted_only", false)
 	if err := pm.Err(); err != nil {
 		return err
@@ -129,11 +128,11 @@ func (a *App) exportSummary(w http.ResponseWriter, r *http.Request, p *platform.
 	if err != nil {
 		return err
 	}
-	s, err := reports.BuildSummary(r.Context(), a.Store.R, selected, submittedOnly)
+	s, err := BuildSummary(r.Context(), a.Read, selected, submittedOnly)
 	if err != nil {
 		return err
 	}
-	data, err := reports.SummaryXLSX(s)
+	data, err := SummaryXLSX(s)
 	if err != nil {
 		return err
 	}

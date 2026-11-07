@@ -138,7 +138,7 @@ function StoreRegister({
                 ))}
               </span>
               <StatusPill status={item.status} className="w-32 shrink-0 max-sm:hidden" />
-              <span className="figure w-32 shrink-0 text-right text-[17px] text-text-main">{formatCurrency(item.total_cents)}</span>
+              <span className="figure w-32 shrink-0 text-right text-[1.0625rem] text-text-main">{formatCurrency(item.total_cents)}</span>
               <span className="w-5 shrink-0 text-text-muted" aria-hidden="true">
                 {item.report_id && <ChevronRight className="h-4 w-4" />}
               </span>

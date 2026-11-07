@@ -65,7 +65,7 @@ export default function AuditLogSection() {
           value={actionInput}
           onChange={(e) => setActionInput(e.target.value)}
           aria-label="Тип дії"
-          className="min-h-[44px] w-full rounded-control border border-border bg-surface px-3 text-[15px] text-text-main hover:border-text-muted/50 sm:w-60"
+          className="min-h-[44px] w-full rounded-control border border-border bg-surface px-3 text-[0.9375rem] text-text-main hover:border-text-muted/50 sm:w-60"
         >
           <option value="">{uk.logs.allActions}</option>
           {(actionsList || []).map((item) => (

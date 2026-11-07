@@ -1,6 +1,5 @@
 /** The hub's landing view: key figures, system health and recent activity. The submenu beside it lists every section. */
 
-import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
@@ -8,56 +7,8 @@ import { systemApi } from "@/platform/system/api";
 import { formatDateTime, ukPlatform as uk } from "@/platform/i18n";
 import type { AdminSection } from "@/platform/modules";
 import { LedgerSection } from "@/ui/LedgerSection";
-import { StateDot } from "@/ui/StateDot";
+import { Figures, StateRow, Stat, type StateTone } from "@/ui/Figures";
 import { sectionPath } from "./sections";
-
-/** One figure of the dashboard: the number in the book serif, its label beneath, a link if it leads somewhere. */
-function Stat({ label, value, hint, to }: { label: string; value: ReactNode; hint?: string; to?: string }) {
-  const body = (
-    <>
-      <span className="figure block text-[30px] leading-tight text-text-main">{value}</span>
-      <span className="mt-0.5 block text-sm text-text-main">{label}</span>
-      {hint && <span className="block break-words text-xs text-text-muted">{hint}</span>}
-    </>
-  );
-  const className = "block min-w-0 px-1 py-4 sm:px-5 sm:first:pl-1";
-  return to ? (
-    <Link to={to} className={`${className} transition-colors hover:bg-surface-raised`}>
-      {body}
-    </Link>
-  ) : (
-    <div className={className}>{body}</div>
-  );
-}
-
-/** A row of figures separated by thin rules; stacks into ruled rows on phones. */
-function Figures({ children }: { children: ReactNode }) {
-  return <div className="grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">{children}</div>;
-}
-
-/** A state line: what it is, a status light with its word, and a detail. */
-function StateRow({ label, tone, state, detail, to }: { label: string; tone: StateTone; state: string; detail?: string; to?: string }) {
-  const body = (
-    <>
-      <span className="w-full text-sm text-text-muted sm:w-48 sm:shrink-0">{label}</span>
-      <span className="flex items-center gap-2 font-medium text-text-main">
-        <StateDot tone={tone} />
-        {state}
-      </span>
-      {detail && <span className="min-w-0 break-words text-sm text-text-muted sm:ml-auto sm:text-right">{detail}</span>}
-    </>
-  );
-  const className = "flex flex-wrap items-center gap-x-4 gap-y-0.5 px-1 py-3";
-  return to ? (
-    <Link to={to} className={`${className} transition-colors hover:bg-surface-raised`}>
-      {body}
-    </Link>
-  ) : (
-    <div className={className}>{body}</div>
-  );
-}
-
-type StateTone = "ok" | "busy" | "error" | "idle";
 
 export function AdminOverview({ sections }: { sections: AdminSection[] }) {
   const { data, isLoading } = useQuery({ queryKey: ["adminOverview"], queryFn: () => systemApi.overview() });
@@ -89,7 +40,7 @@ export function AdminOverview({ sections }: { sections: AdminSection[] }) {
                 <li key={step.id}>
                   <Link to={sectionPath(step.id)} className="flex min-h-[52px] items-center gap-3 px-1 py-2.5 transition-colors hover:bg-surface-raised">
                     <span className="figure grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border text-sm">{i + 1}</span>
-                    <span className="flex-1 text-[15px] text-text-main">{step.text}</span>
+                    <span className="flex-1 text-[0.9375rem] text-text-main">{step.text}</span>
                     <ChevronRight className="h-4 w-4 text-text-muted" aria-hidden="true" />
                   </Link>
                 </li>

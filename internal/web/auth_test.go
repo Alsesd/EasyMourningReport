@@ -22,7 +22,11 @@ type env struct {
 	lim *LoginLimiter
 	// bare: do not add the device cookie a browser would send (tests of a copied session cookie).
 	bare bool
+	// deps is what the handler was built from, for tests that call App methods directly.
+	deps Deps
 }
+
+func (e *env) depsForTest() Deps { return e.deps }
 
 func newEnv(t *testing.T, mut func(*Deps)) *env {
 	t.Helper()
@@ -36,6 +40,7 @@ func newEnv(t *testing.T, mut func(*Deps)) *env {
 	if mut != nil {
 		mut(&d)
 	}
+	e.deps = d
 	e.h = New(d)
 	return e
 }
@@ -396,7 +401,7 @@ func TestEffectivePermissions(t *testing.T) {
 	r := e.login("boss", "Boss-pass1")
 	var dto sessionDTO
 	json.Unmarshal(r.Body.Bytes(), &dto)
-	want := "platform.audit.view,platform.organisations.manage,platform.roles.manage,platform.system.manage,platform.users.manage,reports.catalog.manage,reports.review,reports.settings.manage,transport.orders.manage,transport.orders.view_all"
+	want := "management.dashboard.view,platform.audit.view,platform.organisations.manage,platform.roles.manage,platform.system.manage,platform.users.manage,reports.catalog.manage,reports.review,reports.settings.manage,transport.orders.manage,transport.orders.view_all"
 	if strings.Join(dto.Permissions, ",") != want {
 		t.Fatalf("%v", dto.Permissions)
 	}

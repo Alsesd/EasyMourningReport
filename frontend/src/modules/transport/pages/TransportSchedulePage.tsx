@@ -51,7 +51,7 @@ export default function TransportSchedulePage() {
       ) : rows.length === 0 ? (
         <p className="text-sm text-text-muted">{t.scheduleEmpty}</p>
       ) : (
-        <table className="w-full border-collapse text-left text-[15px] print:text-[12pt]">
+        <table className="w-full border-collapse text-left text-[0.9375rem] print:text-[12pt]">
           <thead>
             <tr className="border-b-2 border-ink text-sm">
               <th className="py-2 pr-3 font-semibold">{t.scheduleTime}</th>
@@ -70,6 +70,7 @@ export default function TransportSchedulePage() {
                   <td className="figure whitespace-nowrap py-2.5 pr-3 text-lg font-semibold">{c.time}</td>
                   <td className="py-2.5 pr-3">
                     <span className="font-medium">{o.deceased}</span>
+                    {o.military && <span className="ml-2 border border-ink px-1 text-xs font-semibold uppercase">{t.militaryBadge}</span>}
                     <span className="block text-sm text-text-muted">{o.organisation.name}</span>
                   </td>
                   <td className="py-2.5 pr-3">

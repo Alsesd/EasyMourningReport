@@ -1,19 +1,12 @@
 package web
 
 import (
-	"context"
 	"net/http"
 	"sort"
 	"strings"
+
+	"legkyi/internal/core"
 )
-
-type paramsKey struct{}
-
-// Param returns a {name} path parameter of the matched route.
-func Param(r *http.Request, name string) string {
-	m, _ := r.Context().Value(paramsKey{}).(map[string]string)
-	return m[name]
-}
 
 type apiRoute struct {
 	method string
@@ -41,7 +34,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if ro.method == r.Method || (ro.method == http.MethodGet && r.Method == http.MethodHead) {
-			ro.h(w, r.WithContext(context.WithValue(r.Context(), paramsKey{}, params)))
+			ro.h(w, r.WithContext(core.WithParams(r.Context(), params)))
 			return
 		}
 		allowed = append(allowed, ro.method)

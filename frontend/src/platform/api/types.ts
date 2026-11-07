@@ -25,7 +25,16 @@ export type UpdateStatusDTO = Schemas["UpdateStatusDTO"];
 export type TunnelStatusDTO = Schemas["TunnelStatusDTO"];
 export type TunnelStartDTO = Schemas["TunnelStartDTO"];
 export type BackupDTO = Schemas["BackupDTO"];
+export type PushKeyDTO = Schemas["PushKeyDTO"];
+export type NotificationDTO = Schemas["NotificationDTO"];
+export type NotificationsDTO = Schemas["NotificationsDTO"];
 export type SystemHealthDTO = Schemas["SystemHealthDTO"];
+export type SystemMetricsDTO = Schemas["SystemMetricsDTO"];
+export type DashboardDTO = Schemas["DashboardDTO"];
+export type DashboardBlockDTO = Schemas["DashboardBlockDTO"];
+export type SystemLogsDTO = Schemas["SystemLogsDTO"];
+export type TestNotificationDTO = Schemas["TestNotificationDTO"];
+export type IntegrityDTO = Schemas["IntegrityDTO"];
 export type AdminOverviewDTO = Schemas["AdminOverviewDTO"];
 
 // Reports module
@@ -56,6 +65,7 @@ export type { paths };
 
 // Transport module
 export type TransportOrderDTO = Schemas["TransportOrderDTO"];
+export type TransportDayDTO = Schemas["TransportDayDTO"];
 export type TransportOrderInputDTO = Schemas["TransportOrderInputDTO"];
 export type TransportDeliveryDTO = Schemas["TransportDeliveryDTO"];
 export type TransportCarriersDTO = Schemas["TransportCarriersDTO"];
