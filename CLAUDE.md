@@ -2,6 +2,11 @@
 
 Internal platform for a burial-service business: organisations (stores) with multiple users, roles and permissions, and feature modules (monthly reports; transport orders scaffolded). One Go binary (stdlib `net/http`, SQLite via `modernc.org/sqlite`) serves the REST API and an embedded React 18 + Vite + Tailwind SPA. UI language is Ukrainian (`uk-UA`). The backend was ported from Python in 2026 (see `docs/adr/0004-port-backend-to-go.md`); the last Python release is commit `92564ef`.
 
+**Where things live.** Agent working material (this file, `.claude/memory`, `.claude/plans`, `.claude/notes/` such as the
+Python-to-Go migration record, `.claude/rules`, `.claude/skills`) stays in `.claude/`. Human project documentation (API,
+architecture, security, design, ADRs, module notes, the Ukrainian tester onboarding in `docs/uk/`) stays in `docs/`. Do not
+mix them: a plan or working note goes to `.claude/`, never to `docs/`.
+
 ## Commands
 
 Run from the repository root unless noted.

@@ -1,25 +1,27 @@
 # EasyMourningReport / Легкий звіт
 
-A modular Go + React platform: organisations with multiple user accounts, roles and permissions, and feature modules (monthly store reports today, transport orders next), plus audit logs and controlled public access through a Cloudflare Tunnel. The whole application is one Go binary with the React app embedded; the database is SQLite. See [docs/architecture.md](docs/architecture.md) for the module contract and how to add a feature.
+A modular Go + React platform: organisations with multiple user accounts, roles and permissions, and feature modules (monthly reports of the divisions, transport orders, a management dashboard), plus audit logs and controlled public access through a Cloudflare Tunnel. The whole application is one Go binary with the React app embedded; the database is SQLite. See [docs/architecture.md](docs/architecture.md) for the module contract and how to add a feature.
 
 ## Repository layout
 
 ```text
 repo/
-├── internal/                    # Go packages: config, store, core, platform, reports, transport,
-│                                # system (tunnel, health), registry, web (HTTP), assets (embedded UI)
+├── internal/                    # Go packages: config, store, core, platform, reports, transport, management,
+│                                # system (tunnel, health, error log), update (self-update), tunnelbin (embedded
+│                                # cloudflared), registry, web (HTTP), assets (embedded UI)
 ├── frontend/src/
 │   ├── app/                     # shell: router, layout, login page, module registry
 │   ├── platform/                # API client/types, auth, i18n, theme, access & settings pages
 │   ├── ui/                      # reusable design-system primitives
-│   └── modules/                 # reports/, transport/ (scaffold)
+│   └── modules/                 # reports/, transport/, management/
 ├── testdata/                    # frozen HTTP, money, pricing, XLSX, password and schema fixtures
 ├── cmd/server, cmd/smoke        # the program, and the post-build smoke test
-├── .github/workflows/           # manual build, test and release of the single-file exe
+├── .github/workflows/           # release.yml (build, test, publish the exe), auto-release.yml (release on push to main)
 ├── .env.example                 # every setting, commented
-├── README.md, CLAUDE.md         # everything else in docs/
-├── docs/                        # API, architecture, ADRs, module notes, design docs, migration record
-└── scripts/                     # build_go.sh (linux + windows binaries), e2e_test.py (browser smoke test)
+├── README.md                    # this file; the index of the human documentation is docs/README.md
+├── CLAUDE.md, .claude/          # notes for coding agents (memory, plans, rules, migration record): not user docs
+├── docs/                        # API, architecture, security, ADRs, module notes, design docs, uk/onboarding (tester guide)
+└── scripts/                     # build.sh (this machine), build_go.sh (windows, linux, linux-arm64), e2e_test.py (browser test)
 ```
 
 ## Local development
@@ -57,7 +59,7 @@ npm run build
 
 ## Single-file Windows program
 
-`bash scripts/build_go.sh` (needs Go, Node and curl; works from Linux or macOS) writes `dist/legkyi.exe` (Windows) and `dist/legkyi` (Linux). Each is **one file** that contains the web UI, the PWA files and `cloudflared` (a pinned release, downloaded once and checked by SHA-256, Apache-2.0, see `dist/NOTICE.txt`).
+`bash scripts/build_go.sh` (needs Go, Node and curl; works from Linux or macOS) writes `dist/legkyi.exe` (Windows), `dist/legkyi` (Linux x86-64) and `dist/legkyi-linux-arm64` (Android/Termux, ARM servers). Each is **one file** that contains the web UI, the PWA files and `cloudflared` (a pinned release, downloaded once and checked by SHA-256, Apache-2.0, see `dist/NOTICE.txt`).
 
 Requires **64-bit Windows 10 or later** (the Go runtime needs an API that Windows 7/8 lack; 32-bit Windows is not built). Copy `legkyi.exe` to any writable folder and start it. It creates everything **in that same folder**:
 
@@ -81,7 +83,7 @@ PUBLIC_URL=https://zvit.example.com
 PORT=8000
 ```
 
-Without `TUNNEL_TOKEN` the program opens a temporary Quick Tunnel and prints its `trycloudflare.com` address when ready (it changes on every start). With `TUNNEL_TOKEN` it runs your named tunnel; variables already set in the Windows environment win over `.env`. `TUNNEL_ENABLED=0` keeps the tunnel off; after the first start the on/off choice in **Адміністрування → Система** is remembered. `cloudflared` always stops with the program, even when it is killed from Task Manager (Windows job object).
+Without `TUNNEL_TOKEN` the program opens a temporary Quick Tunnel and prints its `trycloudflare.com` address when ready (it changes on every start). With `TUNNEL_TOKEN` it runs your named tunnel; variables already set in the Windows environment win over `.env`. `TUNNEL_ENABLED=0` keeps the tunnel off; after the first start the on/off choice in **Адміністрування → Система → Публічний доступ** is remembered. `cloudflared` always stops with the program, even when it is killed from Task Manager (Windows job object).
 
 Notes: the file is not code-signed, so Windows SmartScreen may warn on first start («More info → Run anyway») and some antivirus tools inspect the unpacked `cloudflared`. Put the program in a folder you can write to (not `C:\Program Files`); otherwise data goes to `%LOCALAPPDATA%\LegkyiZvit` and a warning is printed.
 
@@ -122,24 +124,30 @@ cloudflared is inside the file, but that copy is a generic Linux build and **can
 pkg install cloudflared
 ```
 
-Run `termux-wake-lock` so Android does not pause the app, and keep the file in Termux's home folder. The first start prints the administrator password once in the console; change it under «Налаштування» (do not share that output).
+Run `termux-wake-lock` so Android does not pause the app, and keep the file in Termux's home folder. The first start prints the administrator password once in the console; change it in the account menu («Змінити пароль»; do not share that output).
 
 ## Releasing
 
-Releases are cut by hand: GitHub → **Actions → Release exe → Run workflow**, enter the tag (for example `Soup.V6`). The workflow (`.github/workflows/release.yml`):
+Two ways to publish, both through `.github/workflows/release.yml`:
+
+- **Automatic.** `.github/workflows/auto-release.yml` publishes a release named `Soup.V<series>.<n>` (next free number; the series is set in the workflow) on every push to `main` that changes the program. Pushes that only touch `docs/**`, `*.md` or `.claude/**` are ignored. Running programs install the newest release by themselves (see «Оновлення програми» in the admin area), so anything pushed to `main` reaches users; pre-release or test builds must be marked pre-release.
+- **By hand.** GitHub → **Actions → Release exe → Run workflow**, enter the tag (for example `Soup.V6`) and tick or untick "publish". A pull request to `main` runs the same build and test gate and never publishes.
+
+The workflow:
 
 1. runs frontend lint, typecheck and tests, Go vet and tests;
 2. builds `legkyi.exe` and the Linux binary with `scripts/build_go.sh` (UI and a SHA-256-checked cloudflared inside);
 3. tests the Linux binary (`cmd/smoke`, with and without the tunnel process) and in a real browser (`scripts/e2e_test.py`);
 4. downloads `legkyi.exe` on a **Windows runner** and runs `cmd/smoke` there, including a forced kill that must also stop cloudflared;
-5. only if everything passed (and "publish" is ticked) creates the GitHub release with `legkyi.exe`, `legkyi`, `SHA256SUMS.txt` and `NOTICE.txt`.
+5. also runs the self-update smoke test (`cmd/smoke -update`) against a fake GitHub;
+6. only if everything passed (and "publish" is ticked) creates the GitHub release with `legkyi.exe`, `legkyi`, `legkyi-linux-arm64`, `SHA256SUMS.txt` and `NOTICE.txt`.
 
 The same checks run locally:
 
 ```bash
-bash scripts/build_go.sh                       # builds dist/legkyi.exe and dist/legkyi
+bash scripts/build_go.sh                       # builds dist/legkyi.exe, dist/legkyi and dist/legkyi-linux-arm64
 go run ./cmd/smoke -exe dist/legkyi            # starts it in an empty folder and checks it (add -tunnel for cloudflared)
 CHROMIUM_PATH=/opt/pw-browsers/chromium LEGKYI_E2E_BINARY=dist/legkyi uv run scripts/e2e_test.py   # browser test
 ```
 
-See [Architecture](docs/architecture.md), [REST API](docs/API.md), [security notes](docs/security.md), [UX contract](docs/ux-contract.md), [design system](docs/design-system.md) and the module notes in `docs/modules/` before making structural changes. The history of the Python-to-Go port is in [migration working notes](.claude/notes/migration/) and [ADR 0004](docs/adr/0004-port-backend-to-go.md).
+The index of the documentation is [docs/README.md](docs/README.md); the Ukrainian guide for a manual tester is [docs/uk/onboarding/](docs/uk/onboarding/00-zmist.md). See [Architecture](docs/architecture.md), [REST API](docs/API.md), [security notes](docs/security.md), [UX contract](docs/ux-contract.md), [design system](docs/design-system.md) and the module notes in `docs/modules/` before making structural changes. The outcome of the Python-to-Go port is in [ADR 0004](docs/adr/0004-port-backend-to-go.md) (the working notes are agent material in `.claude/notes/migration/`).
