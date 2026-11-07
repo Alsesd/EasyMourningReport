@@ -94,6 +94,30 @@ func EnsureAdminRole(tx *sql.Tx) (int64, error) {
 	return id, err
 }
 
+// EnsureStoreRole returns the id of the built-in desk role (key "store"), creating it with the modules' default
+// grants when a fresh installation does not have it yet (a new installation starts with the administrator role only).
+func EnsureStoreRole(tx *sql.Tx, grants map[string][]string) (int64, error) {
+	var id int64
+	err := tx.QueryRow(`SELECT id FROM roles WHERE "key" = ?`, StoreRole).Scan(&id)
+	if err != sql.ErrNoRows {
+		return id, err
+	}
+	r := BuiltInRoles[2]
+	res, err := tx.Exec(`INSERT INTO roles ("key", name, scope) VALUES (?, ?, ?)`, r.Key, r.Name, r.Scope)
+	if err != nil {
+		return 0, fmt.Errorf("create role %s: %w", r.Key, err)
+	}
+	if id, err = res.LastInsertId(); err != nil {
+		return 0, err
+	}
+	for _, code := range sortedCopy(grants[r.Key]) {
+		if _, err := tx.Exec("INSERT INTO role_permissions (role_id, permission) VALUES (?, ?)", id, code); err != nil {
+			return 0, err
+		}
+	}
+	return id, nil
+}
+
 // Seed makes sure the administrator role exists and, on an empty users table, creates the first admin and
 // nothing else: no divisions, no other roles, no data. The password banner goes to out only when an admin is
 // created. With DEMO set, the module demo hooks run in the same transaction. ADMIN_PASSWORD must satisfy the

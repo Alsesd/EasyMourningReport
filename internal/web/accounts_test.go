@@ -240,3 +240,18 @@ func TestOrgManagerCannotEscalateOrCrossOrganisations(t *testing.T) {
 	// Disabling or deleting the last platform admin is refused (boss edits another admin to be safe).
 	boss.json("PUT", "/api/v1/users/1", `{"login":"boss","active":true,"role_ids":[]}`, 422)
 }
+
+// A fresh installation has only the administrator role: creating an organisation with a first user must still
+// give that user the built-in desk role instead of failing on a missing "store" role.
+func TestFirstUserOfANewOrganisationGetsTheDeskRoleOnAFreshDatabase(t *testing.T) {
+	e := newEnv(t, nil)
+	if _, err := e.st.W.Exec(`DELETE FROM roles WHERE "key" = 'store'`); err != nil {
+		t.Fatal(err)
+	}
+	boss := e.as("boss", "Boss-pass1")
+	org := boss.json("POST", "/api/v1/organisations", `{"name":"Нова","first_user":{"login":"newclerk","password":"Clerk-pass1"}}`, 201)
+	if n := count(e, `SELECT COUNT(*) FROM user_roles ur JOIN roles r ON r.id = ur.role_id JOIN users u ON u.id = ur.user_id
+		WHERE u.login = 'newclerk' AND r."key" = 'store' AND u.organisation_id = ?`, num(org["id"])); n != 1 {
+		t.Fatalf("the first user must hold the desk role, got %d", n)
+	}
+}
