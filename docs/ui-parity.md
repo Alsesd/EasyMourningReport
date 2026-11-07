@@ -10,7 +10,11 @@ This document records the current browser behavior and points to the code that o
 | Login form, validation feedback, and focus behavior | `frontend/src/app/pages/LoginPage.tsx` |
 | Session loading, sign-in, and sign-out | `frontend/src/platform/auth/AuthContext.tsx` |
 | Permission-based route protection and post-login landing | `frontend/src/app/routing/ProtectedRoute.tsx`, `frontend/src/app/routing/landing.ts` |
-| Account menu (identity, own password, sign-out) | `frontend/src/platform/account/AccountMenu.tsx` |
+| Account menu (identity, own password, passkeys, sign-out) | `frontend/src/platform/account/AccountMenu.tsx`, `PasskeysForm.tsx`, `PasswordForm.tsx` |
+| Biometric sign-in offer after the first password sign-in; passkey sign-in on the login page | `frontend/src/platform/account/BiometricOffer.tsx`, `frontend/src/platform/auth/passkeys.ts`, `biometricPref.ts`, `LoginPage.tsx` |
+| First-sign-in device setup (notifications permission, install prompt) and Web Push registration | `frontend/src/platform/device/DeviceSetup.tsx`, `push.ts`, `installPrompt.ts`, `service worker internal/assets/static/sw.js` |
+| Notification bell, list, test notification | `frontend/src/platform/notifications/NotificationBell.tsx` |
+| Interface scale and theme menu («Вигляд») | `frontend/src/platform/theme/ThemeContext.tsx`, `uiScale.ts` |
 | Module registry (routes, nav, settings, landing) | `frontend/src/app/registry.ts`, `frontend/src/platform/modules.ts`, `frontend/src/modules/index.ts` |
 | Same-origin request behavior and structured API errors | `frontend/src/platform/api/client.ts` |
 | Theme selection and persistence | `frontend/src/platform/theme/ThemeContext.tsx`, `frontend/src/ui/ThemeToggle.tsx` |
@@ -27,6 +31,14 @@ This document records the current browser behavior and points to the code that o
 | Offline draft persistence and queued edits | `frontend/src/platform/offline/offlineDrafts.ts` |
 | Store report endpoint wrappers | `frontend/src/modules/reports/api.ts` |
 
+## Transport
+
+| Behavior | Current implementation |
+|---|---|
+| Orders page: date strip, day or period list, order form, status dialog, history, bearers | `frontend/src/modules/transport/pages/TransportPage.tsx`, `components/` |
+| Printable carrying schedule («Схема виносу») | `frontend/src/modules/transport/pages/TransportSchedulePage.tsx` |
+| Timing badges and day words | `frontend/src/modules/transport/timing.ts` |
+
 ## Administration
 
 | Behavior | Current implementation |
@@ -37,7 +49,9 @@ This document records the current browser behavior and points to the code that o
 | Product catalogue search, price changes, archive/restore, import | `frontend/src/modules/reports/settings/ProductsSection.tsx` |
 | Per-organisation «По розрахунку» option | `frontend/src/modules/reports/settings/ReportSettingsSection.tsx` |
 | Users, organisations and roles | `frontend/src/platform/access/` |
-| Cloudflare Tunnel, backups and database health | `frontend/src/platform/system/` |
+| «Стан програми» (health, metrics, error log), «Публічний доступ» (Cloudflare Tunnel), «Оновлення програми», «Резервні копії» | `frontend/src/platform/system/` (`HealthSection.tsx`, `TunnelSection.tsx`, `UpdateSection.tsx`, `BackupSection.tsx`) |
+| «Сеанси» (signed-in devices, end a session) | `frontend/src/platform/access/SessionsSection.tsx` |
+| Management dashboard («Показники») | `frontend/src/modules/management/pages/DashboardPage.tsx`, `components/blocks.tsx` |
 | Audit log filters and entries | `frontend/src/platform/audit/AuditLogSection.tsx` |
 | Shared API calls and DTO types | `frontend/src/modules/reports/api.ts`, `frontend/src/platform/api/types.ts` |
 
@@ -54,4 +68,4 @@ This document records the current browser behavior and points to the code that o
 
 ## Release verification
 
-Run `go vet ./cmd/... ./internal/... && go test ./cmd/... ./internal/...` from the repository root. Run frontend lint, type checking, tests, and production build from `frontend/` with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`. Run the browser check with `go build -o dist/legkyi ./cmd/server && uv run scripts/e2e_test.py` (set `CHROMIUM_PATH` to reuse an installed Chromium).
+Run `go vet ./cmd/... ./internal/... && go test ./cmd/... ./internal/...` from the repository root. Run frontend lint, type checking, tests, and production build from `frontend/` with `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`. Run the browser check against the real binary with `bash scripts/build_go.sh && go run ./cmd/smoke -exe dist/legkyi -tunnel && CHROMIUM_PATH=/opt/pw-browsers/chromium LEGKYI_E2E_BINARY=dist/legkyi uv run scripts/e2e_test.py` (`CHROMIUM_PATH` reuses an installed Chromium; the e2e test starts the binary on port 8888 with `DEMO=1` and a throwaway data folder).

@@ -1,6 +1,6 @@
 # REST API v1
 
-The web UI for administration and store reports uses a versioned, same-origin JSON API. Existing session-cookie authentication is reused; there are no bearer tokens, duplicated identities, or new auth dependencies.
+The web UI for administration and store reports uses a versioned, same-origin JSON API. Authentication is a signed session cookie (server-side sessions bound to a device cookie, see `docs/security.md`) or a passkey sign-in; there are no bearer tokens.
 
 ## Contract
 
@@ -8,7 +8,7 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 - Requests and responses use JSON except binary exports.
 - Prices and calculated amounts are integer **cents** in DTOs. Send editable price values as strings (for example `"12.50"`) so decimal parsing remains server-side and supports comma decimals.
 - Product DTO `month_prices_cents` is the full in-month timeline: the price at the start of the month followed by every price change, including a return to an earlier amount. `price_history` contains every saved history event, in chronological/sequence order.
-- Every resource response is a DTO, not a serialized SQLModel/ORM instance. Password hashes and persistence-only fields are never exposed.
+- Every resource response is a DTO, not a database row. Password hashes and persistence-only fields are never exposed.
 - The browser uses the existing signed session cookie. Unauthenticated requests return `401`, missing permissions return `403`, missing resources return `404`, conflicting state returns `409`, and invalid payloads return `422`.
 - Unsafe methods (POST, PUT, PATCH, DELETE) require a same-origin `Origin` or `Referer` header. Browser `fetch` supplies the origin automatically for these requests.
 - Outside `/api/v1` the server only serves the SPA, PWA files (`/manifest.webmanifest`, `/sw.js`, `/offline`) and the container health probe `GET /healthz`.
@@ -28,7 +28,7 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | PUT | `/me/password` | signed in | Change own password |
 | GET | `/permissions` | `platform.roles.manage`, `platform.users.manage` or `org.users.manage` | Permission catalogue from all modules |
 | GET | `/organisations` | `platform.organisations.manage`, `platform.users.manage` or `platform.roles.manage` | Organisations with user counts and per-module `usage` |
-| POST | `/organisations` | `platform.organisations.manage` | Create; optional `first_user` gets the built-in «Магазин» role (also needs `platform.users.manage`) |
+| POST | `/organisations` | `platform.organisations.manage` | Create; optional `first_user` gets the role with key `store` («Підрозділ», which only exists in databases from the Python releases; the interface does not use this shortcut and creates employees through `/users`; also needs `platform.users.manage`) |
 | PUT | `/organisations/{id}` | `platform.organisations.manage` | Rename |
 | DELETE | `/organisations/{id}` | `platform.organisations.manage` | Archive if any module holds data for it; otherwise delete it with its users and roles |
 | POST | `/organisations/{id}/restore` | `platform.organisations.manage` | Restore |
@@ -136,19 +136,8 @@ Content-Type: application/json
 
 ## Client rendering
 
-The browser UI is a React single-page application built with Vite and TypeScript. Route-level pages use TanStack Query for loading, caching, and mutations. The report module owns feature API functions and localization; the shared platform API client handles same-origin cookies and structured errors. FastAPI serves the compiled SPA from `backend/app/static/app/` and keeps the minimal Jinja templates for offline/error fallback and legacy route compatibility. Excel downloads remain server-generated binary responses.
-
+The browser UI is a React single-page application built with Vite and TypeScript, embedded in the Go binary (`internal/assets`). Route-level pages use TanStack Query for loading, caching, polling and mutations. Each module owns its API functions and localization; the shared platform API client (`frontend/src/platform/api/client.ts`) handles same-origin cookies and structured errors, and `frontend/src/platform/api/schema.d.ts` (types, maintained by hand) must change with every API shape. Excel downloads are server-generated binary responses.
 
 ## Local development and runtime secrets
 
-From the repository root, install the locked dependencies, then launch from the backend package root:
-
-```bash
-uv sync
-cd backend
-uv run --project .. python -m app
-```
-
-Open `http://127.0.0.1:8000`. Stop the server with Ctrl+C. The first run initializes the SQLite database, backups, and `secret.key`; the initial administrator password is printed to the terminal.
-
-`secret.key` is a randomly generated application secret used by Starlette's session middleware to sign session cookies. Keep it private, exclude it from source control, and back it up alongside `reports.db`. Losing or changing it invalidates existing signed sessions, so users must sign in again; it does not reset their stored passwords. You may set a stable secret using the `SECRET_KEY` environment variable instead.
+See the README for running the server and the frontend. `secret.key` in the data folder is the random secret that signs the session cookie: keep it private, never commit it, back it up with `reports.db`. Losing or changing it signs everyone out; it does not reset passwords. `SECRET_KEY` in the environment sets a stable secret instead. The VAPID key for Web Push is a separate file, `vapid.key` (see `docs/security.md`).

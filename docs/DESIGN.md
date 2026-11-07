@@ -20,6 +20,10 @@ The canonical visual design contract is maintained in [`design-system.md`](desig
 - Report detail keeps the lock/unlock confirmation and returns to its month.
 - «Адміністрування» is a dashboard plus a grouped submenu; every section is a page of ruled lists. Audit entries are one ruled list on every screen size; filters stay in the URL.
 
+### Management dashboard (`/admin/dashboard`, «Показники»)
+- One page per month (the period picker, refreshed every 60 s): blocks supplied by the modules, each a ruled section of tiles, CSS bars and ranked lists. Every value is also text (no chart-only information); the unit (count, money, percent, minutes) is formatted by the client.
+- Technical state (version, database, backups, errors) is not here: it is the «Стан програми» section of «Адміністрування».
+
 ## Price editing rules
 
 - Keep product rows compact until the inline price editor is opened.

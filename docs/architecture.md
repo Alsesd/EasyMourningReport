@@ -11,10 +11,11 @@ internal/
 ├── platform/              # accounts rules, principal and permissions, bootstrap (roles, first admin), passwords
 ├── reports/               # feature module: catalogue, price history, money, XLSX import/export, seed
 ├── transport/             # transport orders (also a template for new modules)
+├── tunnelbin/             # the pinned cloudflared embedded into bundled builds (-tags bundle)
 ├── management/            # management dashboard: no data of its own, one view-only permission
-├── system/                # cloudflared supervisor and database health
+├── system/                # cloudflared supervisor, database health and metrics, the error-log ring
 ├── update/                # self-update from GitHub Releases (check, verify, swap, restart)
-├── registry/              # platform + installed modules (the only package that imports modules)
+├── registry/              # platform + installed modules (with cmd/server, the only code that imports modules)
 ├── web/                   # HTTP: router, sessions, CSRF, rate limit, client IP, handlers
 └── assets/                # embedded static/ (PWA files) and static/app/ (the Vite build)
 
@@ -22,12 +23,14 @@ frontend/src/
 ├── app/                   # shell: App.tsx, layout, login page, routing, registry.ts
 ├── platform/              # API client, auth, i18n, theme, offline drafts, module contract,
 │                          # admin/ (the «Адміністрування» hub), access/ (users, orgs, roles),
-│                          # account/ (account menu, own password), audit/, system/
+│                          # account/ (account menu, own password, passkeys), audit/, system/ (health, tunnel,
+│                          # update, backups), device/ (notification and install prompts), notifications/, offline/
 ├── ui/                    # design-system primitives
 └── modules/
-    ├── index.ts           # installedModules = [reportsModule, transportModule]
+    ├── index.ts           # installedModules = [reportsModule, transportModule, managementModule]
     ├── reports/           # module.tsx, api.ts, permissions.ts, i18n.ts, pages/, settings/, components/
-    └── transport/         # transport orders
+    ├── transport/         # transport orders
+    └── management/        # management dashboard (view-only, no data of its own)
 ```
 
 ## Module contract
@@ -58,24 +61,24 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 
 **Boundaries:**
 
-- A module package may import `core`, `store` and `platform`, never another module.
-- `core`, `store`, `platform` and `web` never import a module package. `registry` and `cmd/server` are the exceptions.
-- On the frontend, `platform/` and `ui/` never import `modules/` or `app/` (enforced by `frontend/src/app/registry.test.ts`). Platform pages receive the composed registry through `ModuleRegistryContext`.
+- A module package imports only `core`. Shell services reach it as `core` interfaces (`Notifier`, `SeedTools`, `Services`), and the shell reaches the module through `core.Module` hooks (`Seed`, `DailyReminder`, `Dashboard`, `Routes`). A module never imports another module, `store` or `platform`.
+- `core`, `store`, `platform` and `web` never import a module package. `registry` and `cmd/server` are the only wiring points. Enforced by `internal/registry/boundaries_test.go`.
+- On the frontend, `platform/` and `ui/` never import `modules/` or `app/`, and a module imports neither another module nor `app/` (enforced by `frontend/src/boundaries.test.ts`; `app/registry.test.ts` covers the composed registry). Platform pages receive the registry through `ModuleRegistryContext`.
 
 ### Adding a module, e.g. transport orders
 
-1. Backend: copy `internal/transport` to a new package, declare the permissions and `core.Module`, add the tables to `internal/store/schema/fresh.sql` and an idempotent create step in `internal/store/schema.go`, write repo functions and HTTP handlers in the module package and list them in `Module.Routes` (`Codes`, `Member`). Scope organisation data with the principal's organisation. Add tests, and list the module in `internal/registry/registry.go`.
+1. Backend: copy `internal/transport` to a new package, declare the permissions and `core.Module`, add the tables to `goOwned` in `internal/store/schema.go` (list them in `GoOwnedTables` and the `structure()` filter of `store_test.go`; `fresh.sql` only mirrors the last Python release and is not extended), write repo functions and HTTP handlers in the module package and list them in `Module.Routes` (`Codes`, `Member`). Scope organisation data with the principal's organisation. Add tests, and list the module in `internal/registry/registry.go`.
 2. Frontend: add pages under `src/modules/<name>/pages/` and list them in `module.tsx` and `src/modules/index.ts`. Mirror the permission codes in `permissions.ts`.
 3. Update `src/platform/api/schema.d.ts` and `types.ts` by hand, and `docs/API.md`.
 4. Grant the new permissions to roles in «Адміністрування → Ролі». Optionally set `DefaultGrants` for built-in roles.
 
 ## Accounts and access
 
-- **Organisation**: a customer-side unit. Every store from earlier releases became one. It can have many users. Archived organisations keep their data, and their users cannot sign in.
+- **Organisation** (in the interface: **підрозділ**, division): a customer-side unit. Every store from earlier releases became one. It can have many users. Archived organisations keep their data, and their users cannot sign in.
 - **User**: `organisation_id = NULL` means platform staff, who act across organisations. Users can be disabled (`active = false`).
 - **Role**: a named, plain set of permissions (any codes; the stored `scope` is legacy and informational). A role can be shared by all divisions or limited to one. A user may hold several roles. The user's division is the scope of what they see; seeing other divisions needs a permission that says so (for example `transport.orders.manage`, `reports.review`).
-  - Built-in **Адміністратор** (`platform_admin`) and **Адміністратор організації** (`org_admin`) always hold every permission of their scope, including permissions of modules installed later.
-  - Built-in **Магазин** (`store`) is editable and starts with `reports.submit`.
+  - Built-in **Адміністратор** (`platform_admin`) always holds every platform-scope permission, including those of modules installed later. A new database starts with this role only.
+  - **Адміністратор підрозділу** (`org_admin`, always holds every organisation-scope permission) and **Підрозділ** (`store`, editable, starts with `reports.submit`) exist only in databases that came from the Python releases. A new database creates neither: the `DEMO=1` seed adds a «Підрозділ (демо)» role, otherwise the roles for the divisions are made in «Ролі». The `first_user` shortcut of `POST /organisations` needs the `store` role to exist (the interface does not use it: it creates employees through `/users`).
 - **Effective permissions** are the union of what the user's roles grant (`internal/platform/principal.go`); the built-in administrator holds every platform-level code.
 - **Escalation guards**: organisation managers (`org.users.manage`) only see and edit their own organisation, and only hand out roles whose permissions they hold themselves. The last active platform administrator cannot be disabled, demoted or deleted.
 
@@ -91,13 +94,14 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 | `reports.review` | platform | Summary, report list/detail, lock/unlock, Excel |
 | `reports.catalog.manage` | platform | Products and prices |
 | `reports.settings.manage` | platform | «По розрахунку» per organisation |
+| `management.dashboard.view` | platform | Management dashboard (view-only; no other permission opens it) |
 | `transport.orders.create` | organisation | Place transport orders, edit or cancel until the dispatcher replies |
 | `transport.orders.view_all` | platform | Read-only: see all orders and the history |
 | `transport.orders.manage` | platform | Handle orders: see all, read the history, set the reply status |
 
 ## Persistence and schema
 
-SQLite runs inside the app process (decision and load-test numbers: [ADR 0003](adr/0003-keep-sqlite.md)). Every connection uses `synchronous=FULL`, foreign keys, and WAL on local disks or the rollback journal on shared folders (`internal/store/open.go`, `internal/config`). `LEGKYI_DATA_DIR` and `LEGKYI_BACKUPS_DIR` set the persistent folders; Compose bind-mounts them from `./app_storage/data` and `./app_storage/backups`. A single writer connection runs each mutation in one immediate transaction; reads use a separate pool.
+SQLite runs inside the app process (decision and load-test numbers: [ADR 0003](adr/0003-keep-sqlite.md)). Every connection uses `synchronous=FULL`, foreign keys, and WAL on local disks or the rollback journal on shared folders (`internal/store/open.go`, `internal/config`). `LEGKYI_DATA_DIR` and `LEGKYI_BACKUPS_DIR` set the persistent folders (by default the data lives next to the program). A single writer connection runs each mutation in one immediate transaction; reads use a separate pool.
 
 Backups (`internal/store/backup.go`) run inside the app: at start-up, every `BACKUP_EVERY_MIN` minutes when the **data** changed, on demand, and at shutdown. "Changed" is a content fingerprint of every table except the volatile ones (`user_sessions`, `session_devices`, `passkeys`, `notifications`), so sign-ins, token rolling and read marks alone never make a copy; right after start-up, before there is a fingerprint, the file times decide. Each copy is a verified single file (`VACUUM INTO` plus `quick_check`) named `reports-YYYYMMDD-HHMMSSZ[-tag].db` in **UTC** (older names without `Z` are read as local time), ordered by that time. The newest `BACKUP_KEEP` regular copies are kept; download snapshots (`-snapshot`, taken by every download) have their own cap of 10 and never push regular copies out. Start-up runs `PRAGMA quick_check` (logged only).
 
@@ -124,6 +128,7 @@ go vet ./cmd/... ./internal/... && go test ./cmd/... ./internal/...
 # frontend
 cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 
-# browser smoke test against the real binary
-go build -o dist/legkyi ./cmd/server && uv run scripts/e2e_test.py
+# the real binary: smoke test, then the browser test (after UI or navigation changes)
+bash scripts/build_go.sh && go run ./cmd/smoke -exe dist/legkyi -tunnel
+CHROMIUM_PATH=/opt/pw-browsers/chromium LEGKYI_E2E_BINARY=dist/legkyi uv run scripts/e2e_test.py
 ```
