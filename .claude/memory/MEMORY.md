@@ -8,3 +8,4 @@
 - [feedback-ui-scale](feedback-ui-scale.md) - adjustable interface scale per device; font sizes in rem, never px
 - [feedback-docs-separation](feedback-docs-separation.md) - agent material in .claude/, human docs only in docs/ (user directive)
 - [feedback-no-ai-attribution](feedback-no-ai-attribution.md) - no AI attribution in commits or human docs; fixed commit author (owner directive)
+- [project-biometric-login](project-biometric-login.md): root causes of the missing auto biometric prompt; conditional mediation on the login page

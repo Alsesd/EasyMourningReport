@@ -8,8 +8,8 @@ import { Button } from "@/ui/Button";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 import { MakerMark } from "@/ui/MakerMark";
 import { ApiError } from "@/platform/api/client";
-import { passkeysSupported } from "@/platform/auth/passkeys";
-import { autoBiometricSuppressed, biometricChoice, clearSuppressAutoBiometric, markFreshPasswordLogin, setBiometricChoice } from "@/platform/auth/biometricPref";
+import { conditionalMediationAvailable, passkeysSupported } from "@/platform/auth/passkeys";
+import { biometricChoice, clearSuppressAutoBiometric, markFreshPasswordLogin, setBiometricChoice, takeSuppressAutoBiometric } from "@/platform/auth/biometricPref";
 import { AlertCircle, Eye, EyeOff, Fingerprint } from "lucide-react";
 import { returnPath } from "./returnPath";
 
@@ -27,30 +27,77 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const passkeyAbort = useRef<AbortController | null>(null);
+  const abortPasskey = () => {
+    passkeyAbort.current?.abort();
+    passkeyAbort.current = null;
+  };
+  const signedInWithPasskey = (newSession: Parameters<typeof landingPathFor>[0]) => {
+    setBiometricChoice("on");
+    navigate(target(newSession), { replace: true });
+  };
+  // A refusal or a closed prompt is not an error worth showing when the page tried by itself.
+  const isDismissed = (err: unknown) => err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "AbortError");
+
   const handlePasskey = async () => {
+    abortPasskey();
     setError(null);
     setIsSubmitting(true);
     try {
-      const newSession = await loginWithPasskey();
-      setBiometricChoice("on");
-      navigate(target(newSession), { replace: true });
+      signedInWithPasskey(await loginWithPasskey());
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
-      else if (err instanceof DOMException && (err.name === "NotAllowedError" || err.name === "AbortError")) setError(uk.auth.passkeyCancelled);
+      else if (isDismissed(err)) setError(uk.auth.passkeyCancelled);
       else setError(uk.auth.networkError);
+      void armConditional();
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  /** Waits quietly for a pick from the browser's autofill list on the login field (no modal, no tap needed first). */
+  const armConditional = async () => {
+    abortPasskey();
+    if (!(await conditionalMediationAvailable())) return;
+    const ac = new AbortController();
+    passkeyAbort.current = ac;
+    try {
+      signedInWithPasskey(await loginWithPasskey({ conditional: true, signal: ac.signal }));
+    } catch (err) {
+      if (err instanceof ApiError && !ac.signal.aborted) setError(err.message);
+    }
+  };
 
-  // A device that agreed to biometric sign-in offers it by itself, once per visit and never right after a sign-out.
+  // A device that agreed to biometric sign-in offers it by itself (a modal prompt, which Chromium allows without a tap),
+  // except right after a sign-out. Whenever the browser supports it, the passkey is also offered in the login field's
+  // autofill list, which needs no tap either and is the only route where browsers (Safari) refuse an unprompted modal.
   const autoTried = useRef(false);
+  const suppressed = useRef<boolean | null>(null);
   useEffect(() => {
-    if (isLoading || session || autoTried.current) return;
+    if (isLoading || session || autoTried.current || !passkeysSupported()) return;
     autoTried.current = true;
-    if (biometricChoice() !== "on" || !passkeysSupported() || autoBiometricSuppressed()) return;
-    void handlePasskey();
+    if (suppressed.current === null) suppressed.current = takeSuppressAutoBiometric();
+    const ac = new AbortController();
+    passkeyAbort.current = ac;
+    void (async () => {
+      if (biometricChoice() === "on" && !suppressed.current) {
+        try {
+          signedInWithPasskey(await loginWithPasskey({ signal: ac.signal }));
+          return;
+        } catch (err) {
+          if (ac.signal.aborted) return;
+          if (err instanceof ApiError) setError(err.message);
+          else if (!isDismissed(err)) setError(uk.auth.networkError);
+        }
+      }
+      if (!ac.signal.aborted) await armConditional();
+    })();
+    return () => {
+      // StrictMode runs effects twice; the second run must start over.
+      autoTried.current = false;
+      ac.abort();
+      abortPasskey();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, session]);
 
@@ -73,9 +120,11 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    abortPasskey();
     clearSuppressAutoBiometric();
     if (!username.trim() || !password) {
       setError(uk.auth.credentialsRequired);
+      void armConditional();
       return;
     }
 
@@ -94,6 +143,7 @@ export function LoginPage() {
       } else {
         setError(uk.auth.networkError);
       }
+      void armConditional();
     } finally {
       setIsSubmitting(false);
     }
@@ -153,7 +203,7 @@ export function LoginPage() {
                   id="login-username"
                   name="username"
                   type="text"
-                  autoComplete="username"
+                  autoComplete="username webauthn"
                   autoCapitalize="none"
                   spellCheck={false}
                   required

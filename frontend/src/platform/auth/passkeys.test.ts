@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { passkeyApi, passkeysSupported } from "./passkeys";
+import { conditionalMediationAvailable, passkeyApi, passkeysSupported } from "./passkeys";
 import { mockFetch } from "@/test/fetchMock";
 
 const b64 = (s: string) => btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -42,6 +42,30 @@ describe("passkey helpers", () => {
     vi.stubGlobal("navigator", { credentials: { get } });
     expect(await passkeyApi.login()).toEqual({ login: "boss" });
     expect(calls[1].body).toMatchObject({ challenge_id: "c2", id: "cred", authenticator_data: b64("ad"), signature: b64("sg") });
+  });
+
+  it("asks for conditional mediation with the abort signal when requested", async () => {
+    mockFetch({
+      "POST /api/v1/auth/passkey/options": { challenge_id: "c3", public_key: { challenge: b64("c"), allowCredentials: [] } },
+      "POST /api/v1/auth/passkey": { login: "boss" },
+    });
+    const get = vi.fn((_: unknown) => Promise.resolve({ id: "cred", response: { clientDataJSON: buf("cd"), authenticatorData: buf("ad"), signature: buf("sg") } }));
+    vi.stubGlobal("navigator", { credentials: { get } });
+    const ac = new AbortController();
+    await passkeyApi.login({ conditional: true, signal: ac.signal });
+    expect(get.mock.calls[0][0]).toMatchObject({ mediation: "conditional", signal: ac.signal });
+    await passkeyApi.login();
+    expect(get.mock.calls[1][0]).not.toHaveProperty("mediation");
+  });
+
+  it("detects conditional mediation only when the browser reports it", async () => {
+    vi.stubGlobal("isSecureContext", true);
+    vi.stubGlobal("PublicKeyCredential", Object.assign(function () {}, { isConditionalMediationAvailable: () => Promise.resolve(true) }));
+    expect(await conditionalMediationAvailable()).toBe(true);
+    vi.stubGlobal("PublicKeyCredential", Object.assign(function () {}, { isConditionalMediationAvailable: () => Promise.resolve(false) }));
+    expect(await conditionalMediationAvailable()).toBe(false);
+    vi.stubGlobal("PublicKeyCredential", function () {});
+    expect(await conditionalMediationAvailable()).toBe(false);
   });
 
   it("reports a cancelled prompt as NotAllowedError", async () => {
