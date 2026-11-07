@@ -689,11 +689,12 @@ func TestAFailedMilitaryOrderBumpsNothing(t *testing.T) {
 }
 
 type dayJSON struct {
-	Date      string         `json:"date"`
-	Total     int            `json:"total"`
-	Open      int            `json:"open"`
-	Attention int            `json:"attention"`
-	ByStatus  map[string]int `json:"by_status"`
+	Date         string         `json:"date"`
+	Total        int            `json:"total"`
+	Open         int            `json:"open"`
+	Attention    int            `json:"attention"`
+	MilitaryOpen int            `json:"military_open"`
+	ByStatus     map[string]int `json:"by_status"`
 }
 
 func (d *desks) days(c *http.Cookie, query string) map[string]dayJSON {
@@ -724,9 +725,13 @@ func TestDayStripCountsOpenOrdersPerCaller(t *testing.T) {
 		t.Fatalf("done: %d %s", w.Code, w.Body)
 	}
 
+	mil := order(later, "Військовий", "d14:00")
+	mil["military"] = true
+	d.create(d.a, mil)
+
 	q := "from=2026-11-01&to=2026-11-30"
 	desk := d.days(d.a, q)
-	if len(desk) != 2 || desk[day].Total != 1 || desk[day].Open != 0 || desk[later].Open != 1 {
+	if len(desk) != 2 || desk[day].Total != 1 || desk[day].Open != 0 || desk[later].Open != 2 || desk[later].MilitaryOpen != 1 || desk[day].MilitaryOpen != 0 {
 		t.Fatalf("desk A counts only its own orders: %+v", desk)
 	}
 	if desk[later].Attention != 0 {
@@ -737,7 +742,7 @@ func TestDayStripCountsOpenOrdersPerCaller(t *testing.T) {
 	}
 
 	boss := d.days(d.boss, q)
-	if boss[day].Total != 2 || boss[day].Open != 1 || boss[day].Attention != 1 || boss[later].Attention != 1 {
+	if boss[day].Total != 2 || boss[day].Open != 1 || boss[day].Attention != 1 || boss[later].Attention != 2 {
 		t.Fatalf("dispatcher sees every desk and the submitted orders wait for them: %+v", boss)
 	}
 	if got := d.days(d.boss, q+"&organisation_id="+itoa(int(d.orgB))); len(got) != 1 || got[day].Total != 1 {

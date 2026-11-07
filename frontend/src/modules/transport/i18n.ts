@@ -37,8 +37,9 @@ export const uk = {
     earlierDays: "Попередній тиждень",
     laterDays: "Наступний тиждень",
     jumpToDay: "Перейти до дня",
-    dayCell: (label: string, open: number, total: number, attention: number) =>
-      `${label}: у роботі ${open} із ${total}` + (attention > 0 ? `, чекають відповіді ${attention}` : ""),
+    dayCell: (label: string, open: number, total: number, attention: number, military = 0) =>
+      `${label}: у роботі ${open} із ${total}` + (attention > 0 ? `, чекають відповіді ${attention}` : "") + (military > 0 ? `, військових ${military}` : ""),
+    onlyMilitary: "Військові",
     dayOpen: (n: number) => `у роботі ${n}`,
     dayClosed: (n: number) => `закрито ${n}`,
     attentionDispatcher: (n: number) => `${n} нових — чекають відповіді`,

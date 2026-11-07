@@ -1,6 +1,6 @@
 /** One order of the day as a ruled row: time, the deceased, delivery and carriers together, the reply and the actions. */
 
-import { History, Pencil, Users, X } from "lucide-react";
+import { History, Pencil, Shield, Users, X } from "lucide-react";
 import type { TransportOrderDTO } from "@/platform/api/types";
 import { uk, formatDayReadable } from "@/modules/transport/i18n";
 import { Button } from "@/ui/Button";
@@ -57,7 +57,6 @@ export function OrderCard({
         <div>
           <h3 className="font-serif text-lg font-semibold leading-snug text-text-main">
             {order.deceased}
-            {order.military && <span className="ml-2 align-middle text-xs font-semibold uppercase tracking-wide text-attention">{t.militaryBadge}</span>}
           </h3>
           <p className="text-sm text-text-muted">
             {showOrganisation && <>{order.organisation.name} · </>}
@@ -100,6 +99,12 @@ export function OrderCard({
 
       <div className="space-y-2 md:text-right">
         <div className="flex flex-wrap items-center gap-2 md:justify-end">
+          {order.military && (
+            <span className="inline-flex items-center gap-1 rounded-control bg-text-main px-2 py-0.5 text-xs font-semibold text-page">
+              <Shield className="h-3.5 w-3.5" aria-hidden="true" />
+              {t.militaryBadge}
+            </span>
+          )}
           <OrderTiming serviceDate={order.service_date} status={order.status} today={today} />
           <OrderStatus status={order.status} />
         </div>

@@ -88,6 +88,7 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 |---|---|---|---|
 | GET | `/transport/status` | any transport permission | `{ready, message}` |
 | GET | `/transport/orders` | create, view_all or manage | The day's orders (`date`, default today) or a range (`from`, `to`), chronological; `status`; staff may add `organisation_id`. A desk sees only its organisation |
+| GET | `/transport/days` | same | Order counts per day for the date strip (`date`, or `from` and `to`, same scoping as the list; only days with orders): `{date, total, open, attention, military_open, by_status}`. `open` = submitted, accepted, in_progress, bumped; `attention` = submitted for a dispatcher, bumped for a desk; `military_open` = open military orders |
 | GET | `/transport/orders/{id}` | same | One order; `events` (history) only for staff |
 | POST | `/transport/orders` | `transport.orders.create` (organisation member) | `{service_date, deceased, notes?, military?: bool, delivery?: {car_number, departure, time, destination, stops?}, carriers?: {car_number, departure, count: 4 or 6, time, stops (at least one), cemetery_number}}`; at least one part; signed with the submitting employee. `409` when a car is busy (2 h lock; see docs/modules/transport.md); `military: true` takes the car from an ordinary order, which becomes `bumped` |
 | PUT | `/transport/orders/{id}` | `transport.orders.create` | Replace the content while the status is `submitted` or `bumped` (`409` after the reply, or when the car is busy; a bumped order goes back to `submitted`) |

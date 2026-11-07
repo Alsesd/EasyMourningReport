@@ -70,6 +70,7 @@ export default function TransportSchedulePage() {
                   <td className="figure whitespace-nowrap py-2.5 pr-3 text-lg font-semibold">{c.time}</td>
                   <td className="py-2.5 pr-3">
                     <span className="font-medium">{o.deceased}</span>
+                    {o.military && <span className="ml-2 border border-ink px-1 text-xs font-semibold uppercase">{t.militaryBadge}</span>}
                     <span className="block text-sm text-text-muted">{o.organisation.name}</span>
                   </td>
                   <td className="py-2.5 pr-3">

@@ -112,7 +112,7 @@ export default function TransportPage() {
   const [history, setHistory] = useState<TransportOrderDTO | null>(null);
   const [assigning, setAssigning] = useState<TransportOrderDTO | null>(null);
 
-  const single = status !== "" && status !== "open" && status !== "closed";
+  const single = status !== "" && status !== "open" && status !== "closed" && status !== "military";
   const query: OrderQuery = mode === "day" ? { date: day } : { from, to, ...(single ? { status } : {}) };
   const orders = useQuery({
     queryKey: ["transport", "orders", query],
@@ -156,7 +156,7 @@ export default function TransportPage() {
       },
     });
 
-  const list = (orders.data ?? []).filter((o) => (status === "open" ? isOpen(o.status) : status === "closed" ? !isOpen(o.status) : true));
+  const list = (orders.data ?? []).filter((o) => (status === "open" ? isOpen(o.status) : status === "closed" ? !isOpen(o.status) : status === "military" ? o.military : true));
   const dayOpen = list.filter((o) => isOpen(o.status)).length;
   const attention = mode === "day" ? (stripCounts.get(day)?.attention ?? 0) : 0;
   const emptyText = mode === "history" ? t.emptyHistory : desk && !staff ? t.emptyDesk : t.empty;
@@ -187,7 +187,7 @@ export default function TransportPage() {
       />
       <Notice message={message} onDismiss={() => setMessage(null)} dismissLabel={uk.common.close} />
 
-      {overdueCount > 0 && (
+      {manage && overdueCount > 0 && (
         <div role="status" className="flex flex-wrap items-center gap-3 rounded-control border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="flex-1 font-medium">{t.overdueNotice(overdueCount)}</span>
@@ -249,6 +249,7 @@ export default function TransportPage() {
           <option value="">{t.allStatuses}</option>
           <option value="open">{t.groupOpen}</option>
           <option value="closed">{t.groupClosed}</option>
+          <option value="military">{t.onlyMilitary}</option>
           <optgroup label={t.statusFilter}>
             {Object.entries(t.statuses).map(([k, label]) => (
               <option key={k} value={k}>

@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Shield } from "lucide-react";
 import type { TransportDayDTO } from "@/platform/api/types";
 import { uk, shiftDay } from "@/modules/transport/i18n";
 import { dayTiming, stripDays } from "@/modules/transport/timing";
@@ -56,6 +56,7 @@ export function DateStrip({
           const open = c?.open ?? 0;
           const total = c?.total ?? 0;
           const attention = c?.attention ?? 0;
+          const military = c?.military_open ?? 0;
           const timing = dayTiming(day, today);
           const past = timing.kind === "past";
           const selected = day === value;
@@ -69,13 +70,14 @@ export function DateStrip({
                 onClick={() => onChange(day)}
                 aria-pressed={selected}
                 aria-current={isToday ? "date" : undefined}
-                aria-label={t.dayCell(`${p.weekday}, ${p.day} ${p.month}${isToday ? `, ${t.today.toLowerCase()}` : ""}`, open, total, attention)}
+                aria-label={t.dayCell(`${p.weekday}, ${p.day} ${p.month}${isToday ? `, ${t.today.toLowerCase()}` : ""}`, open, total, attention, military)}
                 className={cn(
-                  "flex min-h-[44px] w-full flex-col items-center rounded-control border px-1 py-1.5 text-center transition-colors",
+                  "relative flex min-h-[44px] w-full flex-col items-center rounded-control border px-1 py-1.5 text-center transition-colors",
                   selected ? "border-primary bg-primary text-primary-fg" : isToday ? "border-primary bg-surface text-text-main" : "border-border bg-surface text-text-main hover:bg-surface-raised",
                   past && !selected && "opacity-75",
                 )}
               >
+                {military > 0 && <Shield aria-hidden="true" className="absolute right-1 top-1 h-3 w-3" />}
                 <span className={cn("text-xs uppercase", !selected && (p.weekend ? "text-destructive" : "text-text-muted"))}>{p.weekday}</span>
                 <span className="figure text-lg font-semibold leading-tight">{p.day}</span>
                 <span className={cn("text-[0.6875rem] leading-none", !selected && "text-text-muted")}>{isToday ? t.today.toLowerCase() : p.month}</span>

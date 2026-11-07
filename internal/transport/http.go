@@ -215,8 +215,10 @@ type transportDayDTO struct {
 	Open int `json:"open"`
 	// Attention: orders waiting for this caller. A dispatcher answers the submitted ones; a desk re-sends the
 	// orders whose car was taken.
-	Attention int            `json:"attention"`
-	ByStatus  map[string]int `json:"by_status"`
+	Attention int `json:"attention"`
+	// MilitaryOpen: open military orders (they take a car from an ordinary order).
+	MilitaryOpen int            `json:"military_open"`
+	ByStatus     map[string]int `json:"by_status"`
 }
 
 // listTransportDays counts the orders of every day in the range (only days with orders), for the date strip.
@@ -238,7 +240,7 @@ func (a *api) listTransportDays(w http.ResponseWriter, r *http.Request, p *core.
 	}
 	out := make([]transportDayDTO, 0, len(days))
 	for _, d := range days {
-		dto := transportDayDTO{Date: d.Date, ByStatus: d.ByStatus}
+		dto := transportDayDTO{Date: d.Date, ByStatus: d.ByStatus, MilitaryOpen: d.MilitaryOpen}
 		for s, n := range d.ByStatus {
 			dto.Total += n
 			if Open(s) {

@@ -462,8 +462,9 @@ func Open(status string) bool {
 
 // DayCount is how many orders of one day are in each status.
 type DayCount struct {
-	Date     string
-	ByStatus map[string]int
+	Date         string
+	ByStatus     map[string]int
+	MilitaryOpen int // open military orders of the day
 }
 
 // CountByDay counts the orders of each day in the filter (Status is ignored), ordered by day. Days without
@@ -487,7 +488,7 @@ func CountByDay(ctx context.Context, q core.Querier, f Filter) ([]DayCount, erro
 	if len(where) > 0 {
 		clause = " WHERE " + strings.Join(where, " AND ")
 	}
-	rows, err := q.QueryContext(ctx, `SELECT service_date, status, COUNT(*) FROM transport_orders`+clause+` GROUP BY service_date, status ORDER BY service_date`, args...)
+	rows, err := q.QueryContext(ctx, `SELECT service_date, status, is_military, COUNT(*) FROM transport_orders`+clause+` GROUP BY service_date, status, is_military ORDER BY service_date`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -495,14 +496,17 @@ func CountByDay(ctx context.Context, q core.Querier, f Filter) ([]DayCount, erro
 	out := []DayCount{}
 	for rows.Next() {
 		var day, status string
-		var n int
-		if err := rows.Scan(&day, &status, &n); err != nil {
+		var mil, n int
+		if err := rows.Scan(&day, &status, &mil, &n); err != nil {
 			return nil, err
 		}
 		if len(out) == 0 || out[len(out)-1].Date != day {
 			out = append(out, DayCount{Date: day, ByStatus: map[string]int{}})
 		}
 		out[len(out)-1].ByStatus[status] += n
+		if mil == 1 && Open(status) {
+			out[len(out)-1].MilitaryOpen += n
+		}
 	}
 	return out, rows.Err()
 }

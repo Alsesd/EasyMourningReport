@@ -1585,6 +1585,8 @@ export interface components {
             open: number;
             /** waiting for the caller: submitted for a dispatcher, bumped for a desk */
             attention: number;
+            /** open military orders of the day */
+            military_open: number;
             by_status: { [status: string]: number };
         };
         /** TransportOrderDTO: one deceased; delivery and carriers of the same deceased share the order */

@@ -243,8 +243,8 @@ describe("TransportPage", () => {
       order({ id: 2, deceased: "Вже виконаний", status: "done", can_edit: false }),
     ]);
     vi.spyOn(transportApi, "days").mockResolvedValue([
-      { date: today, total: 1, open: 1, attention: 0, by_status: { submitted: 1 } },
-      { date: week, total: 1, open: 1, attention: 0, by_status: { accepted: 1 } },
+      { date: today, total: 1, open: 1, attention: 0, military_open: 0, by_status: { submitted: 1 } },
+      { date: week, total: 1, open: 1, attention: 0, military_open: 0, by_status: { accepted: 1 } },
     ]);
     renderPage(base);
     const card = await screen.findByRole("article", { name: /Сьогоднішній/ });
@@ -263,7 +263,7 @@ describe("TransportPage", () => {
     const today = todayIso();
     const old = shiftDay(today, -3);
     vi.spyOn(transportApi, "orders").mockResolvedValue([]);
-    vi.spyOn(transportApi, "days").mockResolvedValue([{ date: old, total: 2, open: 2, attention: 1, by_status: { submitted: 1, accepted: 1 } }]);
+    vi.spyOn(transportApi, "days").mockResolvedValue([{ date: old, total: 2, open: 2, attention: 1, military_open: 0, by_status: { submitted: 1, accepted: 1 } }]);
     renderPage(dispatcher);
     expect((await screen.findByText(/Незакриті заявки за минулі дні: 2/)).textContent).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Показати/ }));
@@ -274,10 +274,10 @@ describe("TransportPage", () => {
     const today = todayIso();
     const tomorrow = shiftDay(today, 1);
     vi.spyOn(transportApi, "orders").mockResolvedValue([]);
-    vi.spyOn(transportApi, "days").mockResolvedValue([{ date: tomorrow, total: 3, open: 2, attention: 1, by_status: { submitted: 1, accepted: 1, done: 1 } }]);
+    vi.spyOn(transportApi, "days").mockResolvedValue([{ date: tomorrow, total: 3, open: 2, attention: 1, military_open: 1, by_status: { submitted: 1, accepted: 1, done: 1 } }]);
     renderPage(dispatcher);
     const strip = await screen.findByRole("list", { name: "Дні із заявками" });
-    const cell = await within(strip).findByRole("button", { name: /у роботі 2 із 3, чекають відповіді 1/ });
+    const cell = await within(strip).findByRole("button", { name: /у роботі 2 із 3, чекають відповіді 1, військових 1/ });
     fireEvent.click(cell);
     await waitFor(() => expect(transportApi.orders).toHaveBeenLastCalledWith({ date: tomorrow }));
     expect(cell.getAttribute("aria-pressed")).toBe("true");
@@ -299,5 +299,30 @@ describe("TransportPage", () => {
     await waitFor(() => expect(transportApi.create).toHaveBeenCalledWith(expect.objectContaining({ service_date: after })));
     expect(await screen.findByText(/Замовлення надіслано на/)).toBeDefined();
     await waitFor(() => expect(transportApi.orders).toHaveBeenLastCalledWith({ date: after }));
+  });
+
+  it("shows the overdue banner to the dispatcher only, not to a desk", async () => {
+    const old = shiftDay(todayIso(), -3);
+    vi.spyOn(transportApi, "orders").mockResolvedValue([]);
+    vi.spyOn(transportApi, "days").mockResolvedValue([{ date: old, total: 2, open: 2, attention: 0, military_open: 0, by_status: { accepted: 2 } }]);
+    renderPage(base);
+    await screen.findByRole("list", { name: "Дні із заявками" });
+    await waitFor(() => expect(transportApi.days).toHaveBeenCalled());
+    expect(screen.queryByText(/Незакриті заявки/)).toBeNull();
+  });
+
+  it("marks a military order apart from urgent and filters military orders", async () => {
+    vi.spyOn(transportApi, "orders").mockResolvedValue([
+      order({ id: 1, deceased: "Військовий", military: true }),
+      order({ id: 2, deceased: "Звичайний" }),
+    ]);
+    renderPage(dispatcher);
+    const mil = await screen.findByRole("article", { name: /Військовий/ });
+    expect(within(mil).getByText("Військове")).toBeDefined();
+    expect(within(mil).getByText("Терміново · сьогодні")).toBeDefined();
+    expect(within(screen.getByRole("article", { name: /Звичайний/ })).queryByText("Військове")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Статус"), { target: { value: "military" } });
+    await waitFor(() => expect(screen.queryByRole("article", { name: /Звичайний/ })).toBeNull());
+    expect(screen.getByRole("article", { name: /Військовий/ })).toBeDefined();
   });
 });
