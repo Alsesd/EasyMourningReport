@@ -20,6 +20,7 @@ const base: SystemMetricsDTO = {
 
 function renderPage(m: SystemMetricsDTO) {
   vi.spyOn(systemApi, "metrics").mockResolvedValue(m);
+  if (!vi.isMockFunction(systemApi.logs)) vi.spyOn(systemApi, "logs").mockResolvedValue({ entries: [], errors_24h: 0, warnings_24h: 0, persisted: true });
   vi.spyOn(systemApi, "tunnel").mockResolvedValue({ state: "idle" } as never);
   vi.spyOn(systemApi, "update").mockResolvedValue({ state: "idle", available: false, current: "", latest: "" } as never);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -52,5 +53,28 @@ describe("HealthSection", () => {
     renderPage({ ...base, backups: { ...base.backups, run_overdue: true, last_run_at: "2026-11-05T08:00:00Z" } });
     expect(await screen.findByText("Потребує уваги: 1")).toBeDefined();
     expect(screen.getByText("Давно не запускалась")).toBeDefined();
+  });
+
+  it("shows what went wrong, not only how often: the cause of the last fault and the log lines", async () => {
+    const logs = vi.spyOn(systemApi, "logs").mockResolvedValue({
+      entries: [
+        { at: "2026-11-07T09:00:00Z", level: "error", message: "server error: POST /api/v1/transport/orders: database is locked", count: 3 },
+        { at: "2026-11-07T08:00:00Z", level: "warning", message: "WARNING: not writable", count: 1 },
+      ],
+      errors_24h: 3,
+      warnings_24h: 1,
+      persisted: true,
+    });
+    renderPage({
+      ...base,
+      http: { ...base.http, server_errors: 3, last_server_error: { at: new Date().toISOString(), method: "POST", path: "/api/v1/transport/orders", status: 500, message: "database is locked" } },
+    });
+    expect(await screen.findByText("500 POST /api/v1/transport/orders")).toBeDefined();
+    expect(screen.getAllByText("database is locked").length).toBeGreaterThan(0);
+    expect(await screen.findByText("server error: POST /api/v1/transport/orders: database is locked")).toBeDefined();
+    expect(screen.getByText("×3")).toBeDefined();
+    expect(screen.getByText("За добу: помилок 3, попереджень 1")).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Попередження" }));
+    await waitFor(() => expect(logs).toHaveBeenLastCalledWith("warning"));
   });
 });

@@ -580,6 +580,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/system/logs": {
+        parameters: { query?: { level?: "error" | "warning"; limit?: number }; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["SystemLogsDTO"] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/system/metrics": {
         parameters: { query?: never; header?: never; path?: never; cookie?: never };
         get: { responses: { 200: { content: { "application/json": components["schemas"]["SystemMetricsDTO"] } } } };
@@ -1571,6 +1582,14 @@ export interface components {
         };
         /** IntegrityDTO: the database quick_check verdict (cached for ten minutes, forced by POST) */
         IntegrityDTO: { verdict: string; ok: boolean; checked_at: string };
+        /** SystemLogsDTO: recent warnings and errors of the program (repeats merged, URLs reduced to their host) */
+        SystemLogsDTO: {
+            entries: { at: string; level: "error" | "warning"; message: string; count: number }[];
+            errors_24h: number;
+            warnings_24h: number;
+            /** entries are mirrored to a file and survive a restart */
+            persisted: boolean;
+        };
         /** SystemMetricsDTO: technical health of the running program (GET /admin/system/metrics) */
         SystemMetricsDTO: {
             build: { version: string; commit: string; built_at: string; go: string; platform: string; started_at: string; uptime_sec: number };
@@ -1587,7 +1606,7 @@ export interface components {
             sessions: { live: number; users: number };
             http: {
                 ok: number; client_errors: number; server_errors: number; requests: number; since_sec: number; server_error_pct: number;
-                last_server_error: { at: string; method: string; path: string; status: number } | null;
+                last_server_error: { at: string; method: string; path: string; status: number; message: string } | null;
             };
         };
         /** SystemHealthDTO */

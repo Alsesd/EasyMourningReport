@@ -32,6 +32,9 @@ import (
 )
 
 func main() {
+	// The log keeps its own record of warnings and errors for the health page (and a file, once the data folder is known).
+	logRing = system.NewLogRing(os.Stderr, 400)
+	log.SetOutput(logRing)
 	relaunch, exe, err := run()
 	if err == nil && relaunch {
 		// The previous run has closed the database and the tunnel; start the new program in its place.
@@ -46,6 +49,9 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+// logRing is the writer behind the standard logger (see main).
+var logRing *system.LogRing
 
 func run() (relaunch bool, exe string, err error) {
 	exe, err = os.Executable() // read once: after an update the running file is gone from this path
@@ -74,6 +80,11 @@ func serve(exe string) (bool, error) {
 		log.Printf("WARNING: %s is not writable, so data (database, backups, secret) is kept in %s instead. Move the program to a writable folder to keep everything next to it.", appDir, cfg.DataDir)
 	}
 	restrictFiles(cfg.DataDir, cfg.BackupsDir)
+	// Warnings and errors also go to <data>/logs/legkyi.log (about 1 MB, one rotation), so they survive a restart.
+	if err := logRing.AttachFile(filepath.Join(cfg.DataDir, "logs", "legkyi.log"), 1<<20); err != nil {
+		log.Printf("warning: the error log is kept in memory only: %v", err)
+	}
+	defer logRing.Close()
 	journal := config.JournalMode(cfg.JournalWant, cfg.DataDir, runtime.GOOS, "/proc/mounts")
 	if err := os.MkdirAll(cfg.BackupsDir, 0o755); err != nil {
 		log.Printf("[STORAGE WARNING] backups directory %s: %v", cfg.BackupsDir, err)
@@ -162,7 +173,7 @@ func serve(exe string) (bool, error) {
 	} else {
 		pusher = &platform.PushSender{Key: vapid, Subject: orEnv("VAPID_SUBJECT", "https://github.com/alsesd/easymourningreport")}
 	}
-	deps := web.Deps{Access: access, Push: pusher,
+	deps := web.Deps{Access: access, Push: pusher, Logs: logRing,
 		Store: st, Assets: assets.FS(), Registry: registry.Installed(), Secret: secret, Backups: backups,
 		BackupEveryMin: cfg.BackupEveryM, Tunnel: tun,
 		CookieSecure: os.Getenv("COOKIE_SECURE") == "1",

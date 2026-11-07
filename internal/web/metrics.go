@@ -2,14 +2,19 @@ package web
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"legkyi/internal/core"
 	"legkyi/internal/platform"
 	"legkyi/internal/store"
 	"legkyi/internal/system"
@@ -74,10 +79,11 @@ type httpMetrics struct {
 }
 
 type lastError struct {
-	At     time.Time
-	Method string
-	Path   string // without the query string
-	Status int
+	At      time.Time
+	Method  string
+	Path    string // without the query string
+	Status  int
+	Message string // the cause, as far as the handler reported it
 }
 
 type statusRecorder struct {
@@ -101,10 +107,59 @@ func (s *statusRecorder) Write(b []byte) (int, error) {
 
 func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter }
 
-// counted counts the API responses by class since the program started (2xx/3xx, 4xx, 5xx) and remembers the last 5xx.
+type errNoteKey struct{}
+
+// errNote carries the text of a 500 from done (which knows the error) to counted (which knows the status).
+type errNote struct {
+	mu   sync.Mutex
+	text string
+}
+
+func (n *errNote) set(t string) {
+	n.mu.Lock()
+	n.text = t
+	n.mu.Unlock()
+}
+
+func (n *errNote) get() string {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.text
+}
+
+const maxFaultText = 300
+
+func (m *httpMetrics) record5xx(r *http.Request, code int, text string) {
+	if rs := []rune(text); len(rs) > maxFaultText {
+		text = string(rs[:maxFaultText-1]) + "…"
+	}
+	m.server.Add(1)
+	m.mu.Lock()
+	m.last5xx = &lastError{At: time.Now(), Method: r.Method, Path: r.URL.Path, Status: code, Message: redactForPage(text)}
+	m.mu.Unlock()
+}
+
+// counted counts the API responses by class since the program started (2xx/3xx, 4xx, 5xx) and remembers the last
+// 5xx with its cause. A panic in a handler is turned into a logged 500 instead of a dropped connection.
 func (m *httpMetrics) counted(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		note := &errNote{}
+		r = r.WithContext(context.WithValue(r.Context(), errNoteKey{}, note))
 		rec := &statusRecorder{ResponseWriter: w}
+		defer func() {
+			p := recover()
+			if p == nil {
+				return
+			}
+			if p == http.ErrAbortHandler {
+				panic(p)
+			}
+			log.Printf("server error: panic serving %s %s: %v\n%s", r.Method, r.URL.Path, p, shortStack())
+			if rec.status == 0 { // nothing was sent yet: answer instead of dropping the connection
+				writeJSON(rec, http.StatusInternalServerError, map[string]string{"detail": "Внутрішня помилка сервера."})
+			}
+			m.record5xx(r, http.StatusInternalServerError, fmt.Sprint("panic: ", p))
+		}()
 		next.ServeHTTP(rec, r)
 		code := rec.status
 		if code == 0 {
@@ -112,10 +167,7 @@ func (m *httpMetrics) counted(next http.Handler) http.Handler {
 		}
 		switch {
 		case code >= 500:
-			m.server.Add(1)
-			m.mu.Lock()
-			m.last5xx = &lastError{At: time.Now(), Method: r.Method, Path: r.URL.Path, Status: code}
-			m.mu.Unlock()
+			m.record5xx(r, code, note.get())
 		case code >= 400:
 			m.client.Add(1)
 		default:
@@ -123,6 +175,18 @@ func (m *httpMetrics) counted(next http.Handler) http.Handler {
 		}
 	})
 }
+
+// shortStack is the top of the goroutine stack, enough to find the place of a panic.
+func shortStack() string {
+	lines := strings.Split(strings.TrimSpace(string(debug.Stack())), "\n")
+	if len(lines) > 16 {
+		lines = lines[:16]
+	}
+	return strings.Join(lines, "\n")
+}
+
+// redactForPage keeps a URL in an error text from reaching the page whole.
+func redactForPage(s string) string { return system.RedactURLs(s) }
 
 // ---- cached database figures ------------------------------------------------------------------------------------
 
@@ -247,10 +311,11 @@ type metricsDTO struct {
 }
 
 type lastErrDT struct {
-	At     string `json:"at"`
-	Method string `json:"method"`
-	Path   string `json:"path"`
-	Status int    `json:"status"`
+	At      string `json:"at"`
+	Method  string `json:"method"`
+	Path    string `json:"path"`
+	Status  int    `json:"status"`
+	Message string `json:"message"`
 }
 
 type jobDTO struct {
@@ -361,7 +426,7 @@ func (a *App) metrics(w http.ResponseWriter, r *http.Request, _ *platform.Princi
 	m.HTTP.SinceSec = m.Build.UptimeSec
 	a.http.mu.Lock()
 	if e := a.http.last5xx; e != nil {
-		m.HTTP.Last5xx = &lastErrDT{servedTimeOf(e.At.UTC()), e.Method, e.Path, e.Status}
+		m.HTTP.Last5xx = &lastErrDT{servedTimeOf(e.At.UTC()), e.Method, e.Path, e.Status, e.Message}
 	}
 	a.http.mu.Unlock()
 
@@ -373,5 +438,42 @@ func (a *App) metrics(w http.ResponseWriter, r *http.Request, _ *platform.Princi
 func (a *App) recheckIntegrity(w http.ResponseWriter, r *http.Request, _ *platform.Principal) error {
 	iv := a.integrity(true)
 	writeJSON(w, http.StatusOK, map[string]any{"verdict": iv.Verdict, "ok": iv.Verdict == "ok", "checked_at": servedTimeOf(iv.CheckedAt)})
+	return nil
+}
+
+type logEntryDTO struct {
+	At      string `json:"at"`
+	Level   string `json:"level"`
+	Message string `json:"message"`
+	Count   int    `json:"count"`
+}
+
+type logsDTO struct {
+	Entries    []logEntryDTO `json:"entries"`
+	Errors24h  int           `json:"errors_24h"`
+	Warnings24 int           `json:"warnings_24h"`
+	Persisted  bool          `json:"persisted"` // entries are kept in a file and survive a restart
+}
+
+// logs lists the recent warnings and errors of the program (level= error, warning or empty for both).
+func (a *App) logs(w http.ResponseWriter, r *http.Request, _ *platform.Principal) error {
+	pm := core.Query(r)
+	level := pm.String("level")
+	limit := pm.Int("limit", 100, 1, 300)
+	if err := pm.Err(); err != nil {
+		return err
+	}
+	if level != "" && level != "error" && level != "warning" {
+		return HTTPError{Status: 400, Detail: "Рівень: error або warning."}
+	}
+	out := logsDTO{Entries: []logEntryDTO{}}
+	if a.Logs != nil {
+		for _, e := range a.Logs.Recent(level, int(limit)) {
+			out.Entries = append(out.Entries, logEntryDTO{servedTimeOf(e.At.UTC()), e.Level, e.Message, e.Count})
+		}
+		out.Errors24h, out.Warnings24 = a.Logs.Counts(time.Now().Add(-24 * time.Hour))
+		out.Persisted = a.Logs.Persisted()
+	}
+	writeJSON(w, http.StatusOK, out)
 	return nil
 }

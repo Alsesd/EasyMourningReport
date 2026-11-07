@@ -77,6 +77,7 @@ func (a *App) mountSystem(rt *Router) {
 		return nil
 	}))
 	rt.Handle("GET", "/admin/system/metrics", a.authed(sm, a.metrics))
+	rt.Handle("GET", "/admin/system/logs", a.authed(sm, a.logs))
 	rt.Handle("POST", "/admin/system/integrity-check", a.authed(sm, a.recheckIntegrity))
 	rt.Handle("GET", "/admin/backup/download", a.authed(sm, a.downloadBackup))
 	rt.Handle("GET", "/admin/backups/{name}/download", a.authed(sm, a.downloadListedBackup))
@@ -194,7 +195,7 @@ func (a *App) downloadBackup(w http.ResponseWriter, r *http.Request, p *platform
 		return HTTPError{Status: 500, Detail: err.Error()}
 	}
 	if path == "" {
-		return fail500
+		return HTTPError{Status: 500, Detail: fail500.Detail + " (копію не створено)"}
 	}
 	return a.sendBackupFile(w, r, p, path, "завантажено бекап")
 }
@@ -217,11 +218,13 @@ func (a *App) sendBackupFile(w http.ResponseWriter, r *http.Request, p *platform
 	fail500 := HTTPError{Status: 500, Detail: "Не вдалося прочитати резервну копію"}
 	f, err := os.Open(path)
 	if err != nil {
+		log.Printf("backup download: cannot open %s: %v", filepath.Base(path), err)
 		return fail500
 	}
 	defer f.Close()
 	fi, err := f.Stat()
 	if err != nil {
+		log.Printf("backup download: cannot read %s: %v", filepath.Base(path), err)
 		return fail500
 	}
 	if err := a.audit(r, a.Trusted.ClientIP(r), p.User.Login, p.User.RoleLabel(), action, filepath.Base(path)); err != nil {

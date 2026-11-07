@@ -35,6 +35,8 @@ describe("module registry", () => {
     expect(navFor(["management.dashboard.view"]).map((n) => n.id)).toEqual(["dashboard"]);
     const route = appModules.flatMap((m) => m.routes).find((r) => r.path === "dashboard");
     expect(route?.permissions).toEqual(["management.dashboard.view"]);
+    // A user who holds only this permission has no other page: the dashboard is where they land.
+    expect(landingPathFor(session(["management.dashboard.view"]))).toBe("/admin/dashboard");
   });
 
   it("builds navigation from permissions", () => {

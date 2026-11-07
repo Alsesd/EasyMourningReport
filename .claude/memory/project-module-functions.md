@@ -43,3 +43,9 @@ type: project
   cancel is not a reply); «зараз» tiles ignore the month. Contracts changed on purpose: `modules` of the session gained
   `management`, the administrator's permissions and the catalogue gained the new code. To use: create a «Керівництво» role with
   this one permission, platform scope, user without a division.
+- **Error log** (2026-11-07): `system.LogRing` is the writer behind the standard `log` (installed first thing in `main`), keeps warnings/
+  errors (classified by the words «failed»/«error»/«warning»: heuristic), merges repeats, redacts URLs, and mirrors to
+  `<data>/logs/legkyi.log` (JSON lines, 0600, ~1 MB, one rotation, reloaded at start). `web.done(w, r, err)` logs every 5xx as
+  `server error: METHOD /path: cause` and hands the cause to the `counted` middleware (health page «Останній збій»); panics are
+  recovered into a logged 500. Page: health section «Журнал помилок і попереджень» (`GET /admin/system/logs`). Log lines stay
+  informational; only a 5xx of the last 24 h and failed jobs turn the summary red. Cloudflared writes to its own file, not into this log.

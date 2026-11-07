@@ -1,5 +1,6 @@
 /** «Стан програми»: technical health for the administrator. Business figures live on the management dashboard. */
 
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { systemApi } from "@/platform/system/api";
 import { formatBytes } from "@/platform/system/BackupSection";
@@ -18,6 +19,8 @@ export default function HealthSection() {
   const { data: m, isLoading, isError } = useQuery({ queryKey: ["systemMetrics"], queryFn: () => systemApi.metrics(), refetchInterval: REFRESH_MS });
   const { data: tunnel } = useQuery({ queryKey: ["tunnel"], queryFn: () => systemApi.tunnel(), refetchInterval: REFRESH_MS });
   const { data: upd } = useQuery({ queryKey: ["update"], queryFn: () => systemApi.update(), refetchInterval: REFRESH_MS });
+  const [logLevel, setLogLevel] = useState<"" | "error" | "warning">("");
+  const { data: logs } = useQuery({ queryKey: ["systemLogs", logLevel], queryFn: () => systemApi.logs(logLevel), refetchInterval: REFRESH_MS });
   const recheck = useMutation({
     mutationFn: () => systemApi.recheckIntegrity(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["systemMetrics"] }),
@@ -148,10 +151,42 @@ export default function HealthSection() {
           <StateRow
             label={h.lastServerError}
             tone={httpTone(m)}
-            state={`${m.http.last_server_error.status} ${m.http.last_server_error.method}`}
-            detail={`${m.http.last_server_error.path} · ${formatDateTime(m.http.last_server_error.at)}`}
+            state={`${m.http.last_server_error.status} ${m.http.last_server_error.method} ${m.http.last_server_error.path}`}
+            detail={formatDateTime(m.http.last_server_error.at)}
           />
         )}
+        {m.http.last_server_error?.message && <p className="break-words px-1 pb-2 text-sm text-text-main">{m.http.last_server_error.message}</p>}
+      </LedgerSection>
+
+      <LedgerSection id="health-log" title={h.log} description={h.logHint}>
+        <div className="flex flex-wrap items-center gap-2 px-1 py-3">
+          {(["", "error", "warning"] as const).map((lvl) => (
+            <Button key={lvl || "all"} type="button" size="sm" variant={logLevel === lvl ? "primary" : "outline"} aria-pressed={logLevel === lvl} onClick={() => setLogLevel(lvl)}>
+              {lvl === "" ? h.logAll : lvl === "error" ? h.logErrors : h.logWarnings}
+            </Button>
+          ))}
+          {logs && <span className="text-sm text-text-muted">{h.logCounts(logs.errors_24h, logs.warnings_24h)}</span>}
+        </div>
+        {!logs || logs.entries.length === 0 ? (
+          <p className="px-1 py-3 text-sm text-text-muted">{h.logEmpty}</p>
+        ) : (
+          <ul className="divide-y divide-border border-y border-border">
+            {logs.entries.map((e, i) => (
+              <li key={`${e.at}-${i}`} className="space-y-0.5 px-1 py-2.5 text-sm">
+                <p className="flex flex-wrap items-center gap-x-3">
+                  <span className="figure text-xs text-text-muted">{formatDateTime(e.at)}</span>
+                  <span className="flex items-center gap-1.5 font-medium text-text-main">
+                    <StateDot tone={e.level === "error" ? "error" : "busy"} />
+                    {e.level === "error" ? h.levelError : h.levelWarning}
+                  </span>
+                  {e.count > 1 && <span className="figure text-xs text-text-muted">{h.times(e.count)}</span>}
+                </p>
+                <p className="break-words text-text-main">{e.message}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        {logs && <p className="px-1 py-2 text-xs text-text-muted">{logs.persisted ? h.logPersisted : h.logMemoryOnly}</p>}
       </LedgerSection>
     </div>
   );

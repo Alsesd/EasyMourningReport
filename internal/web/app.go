@@ -37,6 +37,7 @@ type Deps struct {
 	Tunnel         *system.Tunnel       // nil gets a disabled one in New
 	Access         *AccessConfig        // nil: no Cloudflare Access check
 	Updater        *update.Updater      // nil: updates are not available (tests, development builds)
+	Logs           *system.LogRing      // recent warnings and errors of the program (nil: the page shows none)
 	Push           *platform.PushSender // Web Push (nil: not configured; the bell still works in the open app)
 	PasskeyRPID    string               // PASSKEY_RP_ID: pins the WebAuthn relying party id (default: the host the browser is on)
 }
@@ -142,7 +143,7 @@ func (a *App) authed(codes []string, h authedHandler) http.HandlerFunc {
 		if err == nil {
 			err = h(w, r, p)
 		}
-		a.done(w, err)
+		a.done(w, r, err)
 	}
 }
 
@@ -158,19 +159,35 @@ func (a *App) member(codes []string, h authedHandler) http.HandlerFunc {
 
 // handle adapts an error-returning handler.
 func (a *App) handle(h func(w http.ResponseWriter, r *http.Request) error) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) { a.done(w, h(w, r)) }
+	return func(w http.ResponseWriter, r *http.Request) { a.done(w, r, h(w, r)) }
 }
 
-func (a *App) done(w http.ResponseWriter, err error) {
+// done turns a handler's error into the response. Every response of 500 or more is logged with the request that
+// caused it (method and path, no query string) and noted for the health page: the counter alone says how often,
+// this says what.
+func (a *App) done(w http.ResponseWriter, r *http.Request, err error) {
 	if err == nil {
 		return
 	}
-	switch err.(type) {
-	case validationError, FormError, HTTPError, platform.RuleError:
+	switch e := err.(type) {
+	case validationError, FormError, platform.RuleError:
+		fail(w, err)
+	case HTTPError:
+		if e.Status >= 500 {
+			noteServerError(r, e.Detail)
+		}
 		fail(w, err)
 	default:
-		log.Printf("internal error: %v", err)
+		noteServerError(r, err.Error())
 		fail(w, err)
+	}
+}
+
+// noteServerError logs a fault of the program and hands its text to the request's counter (see counted).
+func noteServerError(r *http.Request, text string) {
+	log.Printf("server error: %s %s: %s", r.Method, r.URL.Path, text)
+	if n, ok := r.Context().Value(errNoteKey{}).(*errNote); ok {
+		n.set(text)
 	}
 }
 

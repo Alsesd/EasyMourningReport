@@ -250,3 +250,23 @@ func TestDashboardSendsEmptyListsNotNull(t *testing.T) {
 		t.Fatalf("a null in the dashboard: %s", w.Body)
 	}
 }
+
+// The way the owner will do it: create the role in the role editor (platform scope, this one permission), give it to a
+// user who belongs to no division, and that user opens the dashboard and nothing else.
+func TestManagerRoleMadeInTheRoleEditorOpensTheDashboard(t *testing.T) {
+	d := newDesks(t)
+	boss := d.e.as("boss", "Boss-pass1")
+	role := boss.json("POST", "/api/v1/roles", `{"name":"Керівництво","scope":"platform","permissions":["management.dashboard.view"]}`, 201)
+	boss.json("POST", "/api/v1/users", `{"login":"director","password":"Director-pass-1","role_ids":[`+itoa(int(num(role["id"])))+`]}`, 201)
+	head := sessionCookie(d.e.login("director", "Director-pass-1"))
+	got, code := d.dashboard(head, "2026-11")
+	if code != 200 || !got.block("reports") || !got.block("transport") {
+		t.Fatalf("the role opens the dashboard: %d %+v", code, got)
+	}
+	if w := d.e.do("GET", "/api/v1/admin/overview", "", nil, head); w.Code != 200 {
+		t.Fatalf("the overview endpoint is open to any signed-in user: %d", w.Code)
+	}
+	if w := d.e.do("GET", "/api/v1/users", "", nil, head); w.Code != 403 {
+		t.Fatalf("and nothing else opens: %d", w.Code)
+	}
+}
