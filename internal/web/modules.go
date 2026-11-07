@@ -15,7 +15,15 @@ import (
 // A module cannot register an unprotected route, and the shell never imports a module.
 
 func (a *App) services() core.Services {
+	var catalog func(ctx context.Context, q core.Querier) ([]core.CatalogProduct, error)
+	for _, m := range a.Registry.Modules {
+		if m.Catalog != nil {
+			catalog = m.Catalog
+			break
+		}
+	}
 	return core.Services{
+		Catalog:  catalog,
 		Read:     a.Store.R,
 		Write:    a.write,
 		Now:      a.now,

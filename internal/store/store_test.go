@@ -49,7 +49,7 @@ func structure(t *testing.T, db *sql.DB) string {
 	t.Helper()
 	var tables []string
 	// Tables owned by the Go program are not part of the Python shape being compared.
-	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('user_sessions', 'session_devices', 'passkeys', 'transport_orders', 'transport_order_stops', 'transport_order_events', 'report_submissions', 'notifications', 'push_subscriptions') ORDER BY name")
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('user_sessions', 'session_devices', 'passkeys', 'transport_orders', 'transport_order_stops', 'transport_order_events', 'report_submissions', 'notifications', 'push_subscriptions', 'transport_cars', 'product_requests', 'product_request_items', 'transport_runs', 'transport_run_stops', 'transport_cargo') ORDER BY name")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -507,5 +507,69 @@ func TestEnsureSchemaAddsIsMilitaryToExistingTransportOrders(t *testing.T) {
 	var mil int
 	if err := s.R.QueryRow("SELECT is_military FROM transport_orders WHERE deceased = 'Old order'").Scan(&mil); err != nil || mil != 0 {
 		t.Fatalf("is_military: %d %v", mil, err)
+	}
+}
+
+// A database that already holds transport orders from before the fleet registry gets the new tables and the two
+// additive car-id columns, keeps its rows, and a second start changes nothing.
+func TestTransportV2TablesAndColumnsAppearOnAnExistingDatabase(t *testing.T) {
+	for _, name := range []string{"migrated_very_old", "migrated_previous_release"} {
+		t.Run(name, func(t *testing.T) {
+			s := openTemp(t)
+			loadSnapshot(t, s, name)
+			if _, err := s.W.Exec(`INSERT INTO organisations (name, archived) VALUES ('Філія', 0)`); err != nil {
+				t.Fatal(err)
+			}
+			// The order table as the previous Go release created it (no car-id columns).
+			if _, err := s.W.Exec(`CREATE TABLE transport_orders (
+				id INTEGER PRIMARY KEY AUTOINCREMENT, organisation_id INTEGER NOT NULL REFERENCES organisations (id),
+				service_date TEXT NOT NULL, deceased TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '',
+				has_delivery INTEGER NOT NULL DEFAULT 0, delivery_car TEXT NOT NULL DEFAULT '', delivery_from TEXT NOT NULL DEFAULT '',
+				delivery_time TEXT NOT NULL DEFAULT '', destination TEXT NOT NULL DEFAULT '', has_carriers INTEGER NOT NULL DEFAULT 0,
+				carriers_car TEXT NOT NULL DEFAULT '', carriers_from TEXT NOT NULL DEFAULT '', carriers_count INTEGER NOT NULL DEFAULT 0,
+				carriers_time TEXT NOT NULL DEFAULT '', cemetery_number TEXT NOT NULL DEFAULT '', is_military INTEGER NOT NULL DEFAULT 0,
+				status TEXT NOT NULL, reply_note TEXT NOT NULL DEFAULT '', created_by_id INTEGER, created_by_name TEXT NOT NULL DEFAULT '',
+				created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.W.Exec(`INSERT INTO transport_orders (organisation_id, service_date, deceased, has_delivery, delivery_car, status, created_at, updated_at)
+				VALUES (1, '2026-11-06', 'Старий запис', 1, 'аа 1234 вв', 'submitted', 1, 1)`); err != nil {
+				t.Fatal(err)
+			}
+			for i := 0; i < 2; i++ {
+				if err := s.EnsureSchema(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			has := func(table, column string) bool {
+				var n int
+				if err := s.R.QueryRow("SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?", table, column).Scan(&n); err != nil {
+					t.Fatal(err)
+				}
+				return n == 1
+			}
+			for _, c := range [][2]string{{"transport_orders", "delivery_car_id"}, {"transport_orders", "carriers_car_id"},
+				{"transport_cars", "plate"}, {"product_requests", "need_date"}, {"product_request_items", "quantity"},
+				{"transport_runs", "car_plate"}, {"transport_run_stops", "position"}, {"transport_cargo", "run_stop_id"}} {
+				if !has(c[0], c[1]) {
+					t.Errorf("%s.%s is missing", c[0], c[1])
+				}
+			}
+			var car string
+			var carID sql.NullInt64
+			if err := s.R.QueryRow("SELECT delivery_car, delivery_car_id FROM transport_orders").Scan(&car, &carID); err != nil || car != "аа 1234 вв" || carID.Valid {
+				t.Fatalf("old row changed: %q %v %v", car, carID, err)
+			}
+			if _, err := s.W.Exec("INSERT INTO transport_cars (plate, created_at) VALUES ('АА1234ВВ', 1)"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.W.Exec("INSERT INTO transport_cars (plate, created_at) VALUES ('АА1234ВВ', 1)"); err == nil {
+				t.Fatal("a plate must be unique")
+			}
+			// The cargo carrier is exactly one of order or run stop.
+			if _, err := s.W.Exec("INSERT INTO transport_cargo (item_id, quantity) VALUES (1, 1)"); err == nil {
+				t.Fatal("cargo without a carrier must be refused")
+			}
+		})
 	}
 }

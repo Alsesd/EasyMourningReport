@@ -4,12 +4,14 @@ package registry
 
 import (
 	"context"
+	"database/sql"
 	"legkyi/internal/core"
 	"legkyi/internal/management"
 	"legkyi/internal/platform"
 	"legkyi/internal/reports"
 	"legkyi/internal/transport"
 	"sort"
+	"time"
 )
 
 type Registry struct{ Modules []core.Module }
@@ -111,6 +113,17 @@ func (r *Registry) Seeds() []core.SeedFunc {
 	for _, m := range r.Modules {
 		if m.Seed != nil {
 			out = append(out, m.Seed)
+		}
+	}
+	return out
+}
+
+// Startups returns the start-up hooks (idempotent backfills) of the installed modules.
+func (r *Registry) Startups() []func(ctx context.Context, tx *sql.Tx, now time.Time) error {
+	var out []func(ctx context.Context, tx *sql.Tx, now time.Time) error
+	for _, m := range r.Modules {
+		if m.Startup != nil {
+			out = append(out, m.Startup)
 		}
 	}
 	return out

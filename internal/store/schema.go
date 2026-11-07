@@ -107,6 +107,74 @@ var goOwned = []string{
 		note TEXT NOT NULL DEFAULT ''
 	)`,
 	`CREATE INDEX IF NOT EXISTS ix_transport_order_events_order ON transport_order_events (order_id)`,
+	// Transport v2 (module transport): the fleet, product requests from the desks, goods runs and the cargo that
+	// ties a requested item to the order or run stop that carries it. All Go-owned; none of it touches a Python
+	// table (the order's car ids are additive columns, see goOwnedColumns).
+	`CREATE TABLE IF NOT EXISTS transport_cars (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		plate TEXT NOT NULL UNIQUE,
+		nonstandard INTEGER NOT NULL DEFAULT 0,
+		label TEXT NOT NULL DEFAULT '',
+		active INTEGER NOT NULL DEFAULT 1,
+		created_at INTEGER NOT NULL
+	)`,
+	`CREATE TABLE IF NOT EXISTS product_requests (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		organisation_id INTEGER NOT NULL REFERENCES organisations (id),
+		need_date TEXT NOT NULL,
+		deceased TEXT NOT NULL DEFAULT '',
+		notes TEXT NOT NULL DEFAULT '',
+		status TEXT NOT NULL,
+		reply_note TEXT NOT NULL DEFAULT '',
+		created_by_id INTEGER,
+		created_by_name TEXT NOT NULL DEFAULT '',
+		created_at INTEGER NOT NULL,
+		updated_at INTEGER NOT NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_product_requests_org ON product_requests (organisation_id, need_date)`,
+	`CREATE INDEX IF NOT EXISTS ix_product_requests_date ON product_requests (need_date)`,
+	`CREATE TABLE IF NOT EXISTS product_request_items (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		request_id INTEGER NOT NULL REFERENCES product_requests (id) ON DELETE CASCADE,
+		product_id INTEGER NOT NULL,
+		product_name TEXT NOT NULL,
+		quantity INTEGER NOT NULL CHECK (quantity > 0)
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_product_request_items_request ON product_request_items (request_id)`,
+	`CREATE TABLE IF NOT EXISTS transport_runs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		service_date TEXT NOT NULL,
+		car_id INTEGER NOT NULL,
+		car_plate TEXT NOT NULL,
+		time TEXT NOT NULL,
+		departure TEXT NOT NULL DEFAULT '',
+		notes TEXT NOT NULL DEFAULT '',
+		status TEXT NOT NULL,
+		created_by_id INTEGER,
+		created_by_name TEXT NOT NULL DEFAULT '',
+		created_at INTEGER NOT NULL,
+		updated_at INTEGER NOT NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_transport_runs_date ON transport_runs (service_date)`,
+	`CREATE TABLE IF NOT EXISTS transport_run_stops (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		run_id INTEGER NOT NULL REFERENCES transport_runs (id) ON DELETE CASCADE,
+		position INTEGER NOT NULL,
+		organisation_id INTEGER NOT NULL,
+		place TEXT NOT NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_transport_run_stops_run ON transport_run_stops (run_id)`,
+	`CREATE TABLE IF NOT EXISTS transport_cargo (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		item_id INTEGER NOT NULL REFERENCES product_request_items (id) ON DELETE CASCADE,
+		quantity INTEGER NOT NULL,
+		order_id INTEGER NULL REFERENCES transport_orders (id) ON DELETE CASCADE,
+		run_stop_id INTEGER NULL REFERENCES transport_run_stops (id) ON DELETE CASCADE,
+		CHECK ((order_id IS NULL) != (run_stop_id IS NULL))
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_transport_cargo_item ON transport_cargo (item_id)`,
+	`CREATE INDEX IF NOT EXISTS ix_transport_cargo_order ON transport_cargo (order_id)`,
+	`CREATE INDEX IF NOT EXISTS ix_transport_cargo_stop ON transport_cargo (run_stop_id)`,
 	// The signature of a monthly report. One row per kind: "store" is the store employee who submitted it last
 	// (kept after an administrator unlocks the report, replaced when the store submits again) and "admin" is
 	// the administrator who locked it last. id plus a name snapshot, so the signature survives renames.
@@ -157,6 +225,9 @@ var goOwnedColumns = []struct{ table, column, def string }{
 	{"transport_orders", "is_military", "INTEGER NOT NULL DEFAULT 0"},
 	// pushed_at: 0 = not yet handed to the push dispatcher (a stale row is retired by the dispatcher, never sent).
 	{"notifications", "pushed_at", "INTEGER NOT NULL DEFAULT 0"},
+	// Fleet links of an order's two parts (NULL = a free-text car, or none yet). The text columns stay the snapshot.
+	{"transport_orders", "delivery_car_id", "INTEGER"},
+	{"transport_orders", "carriers_car_id", "INTEGER"},
 }
 
 func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
@@ -174,7 +245,8 @@ func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
 }
 
 // GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
-var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions", "notifications", "push_subscriptions"}
+var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions", "notifications", "push_subscriptions",
+	"transport_cars", "product_requests", "product_request_items", "transport_runs", "transport_run_stops", "transport_cargo"}
 
 type object struct {
 	kind, name, table, sql string

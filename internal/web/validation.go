@@ -50,7 +50,11 @@ func fail(w http.ResponseWriter, err error) {
 		for k, v := range e.Headers {
 			w.Header().Set(k, v)
 		}
-		writeJSON(w, e.Status, map[string]string{"detail": e.Detail})
+		body := map[string]string{"detail": e.Detail}
+		if e.Code != "" {
+			body["code"] = e.Code
+		}
+		writeJSON(w, e.Status, body)
 	default:
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"detail": "Internal Server Error"})
 	}
