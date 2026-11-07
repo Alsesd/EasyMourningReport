@@ -8,7 +8,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const baseStyles =
-  "inline-flex items-center justify-center gap-2 font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-page disabled:opacity-50 disabled:pointer-events-none select-none rounded-control";
+  "inline-flex items-center justify-center gap-2 font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-page disabled:opacity-50 disabled:pointer-events-none select-none rounded-control active:translate-y-px motion-reduce:active:translate-y-0";
 
 const variantStyles = {
   primary: "bg-primary text-primary-fg hover:bg-primary-hover",
@@ -52,7 +52,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {isLoading && (
           <svg
-            className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
+            className="animate-spin -ml-1 h-4 w-4 text-current"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"

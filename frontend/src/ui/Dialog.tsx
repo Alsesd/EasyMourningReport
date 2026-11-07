@@ -31,14 +31,11 @@ export const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-surface p-6 shadow-overlay rounded-card focus-visible:outline-none sm:max-w-[425px] data-[state=open]:animate-dialog-show data-[state=closed]:animate-dialog-hide max-sm:inset-0 max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:content-start max-sm:overflow-y-auto max-sm:rounded-none max-sm:border-0 max-sm:px-4 max-sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]",
-        className
-      )}
+      className={cn("dialog-panel focus-visible:outline-none", className)}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-control p-1 text-text-muted transition-colors hover:bg-surface-raised hover:text-text-main min-h-[44px] min-w-[44px] flex items-center justify-center">
+      <DialogPrimitive.Close className="absolute right-2 top-2 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-control text-text-muted transition-colors hover:bg-surface-raised hover:text-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
         <X className="h-5 w-5" />
         <span className="sr-only">Закрити</span>
       </DialogPrimitive.Close>

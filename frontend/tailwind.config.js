@@ -83,14 +83,6 @@ export default {
           "0%": { opacity: "0", transform: "translateY(-4px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        dialogShow: {
-          "0%": { opacity: "0", transform: "translate(-50%, -48%)" },
-          "100%": { opacity: "1", transform: "translate(-50%, -50%)" },
-        },
-        dialogHide: {
-          "0%": { opacity: "1", transform: "translate(-50%, -50%)" },
-          "100%": { opacity: "0", transform: "translate(-50%, -48%)" },
-        },
       },
       animation: {
         "fade-in": "fadeIn 0.18s ease-out",
@@ -99,8 +91,6 @@ export default {
         "slide-up": "fadeIn 0.18s ease-out",
         "scale-in": "fadeIn 0.18s ease-out",
         "scale-out": "fadeOut 0.15s ease-in forwards",
-        "dialog-show": "dialogShow 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-        "dialog-hide": "dialogHide 0.15s ease-in forwards",
       },
     },
   },
