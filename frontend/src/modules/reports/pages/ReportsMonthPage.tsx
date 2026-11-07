@@ -3,6 +3,7 @@
  * the Excel export mirrors. Replaces the former separate summary and reports-list pages.
  */
 
+import { SkeletonRows } from "@/ui/Skeleton";
 import { Fragment } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -93,8 +94,8 @@ export default function ReportsMonthPage() {
   );
 }
 
-function QueryState({ isLoading, error, onRetry, loading }: { isLoading: boolean; error: unknown; onRetry: () => void; loading: string }) {
-  if (isLoading) return <p className="py-8 text-sm text-text-muted">{loading}</p>;
+function QueryState({ isLoading, error, onRetry }: { isLoading: boolean; error: unknown; onRetry: () => void; loading: string }) {
+  if (isLoading) return <SkeletonRows rows={4} className="mt-1" />;
   if (!error) return null;
   return (
     <div role="alert" className="flex flex-wrap items-center justify-between gap-3 py-4 text-sm text-destructive">

@@ -1,3 +1,4 @@
+import { SkeletonRows } from "@/ui/Skeleton";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/platform/api/client";
@@ -14,8 +15,8 @@ import { StatusPill } from "@/modules/reports/components/StatusPill";
 import { Signature } from "@/modules/reports/components/Signature";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { QuantityStepper } from "@/ui/QuantityStepper";
-import { ThemeToggle } from "@/ui/ThemeToggle";
 import { MakerMark } from "@/ui/MakerMark";
+import { ThemeToggle } from "@/ui/ThemeToggle";
 import {
   Dialog,
   DialogContent,
@@ -290,12 +291,13 @@ export default function StoreReportPage() {
                 to={workspaceLink.to}
                 aria-label={workspaceLink.label}
                 title={workspaceLink.label}
-                className="grid h-11 w-11 place-items-center rounded-control text-text-muted transition-colors hover:bg-surface-raised hover:text-text-main"
+                className="inline-flex h-11 min-w-[44px] items-center justify-center gap-2 rounded-control px-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-surface-raised hover:text-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:border sm:border-border sm:px-3"
               >
-                <workspaceLink.icon className="h-[18px] w-[18px]" aria-hidden="true" />
+                <workspaceLink.icon className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
+                <span className="hidden sm:inline">{workspaceLink.label}</span>
               </Link>
             )}
-            <MakerMark />
+            <MakerMark className="hidden sm:inline-flex" />
             <ThemeToggle />
             <NotificationBell />
             <AccountMenu />
@@ -361,7 +363,7 @@ export default function StoreReportPage() {
           </p>
         )}
 
-        {isLoading && <p className="py-10 text-sm text-text-muted">{uk.common.loading}</p>}
+        {isLoading && <SkeletonRows rows={5} />}
 
         {isError && (
           <div role="alert" className="ledger space-y-3 py-6">

@@ -1,5 +1,6 @@
 /** Per-organisation report options: the «По розрахунку» calculation-quantity mode. */
 
+import { SkeletonRows } from "@/ui/Skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { reportsApi } from "@/modules/reports/api";
 import { uk } from "@/modules/reports/i18n";
@@ -27,7 +28,7 @@ export default function ReportSettingsSection({ notify }: AdminSectionProps) {
     <LedgerSection id="calculation" title={uk.settings.reportSettings.title} description={uk.settings.reportSettings.description} className="max-w-3xl">
       <div className="divide-y divide-border">
         {isLoading ? (
-          <p className="py-6 text-sm text-text-muted">{uk.common.loading}</p>
+          <SkeletonRows rows={3} />
         ) : visible.length === 0 ? (
           <p className="py-6 text-sm text-text-muted">{uk.settings.reportSettings.empty}</p>
         ) : (

@@ -1,5 +1,6 @@
 /** Roles: named permission sets. Permissions come from every installed module. */
 
+import { SkeletonRows } from "@/ui/Skeleton";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accessApi } from "@/platform/access/api";
@@ -230,7 +231,7 @@ export default function RolesSection({ notify }: AdminSectionProps) {
       <div className="ledger">
         <div className="divide-y divide-border">
           {isLoading ? (
-            <p className="p-6 text-sm text-text-muted">{uk.common.loading}</p>
+            <SkeletonRows rows={3} className="border-t-0" />
           ) : (
             roles.map((role) => {
               const editing = editingId === role.id;

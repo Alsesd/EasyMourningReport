@@ -86,12 +86,12 @@ export default function AdminLayout() {
 
         <div className="space-y-2 border-t border-border px-3 py-4">
           <AccountMenu variant="sidebar" />
-          <div className="flex items-center justify-between gap-2 px-1">
-            <div className="flex items-center gap-1">
-              <ThemeToggle placement="up" />
+          <div className="flex items-center justify-between gap-1">
+            <ThemeToggle placement="up" />
+            <div className="flex items-center">
               <NotificationBell />
+              <MakerMark />
             </div>
-            <MakerMark />
           </div>
         </div>
       </aside>
@@ -104,7 +104,7 @@ export default function AdminLayout() {
             <span className="truncate font-serif text-base font-semibold">{uk.appTitle}</span>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <MakerMark />
+            <MakerMark className="hidden sm:inline-flex" />
             <ThemeToggle />
             <NotificationBell />
             <AccountMenu />

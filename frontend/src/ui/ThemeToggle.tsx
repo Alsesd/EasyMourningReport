@@ -5,7 +5,7 @@ import { DEFAULT_UI_SCALE, UI_SCALES, stepUiScale } from "@/platform/theme/uiSca
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/ui/utils";
 
-export function ThemeToggle({ className, placement = "down" }: { className?: string; /** "up" at the bottom of the screen (sidebar footer). */ placement?: "down" | "up" }) {
+export function ThemeToggle({ className, placement = "down", showLabel = placement === "up" }: { className?: string; /** "up" at the bottom of the screen (sidebar footer). */ placement?: "down" | "up"; /** Show the current theme name next to the icon (default: in the sidebar only). */ showLabel?: boolean }) {
   const { theme, effectiveTheme, setTheme, scale, setScale } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -28,25 +28,30 @@ export function ThemeToggle({ className, placement = "down" }: { className?: str
     { value: "system", label: uk.nav.themeSystem, icon: Laptop },
   ];
 
+  const currentLabel = theme === "light" ? uk.nav.themeLight : theme === "dark" ? uk.nav.themeDark : uk.nav.themeSystem;
+
   return (
     <div className={cn("relative inline-block text-left", className)} ref={containerRef}>
       <button
         type="button"
         id="theme-toggle"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-control border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text-main hover:bg-surface-raised transition-colors"
-        aria-label={uk.nav.appearance}
+        title={`${uk.nav.appearance}: ${currentLabel}`}
+        className={cn(
+          "inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-control text-sm font-medium text-text-muted transition-colors hover:bg-surface-raised hover:text-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+          showLabel ? "gap-2 px-3" : "px-2.5",
+          isOpen && "bg-surface-raised text-text-main",
+        )}
+        aria-label={showLabel ? undefined : `${uk.nav.appearance}: ${currentLabel}`}
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
         {effectiveTheme === "dark" ? (
-          <Moon className="h-4 w-4 mr-1.5 text-text-muted" aria-hidden="true" />
+          <Moon className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
         ) : (
-          <Sun className="h-4 w-4 mr-1.5 text-text-muted" aria-hidden="true" />
+          <Sun className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
         )}
-        <span className="hidden sm:inline">
-          {theme === "light" ? uk.nav.themeLight : theme === "dark" ? uk.nav.themeDark : uk.nav.themeSystem}
-        </span>
+        {showLabel && <span>{currentLabel}</span>}
       </button>
 
       {isOpen && (
@@ -69,7 +74,7 @@ export function ThemeToggle({ className, placement = "down" }: { className?: str
                   setIsOpen(false);
                 }}
                 className={cn(
-                  "w-full flex items-center px-3 py-2 text-xs text-left min-h-[44px] hover:bg-surface-raised transition-colors",
+                  "w-full flex items-center px-3 py-2 text-sm text-left min-h-[44px] hover:bg-surface-raised transition-colors",
                   isSelected ? "font-semibold text-primary" : "text-text-main"
                 )}
               >

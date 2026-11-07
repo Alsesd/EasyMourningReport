@@ -90,7 +90,7 @@ describe("NotificationBell", () => {
     vi.spyOn(notificationsApi, "list").mockResolvedValue({ unread: 0, items: [] });
     renderBell();
     fireEvent.click(await screen.findByRole("button", { name: "Сповіщення" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Показувати сповіщення на цьому пристрої" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Показувати сповіщення на цьому пристрої" }));
     await waitFor(() => expect(FakeNotification.requestPermission).toHaveBeenCalled());
     expect(await screen.findByText(/дозволено/)).toBeDefined();
   });

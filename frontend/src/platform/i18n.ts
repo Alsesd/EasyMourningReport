@@ -144,6 +144,8 @@ export const ukPlatform = {
     testNoPush: "Push на сервері не налаштовано: сповіщення приходять лише в дзвінок.",
     deviceDenied: "Браузер заборонив сповіщення. Дозвольте їх у налаштуваннях сайту.",
     unread: "нове",
+    unreadCount: (n: number) => `Нових: ${n}`,
+    allRead: "Усе прочитано",
   },
 
   account: {

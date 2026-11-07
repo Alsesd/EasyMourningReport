@@ -13,6 +13,7 @@ import type { NotificationsDTO } from "@/platform/api/types";
 import { notificationsApi } from "@/platform/notifications/api";
 import { notificationPermission, showDeviceNotification } from "@/platform/device/notify";
 import { Button } from "@/ui/Button";
+import { Switch } from "@/ui/Switch";
 import { AnchoredPanel } from "@/ui/Popover";
 import { cn } from "@/ui/utils";
 
@@ -80,6 +81,7 @@ export function NotificationBell({ className }: { className?: string }) {
         <button
           type="button"
           aria-label={t.bell(unread)}
+          title={t.title}
           className={cn(
             "relative grid h-11 w-11 shrink-0 place-items-center rounded-control text-text-muted transition-colors hover:bg-surface-raised hover:text-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
             className,
@@ -97,15 +99,11 @@ export function NotificationBell({ className }: { className?: string }) {
         </button>
       }
     >
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
-        <Button type="button" variant="outline" size="sm" disabled={unread === 0 || readAll.isPending} onClick={() => readAll.mutate()}>
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-1.5">
+        <span className="text-sm text-text-muted">{unread > 0 ? t.unreadCount(unread) : t.allRead}</span>
+        <Button type="button" variant="ghost" size="sm" disabled={unread === 0 || readAll.isPending} onClick={() => readAll.mutate()}>
           {t.markAll}
         </Button>
-        {permission === "default" && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => void enableDevice()}>
-            {t.enableDevice}
-          </Button>
-        )}
       </div>
       <ul className="min-h-0 max-h-[50dvh] divide-y divide-border overflow-y-auto overscroll-contain sm:max-h-none sm:flex-1">
         {items.length === 0 ? (
@@ -134,17 +132,26 @@ export function NotificationBell({ className }: { className?: string }) {
           ))
         )}
       </ul>
-      <div className="space-y-2 border-t border-border bg-surface-raised px-4 py-3">
+      <div className="space-y-3 border-t border-border bg-surface-raised px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-medium text-text-main">{t.enableDevice}</span>
+          <Switch
+            label={t.enableDevice}
+            checked={permission === "granted"}
+            disabled={permission !== "default"}
+            onChange={() => void enableDevice()}
+            onText={uk.system.on}
+            offText={uk.system.off}
+          />
+        </div>
         <p className="text-xs leading-snug text-text-muted">
           {permission === "default" && t.deviceHint}
           {permission === "granted" && t.deviceOn}
           {permission === "denied" && t.deviceDenied}
         </p>
-        <div>
-          <Button type="button" variant="outline" size="sm" disabled={sendTest.isPending} onClick={() => sendTest.mutate()}>
-            {sendTest.isPending ? t.sendingTest : t.sendTest}
-          </Button>
-        </div>
+        <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" disabled={sendTest.isPending} onClick={() => sendTest.mutate()}>
+          {sendTest.isPending ? t.sendingTest : t.sendTest}
+        </Button>
         {testResult && (
           <p role="status" className="text-xs text-text-main">
             {testResult}
