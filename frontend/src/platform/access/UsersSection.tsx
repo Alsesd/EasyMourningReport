@@ -76,7 +76,7 @@ function UserForm({
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <label htmlFor={`${idPrefix}-login`} className="text-xs font-medium text-text-muted">{uk.access.loginLabel}</label>
+          <label htmlFor={`${idPrefix}-login`} className="block text-xs font-medium text-text-muted">{uk.access.loginLabel}</label>
           <Input
             id={`${idPrefix}-login`}
             value={value.login}
@@ -89,7 +89,7 @@ function UserForm({
           />
         </div>
         <div className="space-y-1.5">
-          <label htmlFor={`${idPrefix}-name`} className="text-xs font-medium text-text-muted">{uk.access.fullNameLabel}</label>
+          <label htmlFor={`${idPrefix}-name`} className="block text-xs font-medium text-text-muted">{uk.access.fullNameLabel}</label>
           <Input
             id={`${idPrefix}-name`}
             value={value.full_name}
@@ -100,7 +100,7 @@ function UserForm({
         </div>
         {withPassword && (
           <div className="space-y-1.5">
-            <label htmlFor={`${idPrefix}-password`} className="text-xs font-medium text-text-muted">{uk.access.passwordLabel}</label>
+            <label htmlFor={`${idPrefix}-password`} className="block text-xs font-medium text-text-muted">{uk.access.passwordLabel}</label>
             <Input
               id={`${idPrefix}-password`}
               type="password"
@@ -117,7 +117,7 @@ function UserForm({
         )}
         {platformManager && (
           <div className="space-y-1.5">
-            <label htmlFor={`${idPrefix}-org`} className="text-xs font-medium text-text-muted">{uk.access.organisationLabel}</label>
+            <label htmlFor={`${idPrefix}-org`} className="block text-xs font-medium text-text-muted">{uk.access.organisationLabel}</label>
             <select
               id={`${idPrefix}-org`}
               value={value.organisation_id ?? PLATFORM}
@@ -210,7 +210,7 @@ function PasswordReset({ user, notify }: { user: UserDTO; notify: AdminSectionPr
       }}
     >
       <div className="flex-1 space-y-1.5">
-        <label htmlFor={`reset-${user.id}`} className="text-xs font-medium text-text-muted">{uk.access.resetPassword}</label>
+        <label htmlFor={`reset-${user.id}`} className="block text-xs font-medium text-text-muted">{uk.access.resetPassword}</label>
         <Input
           id={`reset-${user.id}`}
           type="password"
@@ -299,7 +299,7 @@ export default function UsersSection({ notify }: AdminSectionProps) {
       <div className="flex flex-col sm:flex-row gap-3 sm:items-end justify-between">
         {platformManager ? (
           <div className="space-y-1.5">
-            <label htmlFor="users-filter" className="text-xs font-medium text-text-muted">{uk.access.organisationLabel}</label>
+            <label htmlFor="users-filter" className="block text-xs font-medium text-text-muted">{uk.access.organisationLabel}</label>
             <select
               id="users-filter"
               value={filter}

@@ -177,7 +177,7 @@ export function NewOrganisationForm({
           )}
 
           <div className="space-y-1.5">
-            <label htmlFor="org-name" className="text-xs font-medium text-text-muted">{uk.access.organisationName}</label>
+            <label htmlFor="org-name" className="block text-xs font-medium text-text-muted">{uk.access.organisationName}</label>
             <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} required autoFocus className="h-11" />
           </div>
 
@@ -189,7 +189,7 @@ export function NewOrganisationForm({
               {employees.map((e, index) => (
                 <div key={e.key} className="grid gap-3 border border-border bg-surface-raised p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)_auto] sm:items-end">
                   <div className="space-y-1.5">
-                    <label htmlFor={`emp-login-${e.key}`} className="text-xs font-medium text-text-muted">{uk.access.loginLabel}</label>
+                    <label htmlFor={`emp-login-${e.key}`} className="block text-xs font-medium text-text-muted">{uk.access.loginLabel}</label>
                     <Input
                       id={`emp-login-${e.key}`}
                       value={e.login}
@@ -203,7 +203,7 @@ export function NewOrganisationForm({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label htmlFor={`emp-password-${e.key}`} className="text-xs font-medium text-text-muted">{uk.access.passwordLabel}</label>
+                    <label htmlFor={`emp-password-${e.key}`} className="block text-xs font-medium text-text-muted">{uk.access.passwordLabel}</label>
                     <div className="flex gap-1.5">
                       <Input
                         id={`emp-password-${e.key}`}
@@ -238,7 +238,7 @@ export function NewOrganisationForm({
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <label htmlFor={`emp-role-${e.key}`} className="text-xs font-medium text-text-muted">{uk.access.employeeRole}</label>
+                    <label htmlFor={`emp-role-${e.key}`} className="block text-xs font-medium text-text-muted">{uk.access.employeeRole}</label>
                     {offered.length === 0 && <p className="text-xs text-attention">{uk.access.createRoleFirst}</p>}
                     <select
                       id={`emp-role-${e.key}`}

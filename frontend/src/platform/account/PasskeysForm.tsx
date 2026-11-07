@@ -76,7 +76,7 @@ export function PasskeysForm() {
           add.mutate();
         }}
       >
-        <label htmlFor="passkey-name" className="text-xs font-medium text-text-muted">
+        <label htmlFor="passkey-name" className="block text-xs font-medium text-text-muted">
           {uk.account.passkeyName}
         </label>
         <div className="flex gap-2">

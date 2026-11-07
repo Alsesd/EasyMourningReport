@@ -111,7 +111,7 @@ function RoleForm({
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <label htmlFor={`${idPrefix}-name`} className="text-xs font-medium text-text-muted">{uk.access.roleName}</label>
+          <label htmlFor={`${idPrefix}-name`} className="block text-xs font-medium text-text-muted">{uk.access.roleName}</label>
           <Input
             id={`${idPrefix}-name`}
             value={value.name}
@@ -123,7 +123,7 @@ function RoleForm({
         </div>
         {!role?.built_in && (
           <div className="space-y-1.5 sm:col-span-2">
-            <label htmlFor={`${idPrefix}-org`} className="text-xs font-medium text-text-muted">{uk.access.roleOrganisation}</label>
+            <label htmlFor={`${idPrefix}-org`} className="block text-xs font-medium text-text-muted">{uk.access.roleOrganisation}</label>
             <select
               id={`${idPrefix}-org`}
               value={value.organisation_id ?? ""}

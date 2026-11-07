@@ -254,7 +254,11 @@ export function LoginPage() {
 
             {passkeysSupported() && (
               <div className="mt-5">
-                <p className="mb-3 text-center text-xs uppercase tracking-wide text-text-muted">{uk.auth.passkeyOr}</p>
+                <p className="mb-4 flex items-center gap-3 text-sm text-text-muted">
+                  <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                  {uk.auth.passkeyOr}
+                  <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                </p>
                 <Button type="button" variant="outline" size="lg" className="w-full" onClick={handlePasskey} disabled={isSubmitting}>
                   <Fingerprint className="mr-2 h-5 w-5" aria-hidden="true" />
                   {isSubmitting ? uk.auth.passkeyBusy : uk.auth.passkeyButton}
