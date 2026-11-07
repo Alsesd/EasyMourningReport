@@ -66,7 +66,8 @@ Colour is never the only signal: statuses carry a word and a mark, errors carry 
 
 ## Type
 
-- **IBM Plex Sans** 400/500/600 for the interface, 15px body. Labels are sentence case, never tracked capitals.
+- **IBM Plex Sans** 400/500/600 for the interface, 15px body (`0.9375rem`). Labels are sentence case, never tracked capitals.
+- **Interface scale.** Each device picks a scale (80–160 %) in the theme menu («Вигляд»); it sets the root font size (`platform/theme/uiScale.ts`). Give font sizes in rem (`text-[0.9375rem]`, never `text-[15px]`) so they follow; touch-target floors (`min-h-[44px]`) stay in px on purpose.
 - **Literata** 400/600 for headings (h1 to h3) and every figure. The `.figure` class (and `font-mono`, kept for existing markup) sets Literata with tabular lining numerals so columns of money line up.
 - Page titles are large serif names of the thing on the page: the month («Листопад 2026»), the store, the section. A small crumb above says where the page sits.
 - Both fonts are self-hosted through `@fontsource`; there is no external font request.

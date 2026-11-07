@@ -59,6 +59,7 @@ export type { paths };
 
 // Transport module
 export type TransportOrderDTO = Schemas["TransportOrderDTO"];
+export type TransportDayDTO = Schemas["TransportDayDTO"];
 export type TransportOrderInputDTO = Schemas["TransportOrderInputDTO"];
 export type TransportDeliveryDTO = Schemas["TransportDeliveryDTO"];
 export type TransportCarriersDTO = Schemas["TransportCarriersDTO"];

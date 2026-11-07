@@ -1,11 +1,12 @@
 import { useTheme, type Theme } from "@/platform/theme/ThemeContext";
 import { ukPlatform as uk } from "@/platform/i18n";
-import { Sun, Moon, Laptop } from "lucide-react";
+import { Sun, Moon, Laptop, Minus, Plus } from "lucide-react";
+import { DEFAULT_UI_SCALE, UI_SCALES, stepUiScale } from "@/platform/theme/uiScale";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/ui/utils";
 
-export function ThemeToggle({ className }: { className?: string }) {
-  const { theme, effectiveTheme, setTheme } = useTheme();
+export function ThemeToggle({ className, placement = "down" }: { className?: string; /** "up" at the bottom of the screen (sidebar footer). */ placement?: "down" | "up" }) {
+  const { theme, effectiveTheme, setTheme, scale, setScale } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -34,7 +35,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         id="theme-toggle"
         onClick={() => setIsOpen((prev) => !prev)}
         className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-control border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-text-main hover:bg-surface-raised transition-colors"
-        aria-label={effectiveTheme === "light" ? "Вимкнути світлу тему" : "Увімкнути світлу тему"}
+        aria-label={uk.nav.appearance}
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
@@ -53,7 +54,7 @@ export function ThemeToggle({ className }: { className?: string }) {
           role="menu"
           aria-orientation="vertical"
           aria-labelledby="theme-toggle"
-          className="absolute right-0 mt-1.5 w-40 origin-top-right rounded-control border border-border bg-surface py-1 shadow-overlay z-50 focus:outline-none"
+          className={cn("absolute w-60 z-50", placement === "up" ? "bottom-full left-0 mb-1.5 origin-bottom-left" : "right-0 mt-1.5 origin-top-right", "rounded-control border border-border bg-surface py-1 shadow-overlay focus:outline-none")}
         >
           {options.map((opt) => {
             const Icon = opt.icon;
@@ -77,6 +78,38 @@ export function ThemeToggle({ className }: { className?: string }) {
               </button>
             );
           })}
+          <div className="mt-1 border-t border-border px-3 pb-1.5 pt-2" role="group" aria-label={uk.nav.uiScale}>
+            <p className="text-xs text-text-muted">{uk.nav.uiScale}</p>
+            <div className="mt-1 flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setScale(stepUiScale(scale, -1))}
+                disabled={scale === UI_SCALES[0]}
+                aria-label={uk.nav.uiScaleSmaller}
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-control border border-border hover:bg-surface-raised disabled:opacity-40"
+              >
+                <Minus className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setScale(DEFAULT_UI_SCALE)}
+                aria-label={uk.nav.uiScaleReset}
+                title={uk.nav.uiScaleReset}
+                className="figure min-h-[44px] flex-1 rounded-control text-sm font-semibold text-text-main hover:bg-surface-raised"
+              >
+                <span aria-live="polite">{Math.round(scale * 100)}%</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setScale(stepUiScale(scale, 1))}
+                disabled={scale === UI_SCALES[UI_SCALES.length - 1]}
+                aria-label={uk.nav.uiScaleLarger}
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-control border border-border hover:bg-surface-raised disabled:opacity-40"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

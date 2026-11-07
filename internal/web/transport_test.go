@@ -687,3 +687,63 @@ func TestAFailedMilitaryOrderBumpsNothing(t *testing.T) {
 		t.Fatalf("an order was bumped by a refused request: %s", got.Status)
 	}
 }
+
+type dayJSON struct {
+	Date      string         `json:"date"`
+	Total     int            `json:"total"`
+	Open      int            `json:"open"`
+	Attention int            `json:"attention"`
+	ByStatus  map[string]int `json:"by_status"`
+}
+
+func (d *desks) days(c *http.Cookie, query string) map[string]dayJSON {
+	d.e.t.Helper()
+	w := d.e.do("GET", "/api/v1/transport/days?"+query, "", nil, c)
+	if w.Code != 200 {
+		d.e.t.Fatalf("days: %d %s", w.Code, w.Body)
+	}
+	var list []dayJSON
+	json.Unmarshal(w.Body.Bytes(), &list)
+	out := map[string]dayJSON{}
+	for _, x := range list {
+		out[x.Date] = x
+	}
+	return out
+}
+
+func TestDayStripCountsOpenOrdersPerCaller(t *testing.T) {
+	d := newDesks(t)
+	later := "2026-11-13" // paid today, buried in a week: still open all week
+	a1 := d.create(d.a, order(day, "Сьогоднішній", "d09:00"))
+	d.create(d.a, order(later, "Через тиждень", "c11:00"))
+	d.create(d.b, order(day, "Чужий", "d10:00"))
+	if w := d.post(d.boss, "POST", "/api/v1/transport/orders/"+itoa(int(a1.ID))+"/status", map[string]any{"status": "accepted"}); w.Code != 200 {
+		t.Fatalf("accept: %d %s", w.Code, w.Body)
+	}
+	if w := d.post(d.boss, "POST", "/api/v1/transport/orders/"+itoa(int(a1.ID))+"/status", map[string]any{"status": "done"}); w.Code != 200 {
+		t.Fatalf("done: %d %s", w.Code, w.Body)
+	}
+
+	q := "from=2026-11-01&to=2026-11-30"
+	desk := d.days(d.a, q)
+	if len(desk) != 2 || desk[day].Total != 1 || desk[day].Open != 0 || desk[later].Open != 1 {
+		t.Fatalf("desk A counts only its own orders: %+v", desk)
+	}
+	if desk[later].Attention != 0 {
+		t.Fatalf("a desk waits only for orders whose car was taken: %+v", desk[later])
+	}
+	if got := d.days(d.a, q+"&organisation_id="+itoa(int(d.orgB))); got[day].Total != 1 || got[day].ByStatus["done"] != 1 {
+		t.Fatalf("a desk cannot widen the strip with organisation_id: %+v", got)
+	}
+
+	boss := d.days(d.boss, q)
+	if boss[day].Total != 2 || boss[day].Open != 1 || boss[day].Attention != 1 || boss[later].Attention != 1 {
+		t.Fatalf("dispatcher sees every desk and the submitted orders wait for them: %+v", boss)
+	}
+	if got := d.days(d.boss, q+"&organisation_id="+itoa(int(d.orgB))); len(got) != 1 || got[day].Total != 1 {
+		t.Fatalf("organisation filter: %+v", got)
+	}
+	if w := d.e.do("GET", "/api/v1/transport/days?from=2026-11-01", "", nil, d.boss); w.Code != 400 {
+		t.Fatalf("a range needs both dates: %d", w.Code)
+	}
+}

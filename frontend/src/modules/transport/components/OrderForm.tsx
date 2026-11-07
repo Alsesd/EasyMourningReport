@@ -12,6 +12,8 @@ import { Notice, type NoticeMessage } from "@/ui/Notice";
 import { Switch } from "@/ui/Switch";
 import { TimeField, isValidTime } from "@/ui/TimeField";
 import { StopsEditor } from "./StopsEditor";
+import { OrderTiming } from "./StatusPill";
+import { shiftDay, todayIso } from "@/modules/transport/i18n";
 
 const t = uk.transport;
 
@@ -97,13 +99,14 @@ export function OrderForm({
 }: {
   day: string;
   order?: TransportOrderDTO;
-  onSaved: (message: string) => void;
+  onSaved: (message: string, saved: TransportOrderDTO) => void;
 }) {
   const [draft, setDraft] = useState(() => draftFrom(day, order));
+  const today = todayIso();
   const [message, setMessage] = useState<NoticeMessage | null>(null);
   const save = useMutation({
     mutationFn: (input: TransportOrderInputDTO) => (order ? transportApi.update(order.id, input) : transportApi.create(input)),
-    onSuccess: () => onSaved(order ? t.updated : t.created),
+    onSuccess: (saved) => onSaved(order ? t.updated : t.created, saved),
     onError: (err: Error) => setMessage({ text: err.message, kind: "err" }),
   });
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
@@ -139,7 +142,24 @@ export function OrderForm({
       }}
     >
       <Notice message={message} onDismiss={() => setMessage(null)} dismissLabel={uk.common.close} />
-      {field("order-day", t.serviceDate, <DayPicker compact value={draft.service_date} onChange={(v) => set({ service_date: v })} labels={{ previous: t.previousDay, next: t.nextDay, day: t.serviceDate }} />)}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm font-medium text-text-main">{t.serviceDate}</span>
+          {/* A new order is not "unclosed" yet: a past day reads as past. */}
+          <OrderTiming serviceDate={draft.service_date} status={draft.service_date < today ? "done" : "submitted"} today={today} />
+        </div>
+        <div role="group" aria-label={t.quickDays} className="flex flex-wrap gap-2">
+          {[0, 1, 2].map((n) => {
+            const d = shiftDay(today, n);
+            return (
+              <Button key={n} type="button" size="sm" variant={draft.service_date === d ? "primary" : "outline"} aria-pressed={draft.service_date === d} onClick={() => set({ service_date: d })}>
+                {n === 0 ? t.dayTiming.today : n === 1 ? t.dayTiming.tomorrow : t.dayTiming.dayAfter}
+              </Button>
+            );
+          })}
+        </div>
+        <DayPicker compact value={draft.service_date} onChange={(v) => set({ service_date: v })} labels={{ previous: t.previousDay, next: t.nextDay, day: t.serviceDate }} />
+      </div>
       {field("order-deceased", t.deceasedLabel, <Input id="order-deceased" value={draft.deceased} maxLength={200} onChange={(e) => set({ deceased: e.target.value })} />)}
       <fieldset className="space-y-3 border-t border-border pt-4">
         <legend className="sr-only">{t.delivery}</legend>
@@ -177,7 +197,7 @@ export function OrderForm({
                   id="carriers-count"
                   value={draft.carriers.count}
                   onChange={(e) => setCarriers({ count: e.target.value })}
-                  className="figure h-11 w-32 rounded-control border border-border bg-surface px-3 text-[15px] text-text-main"
+                  className="figure h-11 w-32 rounded-control border border-border bg-surface px-3 text-[0.9375rem] text-text-main"
                 >
                   <option value="4">{t.crew(4)}</option>
                   <option value="6">{t.crew(6)}</option>

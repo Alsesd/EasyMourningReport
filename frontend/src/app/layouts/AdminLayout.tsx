@@ -17,7 +17,7 @@ function Monogram({ className }: { className?: string }) {
   return (
     <span
       aria-hidden="true"
-      className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-control bg-primary font-serif text-[15px] font-semibold text-primary-fg", className)}
+      className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-control bg-primary font-serif text-[0.9375rem] font-semibold text-primary-fg", className)}
     >
       ЛЗ
     </span>
@@ -54,7 +54,7 @@ export default function AdminLayout() {
         <div className="flex items-center gap-3 px-5 pb-6 pt-6">
           <Monogram />
           <div className="min-w-0">
-            <p className="font-serif text-[17px] font-semibold leading-tight text-text-main">{uk.appTitle}</p>
+            <p className="font-serif text-[1.0625rem] font-semibold leading-tight text-text-main">{uk.appTitle}</p>
             <p className="text-xs leading-snug text-text-muted">{uk.appSubtitle}</p>
           </div>
         </div>
@@ -69,7 +69,7 @@ export default function AdminLayout() {
                   to={item.to}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex min-h-[44px] items-center gap-3 rounded-control px-3 text-[15px] transition-colors",
+                    "flex min-h-[44px] items-center gap-3 rounded-control px-3 text-[0.9375rem] transition-colors",
                     active
                       ? "bg-surface font-semibold text-text-main shadow-[inset_3px_0_0_var(--primary)]"
                       : "text-text-muted hover:bg-surface/70 hover:text-text-main",
@@ -88,7 +88,7 @@ export default function AdminLayout() {
           <AccountMenu variant="sidebar" />
           <div className="flex items-center justify-between gap-2 px-1">
             <div className="flex items-center gap-1">
-              <ThemeToggle />
+              <ThemeToggle placement="up" />
               <NotificationBell />
             </div>
             <MakerMark />

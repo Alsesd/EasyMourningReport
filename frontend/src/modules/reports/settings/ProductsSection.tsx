@@ -251,7 +251,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
 
           {/* Excel Import Card */}
           <section aria-labelledby="products-import-title" className="border-l-2 border-border pl-4">
-            <h2 id="products-import-title" className="flex items-center gap-2 font-sans text-[15px] font-medium text-text-main">
+            <h2 id="products-import-title" className="flex items-center gap-2 font-sans text-[0.9375rem] font-medium text-text-main">
               <Upload className="h-4 w-4 text-primary" aria-hidden="true" />
               Імпорт товарів з Excel
             </h2>
@@ -466,7 +466,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                                 : monthPrices;
                             return (
                               <div className="space-y-1.5 pt-1">
-                                <div className="text-[11px] font-semibold text-text-muted flex items-center space-x-1">
+                                <div className="text-[0.6875rem] font-semibold text-text-muted flex items-center space-x-1">
                                   <History className="h-3 w-3" />
                                   <span>Історія ціни у поточному місяці:</span>
                                 </div>
@@ -483,7 +483,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                                         }`}
                                       >
                                         {formatCurrency(price)}
-                                        <span className="ml-1 text-[10px] font-normal font-sans opacity-75">
+                                        <span className="ml-1 text-[0.625rem] font-normal font-sans opacity-75">
                                           {displayPrices.length === 1
                                             ? "увесь місяць"
                                             : idx === 0
@@ -498,7 +498,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                             );
                           })()}
 
-                          <p className="text-[11px] text-text-muted">
+                          <p className="text-[0.6875rem] text-text-muted">
                             Кожна зміна зберігається окремо. У звітах цього місяця будуть усі
                             використані ціни; з наступного місяця залишиться остання.
                           </p>

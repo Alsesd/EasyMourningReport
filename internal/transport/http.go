@@ -85,6 +85,7 @@ func routes(s core.Services) []core.Route {
 			return nil
 		}},
 		{Method: "GET", Path: "/transport/orders", Codes: anyCode, Handler: a.listTransportOrders},
+		{Method: "GET", Path: "/transport/days", Codes: anyCode, Handler: a.listTransportDays},
 		{Method: "GET", Path: "/transport/orders/{oid}", Codes: anyCode, Handler: a.readTransportOrder},
 		{Method: "POST", Path: "/transport/orders", Codes: create, Member: true, Handler: a.createTransportOrder},
 		{Method: "PUT", Path: "/transport/orders/{oid}", Codes: create, Member: true, Handler: a.updateTransportOrder},
@@ -146,44 +147,54 @@ func (a *api) findOrder(r *http.Request, q core.Querier, p *core.Caller, id int6
 
 func (a *api) today() string { return a.Now().In(time.Local).Format("2006-01-02") }
 
-func (a *api) listTransportOrders(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+// orderFilter reads the day or range of a list request (date=, or from= and to=; today without either) and
+// limits it to what the caller may see: a desk only its own division, staff every division or the one asked for.
+func (a *api) orderFilter(r *http.Request, p *core.Caller) (Filter, error) {
 	pm := core.Query(r)
 	date, from, to := pm.String("date"), pm.String("from"), pm.String("to")
 	status := pm.String("status")
 	org := pm.OptInt("organisation_id")
 	if err := pm.Err(); err != nil {
-		return err
+		return Filter{}, err
 	}
 	if date == "" && from == "" && to == "" {
 		date = a.today()
 	}
 	if date == "" && (from == "" || to == "") {
-		return core.HTTPError{Status: 400, Detail: "Вкажіть обидві дати діапазону: from і to."}
+		return Filter{}, core.HTTPError{Status: 400, Detail: "Вкажіть обидві дати діапазону: from і to."}
 	}
 	if date != "" {
 		from, to = date, date
 	}
 	for _, v := range []string{from, to} {
 		if v != "" && !ValidDate(v) {
-			return core.HTTPError{Status: 400, Detail: "Дата має мати вигляд 2026-10-31"}
+			return Filter{}, core.HTTPError{Status: 400, Detail: "Дата має мати вигляд 2026-10-31"}
 		}
 	}
 	if from != "" && to != "" {
 		f, _ := time.Parse("2006-01-02", from)
 		t, _ := time.Parse("2006-01-02", to)
 		if t.Before(f) || t.Sub(f) > 400*24*time.Hour {
-			return core.HTTPError{Status: 400, Detail: "Некоректний діапазон дат."}
+			return Filter{}, core.HTTPError{Status: 400, Detail: "Некоректний діапазон дат."}
 		}
 	}
 	filter := Filter{From: from, To: to, Status: status}
 	switch {
 	case !seesAll(p):
 		if p.Org == nil {
-			return core.HTTPError{Status: 403, Detail: "Недостатньо прав для цієї дії."}
+			return Filter{}, core.HTTPError{Status: 403, Detail: "Недостатньо прав для цієї дії."}
 		}
 		filter.OrganisationID = p.Org.ID
 	case org != nil:
 		filter.OrganisationID = *org
+	}
+	return filter, nil
+}
+
+func (a *api) listTransportOrders(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	filter, err := a.orderFilter(r, p)
+	if err != nil {
+		return err
 	}
 	orders, err := ListOrders(r.Context(), a.Read, filter)
 	if err != nil {
@@ -192,6 +203,52 @@ func (a *api) listTransportOrders(w http.ResponseWriter, r *http.Request, p *cor
 	out := make([]transportOrderDTO, 0, len(orders))
 	for _, o := range orders {
 		out = append(out, a.orderDTO(o, p, nil))
+	}
+	core.WriteJSON(w, http.StatusOK, out)
+	return nil
+}
+
+type transportDayDTO struct {
+	Date  string `json:"date"`
+	Total int    `json:"total"`
+	// Open: orders still being worked on (submitted, accepted, in progress, car taken).
+	Open int `json:"open"`
+	// Attention: orders waiting for this caller. A dispatcher answers the submitted ones; a desk re-sends the
+	// orders whose car was taken.
+	Attention int            `json:"attention"`
+	ByStatus  map[string]int `json:"by_status"`
+}
+
+// listTransportDays counts the orders of every day in the range (only days with orders), for the date strip.
+func (a *api) listTransportDays(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	filter, err := a.orderFilter(r, p)
+	if err != nil {
+		return err
+	}
+	days, err := CountByDay(r.Context(), a.Read, filter)
+	if err != nil {
+		return err
+	}
+	waiting := ""
+	switch {
+	case p.Can(Manage):
+		waiting = Submitted
+	case p.Can(Create):
+		waiting = Bumped
+	}
+	out := make([]transportDayDTO, 0, len(days))
+	for _, d := range days {
+		dto := transportDayDTO{Date: d.Date, ByStatus: d.ByStatus}
+		for s, n := range d.ByStatus {
+			dto.Total += n
+			if Open(s) {
+				dto.Open += n
+			}
+		}
+		if waiting != "" {
+			dto.Attention = d.ByStatus[waiting]
+		}
+		out = append(out, dto)
 	}
 	core.WriteJSON(w, http.StatusOK, out)
 	return nil

@@ -307,7 +307,7 @@ export default function StoreReportPage() {
         <div className="flex items-end justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm text-text-muted">{uk.store.monthLabel}</p>
-            <h1 className="text-[30px] leading-tight sm:text-[36px]">{formatPeriodReadable(selectedPeriod)}</h1>
+            <h1 className="text-[1.875rem] leading-tight sm:text-[2.25rem]">{formatPeriodReadable(selectedPeriod)}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted">
               <StatusPill status={report?.status || "new"} />
               {report && <span>{uk.store.filledOf(filled, rows.length)}</span>}
@@ -412,7 +412,7 @@ export default function StoreReportPage() {
                                 </div>
                               )}
                             </div>
-                            <p className={cn("figure hidden text-right text-[17px] sm:block", lineSum > 0 ? "text-text-main" : "text-text-muted/50")}>
+                            <p className={cn("figure hidden text-right text-[1.0625rem] sm:block", lineSum > 0 ? "text-text-main" : "text-text-muted/50")}>
                               {formatCurrency(lineSum)}
                             </p>
                           </div>
@@ -465,7 +465,7 @@ export default function StoreReportPage() {
                 </span>
               )}
             </span>
-            <span className="figure block text-[22px] font-semibold leading-tight text-text-main">{formatCurrency(overallTotalCents)}</span>
+            <span className="figure block text-[1.375rem] font-semibold leading-tight text-text-main">{formatCurrency(overallTotalCents)}</span>
           </div>
 
           {!report?.read_only ? (

@@ -77,7 +77,7 @@ export function NotificationBell({ className }: { className?: string }) {
         {unread > 0 && (
           <span
             aria-hidden="true"
-            className="figure absolute right-0.5 top-0.5 grid min-h-[18px] min-w-[18px] place-items-center rounded-full bg-attention px-1 text-[11px] font-semibold leading-none text-white"
+            className="figure absolute right-0.5 top-0.5 grid min-h-[18px] min-w-[18px] place-items-center rounded-full bg-attention px-1 text-[0.6875rem] font-semibold leading-none text-white"
           >
             {unread > 99 ? "99+" : unread}
           </span>
@@ -117,7 +117,7 @@ export function NotificationBell({ className }: { className?: string }) {
                       if (n.link) navigate(n.link);
                     }}
                   >
-                    <span className={cn("block text-[15px] text-text-main", !n.read && "font-semibold")}>
+                    <span className={cn("block text-[0.9375rem] text-text-main", !n.read && "font-semibold")}>
                       {!n.read && <span aria-hidden="true" className="mr-2 inline-block h-2 w-2 rounded-full bg-attention align-middle" />}
                       {n.title}
                       {!n.read && <span className="sr-only"> ({t.unread})</span>}

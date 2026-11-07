@@ -1,6 +1,7 @@
 /** Transport-module strings. Shared shell strings and formatters come from the platform dictionary. */
 
 import { ukPlatform } from "@/platform/i18n";
+import { daysWord } from "./timing";
 
 export { formatDateTime, formatDayReadable, shiftDay, todayIso } from "@/platform/i18n";
 
@@ -14,7 +15,42 @@ export const uk = {
     nextDay: "Наступний день",
     today: "Сьогодні",
     modeDay: "День",
-    modeHistory: "Історія",
+    modeHistory: "Період",
+    groupOpen: "У роботі",
+    groupClosed: "Закриті",
+    timing: {
+      overdue: (n: number) => `Не закрито · ${daysWord(n)} тому`,
+      today: "Терміново · сьогодні",
+      tomorrow: "Завтра",
+      dayAfter: "Післязавтра",
+      later: (n: number) => `Через ${daysWord(n)}`,
+      past: "Минуло",
+    },
+    dayTiming: {
+      today: "Сьогодні",
+      tomorrow: "Завтра",
+      dayAfter: "Післязавтра",
+      later: (n: number) => `через ${daysWord(n)}`,
+      past: (n: number) => `${daysWord(n)} тому`,
+    },
+    stripLabel: "Дні із заявками",
+    earlierDays: "Попередній тиждень",
+    laterDays: "Наступний тиждень",
+    jumpToDay: "Перейти до дня",
+    dayCell: (label: string, open: number, total: number, attention: number) =>
+      `${label}: у роботі ${open} із ${total}` + (attention > 0 ? `, чекають відповіді ${attention}` : ""),
+    dayOpen: (n: number) => `у роботі ${n}`,
+    dayClosed: (n: number) => `закрито ${n}`,
+    attentionDispatcher: (n: number) => `${n} нових — чекають відповіді`,
+    attentionDesk: (n: number) => `${n} — авто знято, змініть замовлення`,
+    overdueNotice: (n: number) => `Незакриті заявки за минулі дні: ${n}. Закрийте їх або перевірте статус.`,
+    overdueShow: "Показати",
+    upcomingTitle: "Попереду в роботі",
+    upcomingHint: "Заявки на наступні дні не губляться: вони лишаються в роботі до свого дня.",
+    upcomingEmpty: "На наступні дні заявок у роботі немає.",
+    upcomingMore: (n: number) => `і ще днів: ${n}`,
+    savedFor: (day: string) => `Замовлення надіслано на ${day}.`,
+    quickDays: "Швидкий вибір дня",
     from: "З",
     to: "По",
     allStatuses: "Усі статуси",
@@ -101,7 +137,7 @@ export const uk = {
     statuses: {
       submitted: "Надіслано",
       accepted: "Прийнято",
-      in_progress: "Виконується",
+      in_progress: "В дорозі",
       done: "Виконано",
       rejected: "Відхилено",
       cancelled: "Скасовано",

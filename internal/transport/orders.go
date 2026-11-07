@@ -449,3 +449,60 @@ func SetBearers(ctx context.Context, tx *sql.Tx, id int64, names []string, userI
 	}
 	return addEvent(ctx, tx, id, now, userID, userName, "bearers", "", strings.Join(names, ", "))
 }
+
+// Open reports whether an order is still being worked on (not done, rejected or cancelled). An order for a
+// day a week away stays open the whole week: the date strip and the reminders must not lose it.
+func Open(status string) bool {
+	switch status {
+	case Submitted, Accepted, InProgress, Bumped:
+		return true
+	}
+	return false
+}
+
+// DayCount is how many orders of one day are in each status.
+type DayCount struct {
+	Date     string
+	ByStatus map[string]int
+}
+
+// CountByDay counts the orders of each day in the filter (Status is ignored), ordered by day. Days without
+// orders are left out.
+func CountByDay(ctx context.Context, q core.Querier, f Filter) ([]DayCount, error) {
+	var where []string
+	var args []any
+	if f.OrganisationID != 0 {
+		where = append(where, "organisation_id = ?")
+		args = append(args, f.OrganisationID)
+	}
+	if f.From != "" {
+		where = append(where, "service_date >= ?")
+		args = append(args, f.From)
+	}
+	if f.To != "" {
+		where = append(where, "service_date <= ?")
+		args = append(args, f.To)
+	}
+	clause := ""
+	if len(where) > 0 {
+		clause = " WHERE " + strings.Join(where, " AND ")
+	}
+	rows, err := q.QueryContext(ctx, `SELECT service_date, status, COUNT(*) FROM transport_orders`+clause+` GROUP BY service_date, status ORDER BY service_date`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []DayCount{}
+	for rows.Next() {
+		var day, status string
+		var n int
+		if err := rows.Scan(&day, &status, &n); err != nil {
+			return nil, err
+		}
+		if len(out) == 0 || out[len(out)-1].Date != day {
+			out = append(out, DayCount{Date: day, ByStatus: map[string]int{}})
+		}
+		out[len(out)-1].ByStatus[status] += n
+	}
+	return out, rows.Err()
+}

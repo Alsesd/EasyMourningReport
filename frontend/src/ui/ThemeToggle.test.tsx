@@ -12,12 +12,12 @@ describe("theme", () => {
         <ThemeToggle />
       </ThemeProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: /тему/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Вигляд/ }));
     fireEvent.click(screen.getByText("Темна тема"));
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(localStorage.getItem("easyMourningReport.theme")).toBe("dark");
-    fireEvent.click(screen.getByRole("button", { name: /тему/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Вигляд/ }));
     fireEvent.click(screen.getByText("Світла тема"));
     expect(document.documentElement.dataset.theme).toBe("light");
     expect(document.documentElement.classList.contains("dark")).toBe(false);
@@ -32,10 +32,28 @@ describe("theme", () => {
       </ThemeProvider>,
     );
     expect(document.documentElement.dataset.theme).toBe("dark");
-    const toggle = screen.getByRole("button", { name: /тему/ });
+    const toggle = screen.getByRole("button", { name: /Вигляд/ });
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     fireEvent.mouseDown(screen.getByText("outside"));
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("scales the interface on this device and remembers it", () => {
+    render(
+      <ThemeProvider>
+        <ThemeToggle />
+      </ThemeProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Вигляд/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Зменшити інтерфейс" }));
+    expect(document.documentElement.style.fontSize).toBe("90%");
+    expect(localStorage.getItem("easyMourningReport.uiScale")).toBe("0.9");
+    fireEvent.click(screen.getByRole("button", { name: "Збільшити інтерфейс" }));
+    fireEvent.click(screen.getByRole("button", { name: "Збільшити інтерфейс" }));
+    expect(document.documentElement.style.fontSize).toBe("110%");
+    fireEvent.click(screen.getByRole("button", { name: "Звичайний розмір" }));
+    expect(document.documentElement.style.fontSize).toBe("");
+    expect(localStorage.getItem("easyMourningReport.uiScale")).toBeNull();
   });
 });

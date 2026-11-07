@@ -51,7 +51,7 @@ export default function TransportSchedulePage() {
       ) : rows.length === 0 ? (
         <p className="text-sm text-text-muted">{t.scheduleEmpty}</p>
       ) : (
-        <table className="w-full border-collapse text-left text-[15px] print:text-[12pt]">
+        <table className="w-full border-collapse text-left text-[0.9375rem] print:text-[12pt]">
           <thead>
             <tr className="border-b-2 border-ink text-sm">
               <th className="py-2 pr-3 font-semibold">{t.scheduleTime}</th>

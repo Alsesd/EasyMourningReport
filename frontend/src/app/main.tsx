@@ -1,8 +1,12 @@
 import { captureInstallPrompt } from "@/platform/device/installPrompt";
+import { applyUiScale, readUiScale } from "@/platform/theme/uiScale";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
 import "./index.css";
+
+// The chosen interface scale before the first render, so the layout does not jump.
+applyUiScale(readUiScale());
 
 const rootElement = document.getElementById("root");
 if (rootElement) {

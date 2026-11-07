@@ -10,6 +10,13 @@ type: project
   carriers part; statuses submitted->accepted->in_progress->done, rejected/cancelled, **bumped**. Car lock: same car
   (normalised number) within `CarLock`=2h of an active order -> 409 (crosses midnight). **Military** orders (`is_military`)
   bump ordinary orders (not other military ones, not in_progress); bumped order keeps data, desk edits -> back to submitted.
+  **Dates & indication (2026-11-07, user request):** orders always had `service_date`, but the page showed one day only,
+  so users thought dates were missing. Now: a 14-day strip (`DateStrip`, counts from `GET /transport/days`: total/open/
+  attention, attention = submitted for `manage`, bumped for a desk), a red notice for open orders on past days (60 days
+  back), «Попереду в роботі» chips for open orders up to 120 days ahead (paid now, buried in a week: must not get lost),
+  timing badge per order (Терміново · сьогодні / Завтра / Післязавтра / Через N днів / Не закрито), groups «У роботі»
+  (submitted, accepted, in_progress, bumped) vs «Закриті». Stored status codes unchanged; `in_progress` reads «В дорозі».
+  Saving an order for another day jumps to that day. Open question for the user: a stored «оформлено/оплачено» status.
   Daily reminder (`DailyReminder`) to desks without an order for tomorrow. **Business rule (user, 2026-11-06): orders for the next day must be placed by 15:00; that is why the reminder fires at 14:30** (keep `REMINDER_AT` default 14:30). The cutoff itself is not enforced in code; ask before blocking late orders.
 - **Notifications** (platform): `notifications` table, `platform.Notify/Recipients`, API list/read/read-all (own rows only);
   scheduler `web.RunScheduler` runs module reminders at `REMINDER_AT` (default 14:30) in `APP_TIMEZONE` (Europe/Kyiv),

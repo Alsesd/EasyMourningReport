@@ -15,7 +15,7 @@ import { sectionPath } from "./sections";
 function Stat({ label, value, hint, to }: { label: string; value: ReactNode; hint?: string; to?: string }) {
   const body = (
     <>
-      <span className="figure block text-[30px] leading-tight text-text-main">{value}</span>
+      <span className="figure block text-[1.875rem] leading-tight text-text-main">{value}</span>
       <span className="mt-0.5 block text-sm text-text-main">{label}</span>
       {hint && <span className="block break-words text-xs text-text-muted">{hint}</span>}
     </>
@@ -89,7 +89,7 @@ export function AdminOverview({ sections }: { sections: AdminSection[] }) {
                 <li key={step.id}>
                   <Link to={sectionPath(step.id)} className="flex min-h-[52px] items-center gap-3 px-1 py-2.5 transition-colors hover:bg-surface-raised">
                     <span className="figure grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border text-sm">{i + 1}</span>
-                    <span className="flex-1 text-[15px] text-text-main">{step.text}</span>
+                    <span className="flex-1 text-[0.9375rem] text-text-main">{step.text}</span>
                     <ChevronRight className="h-4 w-4 text-text-muted" aria-hidden="true" />
                   </Link>
                 </li>

@@ -49,6 +49,11 @@ export const ukPlatform = {
     themeLight: "Світла тема",
     themeDark: "Темна тема",
     themeSystem: "Системна",
+    uiScale: "Розмір інтерфейсу",
+    uiScaleSmaller: "Зменшити інтерфейс",
+    uiScaleLarger: "Збільшити інтерфейс",
+    uiScaleReset: "Звичайний розмір",
+    appearance: "Вигляд: тема й розмір",
   },
 
   logs: {

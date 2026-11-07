@@ -100,6 +100,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transport/days": {
+        parameters: { query?: { date?: string; from?: string; to?: string; organisation_id?: number }; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["TransportDayDTO"][] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transport/orders/{oid}": {
         parameters: { query?: never; header?: never; path: { oid: number }; cookie?: never };
         get: { responses: { 200: { content: { "application/json": components["schemas"]["TransportOrderDTO"] } } } };
@@ -1564,6 +1575,17 @@ export interface components {
             kind: "created" | "edited" | "status" | "bearers";
             status: string;
             note: string;
+        };
+        /** TransportDayDTO: order counts of one day for the date strip (only days with orders are listed) */
+        TransportDayDTO: {
+            /** YYYY-MM-DD */
+            date: string;
+            total: number;
+            /** still being worked on: submitted, accepted, in_progress, bumped */
+            open: number;
+            /** waiting for the caller: submitted for a dispatcher, bumped for a desk */
+            attention: number;
+            by_status: { [status: string]: number };
         };
         /** TransportOrderDTO: one deceased; delivery and carriers of the same deceased share the order */
         TransportOrderDTO: {

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { applyUiScale, readUiScale, storeUiScale } from "./uiScale";
 
 export type Theme = "light" | "dark" | "system";
 
@@ -7,6 +8,9 @@ interface ThemeContextType {
   effectiveTheme: "light" | "dark";
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  /** Interface scale of this device (1 = default), see uiScale.ts. */
+  scale: number;
+  setScale: (scale: number) => void;
 }
 
 const STORAGE_KEY = "easyMourningReport.theme";
@@ -41,6 +45,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => media.removeEventListener("change", handler);
   }, []);
 
+  const [scale, setScaleState] = useState<number>(readUiScale);
+  useEffect(() => applyUiScale(scale), [scale]);
+  const setScale = (next: number) => {
+    setScaleState(next);
+    storeUiScale(next);
+  };
+
   const effectiveTheme = theme === "system" ? (systemIsDark ? "dark" : "light") : theme;
 
   useEffect(() => {
@@ -72,7 +83,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, effectiveTheme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, effectiveTheme, setTheme, toggleTheme, scale, setScale }}>
       {children}
     </ThemeContext.Provider>
   );

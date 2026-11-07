@@ -113,12 +113,12 @@ export function LoginPage() {
           </div>
         </div>
         <div className="mt-8 max-w-[520px] lg:my-auto">
-          <h1 className="font-serif text-[40px] font-semibold leading-none text-text-main sm:text-[52px] lg:text-[clamp(52px,5vw,72px)]">
+          <h1 className="font-serif text-[2.5rem] font-semibold leading-none text-text-main sm:text-[3.25rem] lg:text-[clamp(52px,5vw,72px)]">
             {uk.appTitle}
           </h1>
           <div className="ledger mt-5 max-w-[420px] pt-3">
-            <p className="text-[15px] text-text-muted">{uk.appSubtitle}</p>
-            <p className="mt-3 hidden text-[15px] leading-7 text-text-muted sm:block">{uk.auth.portalDescription}</p>
+            <p className="text-[0.9375rem] text-text-muted">{uk.appSubtitle}</p>
+            <p className="mt-3 hidden text-[0.9375rem] leading-7 text-text-muted sm:block">{uk.auth.portalDescription}</p>
           </div>
         </div>
         <p className="mt-auto hidden pt-8 text-xs text-text-muted lg:block">
@@ -134,8 +134,8 @@ export function LoginPage() {
 
         <main className="flex flex-1 items-center">
           <div className="w-full max-w-[400px]">
-            <h2 className="text-[28px] leading-tight text-text-main">{uk.auth.loginTitle}</h2>
-            <p className="mt-1.5 text-[15px] text-text-muted">{uk.auth.loginDescription}</p>
+            <h2 className="text-[1.75rem] leading-tight text-text-main">{uk.auth.loginTitle}</h2>
+            <p className="mt-1.5 text-[0.9375rem] text-text-muted">{uk.auth.loginDescription}</p>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
               {error && (
