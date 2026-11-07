@@ -67,4 +67,7 @@ type Module struct {
 	// Overview returns the figures the caller may see; can reports whether the caller holds any of
 	// the given permission codes, period is the current YYYY-MM.
 	Overview func(ctx context.Context, q Querier, can func(codes ...string) bool, period string) ([]OverviewStat, error)
+	// Dashboard returns the module's blocks for the management dashboard (see DashboardFunc). Who may see the
+	// dashboard is decided once, by the management module's own permission, not by the module.
+	Dashboard DashboardFunc
 }

@@ -42,8 +42,17 @@ describe("health status", () => {
     const m = metrics();
     m.jobs[0].stale = true;
     m.http.server_errors = 2;
+    m.http.last_server_error = { at: new Date().toISOString(), method: "GET", path: "/api/v1/x", status: 500 };
     expect(jobTone(m.jobs[0])).toBe("error");
     expect(issues(m)).toEqual(expect.arrayContaining(["jobs", "http"]));
+  });
+
+  it("forgets a program fault after a day, but keeps counting it", () => {
+    const m = metrics();
+    m.http.server_errors = 1;
+    m.http.last_server_error = { at: new Date(Date.now() - 2 * 86400_000).toISOString(), method: "GET", path: "/api/v1/x", status: 500 };
+    expect(issues(m)).toEqual([]);
+    expect(httpTone(m)).toBe("ok");
   });
 
   it("warns about low disk space and a large WAL", () => {

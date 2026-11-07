@@ -5,6 +5,7 @@ package registry
 import (
 	"context"
 	"legkyi/internal/core"
+	"legkyi/internal/management"
 	"legkyi/internal/platform"
 	"legkyi/internal/reports"
 	"legkyi/internal/transport"
@@ -14,7 +15,7 @@ import (
 type Registry struct{ Modules []core.Module }
 
 func Installed() *Registry {
-	return &Registry{Modules: []core.Module{platform.Module, reports.Module, transport.Module}}
+	return &Registry{Modules: []core.Module{platform.Module, reports.Module, transport.Module, management.Module}}
 }
 
 func (r *Registry) Permission(code string) (core.Module, core.Permission, bool) {

@@ -21,7 +21,7 @@ func TestRegistryDescribesInstalledModules(t *testing.T) {
 	if !r.Codes("platform")["platform.users.manage"] || r.Codes("organisation")["platform.users.manage"] || len(r.Codes("")) < len(r.Codes("platform")) {
 		t.Fatal("codes by scope")
 	}
-	if len(r.Names()) != 3 || len(r.AuditActions()) == 0 || r.DefaultGrants() == nil {
+	if len(r.Names()) != 4 || len(r.AuditActions()) == 0 || r.DefaultGrants() == nil {
 		t.Fatalf("%v", r.Names())
 	}
 	_ = context.Background

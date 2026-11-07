@@ -11,6 +11,7 @@ internal/
 ├── platform/              # accounts rules, principal and permissions, bootstrap (roles, first admin), passwords
 ├── reports/               # feature module: catalogue, price history, money, XLSX import/export, seed
 ├── transport/             # transport orders (also a template for new modules)
+├── management/            # management dashboard: no data of its own, one view-only permission
 ├── system/                # cloudflared supervisor and database health
 ├── update/                # self-update from GitHub Releases (check, verify, swap, restart)
 ├── registry/              # platform + installed modules (the only package that imports modules)
@@ -42,6 +43,7 @@ frontend/src/
 | `OrganisationUsage` | Records held per organisation id. An organisation with data in any module is archived instead of deleted |
 | `Seed` | Demo data for `DEMO=1` on an empty database |
 | `Overview` | Figures for the «Адміністрування» overview, filtered by the caller's permissions |
+| `Dashboard` | Blocks for the management dashboard: tiles, bar series and ranked lists with a unit (`count`, `money_cents`, `percent`, `minutes`; the client formats). The shell collects them for the `management` module (`core.Services.Dashboard`); the module itself decides nothing about access |
 
 A module lists its endpoints in `core.Module.Routes` (`internal/<module>/http.go`: `core.Route{Method, Path, Codes, Member, Handler}`); `internal/web/modules.go` registers each one behind `a.authed(codes, ...)` / `a.member(codes, ...)`, so a module cannot add an unprotected route. Handlers receive a `core.Caller` and `core.Services` (the shell builds both). The module is listed in `internal/registry/registry.go`.
 

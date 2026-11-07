@@ -36,6 +36,7 @@ var Module = core.Module{
 	DailyReminder:     remindMissingOrders,
 	Routes:            routes,
 	Overview:          overview,
+	Dashboard:         Dashboard,
 }
 
 func usage(ctx context.Context, q core.Querier) (map[int64]int, error) {

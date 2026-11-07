@@ -401,7 +401,7 @@ func TestEffectivePermissions(t *testing.T) {
 	r := e.login("boss", "Boss-pass1")
 	var dto sessionDTO
 	json.Unmarshal(r.Body.Bytes(), &dto)
-	want := "platform.audit.view,platform.organisations.manage,platform.roles.manage,platform.system.manage,platform.users.manage,reports.catalog.manage,reports.review,reports.settings.manage,transport.orders.manage,transport.orders.view_all"
+	want := "management.dashboard.view,platform.audit.view,platform.organisations.manage,platform.roles.manage,platform.system.manage,platform.users.manage,reports.catalog.manage,reports.review,reports.settings.manage,transport.orders.manage,transport.orders.view_all"
 	if strings.Join(dto.Permissions, ",") != want {
 		t.Fatalf("%v", dto.Permissions)
 	}

@@ -56,6 +56,8 @@ type Services struct {
 	NotifyHolders func(ctx context.Context, tx *sql.Tx, actor, orgID int64, codes []string, kind, title, body, link string) error
 	// Snapshot takes a database copy tagged tag before a destructive step (a no-op when backups are off).
 	Snapshot func(tag string) error
+	// Dashboard collects the blocks every module supplies to the management dashboard for a month (YYYY-MM).
+	Dashboard func(ctx context.Context, period string, now time.Time) ([]DashboardBlock, error)
 	// Organisation loads an organisation by id (nil when it does not exist).
 	Organisation func(ctx context.Context, q Querier, id int64) (*Org, error)
 }

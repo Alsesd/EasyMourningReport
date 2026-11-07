@@ -33,3 +33,13 @@ type: project
   runs in `web.jobs`. 4xx are refusals (never red), 5xx are program faults. `system.FreeDisk` has unix and windows files.
   Business metrics belong on the separate management dashboard, not here.
 - Overdue-orders banner is dispatcher-only (`transport.orders.manage`); military orders have their own dark shield pill.
+- **Management dashboard** (2026-11-07): separate slice `internal/management` + `frontend/src/modules/management` (user asked for a
+  separate module with its own view permission). Permission `management.dashboard.view` (platform scope, view-only; the
+  administrator gets it at runtime from the registry, so no migration). `GET /dashboard?period=` is the only gate: reports.review
+  or transport.manage do NOT open it. The module has no data; other modules supply blocks through `core.Module.Dashboard`
+  (shell collects via `core.Services.Dashboard`). Generic renderer in the module: tiles, CSS bars, ranked lists, every value
+  also as text. Money = submitted reports only, equals the summary grand total (tested against `/admin/summary`); drafts are a
+  separate tile. Transport: orders belong to a month by service date; reply time = first `accepted`/`rejected` event (a desk
+  cancel is not a reply); «зараз» tiles ignore the month. Contracts changed on purpose: `modules` of the session gained
+  `management`, the administrator's permissions and the catalogue gained the new code. To use: create a «Керівництво» role with
+  this one permission, platform scope, user without a division.

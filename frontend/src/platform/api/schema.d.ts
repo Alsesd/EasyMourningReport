@@ -569,6 +569,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard": {
+        parameters: { query?: { period?: string }; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["DashboardDTO"] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/system/metrics": {
         parameters: { query?: never; header?: never; path?: never; cookie?: never };
         get: { responses: { 200: { content: { "application/json": components["schemas"]["SystemMetricsDTO"] } } } };
@@ -1547,6 +1558,16 @@ export interface components {
              * @default false
              */
             calculation_enabled: boolean;
+        };
+        /** DashboardDTO: the management dashboard, blocks supplied by the modules the caller may see */
+        DashboardDTO: { period: string; blocks: components["schemas"]["DashboardBlockDTO"][] };
+        DashboardBlockDTO: {
+            key: string;
+            title: string;
+            description: string;
+            tiles: { label: string; value: number; unit: "count" | "money_cents" | "percent" | "minutes"; hint: string; tone: "" | "alert" }[];
+            series: { title: string; unit: "count" | "money_cents" | "percent" | "minutes"; note: string; points: { label: string; value: number; partial: boolean }[] }[];
+            lists: { title: string; unit: "count" | "money_cents" | "percent" | "minutes"; rows: { label: string; value: number; hint: string }[] }[];
         };
         /** IntegrityDTO: the database quick_check verdict (cached for ten minutes, forced by POST) */
         IntegrityDTO: { verdict: string; ok: boolean; checked_at: string };

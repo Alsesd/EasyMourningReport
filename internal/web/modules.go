@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"time"
 
 	"legkyi/internal/core"
 	"legkyi/internal/platform"
@@ -30,6 +31,22 @@ func (a *App) services() core.Services {
 			}
 			_, err := a.Backups.Run(tag)
 			return err
+		},
+		Dashboard: func(ctx context.Context, period string, now time.Time) ([]core.DashboardBlock, error) {
+			var out []core.DashboardBlock
+			for _, m := range a.Registry.Modules {
+				if m.Dashboard == nil {
+					continue
+				}
+				blocks, err := m.Dashboard(ctx, a.Store.R, period, now)
+				if err != nil {
+					return nil, err
+				}
+				for _, b := range blocks {
+					out = append(out, b.Normalised())
+				}
+			}
+			return out, nil
 		},
 		Organisation: func(ctx context.Context, q core.Querier, id int64) (*core.Org, error) {
 			o, err := platform.LoadOrganisation(ctx, q, id)

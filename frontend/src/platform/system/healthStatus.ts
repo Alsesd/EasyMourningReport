@@ -31,19 +31,27 @@ export function jobTone(j: SystemMetricsDTO["jobs"][number]): StateTone {
   return j.last_run ? "ok" : "idle";
 }
 
-/** A 5xx is a fault of the program (red once it happened); 4xx are refusals and never red. */
-export function httpTone(m: SystemMetricsDTO): StateTone {
-  return m.http.server_errors > 0 ? "busy" : "ok";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A program fault (5xx) counts as a problem for a day after it happened; the totals stay as information.
+ * 4xx are refusals (an expired sign-in, a missing page) and never count. */
+export function recentServerError(m: SystemMetricsDTO, now: number = Date.now()): boolean {
+  const last = m.http.last_server_error;
+  return last !== null && now - new Date(last.at).getTime() < DAY_MS;
+}
+
+export function httpTone(m: SystemMetricsDTO, now: number = Date.now()): StateTone {
+  return recentServerError(m, now) ? "busy" : "ok";
 }
 
 /** Rows that need a person, by name; the page shows how many. */
-export function issues(m: SystemMetricsDTO): string[] {
+export function issues(m: SystemMetricsDTO, now: number = Date.now()): string[] {
   const out: string[] = [];
   if (!m.integrity.ok) out.push("integrity");
   if (backupTone(m) === "error") out.push("backups");
   if (m.jobs.some((j) => jobTone(j) === "error")) out.push("jobs");
   if (diskTone(m) !== "ok" && diskTone(m) !== "idle") out.push("disk");
-  if (m.http.server_errors > 0) out.push("http");
+  if (recentServerError(m, now)) out.push("http");
   if (m.db.wal_bytes > 64 * MB) out.push("wal");
   return out;
 }

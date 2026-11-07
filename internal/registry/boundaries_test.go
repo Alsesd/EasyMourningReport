@@ -51,12 +51,13 @@ func keys(m map[string][]string) []string {
 
 func TestPackagesImportOnlyWhatTheirLayerAllows(t *testing.T) {
 	allowed := map[string][]string{
-		"core":      {},
-		"store":     {},
-		"reports":   {"core"},
-		"transport": {"core"},
-		"platform":  {"core", "store"},
-		"system":    {"store"},
+		"core":       {},
+		"store":      {},
+		"reports":    {"core"},
+		"transport":  {"core"},
+		"management": {"core"},
+		"platform":   {"core", "store"},
+		"system":     {"store"},
 	}
 	for pkg, ok := range allowed {
 		imp := importsOf(t, pkg)
