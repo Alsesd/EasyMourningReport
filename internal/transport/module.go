@@ -1,4 +1,6 @@
-// Package transport is the scaffolded transport-orders module (status stub only).
+// Package transport is the transport module: orders for the deceased (delivery and carriers), the fleet registry,
+// desks' product requests, goods-delivery runs and the cargo that ties requested items to the orders and runs that
+// carry them.
 package transport
 
 import (
@@ -20,27 +22,35 @@ var Module = core.Module{
 	Name:  "transport",
 	Title: "Транспорт",
 	Permissions: []core.Permission{
-		{Code: Create, Label: "Замовлення транспорту", Scope: "organisation",
-			Description: "Створювати замовлення транспорту від імені свого підрозділу й бачити їхній статус."},
-		{Code: ViewAll, Label: "Перегляд усіх замовлень транспорту", Scope: "platform",
-			Description: "Лише перегляд: замовлення транспорту всіх підрозділів та їхня історія."},
-		{Code: Manage, Label: "Обробка замовлень транспорту", Scope: "platform",
-			Description: "Обробка замовлень: бачити замовлення всіх підрозділів та їхню історію, відповідати на замовлення й змінювати статус."},
+		{Code: Create, Label: "Замовлення транспорту й продукції", Scope: "organisation",
+			Description: "Створювати замовлення транспорту й заявки на продукцію від імені свого підрозділу, бачити їхній статус, рейси з їхньою продукцією та список автомобілів."},
+		{Code: ViewAll, Label: "Перегляд усіх замовлень транспорту й продукції", Scope: "platform",
+			Description: "Лише перегляд: замовлення транспорту й заявки на продукцію всіх підрозділів, рейси, вантаж, автопарк та історія."},
+		{Code: Manage, Label: "Обробка замовлень транспорту й продукції", Scope: "platform",
+			Description: "Обробка замовлень і заявок на продукцію: бачити все всіх підрозділів, відповідати, змінювати статус, призначати авто, вантажити продукцію в замовлення та рейси, вести автопарк."},
 	},
 	AuditActions: []string{
 		"створено замовлення транспорту", "змінено замовлення транспорту",
 		"скасовано замовлення транспорту", "знято авто із замовлення транспорту", "змінено статус замовлення транспорту", "призначено носіїв замовлення транспорту",
+		"змінено призначення замовлення транспорту", "змінено вантаж замовлення транспорту",
+		"додано авто до автопарку", "змінено авто автопарку",
+		"створено заявку на продукцію", "змінено заявку на продукцію", "скасовано заявку на продукцію", "відхилено заявку на продукцію",
+		"створено рейс доставки продукції", "змінено рейс доставки продукції", "змінено статус рейсу доставки продукції",
 	},
 	OrganisationUsage: usage,
 	Seed:              seed,
 	DailyReminder:     remindMissingOrders,
+	Startup:           BackfillCars,
 	Routes:            routes,
 	Overview:          overview,
 	Dashboard:         Dashboard,
 }
 
 func usage(ctx context.Context, q core.Querier) (map[int64]int, error) {
-	rows, err := q.QueryContext(ctx, "SELECT organisation_id, COUNT(id) FROM transport_orders GROUP BY organisation_id")
+	rows, err := q.QueryContext(ctx, `SELECT organisation_id, COUNT(*) FROM (
+		SELECT organisation_id FROM transport_orders
+		UNION ALL SELECT organisation_id FROM product_requests
+		UNION ALL SELECT organisation_id FROM transport_run_stops) GROUP BY organisation_id`)
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +118,32 @@ func seed(ctx context.Context, tx *sql.Tx, now time.Time, _ core.SeedTools) erro
 			in.Delivery = &Delivery{CarNumber: "ВС 5678 АА", Departure: "Міський морг", Time: "11:15", Destination: "Кладовище №2"}
 		}
 		if _, err := CreateOrder(ctx, tx, u.org, u.uid, u.login, in, now); err != nil {
+			return err
+		}
+	}
+	return seedFleet(ctx, tx, now)
+}
+
+// seedFleet adds demo cars (three standard plates and one nonstandard) and links the demo orders to them.
+func seedFleet(ctx context.Context, tx *sql.Tx, now time.Time) error {
+	cars := []struct {
+		plate, label string
+		nonstandard  bool
+	}{
+		{"АА1234ВВ", "Катафалк Mercedes", false},
+		{"ВС5678АА", "Катафалк Ford", false},
+		{"КА0101КК", "Вантажний Renault", false},
+		{"ЗСУ1234", "Військовий (демо)", true},
+	}
+	for _, c := range cars {
+		if _, err := tx.ExecContext(ctx, "INSERT OR IGNORE INTO transport_cars (plate, nonstandard, label, active, created_at) VALUES (?, ?, ?, 1, ?)",
+			c.plate, b2i(c.nonstandard), c.label, now.Unix()); err != nil {
+			return err
+		}
+	}
+	for _, part := range []string{"delivery", "carriers"} {
+		if _, err := tx.ExecContext(ctx, `UPDATE transport_orders SET `+part+`_car_id = (SELECT id FROM transport_cars WHERE plate = REPLACE(`+part+`_car, ' ', ''))
+			WHERE `+part+`_car != '' AND `+part+`_car_id IS NULL`); err != nil {
 			return err
 		}
 	}

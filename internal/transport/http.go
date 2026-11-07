@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ type transportStatusDTO struct {
 
 type deliveryDTO struct {
 	CarNumber   string   `json:"car_number"`
+	CarID       *int64   `json:"car_id"`
 	Departure   string   `json:"departure"`
 	Time        string   `json:"time"`
 	Destination string   `json:"destination"`
@@ -33,6 +35,7 @@ type deliveryDTO struct {
 
 type carriersDTO struct {
 	CarNumber      string   `json:"car_number"`
+	CarID          *int64   `json:"car_id"`
 	Departure      string   `json:"departure"`
 	Count          int      `json:"count"`
 	Time           string   `json:"time"`
@@ -51,6 +54,7 @@ type orderEventDTO struct {
 
 type transportOrderDTO struct {
 	ID           int64           `json:"id"`
+	Kind         string          `json:"kind"`
 	Organisation orgRefDTO       `json:"organisation"`
 	ServiceDate  string          `json:"service_date"`
 	Deceased     string          `json:"deceased"`
@@ -68,6 +72,8 @@ type transportOrderDTO struct {
 	CanEdit      bool            `json:"can_edit"`
 	NextStatuses []string        `json:"next_statuses"`
 	Events       []orderEventDTO `json:"events"`
+	// Cargo is the manifest of the goods this order carries: one entry, the order's own organisation.
+	Cargo []manifestEntryDTO `json:"cargo"`
 }
 
 // api holds the platform services the handlers use (core.Services is all the module gets from the shell).
@@ -92,6 +98,22 @@ func routes(s core.Services) []core.Route {
 		{Method: "POST", Path: "/transport/orders/{oid}/cancel", Codes: create, Member: true, Handler: a.cancelTransportOrder},
 		{Method: "PUT", Path: "/transport/orders/{oid}/bearers", Codes: manage, Handler: a.setTransportBearers},
 		{Method: "POST", Path: "/transport/orders/{oid}/status", Codes: manage, Handler: a.setTransportOrderStatus},
+		{Method: "PATCH", Path: "/transport/orders/{oid}/assignment", Codes: manage, Handler: a.assignTransportOrder},
+		{Method: "PUT", Path: "/transport/orders/{oid}/cargo", Codes: manage, Handler: a.putOrderCargo},
+		{Method: "GET", Path: "/transport/cars", Codes: anyCode, Handler: a.listCars},
+		{Method: "POST", Path: "/transport/cars", Codes: manage, Handler: a.createCar},
+		{Method: "PATCH", Path: "/transport/cars/{cid}", Codes: manage, Handler: a.updateCar},
+		{Method: "GET", Path: "/transport/catalog", Codes: anyCode, Handler: a.getCatalog},
+		{Method: "GET", Path: "/transport/product-requests", Codes: anyCode, Handler: a.listRequests},
+		{Method: "POST", Path: "/transport/product-requests", Codes: create, Member: true, Handler: a.createRequest},
+		{Method: "PATCH", Path: "/transport/product-requests/{rid}", Codes: create, Member: true, Handler: a.updateRequest},
+		{Method: "POST", Path: "/transport/product-requests/{rid}/cancel", Codes: create, Member: true, Handler: a.cancelRequest},
+		{Method: "POST", Path: "/transport/product-requests/{rid}/reject", Codes: manage, Handler: a.rejectRequest},
+		{Method: "GET", Path: "/transport/runs", Codes: anyCode, Handler: a.listRuns},
+		{Method: "POST", Path: "/transport/runs", Codes: manage, Handler: a.createRun},
+		{Method: "PATCH", Path: "/transport/runs/{rid}", Codes: manage, Handler: a.updateRun},
+		{Method: "POST", Path: "/transport/runs/{rid}/status", Codes: manage, Handler: a.setRunStatus},
+		{Method: "GET", Path: "/transport/board", Codes: []string{ViewAll, Manage}, Handler: a.board},
 	}
 }
 
@@ -103,18 +125,19 @@ func seesAll(p *core.Caller) bool {
 
 func (a *api) orderDTO(o Order, p *core.Caller, events []Event) transportOrderDTO {
 	d := transportOrderDTO{
-		ID: o.ID, Organisation: orgRefDTO{o.OrganisationID, o.OrganisationName},
+		ID: o.ID, Kind: "deceased", Organisation: orgRefDTO{o.OrganisationID, o.OrganisationName},
 		ServiceDate: o.ServiceDate, Deceased: o.Deceased, Notes: o.Notes, SameCar: o.SameCar(), Military: o.Military, Status: o.Status, ReplyNote: o.ReplyNote,
 		SortTime: o.SortTime(), SubmittedBy: o.SubmittedByName,
 		CreatedAt: core.ServedTime(time.Unix(o.CreatedAt, 0)), UpdatedAt: core.ServedTime(time.Unix(o.UpdatedAt, 0)),
 		CanEdit:      p.Org != nil && (o.Status == Submitted || o.Status == Bumped) && p.Can(Create),
 		NextStatuses: []string{}, Events: []orderEventDTO{},
+		Cargo: []manifestEntryDTO{{OrganisationID: o.OrganisationID, OrganisationName: o.OrganisationName, Place: o.OrganisationName, Lines: cargoDTOs(o.Cargo)}},
 	}
 	if o.Delivery != nil {
-		d.Delivery = &deliveryDTO{o.Delivery.CarNumber, o.Delivery.Departure, o.Delivery.Time, o.Delivery.Destination, o.Delivery.Stops}
+		d.Delivery = &deliveryDTO{o.Delivery.CarNumber, idPtr(o.Delivery.CarID), o.Delivery.Departure, o.Delivery.Time, o.Delivery.Destination, o.Delivery.Stops}
 	}
 	if o.Carriers != nil {
-		d.Carriers = &carriersDTO{o.Carriers.CarNumber, o.Carriers.Departure, o.Carriers.Count, o.Carriers.Time, o.Carriers.CemeteryNumber, o.Carriers.Stops, o.Carriers.Bearers}
+		d.Carriers = &carriersDTO{o.Carriers.CarNumber, idPtr(o.Carriers.CarID), o.Carriers.Departure, o.Carriers.Count, o.Carriers.Time, o.Carriers.CemeteryNumber, o.Carriers.Stops, o.Carriers.Bearers}
 	}
 	if p.Can(Manage) {
 		d.NextStatuses = append(d.NextStatuses, ManagerNext[o.Status]...)
@@ -219,6 +242,10 @@ type transportDayDTO struct {
 	// MilitaryOpen: open military orders (they take a car from an ordinary order).
 	MilitaryOpen int            `json:"military_open"`
 	ByStatus     map[string]int `json:"by_status"`
+	// RequestsOpen: product requests needed that day that are not fully planned; Runs: goods runs of the day
+	// (not cancelled).
+	RequestsOpen int `json:"requests_open"`
+	Runs         int `json:"runs"`
 }
 
 // listTransportDays counts the orders of every day in the range (only days with orders), for the date strip.
@@ -238,9 +265,9 @@ func (a *api) listTransportDays(w http.ResponseWriter, r *http.Request, p *core.
 	case p.Can(Create):
 		waiting = Bumped
 	}
-	out := make([]transportDayDTO, 0, len(days))
+	byDate := map[string]*transportDayDTO{}
 	for _, d := range days {
-		dto := transportDayDTO{Date: d.Date, ByStatus: d.ByStatus, MilitaryOpen: d.MilitaryOpen}
+		dto := &transportDayDTO{Date: d.Date, ByStatus: d.ByStatus, MilitaryOpen: d.MilitaryOpen}
 		for s, n := range d.ByStatus {
 			dto.Total += n
 			if Open(s) {
@@ -250,7 +277,46 @@ func (a *api) listTransportDays(w http.ResponseWriter, r *http.Request, p *core.
 		if waiting != "" {
 			dto.Attention = d.ByStatus[waiting]
 		}
-		out = append(out, dto)
+		byDate[d.Date] = dto
+	}
+	day := func(date string) *transportDayDTO {
+		if byDate[date] == nil {
+			byDate[date] = &transportDayDTO{Date: date, ByStatus: map[string]int{}}
+		}
+		return byDate[date]
+	}
+	// Days with only goods runs or only open product requests appear too.
+	runs, err := ListRuns(r.Context(), a.Read, RunFilter{From: filter.From, To: filter.To, OrganisationID: filter.OrganisationID})
+	if err != nil {
+		return err
+	}
+	for _, run := range runs {
+		if run.Status != RunCancelled {
+			day(run.ServiceDate).Runs++
+		}
+	}
+	where, args := "WHERE r.status = ? AND r.need_date >= ? AND r.need_date <= ?", []any{RequestSubmitted, filter.From, filter.To}
+	if filter.OrganisationID != 0 {
+		where += " AND r.organisation_id = ?"
+		args = append(args, filter.OrganisationID)
+	}
+	reqs, err := LoadRequests(r.Context(), a.Read, where, args...)
+	if err != nil {
+		return err
+	}
+	for _, q := range reqs {
+		if q.Open() {
+			day(q.NeedDate).RequestsOpen++
+		}
+	}
+	dates := make([]string, 0, len(byDate))
+	for d := range byDate {
+		dates = append(dates, d)
+	}
+	sort.Strings(dates)
+	out := make([]transportDayDTO, 0, len(dates))
+	for _, d := range dates {
+		out = append(out, *byDate[d])
 	}
 	core.WriteJSON(w, http.StatusOK, out)
 	return nil
@@ -326,8 +392,10 @@ func parseOrder(r *http.Request) (Input, error) {
 		body.Fail("service_date", "Дата має мати вигляд 2026-10-31", "value_error")
 	}
 	if d := body.Object("delivery"); d != nil {
+		car, id := carFields(d)
 		in.Delivery = &Delivery{
-			CarNumber:   reqString(d, "car_number", 30),
+			CarNumber:   car,
+			CarID:       id,
 			Departure:   reqString(d, "departure", 300),
 			Time:        timeField(d, "time"),
 			Destination: reqString(d, "destination", 300),
@@ -339,13 +407,23 @@ func parseOrder(r *http.Request) (Input, error) {
 		if !ValidCrew(int(n)) {
 			c.Fail("count", "Бригада виносу — 4 або 6 осіб", "value_error")
 		}
+		car, id := carFields(c)
 		in.Carriers = &Carriers{
-			CarNumber:      reqString(c, "car_number", 30),
-			Departure:      reqString(c, "departure", 300),
+			CarNumber:      car,
+			CarID:          id,
 			Count:          int(n),
 			Time:           timeField(c, "time"),
 			CemeteryNumber: reqString(c, "cemetery_number", 50),
 			Stops:          stopNames(c),
+		}
+		in.SameCar = c.OptBool("same_car", false)
+		// The carriers leave from where the delivery ends unless the desk names another place.
+		if dep := strings.TrimSpace(c.OptString("departure", "", 300)); dep != "" {
+			in.Carriers.Departure = dep
+		} else if in.Delivery != nil && in.Delivery.Destination != "" {
+			in.Carriers.Departure = in.Delivery.Destination
+		} else {
+			c.Fail("departure", "Поле обов’язкове", "value_error")
 		}
 		if len(in.Carriers.Stops) == 0 { // the route must be in the order: a stop that was not ordered is a fault
 			c.Fail("stops", "Вкажіть хоча б одну зупинку (наприклад, дім жалоби чи церкву)", "value_error")
@@ -369,6 +447,9 @@ func (a *api) createTransportOrder(w http.ResponseWriter, r *http.Request, p *co
 	var id int64
 	err = a.Write(r.Context(), func(tx *sql.Tx) error {
 		var err error
+		if err = resolveCars(r.Context(), tx, &in, nil); err != nil {
+			return err
+		}
 		if err = a.claimCars(r.Context(), tx, in, 0, p, name, ip); err != nil {
 			return err
 		}
@@ -395,6 +476,9 @@ func (a *api) createTransportOrder(w http.ResponseWriter, r *http.Request, p *co
 	return nil
 }
 
+var errCarRequired = core.HTTPError{Status: 409, Code: "car_required",
+	Detail: "Призначте авто для кожної частини замовлення, перш ніж прийняти його."}
+
 var errOrderLocked = core.HTTPError{Status: 409, Detail: "Замовлення вже розглянуто диспетчером, змінити його не можна."}
 
 func (a *api) updateTransportOrder(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
@@ -415,6 +499,9 @@ func (a *api) updateTransportOrder(w http.ResponseWriter, r *http.Request, p *co
 		}
 		if o.Status != Submitted && o.Status != Bumped {
 			return errOrderLocked
+		}
+		if err := resolveCars(r.Context(), tx, &in, o.carIDs()); err != nil {
+			return err
 		}
 		if err := a.claimCars(r.Context(), tx, in, id, p, name, ip); err != nil {
 			return err
@@ -502,6 +589,9 @@ func (a *api) setTransportOrderStatus(w http.ResponseWriter, r *http.Request, p 
 		}
 		if !CanSet(o.Status, status) {
 			return core.HTTPError{Status: 409, Detail: "Цей статус не можна встановити для замовлення в поточному стані."}
+		}
+		if (status == Accepted || status == InProgress) && !o.HasCars() {
+			return errCarRequired
 		}
 		if err := SetOrderStatus(r.Context(), tx, id, status, note, p.ID, name, a.Now()); err != nil {
 			return err
@@ -612,9 +702,15 @@ func (a *api) claimCars(ctx context.Context, tx *sql.Tx, in Input, excludeID int
 	}
 	if !in.Military {
 		c := conflicts[0]
+		if c.RunID != 0 {
+			return core.HTTPError{Status: 409, Detail: busyText(c)}
+		}
 		return core.HTTPError{Status: 409, Detail: "Авто " + c.Car + " уже зайняте: " + span(c) + " (авто тримається " + strconv.Itoa(int(CarLock.Hours())) + " год після замовлення). Оберіть інший час або авто."}
 	}
 	for _, c := range conflicts {
+		if c.RunID != 0 { // a goods run has no "bumped" state: the army cannot take its car
+			return core.HTTPError{Status: 409, Detail: busyText(c)}
+		}
 		if c.Military {
 			return core.HTTPError{Status: 409, Detail: "Авто " + c.Car + " уже зайняте іншим військовим замовленням: " + span(c) + "."}
 		}
@@ -661,4 +757,49 @@ func statusLabel(s string) string {
 		return "відхилено"
 	}
 	return s
+}
+
+// board is the dispatcher's one call for a day: orders, goods runs, open product requests and the active fleet.
+func (a *api) board(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	pm := core.Query(r)
+	date := pm.String("date")
+	if err := pm.Err(); err != nil {
+		return err
+	}
+	if date == "" {
+		date = a.today()
+	}
+	if !ValidDate(date) {
+		return core.HTTPError{Status: 400, Detail: "Дата має мати вигляд 2026-10-31"}
+	}
+	orders, err := ListOrders(r.Context(), a.Read, Filter{From: date, To: date})
+	if err != nil {
+		return err
+	}
+	runs, err := ListRuns(r.Context(), a.Read, RunFilter{From: date, To: date})
+	if err != nil {
+		return err
+	}
+	open, err := openRequests(a, r, 0, date)
+	if err != nil {
+		return err
+	}
+	cars, err := ListCars(r.Context(), a.Read, false)
+	if err != nil {
+		return err
+	}
+	carByID, err := a.carMap(r, a.Read)
+	if err != nil {
+		return err
+	}
+	od := make([]transportOrderDTO, 0, len(orders))
+	for _, o := range orders {
+		od = append(od, a.orderDTO(o, p, nil))
+	}
+	cd := make([]carDTO, 0, len(cars))
+	for _, c := range cars {
+		cd = append(cd, carJSON(c))
+	}
+	core.WriteJSON(w, http.StatusOK, map[string]any{"orders": od, "runs": runsJSON(runs, carByID, 0), "open_requests": requestsJSON(open), "cars": cd})
+	return nil
 }

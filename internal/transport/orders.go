@@ -61,7 +61,8 @@ func ValidDate(s string) bool {
 
 // Delivery is the transport of the deceased: which car, from where, when and where to.
 type Delivery struct {
-	CarNumber, Departure string
+	CarNumber, Departure string // CarNumber is the snapshot of the car's display form (or old free text)
+	CarID                int64  // the fleet car, 0 = none (free text or not yet assigned)
 	Time, Destination    string
 	Stops                []string // optional transit stops
 }
@@ -70,6 +71,7 @@ type Delivery struct {
 // ceremony: at least one) and the cemetery number at the end.
 type Carriers struct {
 	CarNumber, Departure string // the car that takes the coffin: the delivery's car or another one
+	CarID                int64  // the fleet car, 0 = none
 	Count                int    // 4 or 6 men
 	Time                 string
 	CemeteryNumber       string
@@ -86,6 +88,31 @@ type Input struct {
 	Military                     bool // an order for the army: it takes a car from an ordinary order
 	Delivery                     *Delivery
 	Carriers                     *Carriers
+	SameCar                      bool // the carriers use the delivery's car (resolved when the cars are looked up)
+}
+
+// HasCars reports whether every present part has a car (a fleet car or an old free-text number).
+func (o Order) HasCars() bool {
+	has := func(text string, id int64) bool { return id != 0 || strings.TrimSpace(text) != "" }
+	if o.Delivery != nil && !has(o.Delivery.CarNumber, o.Delivery.CarID) {
+		return false
+	}
+	if o.Carriers != nil && !has(o.Carriers.CarNumber, o.Carriers.CarID) {
+		return false
+	}
+	return true
+}
+
+// carIDs lists the fleet cars the order already holds (an edit may keep a car that was deactivated since).
+func (o Order) carIDs() map[int64]bool {
+	m := map[int64]bool{}
+	if o.Delivery != nil && o.Delivery.CarID != 0 {
+		m[o.Delivery.CarID] = true
+	}
+	if o.Carriers != nil && o.Carriers.CarID != 0 {
+		m[o.Carriers.CarID] = true
+	}
+	return m
 }
 
 // Order is a stored order. Delivery and Carriers of one deceased live in the same order, so they are listed together.
@@ -100,6 +127,7 @@ type Order struct {
 	SubmittedByID                int64
 	SubmittedByName              string
 	CreatedAt, UpdatedAt         int64
+	Cargo                        []CargoLine // goods this order carries to its organisation
 }
 
 // SameCar reports whether one car does both parts (they are shown as one run).
@@ -107,8 +135,7 @@ func (o Order) SameCar() bool {
 	if o.Delivery == nil || o.Carriers == nil {
 		return false
 	}
-	norm := func(s string) string { return strings.Join(strings.Fields(strings.ToLower(s)), "") }
-	return norm(o.Delivery.CarNumber) == norm(o.Carriers.CarNumber)
+	return NormPlate(o.Delivery.CarNumber) == NormPlate(o.Carriers.CarNumber)
 }
 
 // SortTime is the earliest time of the order; the day list is ordered by it.
@@ -134,8 +161,8 @@ type Event struct {
 var ErrNotFound = errors.New("transport order not found")
 
 const orderColumns = `o.id, o.organisation_id, org.name, o.service_date, o.deceased, o.notes, o.status, o.reply_note,
-	o.has_delivery, o.delivery_car, o.delivery_from, o.delivery_time, o.destination,
-	o.has_carriers, o.carriers_car, o.carriers_from, o.carriers_count, o.carriers_time, o.cemetery_number,
+	o.has_delivery, o.delivery_car, COALESCE(o.delivery_car_id, 0), o.delivery_from, o.delivery_time, o.destination,
+	o.has_carriers, o.carriers_car, COALESCE(o.carriers_car_id, 0), o.carriers_from, o.carriers_count, o.carriers_time, o.cemetery_number,
 	o.is_military, COALESCE(o.created_by_id, 0), o.created_by_name, o.created_at, o.updated_at`
 
 type scanner interface{ Scan(dest ...any) error }
@@ -146,8 +173,8 @@ func scanOrder(r scanner) (Order, error) {
 	var d Delivery
 	var c Carriers
 	err := r.Scan(&o.ID, &o.OrganisationID, &o.OrganisationName, &o.ServiceDate, &o.Deceased, &o.Notes, &o.Status, &o.ReplyNote,
-		&hasD, &d.CarNumber, &d.Departure, &d.Time, &d.Destination,
-		&hasC, &c.CarNumber, &c.Departure, &c.Count, &c.Time, &c.CemeteryNumber,
+		&hasD, &d.CarNumber, &d.CarID, &d.Departure, &d.Time, &d.Destination,
+		&hasC, &c.CarNumber, &c.CarID, &c.Departure, &c.Count, &c.Time, &c.CemeteryNumber,
 		&mil, &o.SubmittedByID, &o.SubmittedByName, &o.CreatedAt, &o.UpdatedAt)
 	if err != nil {
 		return o, err
@@ -184,7 +211,11 @@ func GetOrder(ctx context.Context, q core.Querier, id int64) (Order, error) {
 		return o, err
 	}
 	attachStops(&o, stops[o.ID])
-	return o, nil
+	one := []Order{o}
+	if err := attachCargo(ctx, q, one); err != nil {
+		return o, err
+	}
+	return one[0], nil
 }
 
 type stopKey struct{ part string }
@@ -269,6 +300,9 @@ func ListOrders(ctx context.Context, q core.Querier, f Filter) ([]Order, error) 
 	}
 	for i := range out {
 		attachStops(&out[i], stops[out[i].ID])
+	}
+	if err := attachCargo(ctx, q, out); err != nil {
+		return nil, err
 	}
 	sortChronologically(out)
 	return out, nil
@@ -370,8 +404,16 @@ func partArgs(in Input) []any {
 		c = *in.Carriers
 	}
 	return []any{in.ServiceDate, in.Deceased, in.Notes,
-		b2i(in.Delivery != nil), d.CarNumber, d.Departure, d.Time, d.Destination,
-		b2i(in.Carriers != nil), c.CarNumber, c.Departure, c.Count, c.Time, c.CemeteryNumber, b2i(in.Military)}
+		b2i(in.Delivery != nil), d.CarNumber, nullID(d.CarID), d.Departure, d.Time, d.Destination,
+		b2i(in.Carriers != nil), c.CarNumber, nullID(c.CarID), c.Departure, c.Count, c.Time, c.CemeteryNumber, b2i(in.Military)}
+}
+
+// nullID stores 0 as NULL (no fleet car).
+func nullID(id int64) any {
+	if id == 0 {
+		return nil
+	}
+	return id
 }
 
 func addEvent(ctx context.Context, tx *sql.Tx, id int64, now time.Time, userID int64, userName, kind, status, note string) error {
@@ -384,10 +426,10 @@ func addEvent(ctx context.Context, tx *sql.Tx, id int64, now time.Time, userID i
 func CreateOrder(ctx context.Context, tx *sql.Tx, orgID, userID int64, userName string, in Input, now time.Time) (int64, error) {
 	args := append(partArgs(in), orgID, Submitted, userID, userName, now.Unix(), now.Unix())
 	res, err := tx.ExecContext(ctx, `INSERT INTO transport_orders
-		(service_date, deceased, notes, has_delivery, delivery_car, delivery_from, delivery_time, destination,
-		 has_carriers, carriers_car, carriers_from, carriers_count, carriers_time, cemetery_number, is_military,
+		(service_date, deceased, notes, has_delivery, delivery_car, delivery_car_id, delivery_from, delivery_time, destination,
+		 has_carriers, carriers_car, carriers_car_id, carriers_from, carriers_count, carriers_time, cemetery_number, is_military,
 		 organisation_id, status, created_by_id, created_by_name, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -402,8 +444,8 @@ func CreateOrder(ctx context.Context, tx *sql.Tx, orgID, userID int64, userName 
 func UpdateOrder(ctx context.Context, tx *sql.Tx, id, userID int64, userName string, in Input, now time.Time) error {
 	args := append(partArgs(in), now.Unix(), id)
 	if _, err := tx.ExecContext(ctx, `UPDATE transport_orders SET
-		service_date = ?, deceased = ?, notes = ?, has_delivery = ?, delivery_car = ?, delivery_from = ?, delivery_time = ?, destination = ?,
-		has_carriers = ?, carriers_car = ?, carriers_from = ?, carriers_count = ?, carriers_time = ?, cemetery_number = ?, is_military = ?, updated_at = ? WHERE id = ?`, args...); err != nil {
+		service_date = ?, deceased = ?, notes = ?, has_delivery = ?, delivery_car = ?, delivery_car_id = ?, delivery_from = ?, delivery_time = ?, destination = ?,
+		has_carriers = ?, carriers_car = ?, carriers_car_id = ?, carriers_from = ?, carriers_count = ?, carriers_time = ?, cemetery_number = ?, is_military = ?, updated_at = ? WHERE id = ?`, args...); err != nil {
 		return err
 	}
 	if err := writeParts(ctx, tx, id, in); err != nil {
@@ -509,4 +551,38 @@ func CountByDay(ctx context.Context, q core.Querier, f Filter) ([]DayCount, erro
 		}
 	}
 	return out, rows.Err()
+}
+
+// SetAssignment stores the car, time and stops the dispatcher chose for the parts present in o (the other columns
+// stay as they are) and writes the history line. A bumped order that gets a car goes back to submitted, like an
+// edit by the desk, so the dispatcher can accept it.
+func SetAssignment(ctx context.Context, tx *sql.Tx, o Order, userID int64, userName, note string, now time.Time) error {
+	if o.Delivery != nil {
+		if _, err := tx.ExecContext(ctx, "UPDATE transport_orders SET delivery_car = ?, delivery_car_id = ?, delivery_time = ? WHERE id = ?",
+			o.Delivery.CarNumber, nullID(o.Delivery.CarID), o.Delivery.Time, o.ID); err != nil {
+			return err
+		}
+	}
+	if o.Carriers != nil {
+		if _, err := tx.ExecContext(ctx, "UPDATE transport_orders SET carriers_car = ?, carriers_car_id = ?, carriers_time = ? WHERE id = ?",
+			o.Carriers.CarNumber, nullID(o.Carriers.CarID), o.Carriers.Time, o.ID); err != nil {
+			return err
+		}
+	}
+	if err := writeParts(ctx, tx, o.ID, Input{Delivery: o.Delivery, Carriers: o.Carriers}); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, "UPDATE transport_orders SET updated_at = ? WHERE id = ?", now.Unix(), o.ID); err != nil {
+		return err
+	}
+	if err := addEvent(ctx, tx, o.ID, now, userID, userName, "assignment", "", note); err != nil {
+		return err
+	}
+	if o.Status == Bumped {
+		if _, err := tx.ExecContext(ctx, "UPDATE transport_orders SET status = ? WHERE id = ?", Submitted, o.ID); err != nil {
+			return err
+		}
+		return addEvent(ctx, tx, o.ID, now, userID, userName, "status", Submitted, "")
+	}
+	return nil
 }

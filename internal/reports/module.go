@@ -47,9 +47,17 @@ func catalog(ctx context.Context, q core.Querier) ([]core.CatalogProduct, error)
 	if err != nil {
 		return nil, err
 	}
+	hist, err := LoadHistory(ctx, q)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]core.CatalogProduct, 0, len(list))
 	for _, p := range list {
-		out = append(out, core.CatalogProduct{ID: p.ID, Name: p.Name})
+		item := core.CatalogProduct{ID: p.ID, Name: p.Name}
+		if cents, err := LatestPrice(HistoryOf(hist, p)); err == nil && cents > 0 {
+			item.PriceCents = &cents
+		}
+		out = append(out, item)
 	}
 	return out, nil
 }

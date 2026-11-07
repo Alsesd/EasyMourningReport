@@ -51,6 +51,8 @@ type Notifier interface {
 type CatalogProduct struct {
 	ID   int64
 	Name string
+	// PriceCents is the product's latest actual price in integer cents; nil when it has none.
+	PriceCents *int64
 }
 
 // Module is everything the platform needs to know about a feature module.

@@ -126,6 +126,8 @@ var goOwned = []string{
 		notes TEXT NOT NULL DEFAULT '',
 		status TEXT NOT NULL,
 		reply_note TEXT NOT NULL DEFAULT '',
+		car_id INTEGER NULL,
+		car_plate TEXT NOT NULL DEFAULT '',
 		created_by_id INTEGER,
 		created_by_name TEXT NOT NULL DEFAULT '',
 		created_at INTEGER NOT NULL,
@@ -138,7 +140,8 @@ var goOwned = []string{
 		request_id INTEGER NOT NULL REFERENCES product_requests (id) ON DELETE CASCADE,
 		product_id INTEGER NOT NULL,
 		product_name TEXT NOT NULL,
-		quantity INTEGER NOT NULL CHECK (quantity > 0)
+		quantity INTEGER NOT NULL CHECK (quantity > 0),
+		unit_price_cents INTEGER NULL
 	)`,
 	`CREATE INDEX IF NOT EXISTS ix_product_request_items_request ON product_request_items (request_id)`,
 	`CREATE TABLE IF NOT EXISTS transport_runs (
