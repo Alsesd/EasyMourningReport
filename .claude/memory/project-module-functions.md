@@ -26,3 +26,10 @@ type: project
   outside `BACKUP_KEEP`; per-copy download endpoint validates names against the list.
 - **Sessions/auth**: server-side sessions (hashed token), device tokens, passkeys, login rate limit, CSRF/same-origin guard.
 - **system/update**: Cloudflare tunnel supervisor, health, self-update from GitHub Releases.
+- **Technical health page** (2026-11-07): hub section «Стан програми» (`/admin/manage/health`, `platform.system.manage`),
+  `GET /admin/system/metrics` (build/uptime/runtime/DB/disk/backups/jobs/push/sessions/HTTP counters; integrity verdict
+  cached 10 min, `POST /admin/system/integrity-check` forces it). Backup health = the job's own `last_run_at`/`last_error`
+  (`store.Backups.RunStatus`), NOT the newest file's age (copies are skipped when nothing changed). Background jobs record
+  runs in `web.jobs`. 4xx are refusals (never red), 5xx are program faults. `system.FreeDisk` has unix and windows files.
+  Business metrics belong on the separate management dashboard, not here.
+- Overdue-orders banner is dispatcher-only (`transport.orders.manage`); military orders have their own dark shield pill.

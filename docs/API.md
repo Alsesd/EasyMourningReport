@@ -59,6 +59,8 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | POST | `/notifications/{id}/read` | any signed-in user | Mark one of the caller's notifications read (someone else's id changes nothing); answers with the refreshed list |
 | POST | `/notifications/read-all` | any signed-in user | Mark all of the caller's notifications read; answers with the refreshed list |
 | GET | `/admin/system/health` | `platform.system.manage` | Integrity check result, journal mode, database size, backup count and time, schedule |
+| GET | `/admin/system/metrics` | `platform.system.manage` | Technical health for the «Стан програми» page: build and uptime, runtime, database (file/WAL size, pages, free pages, row counts of the main tables), disk, backups (`last_run_at`/`last_error`/`run_overdue`: the job's own record, because a copy is skipped when nothing changed), background jobs, push backlog, live sessions, HTTP counters since start (`client_errors` = 4xx refusals, `server_errors` = 5xx faults). The integrity verdict is cached for 10 minutes, so the page can poll |
+| POST | `/admin/system/integrity-check` | `platform.system.manage` | Runs `quick_check` now: `{verdict, ok, checked_at}` |
 | GET | `/admin/backups/{name}/download` | `platform.system.manage` | Download one listed copy (`404` for a name that is not in the list) |
 | GET | `/admin/backup/download` | `platform.system.manage` | Take a fresh verified snapshot and download it (`500` if it cannot be made; the live file is never streamed) |
 

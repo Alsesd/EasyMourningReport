@@ -195,8 +195,12 @@ func RunPushDispatcher(ctx context.Context, d Deps) {
 	defer t.Stop()
 	for {
 		pctx, cancel := context.WithTimeout(ctx, 90*time.Second)
-		if _, err := a.pushPass(pctx); err != nil && ctx.Err() == nil {
+		_, err := a.pushPass(pctx)
+		if err != nil && ctx.Err() == nil {
 			log.Printf("push dispatcher: %v", err)
+		}
+		if ctx.Err() == nil {
+			jobs.done("push", err)
 		}
 		cancel()
 		select {

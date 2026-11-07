@@ -303,11 +303,15 @@ describe("TransportPage", () => {
 
   it("shows the overdue banner to the dispatcher only, not to a desk", async () => {
     const old = shiftDay(todayIso(), -3);
+    const week = shiftDay(todayIso(), 7);
     vi.spyOn(transportApi, "orders").mockResolvedValue([]);
-    vi.spyOn(transportApi, "days").mockResolvedValue([{ date: old, total: 2, open: 2, attention: 0, military_open: 0, by_status: { accepted: 2 } }]);
+    // One query feeds both the banner and «Попереду в роботі»: once the chip is there, the banner would be too.
+    vi.spyOn(transportApi, "days").mockResolvedValue([
+      { date: old, total: 2, open: 2, attention: 0, military_open: 0, by_status: { accepted: 2 } },
+      { date: week, total: 1, open: 1, attention: 0, military_open: 0, by_status: { accepted: 1 } },
+    ]);
     renderPage(base);
-    await screen.findByRole("list", { name: "Дні із заявками" });
-    await waitFor(() => expect(transportApi.days).toHaveBeenCalled());
+    await screen.findByRole("button", { name: /через 7 днів/ });
     expect(screen.queryByText(/Незакриті заявки/)).toBeNull();
   });
 

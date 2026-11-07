@@ -76,6 +76,8 @@ func (a *App) mountSystem(rt *Router) {
 		writeJSON(w, http.StatusOK, a.healthDTO())
 		return nil
 	}))
+	rt.Handle("GET", "/admin/system/metrics", a.authed(sm, a.metrics))
+	rt.Handle("POST", "/admin/system/integrity-check", a.authed(sm, a.recheckIntegrity))
 	rt.Handle("GET", "/admin/backup/download", a.authed(sm, a.downloadBackup))
 	rt.Handle("GET", "/admin/backups/{name}/download", a.authed(sm, a.downloadListedBackup))
 	rt.Handle("GET", "/admin/overview", a.authed(nil, a.overview))

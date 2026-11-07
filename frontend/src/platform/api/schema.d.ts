@@ -569,6 +569,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/system/metrics": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get: { responses: { 200: { content: { "application/json": components["schemas"]["SystemMetricsDTO"] } } } };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system/integrity-check": {
+        parameters: { query?: never; header?: never; path?: never; cookie?: never };
+        get?: never;
+        put?: never;
+        post: { responses: { 200: { content: { "application/json": components["schemas"]["IntegrityDTO"] } } } };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/system/health": {
         parameters: {
             query?: never;
@@ -1525,6 +1547,27 @@ export interface components {
              * @default false
              */
             calculation_enabled: boolean;
+        };
+        /** IntegrityDTO: the database quick_check verdict (cached for ten minutes, forced by POST) */
+        IntegrityDTO: { verdict: string; ok: boolean; checked_at: string };
+        /** SystemMetricsDTO: technical health of the running program (GET /admin/system/metrics) */
+        SystemMetricsDTO: {
+            build: { version: string; commit: string; built_at: string; go: string; platform: string; started_at: string; uptime_sec: number };
+            runtime: { goroutines: number; heap_bytes: number; sys_bytes: number; gc_runs: number };
+            db: { file_bytes: number; wal_bytes: number; page_size: number; page_count: number; freelist_count: number; journal_mode: string; tables: { [table: string]: number } };
+            integrity: components["schemas"]["IntegrityDTO"];
+            disk: { known: boolean; free_bytes: number; total_bytes: number };
+            backups: {
+                count: number; every_min: number; last_copy_at: string | null; last_run_at: string | null; last_error: string;
+                run_overdue: boolean; configured: boolean; total_bytes: number; snapshots: number; newest_bytes: number;
+            };
+            jobs: { name: string; label: string; last_run: string | null; error: string; runs: number; fails: number; stale: boolean }[];
+            push: { configured: boolean; subscriptions: number; backlog: number };
+            sessions: { live: number; users: number };
+            http: {
+                ok: number; client_errors: number; server_errors: number; requests: number; since_sec: number; server_error_pct: number;
+                last_server_error: { at: string; method: string; path: string; status: number } | null;
+            };
         };
         /** SystemHealthDTO */
         SystemHealthDTO: {

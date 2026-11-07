@@ -4,6 +4,8 @@ import { api } from "@/platform/api/client";
 import type {
   AdminOverviewDTO,
   BackupDTO,
+  IntegrityDTO,
+  SystemMetricsDTO,
   SystemHealthDTO,
   TunnelStartDTO,
   TunnelStatusDTO,
@@ -18,6 +20,8 @@ export const systemApi = {
     api.put<TunnelStatusDTO>("/api/v1/admin/tunnel/autostart", { enabled }),
   backups: (limit = 10) => api.get<BackupDTO[]>("/api/v1/admin/backups", { params: { limit } }),
   health: () => api.get<SystemHealthDTO>("/api/v1/admin/system/health"),
+  metrics: () => api.get<SystemMetricsDTO>("/api/v1/admin/system/metrics"),
+  recheckIntegrity: () => api.post<IntegrityDTO>("/api/v1/admin/system/integrity-check", {}),
   overview: () => api.get<AdminOverviewDTO>("/api/v1/admin/overview"),
   update: () => api.get<UpdateStatusDTO>("/api/v1/admin/update"),
   checkUpdate: () => api.post<UpdateStatusDTO>("/api/v1/admin/update/check", {}),

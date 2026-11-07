@@ -29,6 +29,8 @@ export type PushKeyDTO = Schemas["PushKeyDTO"];
 export type NotificationDTO = Schemas["NotificationDTO"];
 export type NotificationsDTO = Schemas["NotificationsDTO"];
 export type SystemHealthDTO = Schemas["SystemHealthDTO"];
+export type SystemMetricsDTO = Schemas["SystemMetricsDTO"];
+export type IntegrityDTO = Schemas["IntegrityDTO"];
 export type AdminOverviewDTO = Schemas["AdminOverviewDTO"];
 
 // Reports module

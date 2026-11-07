@@ -114,6 +114,8 @@ func RunScheduler(ctx context.Context, d Deps, cfg SchedulerConfig) {
 	at, hasAt := parseClock(cfg.ReminderAt)
 	var remindedOn, prunedOn string
 	tick := func() {
+		var failed error
+		defer func() { jobs.done("scheduler", failed) }()
 		now := a.now().In(cfg.Loc)
 		day := now.Format("2006-01-02")
 		if prunedOn != day {
@@ -121,6 +123,7 @@ func RunScheduler(ctx context.Context, d Deps, cfg SchedulerConfig) {
 				return platform.PruneNotifications(tx, now, 30*24*time.Hour, 180*24*time.Hour)
 			}); err != nil {
 				log.Printf("pruning notifications failed: %v", err)
+				failed = err
 			} else {
 				prunedOn = day
 			}
@@ -128,6 +131,7 @@ func RunScheduler(ctx context.Context, d Deps, cfg SchedulerConfig) {
 		if hasAt && remindedOn != day && now.Hour()*60+now.Minute() >= at {
 			if err := a.runDailyReminders(ctx, now); err != nil {
 				log.Printf("daily reminders failed, will retry: %v", err)
+				failed = err
 			} else {
 				remindedOn = day
 			}

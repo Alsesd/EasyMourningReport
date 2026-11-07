@@ -45,6 +45,8 @@ type Deps struct {
 type App struct {
 	Deps
 	challenges challenges
+	http       httpMetrics // response counts since the start (metrics page)
+	cache      dbCache     // integrity verdict and table counts, so the metrics page can be polled
 }
 
 func (a *App) now() time.Time {
@@ -75,7 +77,7 @@ func New(d Deps) http.Handler {
 	app.mountNotifications(rt)
 	app.mountPush(rt)
 	app.mountSystem(rt)
-	srv := &Server{DB: d.Store, Assets: d.Assets, API: rt}
+	srv := &Server{DB: d.Store, Assets: d.Assets, API: app.http.counted(rt)}
 	secure := func(r *http.Request) bool { return cookieSecure(d.CookieSecure, d.Trusted, r) }
 	return securityHeaders(d.Trusted, accessGuard(d.Access, sessionMiddleware(Signer{Secret: d.Secret}, secure,
 		SessionHooks{Lookup: app.sessionUser, Device: app.checkDevice}, sameOriginGuard(srv))))

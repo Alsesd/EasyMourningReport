@@ -39,6 +39,28 @@ type Backups struct {
 
 	mu      sync.Mutex // Run is called by the loop, shutdown and request handlers
 	lastSum string     // content fingerprint at the last copy (empty until the first one in this run)
+
+	statMu  sync.Mutex // guards the run record below (read by the health page while a copy is being made)
+	lastRun time.Time  // the last time Run finished (a copy, or a skip because nothing changed)
+	lastErr string     // the error of the last run, "" when it succeeded
+}
+
+// RunStatus is when the last Run finished and how: a copy is skipped when nothing changed, so the age of the
+// newest file says little, while a recent run that did not fail says the backups work.
+func (b *Backups) RunStatus() (at time.Time, errText string) {
+	b.statMu.Lock()
+	defer b.statMu.Unlock()
+	return b.lastRun, b.lastErr
+}
+
+func (b *Backups) record(err error) {
+	b.statMu.Lock()
+	defer b.statMu.Unlock()
+	b.lastRun = b.now()
+	b.lastErr = ""
+	if err != nil {
+		b.lastErr = err.Error()
+	}
 }
 
 func (b *Backups) now() time.Time {
@@ -150,9 +172,10 @@ func (b *Backups) lastChange() time.Time {
 // copy: sessions, device tokens, passkey counters and notification marks do not count as a change. Right after
 // the program starts there is no fingerprint yet, so the file times decide. A copy failing quick_check is
 // deleted and an error returned.
-func (b *Backups) Run(tag string) (string, error) {
+func (b *Backups) Run(tag string) (name string, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	defer func() { b.record(err) }()
 	if _, err := os.Stat(b.Store.Path); err != nil {
 		return "", nil
 	}
