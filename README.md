@@ -142,4 +142,4 @@ go run ./cmd/smoke -exe dist/legkyi            # starts it in an empty folder an
 CHROMIUM_PATH=/opt/pw-browsers/chromium LEGKYI_E2E_BINARY=dist/legkyi uv run scripts/e2e_test.py   # browser test
 ```
 
-See [Architecture](docs/architecture.md), [REST API](docs/API.md), [security notes](docs/security.md), [UX contract](docs/ux-contract.md), [design system](docs/design-system.md) and the module notes in `docs/modules/` before making structural changes. The history of the Python-to-Go port is in [docs/migration/](docs/migration/) and [ADR 0004](docs/adr/0004-port-backend-to-go.md).
+See [Architecture](docs/architecture.md), [REST API](docs/API.md), [security notes](docs/security.md), [UX contract](docs/ux-contract.md), [design system](docs/design-system.md) and the module notes in `docs/modules/` before making structural changes. The history of the Python-to-Go port is in [migration working notes](.claude/notes/migration/) and [ADR 0004](docs/adr/0004-port-backend-to-go.md).

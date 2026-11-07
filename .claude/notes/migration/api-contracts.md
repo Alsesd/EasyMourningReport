@@ -1,6 +1,6 @@
 # API contracts: what a Go backend must reproduce
 
-The endpoint list, the permissions and their purposes are in [`docs/API.md`](../API.md). That table matches the routes in source, and this file does not repeat it. This file records the wire-level behaviour API.md leaves out. **(probed)** marks behaviour confirmed against a running server.
+The endpoint list, the permissions and their purposes are in [`docs/API.md`](../../../docs/API.md). That table matches the routes in source, and this file does not repeat it. This file records the wire-level behaviour API.md leaves out. **(probed)** marks behaviour confirmed against a running server.
 
 ## Transport and routing
 

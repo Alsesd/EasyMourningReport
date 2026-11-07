@@ -1,4 +1,4 @@
-> **Status: complete.** The port was implemented through slice 7 and the Python backend was removed in release `Soup.V5`. This folder is kept as the historical record of the decisions and risks; see [ADR 0004](../adr/0004-port-backend-to-go.md) for the outcome. File paths below that start with `backend/` refer to the removed Python code (last present at commit `92564ef`).
+> **Status: complete.** The port was implemented through slice 7 and the Python backend was removed in release `Soup.V5`. This folder is kept as the historical record of the decisions and risks; see [ADR 0004](../../../docs/adr/0004-port-backend-to-go.md) for the outcome. File paths below that start with `backend/` refer to the removed Python code (last present at commit `92564ef`).
 
 # Go migration plan (proposal; awaiting approval)
 
