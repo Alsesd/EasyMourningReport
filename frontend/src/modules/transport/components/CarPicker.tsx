@@ -15,6 +15,8 @@ export function CarPicker({
   onChange,
   label = t.carLabel,
   optional,
+  required,
+  invalid,
   className,
 }: {
   id?: string;
@@ -24,6 +26,9 @@ export function CarPicker({
   label?: string;
   /** The desk may leave the car to the dispatcher. */
   optional?: boolean;
+  /** The desk must choose a fleet car (required marker). */
+  required?: boolean;
+  invalid?: boolean;
   className?: string;
 }) {
   const current = useMemo(() => cars.find((c) => c.id === value) ?? null, [cars, value]);
@@ -51,6 +56,8 @@ export function CarPicker({
       search={search}
       placeholder={optional ? t.carOptionalPlaceholder : t.carPlaceholder}
       clearable={optional}
+      required={required}
+      invalid={invalid}
       labels={{ empty: t.carNone }}
     />
   );

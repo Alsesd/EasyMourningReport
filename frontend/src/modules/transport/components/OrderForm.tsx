@@ -87,11 +87,13 @@ export function draftFrom(day: string, order?: TransportOrderDTO, cars: Car[] = 
   };
 }
 
-/** The first problem a person can fix, or null. The car may stay empty: the dispatcher assigns it. The server checks everything again. */
+/** The first problem a person can fix, or null. The car is required (from the fleet). The server checks everything again. */
 export function draftProblem(d: Draft): string | null {
   const missing = (...what: string[]) => t.fieldsMissing(what.join(", "));
   if (!d.deceased.trim()) return missing(t.deceasedLabel);
   if (!d.delivery.on && !d.carriers.on) return t.atLeastOne;
+  if (d.carId === null) return t.carNeeded;
+  if (d.delivery.on && d.carriers.on && !d.sameCar && d.carriersCarId === null) return `${t.carriersCar}: ${t.carNeeded}`;
   if (d.delivery.on) {
     if (!d.delivery.departure.trim() || !d.delivery.destination.trim() || !isValidTime(d.delivery.time)) {
       return `${t.delivery}. ${missing(t.departure, t.deliveryTime, t.destination)} ${t.timeInvalid}`;
@@ -180,6 +182,7 @@ function OrderFormBody({ day, order, cars, onSaved }: { day: string; order?: Tra
   const [draft, setDraft] = useState(() => draftFrom(day, order, cars));
   const today = todayIso();
   const [message, setMessage] = useState<NoticeMessage | null>(null);
+  const [tried, setTried] = useState(false);
   const save = useMutation({
     mutationFn: (input: TransportOrderInputDTO) => (order ? transportApi.update(order.id, input) : transportApi.create(input)),
     onSuccess: (saved) => onSaved(order ? t.updated : t.created, saved),
@@ -196,6 +199,7 @@ function OrderFormBody({ day, order, cars, onSaved }: { day: string; order?: Tra
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
+        setTried(true);
         const problem = draftProblem(draft);
         if (problem) return setMessage({ text: problem, kind: "err" });
         setMessage(null);
@@ -230,11 +234,11 @@ function OrderFormBody({ day, order, cars, onSaved }: { day: string; order?: Tra
 
       <Section title={t.sectionCar}>
         <div className="space-y-2">
-          <CarPicker id="order-car" label={t.carPickerLabel} cars={cars.filter((c) => c.active || c.id === draft.carId)} value={draft.carId} onChange={(carId) => set({ carId, legacyCar: "" })} optional />
+          <CarPicker id="order-car" label={t.carPickerLabel} cars={cars.filter((c) => c.active || c.id === draft.carId)} value={draft.carId} onChange={(carId) => set({ carId, legacyCar: "" })} required invalid={tried && draft.carId === null} />
           {draft.carId === null && draft.legacyCar ? (
             <p className="text-sm text-attention">{t.carUnknown(draft.legacyCar)}</p>
           ) : (
-            <p className="text-xs text-text-muted">{cars.length === 0 ? t.fleetEmptyForm : t.carOptionalHint}</p>
+            <p className="text-xs text-text-muted">{cars.length === 0 ? t.fleetEmptyForm : t.carNeededHint}</p>
           )}
         </div>
       </Section>
@@ -276,7 +280,8 @@ function OrderFormBody({ day, order, cars, onSaved }: { day: string; order?: Tra
                   cars={cars.filter((c) => c.active || c.id === draft.carriersCarId)}
                   value={draft.carriersCarId}
                   onChange={(carriersCarId) => set({ carriersCarId, carriersLegacyCar: "" })}
-                  optional
+                  required
+                  invalid={tried && draft.carriersCarId === null}
                 />
                 {draft.carriersCarId === null && draft.carriersLegacyCar && <p className="-mt-2 text-sm text-attention">{t.carUnknown(draft.carriersLegacyCar)}</p>}
               </>

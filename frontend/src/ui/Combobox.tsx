@@ -64,6 +64,7 @@ export function Combobox<T>({
   limit = 50,
   labels,
   invalid,
+  required,
   className,
 }: {
   id?: string;
@@ -84,6 +85,8 @@ export function Combobox<T>({
   limit?: number;
   labels?: Partial<ComboboxLabels>;
   invalid?: boolean;
+  /** Marks the field as required (asterisk and aria-required). */
+  required?: boolean;
   className?: string;
 }) {
   const l = { ...defaultLabels, ...labels };
@@ -132,6 +135,11 @@ export function Combobox<T>({
     <div className={cn("relative", className)}>
       <label htmlFor={inputId} className={cn("mb-1.5 block text-sm font-medium text-text-main", hideLabel && "sr-only")}>
         {label}
+        {required && (
+          <span aria-hidden="true" className="ml-0.5 text-destructive">
+            *
+          </span>
+        )}
       </label>
       <div className="relative">
         <input
@@ -143,6 +151,7 @@ export function Combobox<T>({
           aria-autocomplete="list"
           aria-activedescendant={open && hits.length > 0 ? optionId(active) : undefined}
           aria-invalid={invalid ? true : undefined}
+          aria-required={required ? true : undefined}
           autoComplete="off"
           disabled={disabled}
           placeholder={placeholder}

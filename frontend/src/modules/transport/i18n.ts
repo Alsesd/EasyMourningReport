@@ -3,7 +3,7 @@
 import { ukPlatform } from "@/platform/i18n";
 import { daysWord } from "./timing";
 
-export { formatDateTime, formatDayReadable, shiftDay, todayIso } from "@/platform/i18n";
+export { formatCurrency, formatDateTime, formatDayReadable, shiftDay, todayIso } from "@/platform/i18n";
 
 export const uk = {
   ...ukPlatform,
@@ -104,9 +104,10 @@ export const uk = {
     carPlaceholder: "Оберіть авто",
     carOptionalPlaceholder: "Не обрано — призначить диспетчер",
     carNone: "Такого авто немає в автопарку",
-    carOptionalHint: "Можна не вказувати: авто призначить диспетчер.",
-    carUnknown: (text: string) => `Авто «${text}» немає в автопарку. Оберіть авто зі списку або залишіть порожнім.`,
-    fleetEmptyForm: "В автопарку ще немає авто — його призначить диспетчер.",
+    carNeeded: "Оберіть автомобіль з автопарку.",
+    carNeededHint: "Обов’язково. Диспетчер за потреби змінить авто.",
+    carUnknown: (text: string) => `Авто «${text}» немає в автопарку. Оберіть авто зі списку.`,
+    fleetEmptyForm: "В автопарку ще немає авто. Попросіть диспетчера додати авто.",
     notAssigned: "Авто не призначено",
     assignCar: "Призначити авто",
     stopsRequired: "Зупинки (обов’язково хоча б одна)",
@@ -212,6 +213,13 @@ export const uk = {
     requestDeceased: "Для кого (необов’язково)",
     requestNotes: "Примітка",
     requestItems: "Товари",
+    requestCar: "Бажане авто",
+    requestCarHint: "Необов’язково: диспетчер врахує побажання, але може обрати інше авто.",
+    preferredCar: "Бажане авто",
+    noPrice: "ціну не задано",
+    unitPrice: (price: string) => `${price} за шт.`,
+    lineTotal: "Сума",
+    requestTotal: "Разом",
     requestProduct: "Товар",
     requestProductPlaceholder: "Почніть вводити назву: бейка, 3 м, труна…",
     requestQuantity: (name: string) => name || "товару",

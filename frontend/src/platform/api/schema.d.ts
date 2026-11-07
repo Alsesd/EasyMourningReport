@@ -1766,7 +1766,7 @@ export interface components {
         /** ManifestDTO: per destination, in route order */
         ManifestDTO: components["schemas"]["ManifestEntryDTO"][];
         /** CatalogItemDTO: an orderable product (active, not archived) */
-        CatalogItemDTO: { id: number; name: string };
+        CatalogItemDTO: { id: number; name: string; /** Unit price in cents; null when no price is set */ price_cents: number | null };
         /** RequestCarrierDTO: where a requested item is loaded */
         RequestCarrierDTO: {
             kind: "order" | "run";
@@ -1782,6 +1782,9 @@ export interface components {
             product_id: number;
             product_name: string;
             quantity: number;
+            /** Unit price in cents when the request was made; null when none */
+            unit_price_cents: number | null;
+            total_cents: number;
             loaded: number;
             remaining: number;
             carriers: components["schemas"]["RequestCarrierDTO"][];
@@ -1800,6 +1803,9 @@ export interface components {
             submitted_by_name: string;
             created_at: string;
             updated_at: string;
+            /** The desk's preferred car (may be empty) */
+            car: components["schemas"]["TransportCarDTO"] | null;
+            total_cents: number;
             items: components["schemas"]["ProductRequestItemDTO"][];
         };
         /** ProductRequestInputDTO */
@@ -1807,6 +1813,7 @@ export interface components {
             need_date: string;
             deceased: string;
             notes: string;
+            car_id: number | null;
             items: { product_id: number; quantity: number }[];
         };
         /** RunStopDTO: one desk on the route of a goods run */

@@ -92,13 +92,18 @@ describe("TransportPage", () => {
     expect(create).not.toHaveBeenCalled();
 
     fillDelivery();
+    // The car is required for an order: nothing is sent without one.
+    expect(screen.getByRole("combobox", { name: "Автомобіль" }).getAttribute("aria-required")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
+    expect((await screen.findByRole("status")).textContent).toMatch(/Оберіть автомобіль/);
+    expect(create).not.toHaveBeenCalled();
+    pickCar("Автомобіль", "АА 1111 АА");
     fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
-    // The car is optional for a desk: the dispatcher assigns it.
     expect(create.mock.calls[0][0]).toMatchObject({
       deceased: "Петренко П. П.",
       carriers: null,
-      delivery: { car_id: null, car_number: "", departure: "вул. Квітуча, 5", time: "09:30", destination: "Кладовище №2" },
+      delivery: { car_id: 1, car_number: "АА 1111 АА", departure: "вул. Квітуча, 5", time: "09:30", destination: "Кладовище №2" },
     });
   });
 
@@ -354,6 +359,7 @@ describe("TransportPage", () => {
     renderPage(base);
     fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Післязавтра" }));
+    pickCar("Автомобіль", "АА 1111 АА");
     fillDelivery();
     fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
     await waitFor(() => expect(transportApi.create).toHaveBeenCalledWith(expect.objectContaining({ service_date: after })));
