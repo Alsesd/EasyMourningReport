@@ -28,7 +28,7 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | PUT | `/me/password` | signed in | Change own password |
 | GET | `/permissions` | `platform.roles.manage`, `platform.users.manage` or `org.users.manage` | Permission catalogue from all modules |
 | GET | `/organisations` | `platform.organisations.manage`, `platform.users.manage` or `platform.roles.manage` | Organisations with user counts and per-module `usage` |
-| POST | `/organisations` | `platform.organisations.manage` | Create; optional `first_user` gets the role with key `store` («Підрозділ», which only exists in databases from the Python releases; the interface does not use this shortcut and creates employees through `/users`; also needs `platform.users.manage`) |
+| POST | `/organisations` | `platform.organisations.manage` | Create; optional `first_user` gets the built-in desk role «Підрозділ» (key `store`; created with the modules' default grants when a fresh database lacks it; the interface itself creates employees through `/users`; also needs `platform.users.manage`) |
 | PUT | `/organisations/{id}` | `platform.organisations.manage` | Rename |
 | DELETE | `/organisations/{id}` | `platform.organisations.manage` | Archive if any module holds data for it; otherwise delete it with its users and roles |
 | POST | `/organisations/{id}/restore` | `platform.organisations.manage` | Restore |

@@ -47,8 +47,12 @@ frontend/src/
 | `Seed` | Demo data for `DEMO=1` on an empty database |
 | `Overview` | Figures for the «Адміністрування» overview, filtered by the caller's permissions |
 | `Dashboard` | Blocks for the management dashboard: tiles, bar series and ranked lists with a unit (`count`, `money_cents`, `percent`, `minutes`; the client formats). The shell collects them for the `management` module (`core.Services.Dashboard`); the module itself decides nothing about access |
+| `DailyReminder` | A job the scheduler runs once a day at `REMINDER_AT` (transport: desks without an order for tomorrow); it reaches the platform only through `core.Notifier` |
+| `Startup` | Runs once at start-up after the schema and the demo seed, in one write transaction; idempotent and insert-only (transport backfills the fleet from old orders) |
+| `Catalog` | Products other modules may offer for ordering (reports supplies its active catalogue with the latest price); the shell hands the first provider to every module as `core.Services.Catalog`, so transport reads products without importing reports |
+| `Routes` | The module's HTTP endpoints (see below) |
 
-A module lists its endpoints in `core.Module.Routes` (`internal/<module>/http.go`: `core.Route{Method, Path, Codes, Member, Handler}`); `internal/web/modules.go` registers each one behind `a.authed(codes, ...)` / `a.member(codes, ...)`, so a module cannot add an unprotected route. Handlers receive a `core.Caller` and `core.Services` (the shell builds both). The module is listed in `internal/registry/registry.go`.
+A module lists its endpoints in `core.Module.Routes` (`internal/<module>/http.go`: `core.Route{Method, Path, Codes, Member, Handler}`); `internal/web/modules.go` registers each one behind `a.authed(codes, ...)` / `a.member(codes, ...)`, so a module cannot add an unprotected route. Handlers receive a `core.Caller` and `core.Services` (the shell builds both: read and write transactions, clock, client IP, audit, notifications, snapshot, organisation lookup, dashboard, catalogue). Errors are `core.HTTPError{Status, Detail, Code}` (sent as `{"detail", "code"}`; `Code` is an optional machine-readable reason such as `car_required`), `core.FormError` and validation errors with field paths. The module is listed in `internal/registry/registry.go`.
 
 **Frontend** (`src/platform/modules.ts`). A module exports an `AppModule` from `module.tsx` with:
 
@@ -78,7 +82,7 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 - **User**: `organisation_id = NULL` means platform staff, who act across organisations. Users can be disabled (`active = false`).
 - **Role**: a named, plain set of permissions (any codes; the stored `scope` is legacy and informational). A role can be shared by all divisions or limited to one. A user may hold several roles. The user's division is the scope of what they see; seeing other divisions needs a permission that says so (for example `transport.orders.manage`, `reports.review`).
   - Built-in **Адміністратор** (`platform_admin`) always holds every platform-scope permission, including those of modules installed later. A new database starts with this role only.
-  - **Адміністратор підрозділу** (`org_admin`, always holds every organisation-scope permission) and **Підрозділ** (`store`, editable, starts with `reports.submit`) exist only in databases that came from the Python releases. A new database creates neither: the `DEMO=1` seed adds a «Підрозділ (демо)» role, otherwise the roles for the divisions are made in «Ролі». The `first_user` shortcut of `POST /organisations` needs the `store` role to exist (the interface does not use it: it creates employees through `/users`).
+  - **Адміністратор підрозділу** (`org_admin`, always holds every organisation-scope permission) and **Підрозділ** (`store`, editable, starts with `reports.submit`) exist only in databases that came from the Python releases. A new database does not create `org_admin`. The desk role `store` is created on demand: by the `DEMO=1` seed (as «Підрозділ (демо)»), or by `POST /organisations` with `first_user` (`platform.EnsureStoreRole`, with the modules' default grants). Otherwise the roles for the divisions are made in «Ролі».
 - **Effective permissions** are the union of what the user's roles grant (`internal/platform/principal.go`); the built-in administrator holds every platform-level code.
 - **Escalation guards**: organisation managers (`org.users.manage`) only see and edit their own organisation, and only hand out roles whose permissions they hold themselves. The last active platform administrator cannot be disabled, demoted or deleted.
 
@@ -95,9 +99,9 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 | `reports.catalog.manage` | platform | Products and prices |
 | `reports.settings.manage` | platform | «По розрахунку» per organisation |
 | `management.dashboard.view` | platform | Management dashboard (view-only; no other permission opens it) |
-| `transport.orders.create` | organisation | Place transport orders, edit or cancel until the dispatcher replies |
-| `transport.orders.view_all` | platform | Read-only: see all orders and the history |
-| `transport.orders.manage` | platform | Handle orders: see all, read the history, set the reply status |
+| `transport.orders.create` | organisation | Place transport orders and product requests for the own division, edit or cancel them until something happened, see the runs carrying them and the fleet list |
+| `transport.orders.view_all` | platform | Read-only: all orders, requests, runs, cargo, the fleet and the history |
+| `transport.orders.manage` | platform | Handle orders and requests: statuses, car assignment, cargo, goods runs, rejecting requests, the fleet |
 
 ## Persistence and schema
 

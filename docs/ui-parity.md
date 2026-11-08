@@ -13,7 +13,8 @@ This document records the current browser behavior and points to the code that o
 | Account menu (identity, own password, passkeys, sign-out) | `frontend/src/platform/account/AccountMenu.tsx`, `PasskeysForm.tsx`, `PasswordForm.tsx` |
 | Biometric sign-in offer after the first password sign-in; passkey sign-in on the login page | `frontend/src/platform/account/BiometricOffer.tsx`, `frontend/src/platform/auth/passkeys.ts`, `biometricPref.ts`, `LoginPage.tsx` |
 | First-sign-in device setup (notifications permission, install prompt) and Web Push registration | `frontend/src/platform/device/DeviceSetup.tsx`, `push.ts`, `installPrompt.ts`, `service worker internal/assets/static/sw.js` |
-| Notification bell, list, test notification | `frontend/src/platform/notifications/NotificationBell.tsx` |
+| Notification bell: anchored panel (bottom sheet on phones), list, device switch row, test notification | `frontend/src/platform/notifications/NotificationBell.tsx`, `frontend/src/ui/Popover.tsx` |
+| Dialogs (centred modal / phone bottom sheet), confirmations, loading skeletons, empty states | `frontend/src/ui/Dialog.tsx`, `ConfirmDialog.tsx`, `Skeleton.tsx`, `EmptyState.tsx`, `.dialog-panel` in `frontend/src/app/index.css` |
 | Interface scale and theme menu («Вигляд») | `frontend/src/platform/theme/ThemeContext.tsx`, `uiScale.ts` |
 | Module registry (routes, nav, settings, landing) | `frontend/src/app/registry.ts`, `frontend/src/platform/modules.ts`, `frontend/src/modules/index.ts` |
 | Same-origin request behavior and structured API errors | `frontend/src/platform/api/client.ts` |
@@ -35,9 +36,16 @@ This document records the current browser behavior and points to the code that o
 
 | Behavior | Current implementation |
 |---|---|
-| Orders page: date strip, day or period list, order form, status dialog, history, bearers | `frontend/src/modules/transport/pages/TransportPage.tsx`, `components/` |
-| Printable carrying schedule («Схема виносу») | `frontend/src/modules/transport/pages/TransportSchedulePage.tsx` |
-| Timing badges and day words | `frontend/src/modules/transport/timing.ts` |
+| One page with tabs «Замовлення / Продукція / Рейси / Автопарк» (URL `?tab=`, only permitted tabs) | `frontend/src/modules/transport/pages/TransportPage.tsx` |
+| Orders: date strip, day or period list, order card, status dialog, history, bearers | `components/OrdersPanel.tsx`, `DateStrip.tsx`, `OrderCard.tsx`, `StatusDialog.tsx`, `BearersForm.tsx` |
+| Order form with the required fleet car and «Той самий автомобіль» for the bearers | `components/OrderForm.tsx`, `CarPicker.tsx`, `StopsEditor.tsx` |
+| Dispatcher: change car, time and stops of an open order | `components/AssignmentForm.tsx` |
+| Product requests: list, request card with derived status, form with product search, prices, totals and an optional car; reject | `components/ProductsPanel.tsx`, `RequestCard.tsx`, `RequestForm.tsx`, `RequestStatus.tsx`, `RejectRequestForm.tsx`, `productSearch.ts`, `frontend/src/ui/Combobox.tsx` |
+| Dispatcher board: lanes per car, idle cars, unplanned requests | `components/BoardPanel.tsx`, `board.ts` |
+| «Додати до рейсу», «Новий рейс», run editor, cargo manifest | `components/AddToRunForm.tsx`, `RunEditor.tsx`, `DispatchDialogs.tsx`, `CargoManifest.tsx`, `cargo.ts` |
+| Fleet: list, add a car, deactivate; plate input | `components/FleetPanel.tsx`, `PlateInput.tsx`, `plate.ts` |
+| Printable carrying schedule («Схема виносу») | `pages/TransportSchedulePage.tsx` |
+| Timing badges and day words; API error mapping | `timing.ts`, `errors.ts` |
 
 ## Administration
 
