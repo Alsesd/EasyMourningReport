@@ -1,7 +1,7 @@
 # Documentation index
 
-Human documentation of the project. Notes written for coding agents (plans, memory, migration working notes) are not
-here: they live in `.claude/` (see `CLAUDE.md`).
+Project documentation. Internal working notes (plans, decision logs, the migration record) are not user documentation
+and live in `.claude/`.
 
 | Document | What it answers |
 |---|---|

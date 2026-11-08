@@ -19,7 +19,7 @@ repo/
 ├── .github/workflows/           # release.yml (build, test, publish the exe), auto-release.yml (release on push to main)
 ├── .env.example                 # every setting, commented
 ├── README.md                    # this file; the index of the human documentation is docs/README.md
-├── CLAUDE.md, .claude/          # notes for coding agents (memory, plans, rules, migration record): not user docs
+├── CLAUDE.md, .claude/          # internal working notes (plans, rules, migration record): not user documentation
 ├── docs/                        # API, architecture, security, ADRs, module notes, design docs, uk/onboarding (tester guide)
 └── scripts/                     # build.sh (this machine), build_go.sh (windows, linux, linux-arm64), e2e_test.py (browser test)
 ```
@@ -150,4 +150,4 @@ go run ./cmd/smoke -exe dist/legkyi            # starts it in an empty folder an
 CHROMIUM_PATH=/opt/pw-browsers/chromium LEGKYI_E2E_BINARY=dist/legkyi uv run scripts/e2e_test.py   # browser test
 ```
 
-The index of the documentation is [docs/README.md](docs/README.md); the Ukrainian guide for a manual tester is [docs/uk/onboarding/](docs/uk/onboarding/00-zmist.md). See [Architecture](docs/architecture.md), [REST API](docs/API.md), [security notes](docs/security.md), [UX contract](docs/ux-contract.md), [design system](docs/design-system.md) and the module notes in `docs/modules/` before making structural changes. The outcome of the Python-to-Go port is in [ADR 0004](docs/adr/0004-port-backend-to-go.md) (the working notes are agent material in `.claude/notes/migration/`).
+The index of the documentation is [docs/README.md](docs/README.md); the Ukrainian guide for a manual tester is [docs/uk/onboarding/](docs/uk/onboarding/00-zmist.md). See [Architecture](docs/architecture.md), [REST API](docs/API.md), [security notes](docs/security.md), [UX contract](docs/ux-contract.md), [design system](docs/design-system.md) and the module notes in `docs/modules/` before making structural changes. The outcome of the Python-to-Go port is in [ADR 0004](docs/adr/0004-port-backend-to-go.md) (the working notes are in `.claude/notes/migration/`).
