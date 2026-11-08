@@ -9,10 +9,12 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Download } from "lucide-react";
 import { reportsApi } from "@/modules/reports/api";
-import { uk, formatCurrency, formatPeriodReadable } from "@/modules/reports/i18n";
+import { uk, formatCurrency, formatPeriodReadable, formatDayReadable, formatDayShort } from "@/modules/reports/i18n";
 import { StatusPill } from "@/modules/reports/components/StatusPill";
 import { signatureLines } from "@/modules/reports/components/Signature";
-import type { AdminReportListItemDTO, SummaryDTO } from "@/platform/api/types";
+import type { AdminReportListItemDTO, DailyReportListItemDTO, SummaryDTO } from "@/platform/api/types";
+import { daysBetween } from "@/modules/reports/components/DayStrip";
+import { todayIso } from "@/platform/i18n";
 import { buttonClass, Button } from "@/ui/Button";
 import { LedgerSection } from "@/ui/LedgerSection";
 import { PageHeader } from "@/ui/PageHeader";
@@ -32,11 +34,17 @@ export default function ReportsMonthPage() {
   const requested = searchParams.get("period");
   const period = requested && /^\d{4}-(0[1-9]|1[0-2])$/.test(requested) ? requested : currentPeriod();
   const submittedOnly = ["1", "true"].includes(searchParams.get("submitted_only") ?? "");
+  // ?day=YYYY-MM-DD narrows the page to one day of the month.
+  const today = todayIso();
+  const monthDays = daysBetween(`${period}-01`, lastDayOf(period) < today ? lastDayOf(period) : today);
+  const requestedDay = searchParams.get("day") ?? "";
+  const day = monthDays.includes(requestedDay) ? requestedDay : "";
 
-  const reportsQuery = useQuery({ queryKey: ["adminReports", period], queryFn: () => reportsApi.reportList(period) });
+  const reportsQuery = useQuery({ queryKey: ["adminReports", period], queryFn: () => reportsApi.reportList(period), enabled: !day });
+  const dailyQuery = useQuery({ queryKey: ["adminDailyReports", day], queryFn: () => reportsApi.dailyReports(day), enabled: Boolean(day) });
   const summaryQuery = useQuery({
-    queryKey: ["adminSummary", period, submittedOnly],
-    queryFn: () => reportsApi.summary({ period, submitted_only: submittedOnly }),
+    queryKey: ["adminSummary", period, submittedOnly, day],
+    queryFn: () => reportsApi.summary({ period, submitted_only: submittedOnly, day: day || undefined }),
   });
 
   const update = (change: (next: URLSearchParams) => void) => {
@@ -45,24 +53,44 @@ export default function ReportsMonthPage() {
     setSearchParams(next);
   };
 
-  const reports = reportsQuery.data ?? [];
+  const registerQuery = day ? dailyQuery : reportsQuery;
+  const reports: RegisterItem[] = (day ? dailyQuery.data : reportsQuery.data) ?? [];
   const sent = reports.filter((r) => r.status === "submitted").length;
-  const missing = reports.filter((r) => !r.report_id).length;
+  const missing = reports.filter((r) => (day ? r.status === "none" : !r.report_id)).length;
 
   return (
     <div className="mx-auto max-w-[1180px] space-y-8 lg:space-y-10">
       <PageHeader
         crumb={m.crumb}
-        title={formatPeriodReadable(period)}
-        meta={reportsQuery.data ? (reports.length === 0 ? m.noDivisions : `${m.submittedOf(sent, reports.length)}, ${m.notReported(missing)}`) : undefined}
+        title={day ? formatDayReadable(day) : formatPeriodReadable(period)}
+        meta={registerQuery.data ? (reports.length === 0 ? m.noDivisions : `${m.submittedOf(sent, reports.length)}, ${m.notReported(missing)}`) : undefined}
         actions={
           <>
             <PeriodPicker
               value={period}
-              onChange={(p) => update((n) => n.set("period", p))}
+              onChange={(p) =>
+                update((n) => {
+                  n.set("period", p);
+                  n.delete("day");
+                })
+              }
               labels={{ previous: uk.store.previousMonth, next: uk.store.nextMonth, month: uk.store.monthLabel }}
             />
-            <a href={reportsApi.summaryExcelUrl(period, submittedOnly)} download className={buttonClass("primary")}>
+            <select
+              value={day}
+              onChange={(e) => update((n) => (e.target.value ? n.set("day", e.target.value) : n.delete("day")))}
+              aria-label={uk.daily.pickDay}
+              className="h-11 min-w-[11rem] rounded-control border border-border bg-surface px-3 text-[0.9375rem] font-medium text-text-main hover:border-text-muted/50"
+            >
+              <option value="">{uk.daily.wholeMonth}</option>
+              {[...monthDays].reverse().map((d) => (
+                <option key={d} value={d}>
+                  {formatDayShort(d)}
+                  {d === today ? ` · ${uk.daily.today}` : ""}
+                </option>
+              ))}
+            </select>
+            <a href={reportsApi.summaryExcelUrl(period, submittedOnly, day || undefined)} download className={buttonClass("primary")}>
               <Download className="h-4 w-4" aria-hidden="true" />
               {uk.summary.downloadXlsx}
             </a>
@@ -70,14 +98,14 @@ export default function ReportsMonthPage() {
         }
       />
 
-      <LedgerSection id="stores" title={m.storesTitle} description={m.storesDescription}>
-        <StoreRegister query={reportsQuery} reports={reports} />
+      <LedgerSection id="stores" title={m.storesTitle} description={day ? uk.daily.dayStoresDescription : m.storesDescription}>
+        <StoreRegister query={registerQuery} reports={reports} day={day} />
       </LedgerSection>
 
       <LedgerSection
         id="products"
-        title={m.productsTitle}
-        description={m.productsDescription}
+        title={day ? uk.daily.dayProductsTitle : m.productsTitle}
+        description={day ? uk.daily.dayProductsDescription : m.productsDescription}
         actions={
           <Switch
             checked={submittedOnly}
@@ -107,18 +135,32 @@ function QueryState({ isLoading, error, onRetry }: { isLoading: boolean; error: 
   );
 }
 
+/** A store's line in the register: the month's report, or one day of it. */
+type RegisterItem = AdminReportListItemDTO | DailyReportListItemDTO;
+
+function lastDayOf(period: string): string {
+  const [y, mo] = period.split("-").map(Number);
+  const d = new Date(Date.UTC(y, mo, 0));
+  return `${period}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
 function StoreRegister({
   query,
   reports,
+  day,
 }: {
   query: { isLoading: boolean; error: unknown; refetch: () => unknown };
-  reports: AdminReportListItemDTO[];
+  reports: RegisterItem[];
+  day: string;
 }) {
   if (query.isLoading || query.error) {
     return <QueryState isLoading={query.isLoading} error={query.error} onRetry={() => query.refetch()} loading={m.loading} />;
   }
   if (reports.length === 0) return <p className="py-8 text-sm text-text-muted">{uk.reports.noReports}</p>;
   const total = reports.reduce((acc, r) => acc + (r.total_cents || 0), 0);
+  // With a day, a store whose month exists but that day is empty is still not reported; its link opens the day.
+  const reported = (item: RegisterItem) => (day ? item.status !== "none" : Boolean(item.report_id));
+  const linkOf = (item: RegisterItem) => `/admin/reports/${item.report_id}${day ? `?day=${day}` : ""}`;
 
   return (
     <div>
@@ -129,7 +171,8 @@ function StoreRegister({
               <span className="min-w-0 flex-1">
                 <span className="block font-medium text-text-main">{item.store_name}</span>
                 <span className="block text-xs text-text-muted">
-                  {item.report_id ? m.positions(item.item_count) : m.noReportYet}
+                  {reported(item) ? m.positions(item.item_count) : day ? uk.daily.noDayReport : m.noReportYet}
+                  {"days_count" in item && item.days_count ? `, ${uk.daily.daysSubmittedOf(item.days_submitted ?? 0, item.days_count)}` : ""}
                   {item.store_archived && `, ${m.archived}`}
                 </span>
                 {signatureLines(item.status, item).map((line) => (
@@ -147,9 +190,9 @@ function StoreRegister({
           );
           const base = "flex min-h-[60px] items-center gap-4 px-3 py-2.5";
           return (
-            <li key={item.store_id} className={cn(!item.report_id && "bg-attention-soft/60")}>
+            <li key={item.store_id} className={cn(!reported(item) && "bg-attention-soft/60")}>
               {item.report_id ? (
-                <Link to={`/admin/reports/${item.report_id}`} className={cn(base, "transition-colors hover:bg-surface-raised")}>
+                <Link to={linkOf(item)} className={cn(base, "transition-colors hover:bg-surface-raised")}>
                   {row}
                 </Link>
               ) : (
@@ -161,7 +204,7 @@ function StoreRegister({
         })}
       </ul>
       <div className="double-rule flex items-center gap-4 border-t border-ink px-3 py-3">
-        <span className="flex-1 font-medium text-text-main">{m.monthTotal}</span>
+        <span className="flex-1 font-medium text-text-main">{day ? uk.daily.dayTotal : m.monthTotal}</span>
         <span className="figure text-right text-xl font-semibold text-text-main">{formatCurrency(total)}</span>
         <span className="w-5 shrink-0" />
       </div>

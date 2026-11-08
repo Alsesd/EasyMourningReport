@@ -339,7 +339,7 @@ func SyncMonthStatus(ctx context.Context, tx *sql.Tx, rep *Report) (string, erro
 }
 
 // statusItemsSQL lists every saved quantity with the status that decides whether it counts as submitted: a month
-// kept as a whole carries the month's status (day ''), a daily month each day's own (its report_items rows are the
+// kept as a whole carries the month's status (day ”), a daily month each day's own (its report_items rows are the
 // aggregate of these and are skipped). Columns: report_id, store_id, period, day, product_id, quantity,
 // quantity_calc, unit_price_cents, status.
 const statusItemsSQL = `SELECT r.id AS report_id, r.store_id AS store_id, r.period AS period, '' AS day, i.product_id AS product_id,

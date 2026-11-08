@@ -57,6 +57,10 @@ export type AdminReportDetailDTO = Schemas["AdminReportDetailDTO"];
 export type ImportResultDTO = Schemas["ImportResultDTO"];
 export type ReportStatusDTO = Schemas["ReportStatusDTO"];
 export type ReportSettingsDTO = Schemas["ReportSettingsDTO"];
+export type MonthDayDTO = Schemas["MonthDayDTO"];
+export type MonthDaysDTO = Schemas["MonthDaysDTO"];
+export type DayReportDTO = Schemas["DayReportDTO"];
+export type DailyReportListItemDTO = Schemas["DailyReportListItemDTO"];
 
 // Transport module
 export type TransportStatusDTO = Schemas["TransportStatusDTO"];

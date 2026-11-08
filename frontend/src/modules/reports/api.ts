@@ -13,11 +13,25 @@ import type {
   StoreReportDTO,
   SummaryDTO,
   ReportSaveDTO,
+  MonthDaysDTO,
+  DayReportDTO,
+  DailyReportListItemDTO,
 } from "@/platform/api/types";
 
+/** A day of a month in URLs: YYYY-MM-DD, or "undated" for quantities entered for the whole month. */
+export const UNDATED = "undated";
+
 export const reportsApi = {
-  summary: (params: { period: string; submitted_only: boolean }) =>
-    api.get<SummaryDTO>("/api/v1/admin/summary", { params }),
+  summary: (params: { period: string; submitted_only: boolean; day?: string }) =>
+    api.get<SummaryDTO>("/api/v1/admin/summary", {
+      params: params.day ? { day: params.day, submitted_only: params.submitted_only } : { period: params.period, submitted_only: params.submitted_only },
+    }),
+  dailyReports: (day: string) => api.get<DailyReportListItemDTO[]>("/api/v1/admin/daily-reports", { params: { day } }),
+  reportDays: (reportId: string) => api.get<MonthDaysDTO>(`/api/v1/admin/reports/${encodeURIComponent(reportId)}/days`),
+  reportDay: (reportId: string, day: string) =>
+    api.get<DayReportDTO>(`/api/v1/admin/reports/${encodeURIComponent(reportId)}/days/${encodeURIComponent(day)}`),
+  setReportDayStatus: (reportId: string, day: string, status: "draft" | "submitted") =>
+    api.patch<DayReportDTO>(`/api/v1/admin/reports/${encodeURIComponent(reportId)}/days/${encodeURIComponent(day)}`, { status }),
 
   reportList: (period: string) =>
     api.get<AdminReportListItemDTO[]>("/api/v1/admin/reports", { params: { period } }),
@@ -30,6 +44,11 @@ export const reportsApi = {
     api.get<StoreReportDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}`),
   saveStoreReport: (period: string, payload: ReportSaveDTO) =>
     api.put<StoreReportDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}`, payload),
+  storeDays: (period: string) => api.get<MonthDaysDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}/days`),
+  storeDay: (period: string, day: string) =>
+    api.get<DayReportDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}/days/${encodeURIComponent(day)}`),
+  saveStoreDay: (period: string, day: string, payload: ReportSaveDTO) =>
+    api.put<DayReportDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}/days/${encodeURIComponent(day)}`, payload),
 
   products: () => api.get<ProductDTO[]>("/api/v1/admin/products"),
   createProduct: (payload: ProductCreateDTO) => api.post<ProductDTO>("/api/v1/admin/products", payload),
@@ -46,6 +65,6 @@ export const reportsApi = {
   setCalculationEnabled: (organisationId: number, enabled: boolean) =>
     api.put<ReportSettingsDTO>(`/api/v1/reports/settings/${organisationId}`, { calculation_enabled: enabled }),
 
-  summaryExcelUrl: (period: string, submittedOnly: boolean) =>
-    `/api/v1/admin/summary.xlsx?period=${encodeURIComponent(period)}${submittedOnly ? "&submitted_only=true" : ""}`,
+  summaryExcelUrl: (period: string, submittedOnly: boolean, day?: string) =>
+    `/api/v1/admin/summary.xlsx?${day ? `day=${encodeURIComponent(day)}` : `period=${encodeURIComponent(period)}`}${submittedOnly ? "&submitted_only=true" : ""}`,
 };

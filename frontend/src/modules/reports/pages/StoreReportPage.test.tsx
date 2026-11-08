@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/platform/theme/ThemeContext";
 import { AuthProvider } from "@/platform/auth/AuthContext";
 import StoreReportPage from "./StoreReportPage";
-import type { StoreReportDTO, SessionDTO } from "@/platform/api/types";
+import type { StoreReportDTO, SessionDTO, DayReportDTO, MonthDaysDTO } from "@/platform/api/types";
 
 const mockSession: SessionDTO = {
   user_id: 5,
@@ -77,6 +77,40 @@ const mockReport: StoreReportDTO = {
   available_periods: ["2026-09", "2026-10"],
 };
 
+const mockDays: MonthDaysDTO = {
+  report_id: 10,
+  store_name: "Тестовий магазин",
+  period: "2026-10",
+  status: "draft",
+  daily: true,
+  total_cents: 23000,
+  first_day: "2026-10-01",
+  last_day: "2026-10-06",
+  today: "2026-10-06",
+  undated: null,
+  days: [
+    { day: "2026-10-05", status: "submitted", total_cents: 7000, item_count: 1 },
+    { day: "2026-10-06", status: "draft", total_cents: 16000, item_count: 3 },
+  ],
+};
+
+const mockDay: DayReportDTO = {
+  report_id: 10,
+  store_id: 1,
+  store_name: "Тестовий магазин",
+  store_archived: false,
+  period: "2026-10",
+  day: "2026-10-06",
+  status: "draft",
+  month_status: "draft",
+  read_only: false,
+  calculation_enabled: true,
+  rows: mockReport.rows ?? [],
+  inactive_rows: mockReport.inactive_rows ?? [],
+  inactive_total_cents: 1000,
+  total_cents: 16000,
+};
+
 describe("StoreReportPage", () => {
   let queryClient: QueryClient;
 
@@ -85,7 +119,7 @@ describe("StoreReportPage", () => {
       defaultOptions: { queries: { retry: false } },
     });
     queryClient.setQueryData(["session"], mockSession);
-    queryClient.setQueryData(["storeReport", "2026-10"], mockReport);
+    localStorage.clear();
 
     globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes("/api/v1/session")) {
@@ -95,18 +129,24 @@ describe("StoreReportPage", () => {
           json: () => Promise.resolve(mockSession),
         });
       }
-      if (url.includes("/api/v1/store/reports/2026-10") && init?.method === "PUT") {
+      if (url.includes("/api/v1/store/reports/2026-10/days/2026-10-06") && init?.method === "PUT") {
         const body = JSON.parse(init.body as string);
         return Promise.resolve({
           ok: true,
           status: 200,
           json: () =>
             Promise.resolve({
-              ...mockReport,
+              ...mockDay,
               status: body.action === "submit" ? "submitted" : "draft",
               read_only: body.action === "submit",
             }),
         });
+      }
+      if (url.includes("/api/v1/store/reports/2026-10/days/")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(mockDay) });
+      }
+      if (url.includes("/api/v1/store/reports/2026-10/days")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(mockDays) });
       }
       if (url.includes("/api/v1/store/reports")) {
         return Promise.resolve({
@@ -168,7 +208,7 @@ describe("StoreReportPage", () => {
       const fetchMock = vi.mocked(globalThis.fetch);
       const saveCall = fetchMock.mock.calls.find(
         ([url, init]) =>
-          String(url).includes("/api/v1/store/reports/2026-10") && init?.method === "PUT"
+          String(url).includes("/api/v1/store/reports/2026-10/days/2026-10-06") && init?.method === "PUT"
       );
       expect(saveCall).toBeDefined();
       const payload = JSON.parse(saveCall?.[1]?.body as string);
@@ -189,7 +229,7 @@ describe("StoreReportPage", () => {
     fireEvent.click(saveDraftBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/Чернетку збережено/i)).toBeDefined();
+      expect(screen.getByText(/Чернетку дня збережено/i)).toBeDefined();
     });
   });
 
@@ -197,17 +237,17 @@ describe("StoreReportPage", () => {
     renderPage();
     await screen.findByText("Хліб пшеничний");
 
-    const submitBtn = screen.getByRole("button", { name: /Надіслати звіт/i });
+    const submitBtn = screen.getByRole("button", { name: /Надіслати день/i });
     fireEvent.click(submitBtn);
 
     // Confirmation dialog appears
-    expect(await screen.findByText("Надіслати звіт?")).toBeDefined();
+    expect(await screen.findByText("Надіслати звіт за день?")).toBeDefined();
 
     const confirmSubmitBtn = screen.getByRole("button", { name: /Так, надіслати/i });
     fireEvent.click(confirmSubmitBtn);
 
     await waitFor(() => {
-      expect(screen.getAllByText(/Звіт надіслано й заблоковано/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/Звіт за день надіслано й заблоковано/i).length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -216,5 +256,22 @@ describe("StoreReportPage", () => {
     await screen.findByText("Хліб пшеничний");
     expect(screen.getByRole("textbox", { name: "Кількість: Хліб пшеничний, 25,00\u00a0₴" })).toBeDefined();
     expect(screen.getByText("заповнено 2 з 2")).toBeDefined();
+  });
+
+  it("opens today, marks the days and shows the month as the sum of the days", async () => {
+    renderPage();
+    await screen.findByText("Хліб пшеничний");
+    const strip = screen.getByRole("group", { name: "Дні місяця" });
+    expect(strip).toBeDefined();
+    const today = screen.getByRole("button", { name: /6 жовтня 2026.*сьогодні: Чернетка/ });
+    expect(today.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /5 жовтня 2026.*Надіслано/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /4 жовтня 2026.*не заповнено/ })).toBeDefined();
+    expect(screen.getByText("днів надіслано 1 з 2")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Місяць/ }));
+    expect(await screen.findByText("Товари за місяць")).toBeDefined();
+    expect(screen.getByText(/Сума всіх днів місяця/)).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Надіслати день/i })).toBeNull();
   });
 });

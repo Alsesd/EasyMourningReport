@@ -6,6 +6,12 @@ type: project
 
 - **reports** (`reports.submit` org, `reports.review` platform, catalogue/settings perms): monthly store reports, product
   catalogue+prices, XLSX import/export, submit/lock/unlock with signatures. Submitting notifies `reports.review` holders.
+  **Daily reports (2026-11-08, user request; user chose per-DAY submission over per-month):** each day saved/submitted/
+  locked on its own (`report_days`, `report_day_items`, Go-owned); `report_items` = month aggregate rebuilt in the same tx;
+  first day of a month with monthly quantities moves them to the undated bucket (day '', «Без дати», URL `undated`),
+  never lost; month status derived (submitted when every day is); month lock/unlock applies to all days; monthly PUT 409
+  on daily months; submitted-only + dashboard revenue count submitted days (`statusItemsSQL`). Notification per submitted
+  day. No daily reminder (not asked). Docs: `docs/modules/reports.md` «Daily reports».
 - **transport** (`transport.orders.create` org, `.manage`/`.view_all` platform): orders per deceased with delivery and/or
   carriers part; statuses submitted->accepted->in_progress->done, rejected/cancelled, **bumped**. Car lock: same car
   (normalised number) within `CarLock`=2h of an active order -> 409 (crosses midnight). **Military** orders (`is_military`)
