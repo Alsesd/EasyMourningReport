@@ -168,7 +168,7 @@ func (a *api) findOrder(r *http.Request, q core.Querier, p *core.Caller, id int6
 	return o, err
 }
 
-func (a *api) today() string { return a.Now().In(time.Local).Format("2006-01-02") }
+func (a *api) today() string { return a.Now().In(core.ZoneOf(a.Services)).Format("2006-01-02") }
 
 // orderFilter reads the day or range of a list request (date=, or from= and to=; today without either) and
 // limits it to what the caller may see: a desk only its own division, staff every division or the one asked for.

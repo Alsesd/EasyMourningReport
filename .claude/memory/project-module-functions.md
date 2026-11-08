@@ -12,7 +12,14 @@ type: project
   never lost; month status derived (submitted when every day is); **owner 2026-11-08: only DAYS are lockable, the month is
   review-only** (month PATCH 409 for daily months, UI has no month lock; legacy months lock via «Без дати»; daily
   months always take new/forgotten days); stores see days only, the month (sum) is a reviewer tab «За місяць» on
-  /admin/reports (default tab «За день»); monthly PUT 409 on daily months; submitted-only + dashboard revenue count submitted days (`statusItemsSQL`). Notification per submitted
+  /admin/reports (default tab «За день»); monthly PUT 409 on daily months;
+  **Midnight close (2026-11-08, owner: "auto lock at midnight, notice for reviewer to punish the guilty"):**
+  `core.Module.DayClose` (scheduler, every midnight in APP_TIMEZONE + at start, catch-up via `report_day_close`,
+  first run = yesterday only); draft/absent day -> locked (status submitted) + `missed=1` + `auto_locked_at`;
+  reviewers notified; missed kept after late submission (`/admin/missed-days`, «Не надіслано вчасно» section);
+  store cannot open a past day without a report (409 `closed`); reviewer-unlocked day relocks next midnight.
+  Checks every day incl. weekends (open question for owner). `core.Services.Zone` = business zone; reports and
+  transport `today()` use it (was time.Local = bug on UTC machines). submitted-only + dashboard revenue count submitted days (`statusItemsSQL`). Notification per submitted
   day. No daily reminder (not asked). Docs: `docs/modules/reports.md` «Daily reports».
 - **transport** (`transport.orders.create` org, `.manage`/`.view_all` platform): orders per deceased with delivery and/or
   carriers part; statuses submitted->accepted->in_progress->done, rejected/cancelled, **bumped**. Car lock: same car

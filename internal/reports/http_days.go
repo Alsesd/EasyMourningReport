@@ -16,11 +16,16 @@ import (
 
 const errDailyMonth = "Звіт за цей місяць ведеться по днях. Оберіть день, щоб внести зміни."
 
+func errDayClosed(day string) string {
+	return "День " + formatDay(day) + " закрито опівночі. Змінити його можна, лише якщо адміністратор розблокує день."
+}
+
 const errMonthReadOnly = "Звіт за місяць лише для перегляду. Блокуйте й розблоковуйте окремі дні."
 
 var dayRE = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
-func (a *api) today() string { return a.Now().In(time.Local).Format("2006-01-02") }
+// today is the date in the business zone (APP_TIMEZONE): the day a store reports for.
+func (a *api) today() string { return a.Now().In(core.ZoneOf(a.Services)).Format("2006-01-02") }
 
 // lastDay is the last date of a YYYY-MM period.
 func lastDay(period string) string {
@@ -93,6 +98,10 @@ type monthDayDTO struct {
 	TotalCents int64  `json:"total_cents"`
 	ItemCount  int    `json:"item_count"`
 	signedDTO
+	// Missed: not submitted by the store before midnight (kept after a late submission).
+	Missed bool `json:"missed"`
+	// AutoLocked: closed automatically at midnight (the latest close), as a timestamp; absent when never.
+	AutoLockedAt string `json:"auto_locked_at,omitempty"`
 }
 
 // monthDaysDTO describes how a month is kept: its days with their state and the range of days that can be filled.
@@ -128,6 +137,10 @@ type dayReportDTO struct {
 	InactiveTotalCents int64             `json:"inactive_total_cents"`
 	TotalCents         int64             `json:"total_cents"`
 	signedDTO
+	Missed       bool   `json:"missed"`
+	AutoLockedAt string `json:"auto_locked_at,omitempty"`
+	// Closed: a past day without a report, closed at midnight before anything was entered (the store cannot open it).
+	Closed bool `json:"closed"`
 }
 
 // dailyListItemDTO is one store's state for one day (the reviewer's register for a day).
@@ -141,6 +154,25 @@ type dailyListItemDTO struct {
 	TotalCents    int64  `json:"total_cents"`
 	ItemCount     int    `json:"item_count"`
 	signedDTO
+	Missed       bool   `json:"missed"`
+	AutoLockedAt string `json:"auto_locked_at,omitempty"`
+}
+
+// missedStoreDTO is one store with the days of a month it did not submit in time.
+type missedStoreDTO struct {
+	StoreID   int64    `json:"store_id"`
+	StoreName string   `json:"store_name"`
+	ReportID  int64    `json:"report_id"`
+	Days      []string `json:"days"`
+	// Late: of those days, the ones submitted afterwards (after a reviewer unlocked them).
+	Late []string `json:"late"`
+}
+
+func autoLockedAt(d Day) string {
+	if d.AutoLocked.IsZero() {
+		return ""
+	}
+	return core.ServedTime(d.AutoLocked)
 }
 
 // --- building blocks --------------------------------------------------------------------------
@@ -151,6 +183,7 @@ type dayState struct {
 	status string // new | draft | submitted
 	items  []Item
 	sigs   Signatures
+	day    *Day // the stored day (nil for a virtual or missing one)
 }
 
 func (a *api) loadDayState(ctx context.Context, q core.Querier, rep *Report, day string) (dayState, error) {
@@ -183,7 +216,7 @@ func (a *api) loadDayState(ctx context.Context, q core.Querier, rep *Report, day
 	if err != nil {
 		return dayState{}, err
 	}
-	return dayState{status: d.Status, items: items, sigs: d.Signatures}, nil
+	return dayState{status: d.Status, items: items, sigs: d.Signatures, day: d}, nil
 }
 
 func (a *api) dayReportDTO(ctx context.Context, q core.Querier, rep *Report, org *core.Org, period, day string) (dayReportDTO, error) {
@@ -209,11 +242,17 @@ func (a *api) dayReportDTO(ctx context.Context, q core.Querier, rep *Report, org
 		id := rep.ID
 		d.ReportID, d.MonthStatus = &id, rep.Status
 		d.signedDTO = signedOf(st.status, st.sigs)
+		if st.day != nil {
+			d.Missed, d.AutoLockedAt = st.day.Missed, autoLockedAt(*st.day)
+		}
 		if blocked, err := a.monthBlocksDays(ctx, q, rep, day); err != nil {
 			return dayReportDTO{}, err
 		} else if blocked {
 			d.ReadOnly = true
 		}
+	}
+	if st.status == "new" && day != Undated && day < a.today() {
+		d.Closed, d.ReadOnly = true, true
 	}
 	return d, nil
 }
@@ -261,7 +300,8 @@ func (a *api) monthDaysDTO(ctx context.Context, q core.Querier, rep *Report, org
 		return d, nil
 	}
 	for _, x := range days {
-		md := monthDayDTO{Day: dayToken(x.Day.Day), Status: x.Status, TotalCents: x.Total, ItemCount: x.Count, signedDTO: signedOf(x.Status, x.Signatures)}
+		md := monthDayDTO{Day: dayToken(x.Day.Day), Status: x.Status, TotalCents: x.Total, ItemCount: x.Count, signedDTO: signedOf(x.Status, x.Signatures),
+			Missed: x.Missed, AutoLockedAt: autoLockedAt(x.Day)}
 		if x.Day.Day == Undated {
 			d.Undated = &md
 			continue
@@ -412,6 +452,10 @@ func (a *api) saveStoreDay(w http.ResponseWriter, r *http.Request, p *core.Calle
 		}
 		if cur != nil && cur.Status == "submitted" {
 			return core.HTTPError{Status: 409, Detail: "Звіт за " + formatDay(day) + " надіслано й заблоковано. Розблокувати його може адміністратор."}
+		}
+		// A day closes at midnight: a past day can be changed only while a reviewer has it unlocked.
+		if cur == nil && day != Undated && day < a.today() {
+			return core.HTTPError{Status: 409, Detail: errDayClosed(day)}
 		}
 		if err := EnsureDay(ctx, tx, rep.ID, day); err != nil {
 			return err
@@ -665,9 +709,48 @@ func (a *api) listDailyReports(w http.ResponseWriter, r *http.Request, p *core.C
 		if has {
 			d.Status, d.TotalCents, d.ItemCount = st.day.Status, st.total, st.count
 			d.signedDTO = signedOf(st.day.Status, st.day.Signatures)
+			d.Missed, d.AutoLockedAt = st.day.Missed, autoLockedAt(*st.day)
 		}
 		out = append(out, d)
 	}
 	core.WriteJSON(w, http.StatusOK, out)
 	return orgs.Err()
+}
+
+// listMissedDays lists, per store, the days of a month that were not submitted before midnight (the reviewer's
+// record of late and missing reports).
+func (a *api) listMissedDays(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
+	period, err := a.parsePeriod(core.Query(r).String("period"))
+	if err != nil {
+		return err
+	}
+	rows, err := a.Read.QueryContext(r.Context(), `SELECT o.id, o.name, r.id, d.day, d.submitted_at > d.auto_locked_at AND d.submitted_at > 0
+		FROM report_days d JOIN reports r ON r.id = d.report_id JOIN organisations o ON o.id = r.store_id
+		WHERE r.period = ? AND d.missed != 0 AND d.day != '' ORDER BY o.name, o.id, d.day`, period)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	out := []missedStoreDTO{}
+	for rows.Next() {
+		var sid, rid int64
+		var name, day string
+		var late bool
+		if err := rows.Scan(&sid, &name, &rid, &day, &late); err != nil {
+			return err
+		}
+		if len(out) == 0 || out[len(out)-1].StoreID != sid {
+			out = append(out, missedStoreDTO{StoreID: sid, StoreName: name, ReportID: rid, Days: []string{}, Late: []string{}})
+		}
+		cur := &out[len(out)-1]
+		cur.Days = append(cur.Days, day)
+		if late {
+			cur.Late = append(cur.Late, day)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	core.WriteJSON(w, http.StatusOK, out)
+	return nil
 }

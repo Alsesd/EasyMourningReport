@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { reportsApi } from "@/modules/reports/api";
-import { uk, formatCurrency, formatPeriodReadable, formatDayReadable } from "@/modules/reports/i18n";
+import { uk, formatCurrency, formatPeriodReadable, formatDayReadable, formatDateTime } from "@/modules/reports/i18n";
 import { UNDATED } from "@/modules/reports/api";
 import { DayStrip, MONTH_VIEW } from "@/modules/reports/components/DayStrip";
 import { LedgerSection } from "@/ui/LedgerSection";
@@ -11,6 +11,7 @@ import { PageHeader } from "@/ui/PageHeader";
 import { Button } from "@/ui/Button";
 import { StatusPill } from "@/modules/reports/components/StatusPill";
 import { Signature } from "@/modules/reports/components/Signature";
+import { MissedBadge } from "@/modules/reports/components/MissedBadge";
 import {
   Dialog,
   DialogContent,
@@ -65,6 +66,7 @@ export default function AdminReportDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["adminReportDay", reportId] });
       queryClient.invalidateQueries({ queryKey: ["adminReports"] });
       queryClient.invalidateQueries({ queryKey: ["adminDailyReports"] });
+      queryClient.invalidateQueries({ queryKey: ["adminMissedDays"] });
       setFeedbackMessage({ text: targetStatus === "submitted" ? uk.daily.dayLocked : uk.daily.dayUnlocked, kind: "ok" });
       setDialogOpen(false);
     },
@@ -169,7 +171,9 @@ export default function AdminReportDetailPage() {
           {day && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted">
               <StatusPill status={day.status === "new" ? "none" : day.status} customLabel={day.status === "new" ? uk.daily.noDayReport : undefined} />
+              {day.missed && <MissedBadge late={Boolean(day.submission)} />}
               <Signature status={day.status} signed={day} />
+              {day.auto_locked_at && <span>{uk.daily.autoLocked(formatDateTime(day.auto_locked_at))}</span>}
             </div>
           )}
         </div>

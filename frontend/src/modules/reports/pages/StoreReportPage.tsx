@@ -15,6 +15,7 @@ import { DayStrip, defaultView } from "@/modules/reports/components/DayStrip";
 import { Button } from "@/ui/Button";
 import { StatusPill } from "@/modules/reports/components/StatusPill";
 import { Signature } from "@/modules/reports/components/Signature";
+import { MissedBadge } from "@/modules/reports/components/MissedBadge";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { QuantityStepper } from "@/ui/QuantityStepper";
 import { MakerMark } from "@/ui/MakerMark";
@@ -305,7 +306,23 @@ export default function StoreReportPage() {
   const locked = Boolean(report?.read_only) || saveMutation.isPending;
   const storeName = session?.organisation?.name || session?.login;
   const dayTitle = view === UNDATED ? uk.daily.undated : view ? formatDayReadable(view) : "";
-  const monthLocked = Boolean(report?.read_only && report.status !== "submitted");
+  const monthLocked = Boolean(report?.read_only && report.status !== "submitted" && !report.closed);
+  // Why the day is read-only (the most specific reason first).
+  const lockedNotice = !report?.read_only
+    ? ""
+    : report.closed
+      ? uk.daily.storeClosed
+      : report.missed && !report.submission
+        ? uk.daily.storeMissed
+        : monthLocked
+          ? uk.daily.monthLocked
+          : report.auto_locked_at && !report.submission
+            ? uk.daily.storeAutoLocked
+            : uk.daily.dayReadOnly;
+  // An open day: until midnight; a day a reviewer reopened: until the next midnight.
+  const openNotice = report && !report.read_only && view !== UNDATED
+    ? view === days?.today ? uk.daily.openUntilMidnight : uk.daily.reopenedUntilMidnight
+    : "";
   const daysSent = days ? days.days.filter((d) => d.status === "submitted").length : 0;
 
   return (
@@ -364,7 +381,7 @@ export default function StoreReportPage() {
             <h2 className="text-xl leading-tight">{dayTitle}</h2>
             {isDayView && report && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted">
-                <StatusPill status={report.status} />
+                {report.missed ? <MissedBadge late={Boolean(report.submission)} /> : <StatusPill status={report.status} />}
                 <span>{uk.store.filledOf(filled, rows.length)}</span>
                 <Signature status={report.status} signed={report} />
               </div>
@@ -408,12 +425,18 @@ export default function StoreReportPage() {
           )}
         </AnimatedCollapse>
 
-        {report?.read_only && (
-          <p className="flex items-center gap-2 border-l-2 border-primary bg-primary-soft px-3 py-2 text-sm text-primary">
+        {lockedNotice && (
+          <p
+            className={cn(
+              "flex items-center gap-2 border-l-2 px-3 py-2 text-sm",
+              report?.missed || report?.closed ? "border-destructive bg-destructive/10 text-destructive" : "border-primary bg-primary-soft text-primary",
+            )}
+          >
             <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-            {monthLocked ? uk.daily.monthLocked : uk.daily.dayReadOnly}
+            {lockedNotice}
           </p>
         )}
+        {openNotice && <p className="text-sm text-text-muted">{openNotice}</p>}
 
 
 

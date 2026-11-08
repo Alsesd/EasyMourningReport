@@ -48,6 +48,7 @@ frontend/src/
 | `Overview` | Figures for the «Адміністрування» overview, filtered by the caller's permissions |
 | `Dashboard` | Blocks for the management dashboard: tiles, bar series and ranked lists with a unit (`count`, `money_cents`, `percent`, `minutes`; the client formats). The shell collects them for the `management` module (`core.Services.Dashboard`); the module itself decides nothing about access |
 | `DailyReminder` | A job the scheduler runs once a day at `REMINDER_AT` (transport: desks without an order for tomorrow); it reaches the platform only through `core.Notifier` |
+| `DayClose` | A job the scheduler runs after every midnight in `APP_TIMEZONE` (and at start); idempotent, catches up after a downtime (reports: closes the ended days, marks the ones not submitted, tells the reviewers) |
 | `Startup` | Runs once at start-up after the schema and the demo seed, in one write transaction; idempotent and insert-only (transport backfills the fleet from old orders) |
 | `Catalog` | Products other modules may offer for ordering (reports supplies its active catalogue with the latest price); the shell hands the first provider to every module as `core.Services.Catalog`, so transport reads products without importing reports |
 | `Routes` | The module's HTTP endpoints (see below) |
@@ -65,7 +66,7 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 
 **Boundaries:**
 
-- A module package imports only `core`. Shell services reach it as `core` interfaces (`Notifier`, `SeedTools`, `Services`), and the shell reaches the module through `core.Module` hooks (`Seed`, `DailyReminder`, `Dashboard`, `Routes`). A module never imports another module, `store` or `platform`.
+- A module package imports only `core`. Shell services reach it as `core` interfaces (`Notifier`, `SeedTools`, `Services`), and the shell reaches the module through `core.Module` hooks (`Seed`, `DailyReminder`, `DayClose`, `Dashboard`, `Routes`). `core.Services.Zone` is the business zone (`APP_TIMEZONE`): modules count "today" and "this month" in it, never in the machine's local time. A module never imports another module, `store` or `platform`.
 - `core`, `store`, `platform` and `web` never import a module package. `registry` and `cmd/server` are the only wiring points. Enforced by `internal/registry/boundaries_test.go`.
 - On the frontend, `platform/` and `ui/` never import `modules/` or `app/`, and a module imports neither another module nor `app/` (enforced by `frontend/src/boundaries.test.ts`; `app/registry.test.ts` covers the composed registry). Platform pages receive the registry through `ModuleRegistryContext`.
 

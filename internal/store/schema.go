@@ -220,6 +220,12 @@ var goOwned = []string{
 		FOREIGN KEY (report_id, day) REFERENCES report_days (report_id, day) ON DELETE CASCADE
 	)`,
 	`CREATE INDEX IF NOT EXISTS ix_report_day_items_day ON report_day_items (report_id, day)`,
+	// The days the midnight close has processed (one row per date), so a restart or a long downtime neither
+	// closes a day twice nor skips one.
+	`CREATE TABLE IF NOT EXISTS report_day_close (
+		day TEXT NOT NULL PRIMARY KEY,
+		closed_at INTEGER NOT NULL
+	)`,
 	// In-app notifications (the bell): one row per recipient. read_at is 0 while unread. dedupe_key makes a
 	// reminder idempotent per user (a restart or a second evaluation inserts nothing); it is '' for events.
 	// Rows change on every read and are pruned, so backups do not count them as a data change.
@@ -260,6 +266,10 @@ var goOwnedColumns = []struct{ table, column, def string }{
 	// Fleet links of an order's two parts (NULL = a free-text car, or none yet). The text columns stay the snapshot.
 	{"transport_orders", "delivery_car_id", "INTEGER"},
 	{"transport_orders", "carriers_car_id", "INTEGER"},
+	// Daily reports closed at midnight: missed = 1 when the store had not submitted the day by then (kept after a
+	// late submission, as the record of it); auto_locked_at = when the day was closed automatically (0 = never).
+	{"report_days", "missed", "INTEGER NOT NULL DEFAULT 0"},
+	{"report_days", "auto_locked_at", "INTEGER NOT NULL DEFAULT 0"},
 }
 
 func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
@@ -278,7 +288,7 @@ func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
 
 // GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
 var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions", "notifications", "push_subscriptions",
-	"transport_cars", "product_requests", "product_request_items", "transport_runs", "transport_run_stops", "transport_cargo", "report_days", "report_day_items"}
+	"transport_cars", "product_requests", "product_request_items", "transport_runs", "transport_run_stops", "transport_cargo", "report_days", "report_day_items", "report_day_close"}
 
 type object struct {
 	kind, name, table, sql string

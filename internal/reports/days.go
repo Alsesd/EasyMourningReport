@@ -29,6 +29,10 @@ type Day struct {
 	Day    string // YYYY-MM-DD or Undated
 	Status string // draft | submitted
 	Signatures
+	// Missed: the store had not submitted the day by midnight (stays after a late submission).
+	Missed bool
+	// AutoLocked: when the day was last closed automatically at midnight (zero = never).
+	AutoLocked time.Time
 }
 
 // DayTotal is a day with the money and line count of its quantities.
@@ -38,14 +42,19 @@ type DayTotal struct {
 	Count int
 }
 
-const dayColumns = `day, status, COALESCE(submitted_by_id, 0), submitted_by_name, submitted_at, COALESCE(locked_by_id, 0), locked_by_name, locked_at`
+const dayColumns = `day, status, COALESCE(submitted_by_id, 0), submitted_by_name, submitted_at, COALESCE(locked_by_id, 0), locked_by_name, locked_at, missed, auto_locked_at`
 
 func scanDay(scan func(...any) error) (Day, error) {
 	var d Day
 	var sub, lock Signature
-	var subAt, lockAt int64
-	if err := scan(&d.Day, &d.Status, &sub.ByID, &sub.ByName, &subAt, &lock.ByID, &lock.ByName, &lockAt); err != nil {
+	var subAt, lockAt, autoAt int64
+	var missed int
+	if err := scan(&d.Day, &d.Status, &sub.ByID, &sub.ByName, &subAt, &lock.ByID, &lock.ByName, &lockAt, &missed, &autoAt); err != nil {
 		return d, err
+	}
+	d.Missed = missed != 0
+	if autoAt > 0 {
+		d.AutoLocked = time.Unix(autoAt, 0)
 	}
 	if subAt > 0 {
 		sub.At = time.Unix(subAt, 0)

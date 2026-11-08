@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Check } from "lucide-react";
+import { AlertTriangle, Check } from "lucide-react";
 import type { MonthDaysDTO } from "@/platform/api/types";
 import { shiftDay } from "@/platform/i18n";
 import { UNDATED } from "@/modules/reports/api";
@@ -90,7 +90,10 @@ export function DayStrip({
       {dates.map((day) => {
         const entry = byDay.get(day);
         const active = value === day;
-        const state = entry ? (entry.status === "submitted" ? uk.store.statusSent : uk.store.statusDraft) : t.empty;
+        // A past day with nothing entered was closed at midnight.
+        const closed = !entry && day < days.today;
+        const base = entry ? (entry.status === "submitted" ? uk.store.statusSent : uk.store.statusDraft) : closed ? t.closedChip : t.empty;
+        const state = entry?.missed ? `${base}, ${t.missedShort}` : base;
         return (
           <button
             key={day}
@@ -98,12 +101,21 @@ export function DayStrip({
             aria-pressed={active}
             onClick={() => onChange(day)}
             aria-label={`${formatDayReadable(day)}${day === days.today ? `, ${t.today}` : ""}: ${state}`}
-            className={cn(chip, "w-[3.25rem]", tone(active), day === days.today && !active && "border-primary")}
+            className={cn(
+              chip,
+              "w-[3.25rem]",
+              tone(active),
+              day === days.today && !active && "border-primary",
+              entry?.missed && !active && "border-destructive/60",
+              closed && !active && "text-text-muted",
+            )}
           >
             <span className="text-[0.6875rem] uppercase opacity-75">{weekdayOf(day)}</span>
             <span className="figure text-base font-semibold leading-tight">{Number(day.slice(8))}</span>
             <span aria-hidden="true" className="grid h-3 place-items-center">
-              {entry?.status === "submitted" ? (
+              {entry?.missed ? (
+                <AlertTriangle className={cn("h-3 w-3", active ? "text-page" : "text-destructive")} strokeWidth={2.5} />
+              ) : entry?.status === "submitted" ? (
                 <Check className={cn("h-3 w-3", active ? "text-page" : "text-primary")} strokeWidth={3} />
               ) : entry ? (
                 <span className={cn("h-1.5 w-1.5 rounded-full", active ? "bg-page" : "bg-attention")} />

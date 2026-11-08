@@ -16,6 +16,7 @@ import type {
   MonthDaysDTO,
   DayReportDTO,
   DailyReportListItemDTO,
+  MissedStoreDTO,
 } from "@/platform/api/types";
 
 /** A day of a month in URLs: YYYY-MM-DD, or "undated" for quantities entered for the whole month. */
@@ -26,6 +27,7 @@ export const reportsApi = {
     api.get<SummaryDTO>("/api/v1/admin/summary", {
       params: params.day ? { day: params.day, submitted_only: params.submitted_only } : { period: params.period, submitted_only: params.submitted_only },
     }),
+  missedDays: (period: string) => api.get<MissedStoreDTO[]>("/api/v1/admin/missed-days", { params: { period } }),
   dailyReports: (day: string) => api.get<DailyReportListItemDTO[]>("/api/v1/admin/daily-reports", { params: { day } }),
   reportDays: (reportId: string) => api.get<MonthDaysDTO>(`/api/v1/admin/reports/${encodeURIComponent(reportId)}/days`),
   reportDay: (reportId: string, day: string) =>

@@ -39,6 +39,7 @@ var Module = core.Module{
 	Routes:            routes,
 	Catalog:           catalog,
 	OrganisationUsage: UsagePerOrganisation,
+	DayClose:          CloseDays,
 }
 
 // catalog offers the products that appear in new report forms (active, not archived) to other modules, which only

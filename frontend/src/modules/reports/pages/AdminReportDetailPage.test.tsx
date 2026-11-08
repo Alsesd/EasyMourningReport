@@ -70,8 +70,8 @@ const mockDays: MonthDaysDTO = {
   today: "2026-11-06",
   undated: null,
   days: [
-    { day: "2026-10-05", status: "draft", total_cents: 4000, item_count: 1 },
-    { day: "2026-10-07", status: "submitted", total_cents: 5000, item_count: 1 },
+    { day: "2026-10-05", status: "draft", total_cents: 4000, item_count: 1, missed: false },
+    { day: "2026-10-07", status: "submitted", total_cents: 5000, item_count: 1, missed: true, auto_locked_at: "2026-10-07T21:00:00Z" },
   ],
 };
 
@@ -92,6 +92,8 @@ const mockDay: DayReportDTO = {
   inactive_rows: [],
   inactive_total_cents: 0,
   total_cents: 4000,
+  missed: false,
+  closed: false,
 };
 
 let daily = false;
@@ -180,5 +182,12 @@ describe("AdminReportDetailPage", () => {
     await waitFor(() => expect(screen.getByText("День заблоковано.")).toBeDefined());
     const patch = vi.mocked(globalThis.fetch).mock.calls.find(([url, init]) => String(url).includes("/days/2026-10-05") && init?.method === "PATCH");
     expect(JSON.parse(patch?.[1]?.body as string)).toEqual({ status: "submitted" });
+  });
+
+  it("marks a day the store did not submit before midnight", async () => {
+    daily = true;
+    renderPage("/admin/reports/101?day=2026-10-05");
+    await screen.findByText("Вінок денний");
+    expect(screen.getByRole("button", { name: /7 жовтня 2026.*не надіслано вчасно/ })).toBeDefined();
   });
 });

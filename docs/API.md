@@ -83,6 +83,7 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | GET | `/admin/reports/{id}/days/{day}` | `reports.review` | One day of the report |
 | PATCH | `/admin/reports/{id}/days/{day}` | `reports.review` | Lock/unlock one day (`{status}`); `undated` also unlocks a month submitted as a whole. `PATCH /admin/reports/{id}` answers `409` for a daily month (the month is review-only) and stays only for months kept as a whole |
 | GET | `/admin/daily-reports?day=YYYY-MM-DD` | `reports.review` | Every organisation's state and total for one day |
+| GET | `/admin/missed-days?period=YYYY-MM` | `reports.review` | Per store, the days of the month not submitted before midnight (`days`) and which of them were submitted later (`late`). Day responses carry `missed`, `auto_locked_at` (when closed at midnight) and, for a store's past day without a report, `closed` |
 | GET | `/admin/summary?period=YYYY-MM&submitted_only=false` | `reports.review` | Summary DTO and totals; `?day=YYYY-MM-DD` instead of `period` gives one day (`day` in the response) |
 | GET | `/admin/summary.xlsx?period=YYYY-MM&submitted_only=false` | `reports.review` | Summary as an Excel workbook; also takes `?day=` |
 | GET | `/admin/products?period=YYYY-MM` | `reports.catalog.manage` | Product DTOs, usage counts, the current-month price timeline, and full price history |

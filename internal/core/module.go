@@ -72,6 +72,10 @@ type Module struct {
 	// DailyReminder runs once a day, after the configured reminder time, inside a write transaction. now is in
 	// the configured zone. It must be idempotent (use dedupe keys): a restart may run it again the same day.
 	DailyReminder func(ctx context.Context, tx *sql.Tx, now time.Time, n Notifier) error
+	// DayClose runs after every midnight (and at start) inside a write transaction; now is in the configured zone.
+	// It closes the days that have ended and must be idempotent and catch up on days missed while the program was
+	// off (a restart runs it again).
+	DayClose func(ctx context.Context, tx *sql.Tx, now time.Time, n Notifier) error
 	// Overview returns the figures the caller may see; can reports whether the caller holds any of
 	// the given permission codes, period is the current YYYY-MM.
 	Overview func(ctx context.Context, q Querier, can func(codes ...string) bool, period string) ([]OverviewStat, error)

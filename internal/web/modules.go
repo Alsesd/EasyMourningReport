@@ -27,6 +27,7 @@ func (a *App) services() core.Services {
 		Read:     a.Store.R,
 		Write:    a.write,
 		Now:      a.now,
+		Zone:     a.zone(),
 		ClientIP: func(r *http.Request) string { return a.Trusted.ClientIP(r) },
 		Audit: func(tx *sql.Tx, ip string, c *core.Caller, action, detail string) error {
 			return platform.Audit(tx, a.now(), ip, c.Login, c.RoleLabel, action, detail)

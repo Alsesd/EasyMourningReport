@@ -89,8 +89,8 @@ const mockDays: MonthDaysDTO = {
   today: "2026-10-06",
   undated: null,
   days: [
-    { day: "2026-10-05", status: "submitted", total_cents: 7000, item_count: 1 },
-    { day: "2026-10-06", status: "draft", total_cents: 16000, item_count: 3 },
+    { day: "2026-10-05", status: "submitted", total_cents: 7000, item_count: 1, missed: false },
+    { day: "2026-10-06", status: "draft", total_cents: 16000, item_count: 3, missed: false },
   ],
 };
 
@@ -109,6 +109,8 @@ const mockDay: DayReportDTO = {
   inactive_rows: mockReport.inactive_rows ?? [],
   inactive_total_cents: 1000,
   total_cents: 16000,
+  missed: false,
+  closed: false,
 };
 
 describe("StoreReportPage", () => {
@@ -266,7 +268,8 @@ describe("StoreReportPage", () => {
     const today = screen.getByRole("button", { name: /6 жовтня 2026.*сьогодні: Чернетка/ });
     expect(today.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: /5 жовтня 2026.*Надіслано/ })).toBeDefined();
-    expect(screen.getByRole("button", { name: /4 жовтня 2026.*не заповнено/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /4 жовтня 2026.*закрито/ })).toBeDefined();
+    expect(screen.getByText(/Надішліть звіт до 00:00/)).toBeDefined();
     expect(screen.getByText("днів надіслано 1 з 2")).toBeDefined();
 
     expect(screen.queryByRole("button", { name: /^Місяць/ })).toBeNull();
@@ -274,7 +277,7 @@ describe("StoreReportPage", () => {
   });
 
   it("warns on a day that the month already has quantities entered without a date", async () => {
-    mockDays.undated = { day: "undated", status: "draft", total_cents: 50000, item_count: 2 };
+    mockDays.undated = { day: "undated", status: "draft", total_cents: 50000, item_count: 2, missed: false };
     try {
       renderPage();
       await screen.findByText("Хліб пшеничний");
@@ -282,6 +285,19 @@ describe("StoreReportPage", () => {
       expect(screen.getByRole("button", { name: /Без дати/ })).toBeDefined();
     } finally {
       mockDays.undated = null;
+    }
+  });
+
+  it("explains a day closed at midnight without a submission", async () => {
+    const original = { ...mockDay };
+    Object.assign(mockDay, { status: "submitted", read_only: true, missed: true, auto_locked_at: "2026-10-06T21:00:00Z" });
+    try {
+      renderPage();
+      expect(await screen.findByText(/не надіслано вчасно: день закрито автоматично опівночі/)).toBeDefined();
+      expect(screen.getByText("Не надіслано вчасно")).toBeDefined();
+      expect(screen.queryByRole("button", { name: /Надіслати день/ })).toBeNull();
+    } finally {
+      Object.assign(mockDay, original);
     }
   });
 });

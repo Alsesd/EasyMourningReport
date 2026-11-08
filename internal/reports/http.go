@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"legkyi/internal/core"
 )
@@ -212,7 +211,8 @@ func boolInt(b bool) int {
 	return 0
 }
 
-func (a *api) currentPeriod() string { return a.Now().In(time.Local).Format("2006-01") }
+// currentPeriod is this month in the business zone (APP_TIMEZONE), not the machine's.
+func (a *api) currentPeriod() string { return a.Now().In(core.ZoneOf(a.Services)).Format("2006-01") }
 
 // routes lists the module's endpoints; the shell registers each behind its permission check.
 func routes(s core.Services) []core.Route {
@@ -243,6 +243,7 @@ func routes(s core.Services) []core.Route {
 		{Method: "GET", Path: "/admin/reports/{rid}/days/{day}", Codes: rv, Handler: a.readAdminDay},
 		{Method: "PATCH", Path: "/admin/reports/{rid}/days/{day}", Codes: rv, Handler: a.updateAdminDayStatus},
 		{Method: "GET", Path: "/admin/daily-reports", Codes: rv, Handler: a.listDailyReports},
+		{Method: "GET", Path: "/admin/missed-days", Codes: rv, Handler: a.listMissedDays},
 		{Method: "GET", Path: "/admin/summary", Codes: rv, Handler: a.readSummary},
 		{Method: "GET", Path: "/admin/summary.xlsx", Codes: rv, Handler: a.exportSummary},
 

@@ -29,6 +29,18 @@ A store fills in **each day** of the month; the month is the sum of its days. Ea
 - A month submitted as a whole takes no days until a reviewer unlocks its «Без дати» part. The monthly `PUT /store/reports/{period}` refuses a daily month (`409`).
 - The month's `reports.status` is derived for a daily month: `submitted` when every day is.
 - Stores see days only; the month as a whole (the sum) is shown to reviewers.
+
+### Midnight close (`close.go`, `core.Module.DayClose`)
+
+A day is open until midnight in `APP_TIMEZONE` (default Europe/Kyiv; "today" never comes from the machine's clock). After midnight the scheduler closes every ended day for each store that fills in reports (not archived, with an active `reports.submit` user):
+
+- a draft day is locked as it is and marked **missed**; a store with no report for the day gets an empty locked day, also missed (a report row is created if needed); a submitted day is left alone; a month submitted as a whole is skipped;
+- reviewers (`reports.review`) get one notification «Звіти не надіслано вчасно» listing store and date, linking to the day;
+- `missed` stays after a reviewer unlocks the day and the store submits late; `/admin/missed-days` lists both («пізніше» for late ones), and the review page shows them in «Не надіслано вчасно»;
+- a store cannot open a past day that has no report (`409`, `closed: true` on read); a day a reviewer unlocked is open until the next midnight, then closed again (without a new missed mark);
+- each date is processed once (`report_day_close`); the first run ever closes only yesterday, later runs catch up after a downtime (at most 31 days back).
+
+Auto-closed days have status `submitted`, so they count in «Лише надіслані» and in revenue: what the store had entered by midnight is taken as the day's report.
 - Days: a date of the month up to today (server local time). Prices are monthly, so a day offers its month's prices.
 - «Лише надіслані» and the dashboard's revenue count submitted days of daily months (and submitted months kept as a whole).
 

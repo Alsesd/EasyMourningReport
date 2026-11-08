@@ -12,7 +12,8 @@ import { reportsApi } from "@/modules/reports/api";
 import { uk, formatCurrency, formatPeriodReadable, formatDayReadable, formatDayShort } from "@/modules/reports/i18n";
 import { StatusPill } from "@/modules/reports/components/StatusPill";
 import { signatureLines } from "@/modules/reports/components/Signature";
-import type { AdminReportListItemDTO, DailyReportListItemDTO, SummaryDTO } from "@/platform/api/types";
+import { MissedBadge } from "@/modules/reports/components/MissedBadge";
+import type { AdminReportListItemDTO, DailyReportListItemDTO, MissedStoreDTO, SummaryDTO } from "@/platform/api/types";
 import { daysBetween } from "@/modules/reports/components/DayStrip";
 import { todayIso } from "@/platform/i18n";
 import { buttonClass, Button } from "@/ui/Button";
@@ -45,6 +46,7 @@ export default function ReportsMonthPage() {
 
   const reportsQuery = useQuery({ queryKey: ["adminReports", period], queryFn: () => reportsApi.reportList(period), enabled: !day });
   const dailyQuery = useQuery({ queryKey: ["adminDailyReports", day], queryFn: () => reportsApi.dailyReports(day), enabled: Boolean(day) });
+  const missedQuery = useQuery({ queryKey: ["adminMissedDays", period], queryFn: () => reportsApi.missedDays(period) });
   const summaryQuery = useQuery({
     queryKey: ["adminSummary", period, submittedOnly, day],
     queryFn: () => reportsApi.summary({ period, submitted_only: submittedOnly, day: day || undefined }),
@@ -115,6 +117,12 @@ export default function ReportsMonthPage() {
       <div role="tabpanel" aria-labelledby={`reports-tab-${tab}`} className="space-y-8 lg:space-y-10">
       {tab === "month" && <p className="text-sm text-text-muted">{uk.daily.monthTabNote}</p>}
 
+      {(missedQuery.data ?? []).length > 0 && (
+        <LedgerSection id="missed" title={uk.daily.missedTitle} description={uk.daily.missedDescription}>
+          <MissedList stores={missedQuery.data ?? []} />
+        </LedgerSection>
+      )}
+
       <LedgerSection id="stores" title={m.storesTitle} description={day ? uk.daily.dayStoresDescription : m.storesDescription}>
         <StoreRegister query={registerQuery} reports={reports} day={day} />
       </LedgerSection>
@@ -137,6 +145,38 @@ export default function ReportsMonthPage() {
       </LedgerSection>
       </div>
     </div>
+  );
+}
+
+/** Who did not submit which days of the month before midnight; each date opens that day of the store's report. */
+function MissedList({ stores }: { stores: MissedStoreDTO[] }) {
+  return (
+    <ul className="divide-y divide-border">
+      {stores.map((s) => (
+        <li key={s.store_id} className="flex flex-wrap items-baseline gap-x-4 gap-y-2 px-1 py-3">
+          <span className="min-w-[10rem] flex-1">
+            <span className="block font-medium text-text-main">{s.store_name}</span>
+            <span className="block text-sm text-destructive">{uk.daily.missedDays(s.days.length)}</span>
+          </span>
+          <span className="flex flex-wrap gap-1.5">
+            {s.days.map((d) => {
+              const late = s.late.includes(d);
+              return (
+                <Link
+                  key={d}
+                  to={`/admin/reports/${s.report_id}?day=${d}`}
+                  aria-label={`${s.store_name}, ${formatDayReadable(d)}: ${late ? uk.daily.missedLate : uk.daily.missed}`}
+                  className="inline-flex min-h-[44px] items-center gap-1 rounded-control border border-destructive/40 px-2.5 text-sm text-text-main transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <span className="figure">{formatDayShort(d)}</span>
+                  {late && <span className="text-xs text-text-muted">· {uk.daily.lateMark}</span>}
+                </Link>
+              );
+            })}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -239,7 +279,11 @@ function StoreRegister({
                   </span>
                 ))}
               </span>
-              <StatusPill status={item.status} className="w-32 shrink-0 max-sm:hidden" />
+              {"missed" in item && item.missed ? (
+                <MissedBadge late={Boolean(item.submission)} className="w-32 shrink-0 whitespace-normal max-sm:hidden" />
+              ) : (
+                <StatusPill status={item.status} className="w-32 shrink-0 max-sm:hidden" />
+              )}
               <span className="figure w-32 shrink-0 text-right text-[1.0625rem] text-text-main">{formatCurrency(item.total_cents)}</span>
               <span className="w-5 shrink-0 text-text-muted" aria-hidden="true">
                 {item.report_id && <ChevronRight className="h-4 w-4" />}
@@ -256,7 +300,11 @@ function StoreRegister({
               ) : (
                 <div className={base}>{row}</div>
               )}
-              <StatusPill status={item.status} className="-mt-2 px-3 pb-2.5 sm:hidden" />
+              {"missed" in item && item.missed ? (
+                <MissedBadge late={Boolean(item.submission)} className="-mt-2 px-3 pb-2.5 sm:hidden" />
+              ) : (
+                <StatusPill status={item.status} className="-mt-2 px-3 pb-2.5 sm:hidden" />
+              )}
             </li>
           );
         })}

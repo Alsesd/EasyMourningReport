@@ -40,6 +40,14 @@ type Deps struct {
 	Logs           *system.LogRing      // recent warnings and errors of the program (nil: the page shows none)
 	Push           *platform.PushSender // Web Push (nil: not configured; the bell still works in the open app)
 	PasskeyRPID    string               // PASSKEY_RP_ID: pins the WebAuthn relying party id (default: the host the browser is on)
+	Zone           *time.Location       // APP_TIMEZONE (nil: the machine's local time)
+}
+
+func (a *App) zone() *time.Location {
+	if a.Zone != nil {
+		return a.Zone
+	}
+	return time.Local
 }
 
 // App holds the dependencies handlers share.

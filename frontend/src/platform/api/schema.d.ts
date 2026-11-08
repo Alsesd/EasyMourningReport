@@ -1069,6 +1069,10 @@ export interface components {
             status: "draft" | "submitted";
             total_cents: number;
             item_count: number;
+            /** Not submitted by the store before midnight (kept after a late submission) */
+            missed: boolean;
+            /** When the day was closed automatically at midnight; absent when never */
+            auto_locked_at?: string;
         };
         /** MonthDaysDTO: how a month is kept, its days and the range of days that can be filled */
         MonthDaysDTO: {
@@ -1108,6 +1112,12 @@ export interface components {
             inactive_rows: components["schemas"]["InactiveReportLineDTO"][];
             inactive_total_cents: number;
             total_cents: number;
+            /** Not submitted by the store before midnight (kept after a late submission) */
+            missed: boolean;
+            /** When the day was closed automatically at midnight; absent when never */
+            auto_locked_at?: string;
+            /** A past day without a report, closed at midnight (the store cannot open it) */
+            closed: boolean;
         };
         /** DailyReportListItemDTO: one store's state for one day */
         DailyReportListItemDTO: {
@@ -1122,6 +1132,20 @@ export interface components {
             status: "none" | "draft" | "submitted";
             total_cents: number;
             item_count: number;
+            /** Not submitted by the store before midnight (kept after a late submission) */
+            missed: boolean;
+            /** When the day was closed automatically at midnight; absent when never */
+            auto_locked_at?: string;
+        };
+        /** MissedStoreDTO: a store with the days of a month it did not submit before midnight */
+        MissedStoreDTO: {
+            store_id: number;
+            store_name: string;
+            report_id: number;
+            /** YYYY-MM-DD, oldest first */
+            days: string[];
+            /** Of those, the days submitted afterwards (after a reviewer unlocked them) */
+            late: string[];
         };
         /** AuditLogDTO */
         AuditLogDTO: {
