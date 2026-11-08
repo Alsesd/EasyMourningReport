@@ -305,6 +305,13 @@ func TestMidnightCloseLocksAndRecordsMissedDays(t *testing.T) {
 	orgB := e.exec("INSERT INTO organisations (name, archived) VALUES ('Філія Б', 0)")
 	e.addUser("clerk2", "", "Clerk2-pass1", &orgB, "organisation", "reports.submit")
 	e.exec("INSERT INTO organisations (name, archived) VALUES ('Склад', 0)") // nobody fills in reports there
+	e.closeDays("2026-11-02")                                                // the installation's first close: it only records yesterday, nobody is accused
+	var anyMissed int
+	e.st.R.QueryRow("SELECT COUNT(*) FROM report_days").Scan(&anyMissed)
+	if anyMissed != 0 {
+		t.Fatalf("the first close must close nothing: %d days", anyMissed)
+	}
+	e.setDay("2026-11-02")
 
 	draft := e.dayJSON(clerk, "PUT", "/api/v1/store/reports/2026-11/days/2026-11-02", qtyBody("draft", [3]int64{p1, 25000, 2}), 200)
 	rid := *draft.ReportID
@@ -350,6 +357,9 @@ func TestMidnightCloseLocksAndRecordsMissedDays(t *testing.T) {
 	}
 	e.setDay("2026-11-03")
 	e.dayJSON(boss, "PATCH", adminDay, `{"status":"draft"}`, 200)
+	// A restart during the day (self-update, crash) runs the close again: the reopened day stays open.
+	e.closeDays("2026-11-03")
+	e.setDay("2026-11-03")
 	late := e.dayJSON(clerk, "PUT", "/api/v1/store/reports/2026-11/days/2026-11-02", qtyBody("submit", [3]int64{p1, 25000, 3}), 200)
 	if late.Status != "submitted" || !late.Missed || late.Submission == nil {
 		t.Fatalf("late submission: %+v", late)
@@ -382,16 +392,20 @@ func TestMidnightCloseLocksAndRecordsMissedDays(t *testing.T) {
 	}
 }
 
-// The first close ever handles only yesterday; after a downtime it catches up on every day it missed.
+// The first close ever closes nothing; later ones close each ended day once and catch up after a downtime.
 func TestMidnightCloseCatchesUp(t *testing.T) {
 	e, _, _, _, _ := dailyEnv(t)
-	e.closeDays("2026-11-05")
 	count := func() (n int) {
 		e.st.R.QueryRow("SELECT COUNT(*) FROM report_days WHERE day != ''").Scan(&n)
 		return
 	}
-	if c := count(); c != 1 {
+	e.closeDays("2026-11-04") // first close: records 3 November, closes nothing
+	if c := count(); c != 0 {
 		t.Fatalf("first close: %d days", c)
+	}
+	e.closeDays("2026-11-05")
+	if c := count(); c != 1 {
+		t.Fatalf("next night: %d days", c)
 	}
 	e.closeDays("2026-11-09") // the program was off for three nights
 	if c := count(); c != 5 {

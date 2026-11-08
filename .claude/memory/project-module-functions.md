@@ -15,7 +15,7 @@ type: project
   /admin/reports (default tab «За день»); monthly PUT 409 on daily months;
   **Midnight close (2026-11-08, owner: "auto lock at midnight, notice for reviewer to punish the guilty"):**
   `core.Module.DayClose` (scheduler, every midnight in APP_TIMEZONE + at start, catch-up via `report_day_close`,
-  first run = yesterday only); draft/absent day -> locked (status submitted) + `missed=1` + `auto_locked_at`;
+  first run closes NOTHING, only records yesterday; a restart mid-day closes/relocks nothing); draft/absent day -> locked (status submitted) + `missed=1` + `auto_locked_at`;
   reviewers notified; missed kept after late submission (`/admin/missed-days`, «Не надіслано вчасно» section);
   store cannot open a past day without a report (409 `closed`); reviewer-unlocked day relocks next midnight.
   Checks every day incl. weekends (open question for owner). `core.Services.Zone` = business zone; reports and

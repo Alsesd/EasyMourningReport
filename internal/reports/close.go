@@ -19,7 +19,8 @@ import (
 // Missed stays on the day after a reviewer unlocks it and the store submits late, so the record of the late
 // report is kept. A day a reviewer unlocked is closed again at the next midnight (not marked missed again).
 // Days are processed once each (report_day_close); after a downtime the close catches up, at most maxCatchUp days
-// back, and the very first run closes only yesterday (days from before the close existed are left alone).
+// back. The very first run closes nothing: it only records yesterday as processed, because before the close
+// existed nobody was told a day ends at midnight. The first real check is the night after installation.
 
 const maxCatchUp = 31
 
@@ -39,12 +40,13 @@ func daysToClose(ctx context.Context, tx *sql.Tx, today string) ([]string, error
 		return nil, err
 	}
 	yesterday := shiftDate(today, -1)
-	from := yesterday
-	if last.Valid && last.String != "" {
-		from = shiftDate(last.String, 1)
-		if earliest := shiftDate(today, -maxCatchUp); from < earliest {
-			from = earliest
-		}
+	if !last.Valid || last.String == "" {
+		_, err := tx.ExecContext(ctx, "INSERT OR IGNORE INTO report_day_close (day, closed_at) VALUES (?, 0)", yesterday)
+		return nil, err
+	}
+	from := shiftDate(last.String, 1)
+	if earliest := shiftDate(today, -maxCatchUp); from < earliest {
+		from = earliest
 	}
 	var out []string
 	for d := from; d <= yesterday; d = shiftDate(d, 1) {
@@ -181,8 +183,12 @@ func CloseDays(ctx context.Context, tx *sql.Tx, now time.Time, n core.Notifier) 
 	if err != nil {
 		return err
 	}
+	if len(days) == 0 {
+		// Nothing ended since the last close: a restart during the day must not lock what a reviewer reopened.
+		return nil
+	}
 	var missed []missedDay
-	if len(days) > 0 {
+	{
 		stores, err := reportingStores(ctx, tx, n)
 		if err != nil {
 			return err

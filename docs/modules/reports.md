@@ -38,7 +38,7 @@ A day is open until midnight in `APP_TIMEZONE` (default Europe/Kyiv; "today" nev
 - reviewers (`reports.review`) get one notification «Звіти не надіслано вчасно» listing store and date, linking to the day;
 - `missed` stays after a reviewer unlocks the day and the store submits late; `/admin/missed-days` lists both («пізніше» for late ones), and the review page shows them in «Не надіслано вчасно»;
 - a store cannot open a past day that has no report (`409`, `closed: true` on read); a day a reviewer unlocked is open until the next midnight, then closed again (without a new missed mark);
-- each date is processed once (`report_day_close`); the first run ever closes only yesterday, later runs catch up after a downtime (at most 31 days back).
+- each date is processed once (`report_day_close`); the first run ever closes nothing (it only records yesterday, so nobody is accused for a day before the rule existed; the first real check is the night after installation); later runs catch up after a downtime (at most 31 days back). A restart during the day closes nothing and does not re-lock days a reviewer reopened.
 
 Auto-closed days have status `submitted`, so they count in «Лише надіслані» and in revenue: what the store had entered by midnight is taken as the day's report.
 - Days: a date of the month up to today (server local time). Prices are monthly, so a day offers its month's prices.

@@ -331,7 +331,6 @@ def run_tests():
             admin_page.wait_for_selector('text=Підрозділ 1', timeout=5000)
             print("Navigated to Report Detail:", admin_page.url)
             # The month is kept by days: open the day the store submitted
-            # (yesterday is already closed by the midnight close at start, marked «не надіслано вчасно»)
             admin_page.locator('[role="group"][aria-label="Дні місяця"] button[aria-label*="сьогодні"]').first.click()
             admin_page.wait_for_url("**day=**", timeout=5000)
             admin_page.wait_for_selector('text=Надіслав(ла): store1', timeout=5000)
@@ -348,10 +347,6 @@ def run_tests():
             admin_page.get_by_role("combobox", name="День для перегляду").select_option(index=0)
             admin_page.wait_for_selector('text=Товари за день', timeout=5000)
             assert "day=" in (admin_page.locator('a[href*="/admin/summary.xlsx"]').get_attribute("href") or "")
-            # The midnight close at start marked yesterday as missed for both demo stores (same month unless today is the 1st)
-            if time.strftime("%d") != "01":
-                admin_page.wait_for_selector('section#missed >> text=Підрозділ 2', timeout=5000)
-                print("Missed days are listed for the reviewer!")
             admin_page.get_by_role("tab", name="За місяць").click()
             admin_page.wait_for_selector('text=Товари за місяць', timeout=5000)
             assert "period=" in (admin_page.locator('a[href*="/admin/summary.xlsx"]').get_attribute("href") or "")
