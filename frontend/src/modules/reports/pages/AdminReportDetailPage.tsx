@@ -192,7 +192,7 @@ export default function AdminReportDetailPage() {
             <DialogDescription>
               {isDayView
                 ? isSubmitted ? uk.daily.unlockDayMessage : uk.daily.lockDayMessage
-                : isSubmitted ? uk.reports.unlockConfirmMessage : uk.reports.lockConfirmMessage}
+                : isSubmitted ? uk.reports.unlockConfirmMessage : days?.daily ? uk.daily.lockMonthDailyMessage : uk.reports.lockConfirmMessage}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

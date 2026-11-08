@@ -249,3 +249,30 @@ func TestSubmittedMonthBlocksDays(t *testing.T) {
 		t.Fatalf("read of a day of a submitted month: %+v", d)
 	}
 }
+
+// A past daily month locked by a reviewer takes no new days; the current month still does.
+func TestLockedPastDailyMonthTakesNoNewDays(t *testing.T) {
+	e, clerk, boss, p1, _ := dailyEnv(t)
+	d := e.dayJSON(clerk, "PUT", "/api/v1/store/reports/2026-11/days/2026-11-02", qtyBody("submit", [3]int64{p1, 25000, 1}), 200)
+	if d.MonthStatus != "submitted" {
+		t.Fatalf("every day submitted: %+v", d)
+	}
+	// The current month: tomorrow's entry (here another day) is still open.
+	e.dayJSON(clerk, "PUT", "/api/v1/store/reports/2026-11/days/2026-11-03", qtyBody("draft", [3]int64{p1, 25000, 1}), 200)
+	if w := e.do("PATCH", "/api/v1/admin/reports/"+itoa(int(*d.ReportID)), `{"status":"submitted"}`, nil, boss); w.Code != 200 {
+		t.Fatalf("lock: %d", w.Code)
+	}
+	// A month later the November report is in the past.
+	e.now = e.now.AddDate(0, 1, 0)
+	clerk, boss = sessionCookie(e.login("clerk", "Clerk-pass1")), sessionCookie(e.login("boss", "Boss-pass1"))
+	if w := e.do("PUT", "/api/v1/store/reports/2026-11/days/2026-11-20", qtyBody("draft", [3]int64{p1, 25000, 1}), nil, clerk); w.Code != 409 {
+		t.Fatalf("new day in a locked past month: %d %s", w.Code, w.Body)
+	}
+	if r := e.dayJSON(clerk, "GET", "/api/v1/store/reports/2026-11/days/2026-11-20", "", 200); !r.ReadOnly {
+		t.Fatalf("the empty day must read as read-only: %+v", r)
+	}
+	if w := e.do("PATCH", "/api/v1/admin/reports/"+itoa(int(*d.ReportID)), `{"status":"draft"}`, nil, boss); w.Code != 200 {
+		t.Fatalf("unlock: %d", w.Code)
+	}
+	e.dayJSON(clerk, "PUT", "/api/v1/store/reports/2026-11/days/2026-11-20", qtyBody("draft", [3]int64{p1, 25000, 1}), 200)
+}

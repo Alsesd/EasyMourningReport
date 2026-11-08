@@ -62,7 +62,8 @@ export function DayStrip({
     active ? "border-ink bg-ink text-page" : "border-border bg-surface text-text-main hover:border-text-muted/60";
 
   return (
-    <div ref={listRef} role="group" aria-label={t.stripLabel} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-2">
+    <div role="group" aria-label={t.stripLabel} className="flex items-start gap-1.5">
+      {/* «Місяць» and «Без дати» stay in view; only the dates scroll. */}
       <button type="button" aria-pressed={value === MONTH_VIEW} onClick={() => onChange(MONTH_VIEW)} className={cn(chip, "min-w-[5.5rem]", tone(value === MONTH_VIEW))}>
         <span className="font-medium">{t.month}</span>
         <span className="figure text-xs opacity-80">{formatCurrency(days.total_cents)}</span>
@@ -79,6 +80,7 @@ export function DayStrip({
           <span className="figure text-xs opacity-80">{formatCurrency(days.undated.total_cents)}</span>
         </button>
       )}
+      <div ref={listRef} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-2">
       {dates.map((day) => {
         const entry = byDay.get(day);
         const active = value === day;
@@ -104,6 +106,7 @@ export function DayStrip({
           </button>
         );
       })}
+      </div>
     </div>
   );
 }

@@ -371,6 +371,11 @@ export default function StoreReportPage() {
             )}
             {view === MONTH_VIEW && <StatusPill status={monthStatus} />}
             {view === UNDATED && <p className="text-sm text-text-muted">{uk.daily.undatedHelp}</p>}
+            {isDayView && view !== UNDATED && days?.undated && (
+              <p role="note" className="border-l-2 border-attention bg-attention-soft px-3 py-2 text-sm text-attention">
+                {uk.daily.undatedNotice(formatCurrency(days.undated.total_cents))}
+              </p>
+            )}
           </div>
         )}
 

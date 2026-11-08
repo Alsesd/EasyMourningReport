@@ -207,7 +207,7 @@ func (a *api) dayReportDTO(ctx context.Context, q core.Querier, rep *Report, org
 		id := rep.ID
 		d.ReportID, d.MonthStatus = &id, rep.Status
 		d.signedDTO = signedOf(st.status, st.sigs)
-		if blocked, err := a.monthBlocksDays(ctx, q, rep); err != nil {
+		if blocked, err := a.monthBlocksDays(ctx, q, rep, day); err != nil {
 			return dayReportDTO{}, err
 		} else if blocked {
 			d.ReadOnly = true
@@ -216,13 +216,22 @@ func (a *api) dayReportDTO(ctx context.Context, q core.Querier, rep *Report, org
 	return d, nil
 }
 
-// monthBlocksDays: a month kept as a whole that is submitted takes no days until a reviewer unlocks it.
-func (a *api) monthBlocksDays(ctx context.Context, q core.Querier, rep *Report) (bool, error) {
+// monthBlocksDays: a submitted month takes no new days until a reviewer unlocks it — a month kept as a whole
+// always, a daily month once it is in the past (in the current month every day being submitted must not block
+// tomorrow's entry). Days that already exist follow their own status.
+func (a *api) monthBlocksDays(ctx context.Context, q core.Querier, rep *Report, day string) (bool, error) {
 	if rep == nil || rep.Status != "submitted" {
 		return false, nil
 	}
 	daily, err := IsDaily(ctx, q, rep.ID)
-	return !daily, err
+	if err != nil || !daily {
+		return !daily, err
+	}
+	if rep.Period >= a.currentPeriod() {
+		return false, nil
+	}
+	d, err := LoadDay(ctx, q, rep.ID, day)
+	return d == nil, err
 }
 
 func (a *api) monthDaysDTO(ctx context.Context, q core.Querier, rep *Report, org *core.Org, period string) (monthDaysDTO, error) {
@@ -384,7 +393,7 @@ func (a *api) saveStoreDay(w http.ResponseWriter, r *http.Request, p *core.Calle
 		if err != nil {
 			return err
 		}
-		if blocked, err := a.monthBlocksDays(ctx, tx, rep); err != nil {
+		if blocked, err := a.monthBlocksDays(ctx, tx, rep, day); err != nil {
 			return err
 		} else if blocked {
 			return core.HTTPError{Status: 409, Detail: "Звіт за місяць надіслано й заблоковано. Розблокувати його може адміністратор."}

@@ -274,4 +274,16 @@ describe("StoreReportPage", () => {
     expect(screen.getByText(/Сума всіх днів місяця/)).toBeDefined();
     expect(screen.queryByRole("button", { name: /Надіслати день/i })).toBeNull();
   });
+
+  it("warns on a day that the month already has quantities entered without a date", async () => {
+    mockDays.undated = { day: "undated", status: "draft", total_cents: 50000, item_count: 2 };
+    try {
+      renderPage();
+      await screen.findByText("Хліб пшеничний");
+      expect(await screen.findByText(/без дати\. У день вносьте лише продажі цього дня/)).toBeDefined();
+      expect(screen.getByRole("button", { name: /Без дати/ })).toBeDefined();
+    } finally {
+      mockDays.undated = null;
+    }
+  });
 });
