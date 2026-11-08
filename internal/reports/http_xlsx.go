@@ -124,20 +124,24 @@ func (a *api) exportSummary(w http.ResponseWriter, r *http.Request, p *core.Call
 	if err := pm.Err(); err != nil {
 		return err
 	}
-	selected, err := a.parsePeriod(pm.String("period"))
+	selected, day, err := a.summaryScope(pm.String("period"), pm.String("day"))
 	if err != nil {
 		return err
 	}
-	s, err := BuildSummary(r.Context(), a.Read, selected, submittedOnly)
+	s, err := BuildSummaryFor(r.Context(), a.Read, selected, day, submittedOnly)
 	if err != nil {
 		return err
+	}
+	name := selected
+	if day != "" {
+		name = day
 	}
 	data, err := SummaryXLSX(s)
 	if err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", xlsxType)
-	w.Header().Set("Content-Disposition", `attachment; filename="zvit-`+selected+`.xlsx"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="zvit-`+name+`.xlsx"`)
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	_, err = w.Write(data)
 	return err

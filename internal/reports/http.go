@@ -122,6 +122,9 @@ type adminReportListItemDTO struct {
 	TotalCents    int64  `json:"total_cents"`
 	ItemCount     int    `json:"item_count"`
 	signedDTO
+	// Only for months kept by days: how many days have entries and how many of them are submitted.
+	DaysCount     int `json:"days_count,omitempty"`
+	DaysSubmitted int `json:"days_submitted,omitempty"`
 }
 
 type adminReportDTO struct {
@@ -165,6 +168,7 @@ type summaryRowDTO struct {
 
 type summaryDTO struct {
 	Period           string            `json:"period"`
+	Day              string            `json:"day,omitempty"` // only for one day's summary
 	SubmittedOnly    bool              `json:"submitted_only"`
 	Stores           []summaryStoreDTO `json:"stores"`
 	Rows             []summaryRowDTO   `json:"rows"`
@@ -228,10 +232,17 @@ func routes(s core.Services) []core.Route {
 
 		{Method: "GET", Path: "/store/reports/{period}", Codes: sub, Member: true, Handler: a.readStoreReport},
 		{Method: "PUT", Path: "/store/reports/{period}", Codes: sub, Member: true, Handler: a.saveStoreReport},
+		{Method: "GET", Path: "/store/reports/{period}/days", Codes: sub, Member: true, Handler: a.readStoreDays},
+		{Method: "GET", Path: "/store/reports/{period}/days/{day}", Codes: sub, Member: true, Handler: a.readStoreDay},
+		{Method: "PUT", Path: "/store/reports/{period}/days/{day}", Codes: sub, Member: true, Handler: a.saveStoreDay},
 
 		{Method: "GET", Path: "/admin/reports", Codes: rv, Handler: a.listAdminReports},
 		{Method: "GET", Path: "/admin/reports/{rid}", Codes: rv, Handler: a.readAdminReport},
 		{Method: "PATCH", Path: "/admin/reports/{rid}", Codes: rv, Handler: a.updateAdminReportStatus},
+		{Method: "GET", Path: "/admin/reports/{rid}/days", Codes: rv, Handler: a.readAdminDays},
+		{Method: "GET", Path: "/admin/reports/{rid}/days/{day}", Codes: rv, Handler: a.readAdminDay},
+		{Method: "PATCH", Path: "/admin/reports/{rid}/days/{day}", Codes: rv, Handler: a.updateAdminDayStatus},
+		{Method: "GET", Path: "/admin/daily-reports", Codes: rv, Handler: a.listDailyReports},
 		{Method: "GET", Path: "/admin/summary", Codes: rv, Handler: a.readSummary},
 		{Method: "GET", Path: "/admin/summary.xlsx", Codes: rv, Handler: a.exportSummary},
 
@@ -675,7 +686,12 @@ func (a *api) storeReportDTO(ctx context.Context, q core.Querier, p *core.Caller
 	d.TotalCents += inactiveTotal
 	if rep != nil {
 		id := rep.ID
-		d.ReportID, d.Status, d.ReadOnly = &id, rep.Status, rep.Status == "submitted"
+		daily, err := IsDaily(ctx, q, rep.ID)
+		if err != nil {
+			return storeReportDTO{}, err
+		}
+		// A month kept by days is changed day by day (the month view is their sum).
+		d.ReportID, d.Status, d.ReadOnly = &id, rep.Status, rep.Status == "submitted" || daily
 	}
 	return d, nil
 }
@@ -750,6 +766,13 @@ func (a *api) saveStoreReport(w http.ResponseWriter, r *http.Request, p *core.Ca
 		if rep != nil && rep.Status == "submitted" {
 			return core.HTTPError{Status: 409, Detail: "Звіт надіслано й заблоковано адміністратором."}
 		}
+		if rep != nil {
+			if daily, err := IsDaily(ctx, tx, rep.ID); err != nil {
+				return err
+			} else if daily {
+				return core.HTTPError{Status: 409, Detail: errDailyMonth}
+			}
+		}
 		if rep == nil {
 			res, err := tx.ExecContext(ctx, "INSERT INTO reports (store_id, period, status) VALUES (?, ?, 'draft')", orgID, selected)
 			if err != nil {
@@ -762,52 +785,9 @@ func (a *api) saveStoreReport(w http.ResponseWriter, r *http.Request, p *core.Ca
 		if err != nil {
 			return err
 		}
-		history, err := LoadHistory(ctx, tx)
+		editable, quantities, err := checkedQuantities(ctx, tx, selected, items, lines)
 		if err != nil {
 			return err
-		}
-		active, err := LoadProducts(ctx, tx, "WHERE active != 0 AND archived = 0")
-		if err != nil {
-			return err
-		}
-		allowed := map[int64]map[int64]bool{}
-		editable := map[int64]bool{}
-		for _, pr := range active {
-			set := map[int64]bool{}
-			for _, c := range OfferedPrices(HistoryOf(history, pr), selected) {
-				set[c] = true
-			}
-			allowed[pr.ID], editable[pr.ID] = set, true
-		}
-		existingCalc := map[[2]int64]int64{}
-		for _, it := range items {
-			if set, ok := allowed[it.ProductID]; ok && (it.Quantity > 0 || it.QuantityCalc > 0) {
-				set[it.UnitPrice] = true
-			}
-			existingCalc[[2]int64{it.ProductID, it.UnitPrice}] += it.QuantityCalc
-		}
-		seen := map[[2]int64]bool{}
-		quantities := map[int64]map[int64][2]int64{}
-		for _, l := range lines {
-			key := [2]int64{l.product, l.price}
-			if seen[key] {
-				return core.HTTPError{Status: 422, Detail: "Повторюється рядок товару/ціни."}
-			}
-			seen[key] = true
-			calc := existingCalc[key]
-			if l.calc != nil {
-				calc = *l.calc
-			}
-			if l.qty == 0 && calc == 0 {
-				continue
-			}
-			if !allowed[l.product][l.price] {
-				return core.HTTPError{Status: 409, Detail: "Список товарів або ціни змінилися. Оновіть звіт і повторіть збереження."}
-			}
-			if quantities[l.product] == nil {
-				quantities[l.product] = map[int64][2]int64{}
-			}
-			quantities[l.product][l.price] = [2]int64{l.qty, calc}
 		}
 		// Rows of inactive/archived products are read-only in the UI and stay untouched.
 		if err := ReplaceEditableItems(ctx, tx, rep.ID, editable, items, quantities); err != nil {
@@ -845,6 +825,60 @@ func (a *api) saveStoreReport(w http.ResponseWriter, r *http.Request, p *core.Ca
 	return nil
 }
 
+// checkedQuantities validates the posted lines against the products a store can edit and the prices offered for
+// the period (plus prices already saved in items with a quantity), and returns the editable products and the new
+// quantities ({product: {price: (qty, calc)}}). A line without quantity_calc keeps the saved one.
+func checkedQuantities(ctx context.Context, tx *sql.Tx, period string, items []Item, lines []saveLine) (map[int64]bool, map[int64]map[int64][2]int64, error) {
+	history, err := LoadHistory(ctx, tx)
+	if err != nil {
+		return nil, nil, err
+	}
+	active, err := LoadProducts(ctx, tx, "WHERE active != 0 AND archived = 0")
+	if err != nil {
+		return nil, nil, err
+	}
+	allowed := map[int64]map[int64]bool{}
+	editable := map[int64]bool{}
+	for _, pr := range active {
+		set := map[int64]bool{}
+		for _, c := range OfferedPrices(HistoryOf(history, pr), period) {
+			set[c] = true
+		}
+		allowed[pr.ID], editable[pr.ID] = set, true
+	}
+	existingCalc := map[[2]int64]int64{}
+	for _, it := range items {
+		if set, ok := allowed[it.ProductID]; ok && (it.Quantity > 0 || it.QuantityCalc > 0) {
+			set[it.UnitPrice] = true
+		}
+		existingCalc[[2]int64{it.ProductID, it.UnitPrice}] += it.QuantityCalc
+	}
+	seen := map[[2]int64]bool{}
+	quantities := map[int64]map[int64][2]int64{}
+	for _, l := range lines {
+		key := [2]int64{l.product, l.price}
+		if seen[key] {
+			return nil, nil, core.HTTPError{Status: 422, Detail: "Повторюється рядок товару/ціни."}
+		}
+		seen[key] = true
+		calc := existingCalc[key]
+		if l.calc != nil {
+			calc = *l.calc
+		}
+		if l.qty == 0 && calc == 0 {
+			continue
+		}
+		if !allowed[l.product][l.price] {
+			return nil, nil, core.HTTPError{Status: 409, Detail: "Список товарів або ціни змінилися. Оновіть звіт і повторіть збереження."}
+		}
+		if quantities[l.product] == nil {
+			quantities[l.product] = map[int64][2]int64{}
+		}
+		quantities[l.product][l.price] = [2]int64{l.qty, calc}
+	}
+	return editable, quantities, nil
+}
+
 // --- review ------------------------------------------------------------------------------
 
 func (a *api) listAdminReports(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
@@ -879,6 +913,22 @@ func (a *api) listAdminReports(w http.ResponseWriter, r *http.Request, p *core.C
 	if err != nil {
 		return err
 	}
+	dayCounts := map[int64][2]int{}
+	drows, err := a.Read.QueryContext(ctx, `SELECT d.report_id, COUNT(*), COALESCE(SUM(d.status = 'submitted'), 0)
+		FROM report_days d JOIN reports r ON r.id = d.report_id WHERE r.period = ? GROUP BY d.report_id`, selected)
+	if err != nil {
+		return err
+	}
+	for drows.Next() {
+		var id int64
+		var n, sub int
+		if err := drows.Scan(&id, &n, &sub); err != nil {
+			drows.Close()
+			return err
+		}
+		dayCounts[id] = [2]int{n, sub}
+	}
+	drows.Close()
 	orgs, err := a.Read.QueryContext(ctx, "SELECT id, name, archived FROM organisations ORDER BY name")
 	if err != nil {
 		return err
@@ -902,6 +952,9 @@ func (a *api) listAdminReports(w http.ResponseWriter, r *http.Request, p *core.C
 			d.ReportID, d.Status, d.TotalCents, d.ItemCount = &rid, x.status, x.total, x.count
 			if sigs, ok := subs[rid]; ok {
 				d.signedDTO = signedOf(x.status, sigs)
+			}
+			if c, ok := dayCounts[rid]; ok {
+				d.DaysCount, d.DaysSubmitted = c[0], c[1]
 			}
 		}
 		out = append(out, d)
@@ -992,6 +1045,12 @@ func (a *api) updateAdminReportStatus(w http.ResponseWriter, r *http.Request, p 
 		if err != nil {
 			return err
 		}
+		// A month kept by days is only reviewed: its days are locked and unlocked one by one.
+		if daily, err := IsDaily(ctx, tx, rep.ID); err != nil {
+			return err
+		} else if daily {
+			return core.HTTPError{Status: 409, Detail: errMonthReadOnly}
+		}
 		if _, err := tx.ExecContext(ctx, "UPDATE reports SET status = ? WHERE id = ?", target, rid); err != nil {
 			return err
 		}
@@ -1026,15 +1085,15 @@ func (a *api) readSummary(w http.ResponseWriter, r *http.Request, p *core.Caller
 	if err := pm.Err(); err != nil {
 		return err
 	}
-	selected, err := a.parsePeriod(pm.String("period"))
+	selected, day, err := a.summaryScope(pm.String("period"), pm.String("day"))
 	if err != nil {
 		return err
 	}
-	s, err := BuildSummary(r.Context(), a.Read, selected, submittedOnly)
+	s, err := BuildSummaryFor(r.Context(), a.Read, selected, day, submittedOnly)
 	if err != nil {
 		return err
 	}
-	d := summaryDTO{Period: selected, SubmittedOnly: submittedOnly, Stores: []summaryStoreDTO{}, Rows: []summaryRowDTO{},
+	d := summaryDTO{Period: selected, Day: day, SubmittedOnly: submittedOnly, Stores: []summaryStoreDTO{}, Rows: []summaryRowDTO{},
 		StoreTotalsCents: s.StoreTotals, GrandTotalCents: s.Grand}
 	for _, st := range s.Stores {
 		d.Stores = append(d.Stores, summaryStoreDTO{st.ID, st.Name, st.Archived, st.CalculationEnabled})

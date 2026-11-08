@@ -423,12 +423,26 @@ type cellKey struct{ pid, price, sid int64 }
 
 // BuildSummary aggregates saved quantities of a period per product, price and store.
 func BuildSummary(ctx context.Context, q core.Querier, period string, submittedOnly bool) (*Summary, error) {
+	return BuildSummaryFor(ctx, q, period, "", submittedOnly)
+}
+
+// BuildSummaryFor is BuildSummary for the whole month (day "") or one day (YYYY-MM-DD) of it. Submitted only means
+// submitted months for months kept as a whole and submitted days for months kept by days.
+func BuildSummaryFor(ctx context.Context, q core.Querier, period, day string, submittedOnly bool) (*Summary, error) {
 	query := `SELECT r.store_id, i.product_id, i.quantity, i.quantity_calc, i.unit_price_cents
 		FROM report_items i JOIN reports r ON i.report_id = r.id WHERE r.period = ?`
-	if submittedOnly {
-		query += " AND r.status = 'submitted'"
+	args := []any{period}
+	if submittedOnly || day != "" {
+		query = "SELECT s.store_id, s.product_id, s.quantity, s.quantity_calc, s.unit_price_cents FROM (" + statusItemsSQL + ") s WHERE s.period = ?"
+		if day != "" {
+			query += " AND s.day = ?"
+			args = append(args, day)
+		}
+		if submittedOnly {
+			query += " AND s.status = 'submitted'"
+		}
 	}
-	rs, err := q.QueryContext(ctx, query, period)
+	rs, err := q.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

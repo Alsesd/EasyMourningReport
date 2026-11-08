@@ -1054,6 +1054,74 @@ export interface components {
              * @default 0
              */
             item_count: number;
+            /** Only for months kept by days: days with entries */
+            days_count?: number;
+            /** Only for months kept by days: of them submitted */
+            days_submitted?: number;
+        };
+        /** MonthDayDTO: one day of a month in the day list */
+        MonthDayDTO: {
+            submission?: components["schemas"]["SignatureDTO"];
+            locked?: components["schemas"]["SignatureDTO"];
+            /** YYYY-MM-DD, or "undated" for quantities entered for the whole month before it was kept by days */
+            day: string;
+            /** @enum {string} */
+            status: "draft" | "submitted";
+            total_cents: number;
+            item_count: number;
+        };
+        /** MonthDaysDTO: how a month is kept, its days and the range of days that can be filled */
+        MonthDaysDTO: {
+            report_id: number | null;
+            store_name: string;
+            period: string;
+            /** @enum {string} */
+            status: "new" | "draft" | "submitted";
+            /** The month is kept by days (its quantities are the sum of the days) */
+            daily: boolean;
+            total_cents: number;
+            first_day: string;
+            /** The month's last day, or today in the current month */
+            last_day: string;
+            today: string;
+            undated: components["schemas"]["MonthDayDTO"] | null;
+            days: components["schemas"]["MonthDayDTO"][];
+        };
+        /** DayReportDTO: one day's report (store form or reviewer's detail) */
+        DayReportDTO: {
+            submission?: components["schemas"]["SignatureDTO"];
+            locked?: components["schemas"]["SignatureDTO"];
+            report_id: number | null;
+            store_id: number;
+            store_name: string;
+            store_archived: boolean;
+            period: string;
+            /** YYYY-MM-DD or "undated" */
+            day: string;
+            /** @enum {string} */
+            status: "new" | "draft" | "submitted";
+            /** @enum {string} */
+            month_status: "new" | "draft" | "submitted";
+            read_only: boolean;
+            calculation_enabled: boolean;
+            rows: components["schemas"]["ReportLineDTO"][];
+            inactive_rows: components["schemas"]["InactiveReportLineDTO"][];
+            inactive_total_cents: number;
+            total_cents: number;
+        };
+        /** DailyReportListItemDTO: one store's state for one day */
+        DailyReportListItemDTO: {
+            submission?: components["schemas"]["SignatureDTO"];
+            locked?: components["schemas"]["SignatureDTO"];
+            store_id: number;
+            store_name: string;
+            store_archived: boolean;
+            report_id: number | null;
+            day: string;
+            /** @enum {string} */
+            status: "none" | "draft" | "submitted";
+            total_cents: number;
+            item_count: number;
         };
         /** AuditLogDTO */
         AuditLogDTO: {
@@ -1532,6 +1600,8 @@ export interface components {
         SummaryDTO: {
             /** Period */
             period: string;
+            /** Day (YYYY-MM-DD): present only for one day's summary (?day=) */
+            day?: string;
             /** Submitted Only */
             submitted_only: boolean;
             /** Stores */

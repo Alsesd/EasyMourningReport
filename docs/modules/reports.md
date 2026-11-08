@@ -2,7 +2,7 @@
 
 **Backend:** `internal/reports/` (domain, SQL, HTTP handlers `http*.go`) · **Frontend:** `frontend/src/modules/reports/`
 
-Monthly store reports: product catalogue with price history, report entry by organisation members, review, combined summary with Excel export, and per-organisation report settings.
+Daily store reports summed into months: product catalogue with price history, report entry by organisation members, review, combined summary with Excel export, and per-organisation report settings.
 
 ## Backend
 
@@ -15,8 +15,22 @@ Monthly store reports: product catalogue with price history, report entry by org
 | `xlsx_import.go`, `xlsx_export.go` | Product import and summary export |
 | `seed.go`, `overview.go`, `usage.go` | Demo data, overview figures, organisation usage |
 | `dashboard.go` | The blocks this module supplies to the management dashboard (revenue, drafts, submission rate, 12-month series, divisions, top products). Only submitted reports count as revenue |
+| `days.go`, `http_days.go` | Daily reports: day storage, the month aggregate, derived month status, the day endpoints |
 | `submissions.go` | The report's signature (who submitted or locked it), in the Go-owned side table `report_submissions` |
 | `http.go`, `http_xlsx.go` | REST endpoints, listed in `Module.Routes` (see `docs/API.md`) |
+
+## Daily reports
+
+A store fills in **each day** of the month; the month is the sum of its days. Each day is saved as a draft, **submitted** (signed by the employee, reviewers notified with a link to that day) and **locked/unlocked** by a reviewer on its own.
+
+- Storage: Go-owned tables `report_days` (status and signatures per day) and `report_day_items` (quantities per day). `report_items` stays the month's aggregate and is rebuilt from the days in the same transaction as every day save (for the products a store can edit; inactive and archived products' rows never change), so the summary, the Excel export, the dashboard and product usage read it as before.
+- A month with no day rows is "kept as a whole" (everything before daily reports). The first day saved in it moves its existing quantities, status and signatures into the **undated** part (`day = ''`, «Без дати» in the UI, `undated` in URLs): nothing entered before is lost, and the undated part can still be corrected and submitted like a day.
+- **Only days are locked.** The month of a daily report is review-only: `PATCH /admin/reports/{id}` answers `409` for it, and the UI offers no month lock at all (also not for months kept as a whole: their quantities are the «Без дати» part, locked and unlocked like a day). A daily month always takes new days, also a past one (a forgotten day arrives as a draft).
+- A month submitted as a whole takes no days until a reviewer unlocks its «Без дати» part. The monthly `PUT /store/reports/{period}` refuses a daily month (`409`).
+- The month's `reports.status` is derived for a daily month: `submitted` when every day is.
+- Stores see days only; the month as a whole (the sum) is shown to reviewers.
+- Days: a date of the month up to today (server local time). Prices are monthly, so a day offers its month's prices.
+- «Лише надіслані» and the dashboard's revenue count submitted days of daily months (and submitted months kept as a whole).
 
 ## Rules worth knowing
 
@@ -29,6 +43,8 @@ Monthly store reports: product catalogue with price history, report entry by org
 A report belongs to an organisation (`reports.store_id` → `organisations.id`; the column keeps its historic name). Members with `reports.submit` only ever reach their own organisation's report.
 
 ## Frontend
+
+The store page opens today's day: a strip of the month's days (state per day, «Без дати» when present) and the day form with «Зберегти чернетку» / «Надіслати день»; stores get no month view. Local offline drafts are kept per day. The reviewer's «Звіти» page has two tabs: **«За день»** (default; day selector `?day=`, register, matrix and Excel for that day) and **«За місяць»** (`?tab=month`, read-only register, matrix and Excel of the month). The report detail shows «Місяць» (read-only sum, no lock) and the filled days; a day (`?day=`, the notification link) has «Заблокувати день» / «Розблокувати день».
 
 `module.tsx` registers the standalone store report (`/report`), the «Звіти» month page (`/admin/reports`: store register, products matrix, Excel; `/admin/summary` redirects there), the report detail page, the «Товари й ціни» and «Звіти підрозділів» sections (the latter switches «По розрахунку» per division) of «Адміністрування», and the landing pages. `api.ts` wraps the endpoints, `i18n.ts` extends the platform dictionary, and `permissions.ts` mirrors the backend codes.
 

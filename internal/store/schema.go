@@ -191,6 +191,35 @@ var goOwned = []string{
 		at INTEGER NOT NULL,
 		PRIMARY KEY (report_id, kind)
 	)`,
+	// Daily reports. A month (reports row) that has rows here is kept by days: report_items stays the month's
+	// aggregate (the sum of its days, rebuilt in the same transaction as every day save), so the summary, the Excel
+	// export and the dashboard read it as before. day is YYYY-MM-DD, or '' for the quantities a store had entered for
+	// the whole month before it switched to days («без дати»). Each day is submitted (signed by the employee) and
+	// locked or unlocked (by a reviewer) on its own; the reports row's status is derived: submitted when every day is.
+	`CREATE TABLE IF NOT EXISTS report_days (
+		report_id INTEGER NOT NULL REFERENCES reports (id) ON DELETE CASCADE,
+		day TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'draft',
+		submitted_by_id INTEGER,
+		submitted_by_name TEXT NOT NULL DEFAULT '',
+		submitted_at INTEGER NOT NULL DEFAULT 0,
+		locked_by_id INTEGER,
+		locked_by_name TEXT NOT NULL DEFAULT '',
+		locked_at INTEGER NOT NULL DEFAULT 0,
+		PRIMARY KEY (report_id, day)
+	)`,
+	// The quantities of one day of a report, like report_items (rows with both quantities 0 are not stored).
+	`CREATE TABLE IF NOT EXISTS report_day_items (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		report_id INTEGER NOT NULL,
+		day TEXT NOT NULL,
+		product_id INTEGER NOT NULL REFERENCES products (id),
+		unit_price_cents INTEGER NOT NULL,
+		quantity INTEGER NOT NULL,
+		quantity_calc INTEGER NOT NULL DEFAULT 0,
+		FOREIGN KEY (report_id, day) REFERENCES report_days (report_id, day) ON DELETE CASCADE
+	)`,
+	`CREATE INDEX IF NOT EXISTS ix_report_day_items_day ON report_day_items (report_id, day)`,
 	// In-app notifications (the bell): one row per recipient. read_at is 0 while unread. dedupe_key makes a
 	// reminder idempotent per user (a restart or a second evaluation inserts nothing); it is '' for events.
 	// Rows change on every read and are pruned, so backups do not count them as a data change.
@@ -249,7 +278,7 @@ func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
 
 // GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
 var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions", "notifications", "push_subscriptions",
-	"transport_cars", "product_requests", "product_request_items", "transport_runs", "transport_run_stops", "transport_cargo"}
+	"transport_cars", "product_requests", "product_request_items", "transport_runs", "transport_run_stops", "transport_cargo", "report_days", "report_day_items"}
 
 type object struct {
 	kind, name, table, sql string

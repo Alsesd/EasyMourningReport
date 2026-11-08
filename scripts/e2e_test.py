@@ -138,9 +138,11 @@ def run_tests():
             dismiss_first_login_dialogs(page)
             print("Biometric offer shown and declined")
 
-            # Wait for report items to load
+            # The report opens on today's day: a strip of the month's days, today's chip pressed
             page.wait_for_selector('text=Яблука, кг', timeout=5000)
-            print("Store report loaded with products!")
+            today_chip = page.locator('[role="group"][aria-label="Дні місяця"] button[aria-pressed="true"]')
+            assert "сьогодні" in (today_chip.get_attribute("aria-label") or ""), "the report must open on today"
+            print("Store report loaded on today's day with products!")
 
             # Verify store name
             header_text = page.inner_text("header")
@@ -162,11 +164,11 @@ def run_tests():
             save_draft_btn = page.locator('footer button:has-text("Зберегти чернетку")')
             print("Clicking save draft...")
             save_draft_btn.click()
-            page.wait_for_selector('text=Чернетку збережено', timeout=5000)
+            page.wait_for_selector('text=Чернетку дня збережено', timeout=5000)
             print("Draft saved confirmed!")
 
-            # Submit report
-            submit_btn = page.locator('footer button:has-text("Надіслати звіт")')
+            # Submit the day
+            submit_btn = page.locator('footer button:has-text("Надіслати день")')
             print("Clicking submit report...")
             submit_btn.click()
 
@@ -175,7 +177,7 @@ def run_tests():
             confirm_btn = page.locator('[role="dialog"] button:has-text("Так, надіслати")')
             confirm_btn.click()
 
-            page.wait_for_selector('text=Звіт надіслано й заблоковано', timeout=5000)
+            page.wait_for_selector('text=Звіт за день надіслано й заблоковано', timeout=5000)
             print("Submit confirmed and locked!")
             assert "Надіслав(ла): store1" in page.inner_text("main"), "the page must name the employee who submitted"
             print("Report is signed by the submitting employee!")
@@ -184,6 +186,10 @@ def run_tests():
             first_input = page.locator('input[inputmode="numeric"]').first
             assert first_input.is_disabled(), "Quantity input should be disabled after submission"
             print("Verified report is read-only after submission.")
+
+            # The month as a whole is a reviewer's view: the store has no «Місяць» in the strip
+            assert page.locator('[role="group"][aria-label="Дні місяця"] button', has_text="Місяць").count() == 0
+            print("Store sees days only!")
 
             # Transport desk: the same user places an order for today
             page.click('a[aria-label="Транспорт"]')
@@ -250,8 +256,8 @@ def run_tests():
             admin_page.wait_for_url("**/admin/**", timeout=5000)
             print("Admin landed on:", admin_page.url)
             dismiss_first_login_dialogs(admin_page)
-            admin_page.wait_for_selector('text=Товари за місяць', timeout=5000)
-            print("Admin month view loaded")
+            admin_page.wait_for_selector('text=Товари за день', timeout=5000)
+            print("Admin review page opened on the day tab")
 
             # Dispatcher answers the desk's transport order
             admin_page.goto("http://127.0.0.1:8888/admin/transport")
@@ -324,18 +330,30 @@ def run_tests():
             admin_page.wait_for_url("**/admin/reports/**", timeout=5000)
             admin_page.wait_for_selector('text=Підрозділ 1', timeout=5000)
             print("Navigated to Report Detail:", admin_page.url)
+            # The month is kept by days: open the day the store submitted
+            admin_page.locator('[role="group"][aria-label="Дні місяця"] button[aria-label*="Надіслано"]').first.click()
+            admin_page.wait_for_url("**day=**", timeout=5000)
             admin_page.wait_for_selector('text=Надіслав(ла): store1', timeout=5000)
-            print("Admin sees who submitted the report!")
+            print("Admin sees who submitted the day!")
 
-            # Unlock report
-            unlock_btn = admin_page.locator('button:has-text("Розблокувати")')
-            if unlock_btn.count() > 0:
-                print("Clicking unlock report...")
-                unlock_btn.click()
-                confirm_unlock = admin_page.locator('[role="dialog"] button:has-text("Розблокувати")')
-                confirm_unlock.click()
-                admin_page.wait_for_selector('text=Звіт розблоковано', timeout=5000)
-                print("Report unlocked successfully!")
+            # Unlock the day
+            admin_page.locator('button:has-text("Розблокувати день")').click()
+            admin_page.locator('[role="dialog"] button:has-text("Розблокувати день")').click()
+            admin_page.wait_for_selector('text=День розблоковано', timeout=5000)
+            print("Day unlocked successfully!")
+
+            # The month page narrowed to one day
+            admin_page.goto("http://127.0.0.1:8888/admin/reports")
+            admin_page.get_by_role("combobox", name="День для перегляду").select_option(index=0)
+            admin_page.wait_for_selector('text=Товари за день', timeout=5000)
+            assert "day=" in (admin_page.locator('a[href*="/admin/summary.xlsx"]').get_attribute("href") or "")
+            admin_page.get_by_role("tab", name="За місяць").click()
+            admin_page.wait_for_selector('text=Товари за місяць', timeout=5000)
+            assert "period=" in (admin_page.locator('a[href*="/admin/summary.xlsx"]').get_attribute("href") or "")
+            admin_page.locator('a:has-text("Підрозділ 1")').first.click()
+            admin_page.wait_for_selector('text=Звіт за місяць лише для перегляду', timeout=5000)
+            assert admin_page.locator('button:has-text("Заблокувати звіт"), button:has-text("Розблокувати звіт")').count() == 0
+            print("Day and month tabs work; the month report is read-only!")
 
             # Administration hub -> products (a section contributed by the reports module)
             admin_page.click('aside a:has-text("Адміністрування")')
