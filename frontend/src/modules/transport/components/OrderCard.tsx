@@ -121,10 +121,14 @@ export function OrderCard({
                   {t.cemetery} <span className="figure text-text-main">{c.cemetery_number}</span>
                 </p>
               )}
-              <p className="text-sm">
-                <span className="text-text-muted">{t.bearers}: </span>
-                {c.bearers && c.bearers.length > 0 ? c.bearers.join(", ") : <span className="text-text-muted">{t.noBearers}</span>}
-              </p>
+              {c.bearers && c.bearers.length > 0 ? (
+                <p className="text-sm">
+                  <span className="text-text-muted">{t.bearers}: </span>
+                  {c.bearers.join(", ")}
+                </p>
+              ) : (
+                <p className="text-sm text-text-muted">{t.noBearers}</p>
+              )}
             </section>
           )}
         </div>

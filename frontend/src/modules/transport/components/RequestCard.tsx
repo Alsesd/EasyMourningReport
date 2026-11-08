@@ -51,7 +51,7 @@ export function RequestCard({
             <div className="flex flex-wrap items-baseline justify-between gap-x-3">
               <span className="min-w-0 break-words text-[0.9375rem] font-medium text-text-main">{i.product_name}</span>
               <span className="figure text-sm text-text-main">
-                {t.loadedOn(i.loaded, i.quantity)}
+                {t.qtyShort(i.quantity)}
                 {anyPrice && (
                   <span className="ml-3 text-text-muted">
                     {i.unit_price_cents == null ? t.noPrice : formatCurrency(i.total_cents)}
@@ -60,7 +60,7 @@ export function RequestCard({
               </span>
             </div>
             {i.carriers.length === 0 ? (
-              <p className="text-sm text-text-muted">{closed ? "" : t.notLoaded}</p>
+              !closed && <p className="text-sm text-attention">{t.notLoaded}</p>
             ) : (
               <ul className="space-y-0.5">
                 {i.carriers.map((c, n) => (
@@ -69,6 +69,7 @@ export function RequestCard({
                     <span>{t.carrierLine(c.quantity, c.kind === "run" ? t.carrierRun : t.carrierOrder, c.car_display, c.time)}</span>
                   </li>
                 ))}
+                {i.remaining > 0 && !closed && <li className="text-sm text-attention">{t.remaining(i.remaining)}</li>}
               </ul>
             )}
           </li>
@@ -85,7 +86,7 @@ export function RequestCard({
           {r.notes && <p>{t.notes}: {r.notes}</p>}
           {r.reply_note && <p aria-label={t.reply}>{r.reply_note}</p>}
         </div>
-        {anyPrice && (
+        {anyPrice && r.items.length > 1 && (
           <p className="text-sm text-text-muted">
             {t.requestTotal}: <span className="figure text-base font-semibold text-text-main">{formatCurrency(r.total_cents)}</span>
           </p>

@@ -55,7 +55,7 @@ function LaneRow({
     const o = entry.order;
     const parts = entry.parts.map((p) => (p === "delivery" ? `${t.delivery} ${o.delivery?.time}` : `${t.carriers} ${o.carriers?.time}`)).join(" · ");
     return (
-      <li className="space-y-2 border-b border-border px-1 py-3" aria-label={`${t.sectionDelivery}: ${o.deceased}, ${entry.time}`}>
+      <li className="space-y-2 border-b border-border px-1 py-3 last:border-b-0" aria-label={`${t.sectionDelivery}: ${o.deceased}, ${entry.time}`}>
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
           <div className="flex min-w-0 items-baseline gap-3">
             <span className="figure text-xl font-semibold text-text-main">{entry.time}</span>
@@ -80,7 +80,7 @@ function LaneRow({
   }
   const r = entry.run;
   return (
-    <li className="space-y-2 border-b border-border px-1 py-3" aria-label={t.runTitle(r.car.display, r.time)}>
+    <li className="space-y-2 border-b border-border px-1 py-3 last:border-b-0" aria-label={t.runTitle(r.car.display, r.time)}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <div className="flex min-w-0 items-baseline gap-3">
           <span className="figure text-xl font-semibold text-text-main">{r.time}</span>

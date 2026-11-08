@@ -68,7 +68,7 @@ export default function TransportPage() {
                 onClick={() => open(tab.id)}
                 onKeyDown={(e) => onKey(e, i)}
                 className={cn(
-                  "-mb-px min-h-[44px] shrink-0 border-b-2 px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                  "-mb-px min-h-[44px] shrink-0 border-b-2 px-3 text-sm sm:px-4 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                   selected ? "border-primary text-text-main" : "border-transparent text-text-muted hover:text-text-main",
                 )}
               >

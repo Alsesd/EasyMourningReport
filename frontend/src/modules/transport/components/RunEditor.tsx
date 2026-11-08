@@ -9,6 +9,7 @@ import { transportError } from "@/modules/transport/errors";
 import { uk } from "@/modules/transport/i18n";
 import type { Car, ProductRequest, Run } from "@/modules/transport/types";
 import { Button } from "@/ui/Button";
+import { stickyActions } from "./stickyActions";
 import { Combobox } from "@/ui/Combobox";
 import { Input } from "@/ui/Input";
 import { Notice, type NoticeMessage } from "@/ui/Notice";
@@ -256,7 +257,7 @@ export function RunEditor({
         <Input id="run-notes" value={notes} maxLength={1000} onChange={(e) => setNotes(e.target.value)} />
       </div>
 
-      <div className="sticky bottom-0 z-10 -mx-4 border-t border-border bg-surface px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+      <div className={stickyActions}>
         <Button type="submit" className="min-h-[44px] w-full sm:w-auto" disabled={save.isPending}>
           {save.isPending ? t.saving : uk.common.save}
         </Button>

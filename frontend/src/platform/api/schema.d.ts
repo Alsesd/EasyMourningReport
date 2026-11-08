@@ -1679,7 +1679,7 @@ export interface components {
         TransportEventDTO: {
             ts: string;
             user_name: string;
-            kind: "created" | "edited" | "status" | "bearers" | "bumped" | "assigned" | "cargo";
+            kind: "created" | "edited" | "status" | "bearers" | "bumped" | "assignment" | "cargo";
             status: string;
             note: string;
         };
@@ -1755,6 +1755,9 @@ export interface components {
             organisation_name: string;
             product_name: string;
             quantity: number;
+            /** From the request item's price snapshot; null without a price */
+            unit_price_cents?: number | null;
+            total_cents?: number | null;
         };
         /** ManifestEntryDTO: the lines for one destination */
         ManifestEntryDTO: {
@@ -1784,7 +1787,8 @@ export interface components {
             quantity: number;
             /** Unit price in cents when the request was made; null when none */
             unit_price_cents: number | null;
-            total_cents: number;
+            /** null without a price */
+            total_cents: number | null;
             loaded: number;
             remaining: number;
             carriers: components["schemas"]["RequestCarrierDTO"][];

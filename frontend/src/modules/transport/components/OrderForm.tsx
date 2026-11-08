@@ -13,6 +13,7 @@ import { normalizePlate } from "@/modules/transport/plate";
 import type { Car } from "@/modules/transport/types";
 import type { TransportOrderDTO, TransportOrderInputDTO } from "@/platform/api/types";
 import { Button } from "@/ui/Button";
+import { stickyActions } from "./stickyActions";
 import { DayPicker } from "@/ui/DayPicker";
 import { Input } from "@/ui/Input";
 import { Notice, type NoticeMessage } from "@/ui/Notice";
@@ -269,7 +270,12 @@ function OrderFormBody({ day, order, cars, onSaved }: { day: string; order?: Tra
                   <span className="text-sm font-medium text-text-main">{t.sameCar}</span>
                   <Switch label={t.sameCar} onText={uk.system.on} offText={uk.system.off} checked={draft.sameCar} onChange={(sameCar) => set({ sameCar })} />
                 </div>
-                {draft.sameCar && <p className="text-xs text-text-muted">{t.sameCarHint} {t.carriersFromSame(draft.delivery.destination.trim())}.</p>}
+                {draft.sameCar && (
+                  <p className="text-xs text-text-muted">
+                    {t.sameCarHint}
+                    {draft.delivery.destination.trim() && <> {t.carriersFromSame(draft.delivery.destination.trim())}.</>}
+                  </p>
+                )}
               </div>
             )}
             {carriersOwnCar && (
@@ -328,7 +334,7 @@ function OrderFormBody({ day, order, cars, onSaved }: { day: string; order?: Tra
         </Field>
       </Section>
 
-      <div className="sticky bottom-0 z-10 -mx-4 border-t border-border bg-surface px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+      <div className={stickyActions}>
         <Button type="submit" className="min-h-[44px] w-full sm:w-auto" disabled={save.isPending}>
           {save.isPending ? t.saving : order ? t.saveChanges : t.save}
         </Button>

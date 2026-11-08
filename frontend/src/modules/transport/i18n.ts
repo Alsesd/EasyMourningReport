@@ -178,7 +178,7 @@ export const uk = {
       status: "Статус",
       bearers: "Носії",
       bumped: "Авто знято",
-      assigned: "Призначено авто",
+      assignment: "Авто, час чи зупинки змінено",
       cargo: "Продукція",
     } as Record<string, string>,
 
@@ -247,7 +247,6 @@ export const uk = {
       rejected: "Відхилено",
     } as Record<string, string>,
     notLoaded: "Ще не завантажено",
-    loadedOn: (n: number, total: number) => `${n} із ${total}`,
     carrierOrder: "замовлення",
     carrierRun: "рейс",
     carrierLine: (qty: number, kind: string, car: string, time: string) => `${qty} шт. · ${kind} · ${car || "авто не призначено"} · ${time}`,

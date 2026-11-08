@@ -134,7 +134,7 @@ describe("transport tabs", () => {
     const card = await screen.findByRole("article");
     expect(within(card).getByText("Частково завантажено")).toBeDefined();
     expect(within(card).getByText(/1 шт\. · рейс · АА 1111 АА · 10:00/)).toBeDefined();
-    expect(within(card).getByText("1 із 2")).toBeDefined();
+    expect(within(card).getByText("лишилось 1")).toBeDefined();
     expect(within(card).getByText("КК 7777 КК")).toBeDefined(); // preferred car
     expect(within(card).queryByRole("button", { name: /Додати до рейсу/ })).toBeNull();
   });

@@ -9,6 +9,7 @@ import { createProductSearch } from "@/modules/transport/productSearch";
 import { formatCurrency, shiftDay, todayIso, uk } from "@/modules/transport/i18n";
 import type { Car, CatalogItem, ProductRequest, ProductRequestInput } from "@/modules/transport/types";
 import { Button } from "@/ui/Button";
+import { stickyActions } from "./stickyActions";
 import { Combobox } from "@/ui/Combobox";
 import { DayPicker } from "@/ui/DayPicker";
 import { Input } from "@/ui/Input";
@@ -184,7 +185,7 @@ function RequestFormBody({
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-10 -mx-4 border-t border-border bg-surface px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+      <div className={stickyActions}>
         <Button type="submit" className="min-h-[44px] w-full sm:w-auto" disabled={save.isPending}>
           {save.isPending ? t.saving : request ? t.saveChanges : t.save}
         </Button>
