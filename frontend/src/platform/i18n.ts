@@ -492,6 +492,15 @@ export function shiftPeriod(period: string, delta: number): string {
 
 const dayFormat = new Intl.DateTimeFormat("uk-UA", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
 
+const dayShortFormat = new Intl.DateTimeFormat("uk-UA", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+
+/** A short day for narrow screens: «нд, 8 лист.». */
+export function formatDayShort(day: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return day;
+  const [y, m, d] = day.split("-").map(Number);
+  return dayShortFormat.format(new Date(Date.UTC(y, m - 1, d, 12)));
+}
+
 /** Today as YYYY-MM-DD in the browser's local calendar. */
 export function todayIso(now: Date = new Date()): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
