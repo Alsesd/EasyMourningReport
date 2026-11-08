@@ -774,24 +774,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/store/reports/{period}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read Store Report */
-        get: operations["read_store_report_api_v1_store_reports__period__get"];
-        /** Save Store Report */
-        put: operations["save_store_report_api_v1_store_reports__period__put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/reports": {
         parameters: {
             query?: never;
@@ -823,8 +805,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Update Admin Report Status */
-        patch: operations["update_admin_report_status_api_v1_admin_reports__rid__patch"];
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/summary": {
@@ -1063,12 +1044,16 @@ export interface components {
         MonthDayDTO: {
             submission?: components["schemas"]["SignatureDTO"];
             locked?: components["schemas"]["SignatureDTO"];
-            /** YYYY-MM-DD, or "undated" for quantities entered for the whole month before it was kept by days */
+            /** YYYY-MM-DD */
             day: string;
             /** @enum {string} */
             status: "draft" | "submitted";
             total_cents: number;
             item_count: number;
+            /** Not submitted by the store before midnight (kept after a late submission) */
+            missed: boolean;
+            /** When the day was closed automatically at midnight; absent when never */
+            auto_locked_at?: string;
         };
         /** MonthDaysDTO: how a month is kept, its days and the range of days that can be filled */
         MonthDaysDTO: {
@@ -1077,15 +1062,14 @@ export interface components {
             period: string;
             /** @enum {string} */
             status: "new" | "draft" | "submitted";
-            /** The month is kept by days (its quantities are the sum of the days) */
-            daily: boolean;
             total_cents: number;
             first_day: string;
             /** The month's last day, or today in the current month */
             last_day: string;
             today: string;
-            undated: components["schemas"]["MonthDayDTO"] | null;
             days: components["schemas"]["MonthDayDTO"][];
+            /** The months the store can open (store only), oldest first */
+            available_periods?: string[];
         };
         /** DayReportDTO: one day's report (store form or reviewer's detail) */
         DayReportDTO: {
@@ -1096,7 +1080,7 @@ export interface components {
             store_name: string;
             store_archived: boolean;
             period: string;
-            /** YYYY-MM-DD or "undated" */
+            /** YYYY-MM-DD */
             day: string;
             /** @enum {string} */
             status: "new" | "draft" | "submitted";
@@ -1108,6 +1092,16 @@ export interface components {
             inactive_rows: components["schemas"]["InactiveReportLineDTO"][];
             inactive_total_cents: number;
             total_cents: number;
+            /** Not submitted by the store before midnight (kept after a late submission) */
+            missed: boolean;
+            /** When the day was closed automatically at midnight; absent when never */
+            auto_locked_at?: string;
+            /** A past day without a report, closed at midnight (the store cannot open it) */
+            closed: boolean;
+            /** Revision as loaded (0 = not stored yet); send it back with a save so a colleague's newer save is not overwritten */
+            revision: number;
+            /** The employee who saved the day last */
+            saved?: components["schemas"]["SignatureDTO"];
         };
         /** DailyReportListItemDTO: one store's state for one day */
         DailyReportListItemDTO: {
@@ -1122,6 +1116,20 @@ export interface components {
             status: "none" | "draft" | "submitted";
             total_cents: number;
             item_count: number;
+            /** Not submitted by the store before midnight (kept after a late submission) */
+            missed: boolean;
+            /** When the day was closed automatically at midnight; absent when never */
+            auto_locked_at?: string;
+        };
+        /** MissedStoreDTO: a store with the days of a month it did not submit before midnight */
+        MissedStoreDTO: {
+            store_id: number;
+            store_name: string;
+            report_id: number;
+            /** YYYY-MM-DD, oldest first */
+            days: string[];
+            /** Of those, the days submitted afterwards (after a reviewer unlocked them) */
+            late: string[];
         };
         /** AuditLogDTO */
         AuditLogDTO: {
@@ -1455,6 +1463,8 @@ export interface components {
             action: "draft" | "submit";
             /** Quantities */
             quantities?: components["schemas"]["ReportQuantityDTO"][];
+            /** Day saves: the revision the form was loaded at (409 when the day changed meanwhile) */
+            revision?: number;
         };
         /** ReportSettingsDTO */
         ReportSettingsDTO: {
@@ -1554,47 +1564,6 @@ export interface components {
             modules?: string[];
             /** Period */
             period: string;
-        };
-        /** StoreReportDTO */
-        StoreReportDTO: {
-            /** The store employee who submitted the report (kept after an unlock); absent for reports from before this was recorded */
-            submission?: components["schemas"]["SignatureDTO"];
-            /** The administrator who locked the report again; only while it is submitted and the lock is newer than the submission */
-            locked?: components["schemas"]["SignatureDTO"];
-            /** Report Id */
-            report_id?: number | null;
-            /** Store Name */
-            store_name: string;
-            /** Period */
-            period: string;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "new" | "draft" | "submitted";
-            /** Read Only */
-            read_only: boolean;
-            /**
-             * Calculation Enabled
-             * @default false
-             */
-            calculation_enabled: boolean;
-            /** Rows */
-            rows?: components["schemas"]["ReportLineDTO"][];
-            /** Inactive Rows */
-            inactive_rows?: components["schemas"]["InactiveReportLineDTO"][];
-            /**
-             * Inactive Total Cents
-             * @default 0
-             */
-            inactive_total_cents: number;
-            /**
-             * Total Cents
-             * @default 0
-             */
-            total_cents: number;
-            /** Available Periods */
-            available_periods?: string[];
         };
         /** SummaryDTO */
         SummaryDTO: {
@@ -3146,72 +3115,6 @@ export interface operations {
             };
         };
     };
-    read_store_report_api_v1_store_reports__period__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                period: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StoreReportDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    save_store_report_api_v1_store_reports__period__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                period: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReportSaveDTO"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StoreReportDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_admin_reports_api_v1_admin_reports_get: {
         parameters: {
             query?: {
@@ -3261,41 +3164,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminReportDetailDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_admin_report_status_api_v1_admin_reports__rid__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rid: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReportStatusDTO"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminReportDTO"];
                 };
             };
             /** @description Validation Error */

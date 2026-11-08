@@ -6,7 +6,8 @@ type: project
 
 Internal platform of a burial-service business ("Легкий звіт"). One Go binary (stdlib net/http, SQLite via modernc) serves
 `/api/v1` and an embedded React 18 + Vite + Tailwind SPA; UI is Ukrainian, user chats in Russian. Backend was ported from
-Python (last Python release commit 92564ef). Authoritative docs: `CLAUDE.md`, `docs/architecture.md`, `docs/modules/*.md`.
+Python; ALL Python compatibility was removed 2026-11-08 before launch (owner: "prod is not launched, clean all legacy, only
+this time") — from now on treat existing databases as production data again. Authoritative docs: `CLAUDE.md`, `docs/architecture.md`, `docs/modules/*.md`.
 
 **Packages (`internal/`)**: `core` (contracts: Module, Notifier, SeedTools, text helpers), `store` (open, schema,
 backups), `platform` (users, roles, permissions, principal, bootstrap, audit, notifications), `reports`, `transport`
@@ -19,8 +20,8 @@ binary smoke test.
 - Writes: single writer, all mutations in `a.write(ctx, func(tx))`, use only that tx inside. Notifications and audit rows
   are written in the SAME tx as the event.
 - Money in integer cents; periods `YYYY-MM`; never touch `data/`, `backups/`, `reports.db`, `secret.key`, `.env`.
-- Schema: `fresh.sql` mirrors Python; Go-owned tables live in `goOwned` in `store/schema.go` (+ `GoOwnedTables`, test
-  `structure()` filter); columns added later via `goOwnedColumns` (idempotent ALTER). Production data exists.
+- Schema: `fresh.sql` = base tables; later tables in `goOwned` in `store/schema.go` (+ `GoOwnedTables`); columns added
+  later via `goOwnedColumns` (idempotent ALTER), tested on an older DB via `baseOnly` in `store_test.go`.
 - Frozen fixtures in `testdata/` change only on purpose, with the reason in the commit.
 - Verify gate (no CI): `go vet`+`go test ./cmd/... ./internal/...` (never `./...`), frontend lint/typecheck/test/build,
   and for UI work `scripts/build_go.sh` + `go run ./cmd/smoke -exe dist/legkyi -tunnel` + `scripts/e2e_test.py`.

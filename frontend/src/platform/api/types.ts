@@ -38,7 +38,6 @@ export type IntegrityDTO = Schemas["IntegrityDTO"];
 export type AdminOverviewDTO = Schemas["AdminOverviewDTO"];
 
 // Reports module
-export type StoreReportDTO = Schemas["StoreReportDTO"];
 export type SignatureDTO = Schemas["SignatureDTO"];
 export type ReportLineDTO = Schemas["ReportLineDTO"];
 export type ReportInputDTO = Schemas["ReportInputDTO"];
@@ -61,6 +60,7 @@ export type MonthDayDTO = Schemas["MonthDayDTO"];
 export type MonthDaysDTO = Schemas["MonthDaysDTO"];
 export type DayReportDTO = Schemas["DayReportDTO"];
 export type DailyReportListItemDTO = Schemas["DailyReportListItemDTO"];
+export type MissedStoreDTO = Schemas["MissedStoreDTO"];
 
 // Transport module
 export type TransportStatusDTO = Schemas["TransportStatusDTO"];

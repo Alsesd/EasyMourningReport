@@ -23,7 +23,7 @@ import (
 	"legkyi/internal/store"
 )
 
-// Replays testdata/contracts/*.json (recorded from the Python app) against web.New.
+// Replays testdata/contracts/*.json (the expected API behaviour) against web.New on a fresh database.
 // Steps that the Go port does not implement yet are listed in testdata/ledger.json; the test
 // fails if an unlisted step fails or a listed step passes. Refresh the ledger with LEDGER_RECORD=1.
 
@@ -62,6 +62,8 @@ func substitute(v any, saved map[string]any) any {
 }
 
 // Q5: served times are RFC3339 UTC with an explicit Z.
+var dateRE = regexp.MustCompile(`^\d{4}-\d\d-\d\d$`)
+
 var timeFormat = regexp.MustCompile(`^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$`)
 
 // normalise replaces volatile fields after checking their format (so R5/R12 regressions show).
@@ -89,6 +91,15 @@ func normalise(v any, problems *[]string) any {
 	case string:
 		if t == time.Now().Format("2006-01") {
 			return "<current-period>"
+		}
+		// Dates of the current month (daily reports: the day, today, the month's first and last day).
+		if dateRE.MatchString(t) && strings.HasPrefix(t, time.Now().Format("2006-01")+"-") {
+			return "<current-month-date>"
+		}
+		// Today inside a text (messages and audit details name the day).
+		now := time.Now()
+		if r := strings.NewReplacer(now.Format("2006-01-02"), "<today>", now.Format("02.01.2006"), "<today>").Replace(t); r != t {
+			return r
 		}
 	}
 	return v
@@ -120,16 +131,13 @@ type client struct{ cookies map[string]string }
 
 func pretty(v any) string { b, _ := json.MarshalIndent(v, "", "  "); return string(b) }
 
-func newContractStore(t *testing.T, schema string) *store.Store {
+func newContractStore(t *testing.T) *store.Store {
 	t.Helper()
 	s, err := store.Open(filepath.Join(t.TempDir(), "reports.db"), "wal")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { s.Close() })
-	if schema != "" { // a Python-made database shape (testdata/schema/<name>.sql)
-		store.LoadSnapshotForTest(t, s, schema)
-	}
 	if err := s.EnsureSchema(); err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +169,7 @@ type stepResult struct {
 	detail string
 }
 
-func runScenario(t *testing.T, file, schema string) map[string]stepResult {
+func runScenario(t *testing.T, file string) map[string]stepResult {
 	raw, err := os.ReadFile(contractDir + file)
 	if err != nil {
 		t.Fatal(err)
@@ -173,7 +181,7 @@ func runScenario(t *testing.T, file, schema string) map[string]stepResult {
 	if err := json.Unmarshal(raw, &sc); err != nil {
 		t.Fatal(err)
 	}
-	st := newContractStore(t, schema)
+	st := newContractStore(t)
 	boss := sc.Seed["platform_admin"]
 	seedBoss(t, st, boss["login"], boss["password"])
 	secret := []byte("contract-test-secret")
@@ -270,24 +278,16 @@ func runScenario(t *testing.T, file, schema string) map[string]stepResult {
 func TestContractScenarios(t *testing.T) {
 	files, _ := filepath.Glob(contractDir + "*.json")
 	sort.Strings(files)
-	for _, schema := range []string{"", "migrated_very_old", "migrated_previous_release"} {
-		label := schema
-		if label == "" {
-			label = "fresh"
+	all := map[string]stepResult{}
+	for _, f := range files {
+		for k, v := range runScenario(t, filepath.Base(f)) {
+			all[k] = v
 		}
-		t.Run(label, func(t *testing.T) {
-			all := map[string]stepResult{}
-			for _, f := range files {
-				for k, v := range runScenario(t, filepath.Base(f), schema) {
-					all[k] = v
-				}
-			}
-			checkLedger(t, label, all)
-		})
 	}
+	checkLedger(t, "fresh", all)
 }
 
-type ledger map[string][]string // schema label -> failing step ids
+type ledger map[string][]string // label -> failing step ids
 
 func checkLedger(t *testing.T, label string, results map[string]stepResult) {
 	const path = "testdata/ledger.json"

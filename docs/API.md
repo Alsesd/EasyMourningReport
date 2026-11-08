@@ -71,18 +71,16 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 
 | Method | Path | Permission | Purpose |
 |---|---|---|---|
-| GET | `/store/reports/{period}` | `reports.submit` (organisation member) | The caller's organisation report and editable lines |
-| PUT | `/store/reports/{period}` | `reports.submit` (organisation member) | Save a report snapshot as a draft or submit it; a submit records the submitting employee. Report responses (store page, `/admin/reports`, `/admin/reports/{id}`) carry `submission` and `locked` (`{by, signed_at}`) when known (see docs/modules/reports.md) |
 | GET | `/admin/reports?period=YYYY-MM` | `reports.review` | Reports of all visible organisations for a month, including missing submissions |
 | GET | `/admin/reports/{id}` | `reports.review` | Report detail |
-| PATCH | `/admin/reports/{id}` | `reports.review` | Lock/unlock by setting status |
-| GET | `/store/reports/{period}/days` | `reports.submit` (organisation member) | How the month is kept: `daily`, month status and total, `first_day`/`last_day`/`today`, `undated` (quantities entered for the whole month) and `days` (`{day, status, total_cents, item_count, submission?, locked?}`) |
-| GET | `/store/reports/{period}/days/{day}` | `reports.submit` (organisation member) | One day's form (`day` is `YYYY-MM-DD` inside the month and not in the future, or `undated`) |
-| PUT | `/store/reports/{period}/days/{day}` | `reports.submit` (organisation member) | Save the day as a draft or submit it (same body as the monthly PUT). `409` when the day is submitted or the month was submitted as a whole; the month's `report_items` become the sum of its days |
+| GET | `/store/reports/{period}/days` | `reports.submit` (organisation member) | The month's days (`{day, status, total_cents, item_count, missed, auto_locked_at?, submission?, locked?}`), month status and total, `first_day`/`last_day`/`today`, and `available_periods` (the months the store can open) |
+| GET | `/store/reports/{period}/days/{day}` | `reports.submit` (organisation member) | One day's form (`day` is `YYYY-MM-DD` inside the month and not in the future) |
+| PUT | `/store/reports/{period}/days/{day}` | `reports.submit` (organisation member) | Save the day as a draft or submit it (`{action, quantities, revision?}`). With `revision` (the day's `revision` as loaded) a save over a colleague's newer change answers `409` naming who saved; the response's `saved` names the last employee who saved. `409` when the day is submitted or the month was submitted as a whole; the month's `report_items` become the sum of its days |
 | GET | `/admin/reports/{id}/days` | `reports.review` | The report's days (same shape as the store's) |
 | GET | `/admin/reports/{id}/days/{day}` | `reports.review` | One day of the report |
-| PATCH | `/admin/reports/{id}/days/{day}` | `reports.review` | Lock/unlock one day (`{status}`); `undated` also unlocks a month submitted as a whole. `PATCH /admin/reports/{id}` answers `409` for a daily month (the month is review-only) and stays only for months kept as a whole |
+| PATCH | `/admin/reports/{id}/days/{day}` | `reports.review` | Lock/unlock one day (`{status}`); The month itself has no write endpoint: it is review-only |
 | GET | `/admin/daily-reports?day=YYYY-MM-DD` | `reports.review` | Every organisation's state and total for one day |
+| GET | `/admin/missed-days?period=YYYY-MM` | `reports.review` | Per store, the days of the month not submitted before midnight (`days`) and which of them were submitted later (`late`). Day responses carry `missed`, `auto_locked_at` (when closed at midnight) and, for a store's past day without a report, `closed` |
 | GET | `/admin/summary?period=YYYY-MM&submitted_only=false` | `reports.review` | Summary DTO and totals; `?day=YYYY-MM-DD` instead of `period` gives one day (`day` in the response) |
 | GET | `/admin/summary.xlsx?period=YYYY-MM&submitted_only=false` | `reports.review` | Summary as an Excel workbook; also takes `?day=` |
 | GET | `/admin/products?period=YYYY-MM` | `reports.catalog.manage` | Product DTOs, usage counts, the current-month price timeline, and full price history |
@@ -173,13 +171,13 @@ Repeat the same update endpoint when the price changes again during the same mon
 
 The admin UI timeline shows each event, including repeated amounts. Report DTOs deliberately offer one input per **unique price amount**, because quantities are stored by product and unit price. For example, price changes `10.00 → 12.00 → 15.00 → 12.00` keep all four events in history but offer the report price choices `10.00, 12.00, 15.00`. Previously saved report quantities are not recalculated.
 
-Save the full set of editable report quantities. The server revalidates every product/price pair against its own history, preserves quantities for inactive or archived products, and blocks further edits after submission. Each line may also include an independent `quantity_calc` integer for an organisation where `calculation_enabled` is on (`/reports/settings`). That quantity is visible separately in the store report, combined report, and combined XLSX export; it never contributes to monetary totals. Older clients may omit `quantity_calc`, in which case an existing calculation quantity is preserved:
+Save the full set of editable quantities of one day (it replaces the day's quantities; it never adds to them). The server revalidates every product/price pair against its own history, preserves quantities for inactive or archived products, blocks further edits after submission or the midnight close, and refuses a save sent with an older `revision` than the day has (a colleague saved meanwhile). Each line may also include an independent `quantity_calc` integer for an organisation where `calculation_enabled` is on (`/reports/settings`). That quantity is visible separately in the store report, combined report, and combined XLSX export; it never contributes to monetary totals. Older clients may omit `quantity_calc`, in which case an existing calculation quantity is preserved:
 
 ```http
-PUT /api/v1/store/reports/2026-10
+PUT /api/v1/store/reports/2026-10/days/2026-10-14
 Content-Type: application/json
 
-{"action":"draft","quantities":[{"product_id":12,"price_cents":2600,"quantity":4}]}
+{"action":"draft","revision":3,"quantities":[{"product_id":12,"price_cents":2600,"quantity":4}]}
 ```
 
 ## Client rendering

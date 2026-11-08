@@ -135,10 +135,10 @@ type SchedulerConfig struct {
 func RunScheduler(ctx context.Context, d Deps, cfg SchedulerConfig) {
 	a := &App{Deps: d}
 	if cfg.Loc == nil {
-		cfg.Loc = time.Local
+		cfg.Loc = a.zone()
 	}
 	at, hasAt := parseClock(cfg.ReminderAt)
-	var remindedOn, prunedOn string
+	var remindedOn, prunedOn, closedOn string
 	tick := func() {
 		var failed error
 		defer func() { jobs.done("scheduler", failed) }()
@@ -152,6 +152,14 @@ func RunScheduler(ctx context.Context, d Deps, cfg SchedulerConfig) {
 				failed = err
 			} else {
 				prunedOn = day
+			}
+		}
+		if closedOn != day {
+			if err := a.runDayClose(ctx, now); err != nil {
+				log.Printf("closing the days failed, will retry: %v", err)
+				failed = err
+			} else {
+				closedOn = day
 			}
 		}
 		if hasAt && remindedOn != day && now.Hour()*60+now.Minute() >= at {
@@ -199,6 +207,23 @@ func (n txNotifier) Recipients(orgID int64, codes ...string) ([]int64, error) {
 
 func (n txNotifier) Notify(ids []int64, kind, title, body, link, dedupe string) error {
 	return platform.Notify(n.tx, n.a.now(), ids, kind, title, body, link, dedupe)
+}
+
+// runDayClose gives every installed module's DayClose its own transaction, like runDailyReminders.
+func (a *App) runDayClose(ctx context.Context, now time.Time) error {
+	var first error
+	for _, m := range a.Registry.Modules {
+		if m.DayClose == nil {
+			continue
+		}
+		if err := a.write(ctx, func(tx *sql.Tx) error { return m.DayClose(ctx, tx, now, txNotifier{a, ctx, tx}) }); err != nil {
+			log.Printf("day close of module %s failed: %v", m.Name, err)
+			if first == nil {
+				first = err
+			}
+		}
+	}
+	return first
 }
 
 // runDailyReminders gives every installed module's DailyReminder its own transaction (one module failing does not

@@ -5,7 +5,7 @@ type: feedback
 ---
 
 Agent working material and human project documentation are kept apart. Agent side: `CLAUDE.md`, `.claude/memory`,
-`.claude/plans`, `.claude/notes/` (the Python-to-Go migration record is `.claude/notes/migration/`), `.claude/rules`,
+`.claude/plans`, `.claude/notes/`, `.claude/rules`,
 `.claude/skills`. Human side: `docs/` (API, architecture, security, design, ADRs, `docs/modules/`, `docs/README.md` index,
 Ukrainian tester onboarding in `docs/uk/onboarding/`).
 **Why:** the owner asked (2026-11-07) to keep agent docs and memories apart from all the docs; `docs/` is read by people

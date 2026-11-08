@@ -7,19 +7,23 @@ export interface SavedDraft {
   storeId?: number;
   timestamp: number;
   quantities: Record<string, number>; // key: `${productId}_${priceCents}` -> quantity
+  /** The server revision the changes were made on; a draft on an older revision must not be restored over a
+   * colleague's newer save. */
+  revision?: number;
 }
 
 function getDraftKey(period: string, storeId?: number): string {
   return `easyMourningReport.draft.${storeId || "current"}.${period}`;
 }
 
-export function saveLocalDraft(period: string, quantities: Record<string, number>, storeId?: number): void {
+export function saveLocalDraft(period: string, quantities: Record<string, number>, storeId?: number, revision?: number): void {
   try {
     const draft: SavedDraft = {
       period,
       storeId,
       timestamp: Date.now(),
       quantities,
+      revision,
     };
     localStorage.setItem(getDraftKey(period, storeId), JSON.stringify(draft));
   } catch (err) {

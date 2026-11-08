@@ -11,4 +11,5 @@ sections, `api.ts`, `i18n.ts`, `permissions.ts`, pages, components). Modules are
 Data via react-query; sections poll (`refetchInterval`) instead of full reloads (backups 15 s, bell 20 s, transport 15 s).
 Conventions: Ukrainian strings in `i18n.ts`; figures use `.figure`; no native month/file controls; 44px touch targets;
 Tailwind colours via CSS-variable tokens; `schema.d.ts` edited by hand with every API change. Layouts: `AdminLayout`
-(sidebar+mobile bar+bell) and a standalone layout for the store report page (also has the bell).
+(sidebar+mobile bar+bell); the store report `/report` renders INSIDE the shell (absolute path, pathless layout route
+in App.tsx; 2026-11-08 owner: the standalone page had no way back to other tabs). `layout: "standalone"` still exists, unused.

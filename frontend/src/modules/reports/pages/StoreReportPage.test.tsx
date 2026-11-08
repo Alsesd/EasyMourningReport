@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/platform/theme/ThemeContext";
 import { AuthProvider } from "@/platform/auth/AuthContext";
 import StoreReportPage from "./StoreReportPage";
-import type { StoreReportDTO, SessionDTO, DayReportDTO, MonthDaysDTO } from "@/platform/api/types";
+import type { SessionDTO, DayReportDTO, MonthDaysDTO, ReportLineDTO, InactiveReportLineDTO } from "@/platform/api/types";
 
 const mockSession: SessionDTO = {
   user_id: 5,
@@ -18,14 +18,7 @@ const mockSession: SessionDTO = {
   period: "2026-10",
 };
 
-const mockReport: StoreReportDTO = {
-  report_id: 10,
-  store_name: "Тестовий магазин",
-  period: "2026-10",
-  status: "draft",
-  read_only: false,
-  calculation_enabled: true,
-  rows: [
+const mockRows: ReportLineDTO[] = [
     {
       id: 101,
       name: "Хліб пшеничний",
@@ -63,34 +56,30 @@ const mockReport: StoreReportDTO = {
         },
       ],
     },
-  ],
-  inactive_rows: [
+  ];
+
+const mockInactive: InactiveReportLineDTO[] = [
     {
       name: "Старий товар",
       archived: true,
       lines: "1 × 10.00",
       sum_cents: 1000,
     },
-  ],
-  inactive_total_cents: 1000,
-  total_cents: 16000,
-  available_periods: ["2026-09", "2026-10"],
-};
+  ];
 
 const mockDays: MonthDaysDTO = {
   report_id: 10,
   store_name: "Тестовий магазин",
   period: "2026-10",
   status: "draft",
-  daily: true,
   total_cents: 23000,
   first_day: "2026-10-01",
   last_day: "2026-10-06",
   today: "2026-10-06",
-  undated: null,
+  available_periods: ["2026-09", "2026-10"],
   days: [
-    { day: "2026-10-05", status: "submitted", total_cents: 7000, item_count: 1 },
-    { day: "2026-10-06", status: "draft", total_cents: 16000, item_count: 3 },
+    { day: "2026-10-05", status: "submitted", total_cents: 7000, item_count: 1, missed: false },
+    { day: "2026-10-06", status: "draft", total_cents: 16000, item_count: 3, missed: false },
   ],
 };
 
@@ -105,11 +94,17 @@ const mockDay: DayReportDTO = {
   month_status: "draft",
   read_only: false,
   calculation_enabled: true,
-  rows: mockReport.rows ?? [],
-  inactive_rows: mockReport.inactive_rows ?? [],
+  rows: mockRows,
+  inactive_rows: mockInactive,
   inactive_total_cents: 1000,
   total_cents: 16000,
+  missed: false,
+  closed: false,
+  revision: 4,
+  saved: { by: "Іван Коваль", signed_at: "2026-10-06T09:00:00Z" },
 };
+
+let conflict = false;
 
 describe("StoreReportPage", () => {
   let queryClient: QueryClient;
@@ -120,6 +115,7 @@ describe("StoreReportPage", () => {
     });
     queryClient.setQueryData(["session"], mockSession);
     localStorage.clear();
+    conflict = false;
 
     globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes("/api/v1/session")) {
@@ -127,6 +123,15 @@ describe("StoreReportPage", () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve(mockSession),
+        });
+      }
+      if (url.includes("/api/v1/store/reports/2026-10/days/2026-10-06") && init?.method === "PUT" && conflict) {
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          statusText: "Conflict",
+          headers: new Headers({ "content-type": "application/json" }),
+          json: () => Promise.resolve({ detail: "Звіт за цей день щойно змінив(ла) Іван Коваль. Оновіть дані й перевірте кількості, щоб не задвоїти й не затерти чужі зміни." }),
         });
       }
       if (url.includes("/api/v1/store/reports/2026-10/days/2026-10-06") && init?.method === "PUT") {
@@ -152,7 +157,7 @@ describe("StoreReportPage", () => {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(mockReport),
+          json: () => Promise.resolve(mockDays),
         });
       }
       return Promise.reject(new Error("Unknown route"));
@@ -266,22 +271,65 @@ describe("StoreReportPage", () => {
     const today = screen.getByRole("button", { name: /6 жовтня 2026.*сьогодні: Чернетка/ });
     expect(today.getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: /5 жовтня 2026.*Надіслано/ })).toBeDefined();
-    expect(screen.getByRole("button", { name: /4 жовтня 2026.*не заповнено/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /4 жовтня 2026.*закрито/ })).toBeDefined();
+    expect(screen.getByText(/Надішліть звіт до 00:00/)).toBeDefined();
     expect(screen.getByText("днів надіслано 1 з 2")).toBeDefined();
 
     expect(screen.queryByRole("button", { name: /^Місяць/ })).toBeNull();
     expect(screen.queryByText("Товари за місяць")).toBeNull();
   });
 
-  it("warns on a day that the month already has quantities entered without a date", async () => {
-    mockDays.undated = { day: "undated", status: "draft", total_cents: 50000, item_count: 2 };
+  it("explains a day closed at midnight without a submission", async () => {
+    const original = { ...mockDay };
+    Object.assign(mockDay, { status: "submitted", read_only: true, missed: true, auto_locked_at: "2026-10-06T21:00:00Z" });
+    try {
+      renderPage();
+      expect(await screen.findByText(/не надіслано вчасно: день закрито автоматично опівночі/)).toBeDefined();
+      expect(screen.getByText("Не надіслано вчасно")).toBeDefined();
+      expect(screen.queryByRole("button", { name: /Надіслати день/ })).toBeNull();
+    } finally {
+      Object.assign(mockDay, original);
+    }
+  });
+
+  it("sends the loaded revision, names who saved last and offers a reload on a colleague's newer save", async () => {
+    renderPage();
+    await screen.findByText("Хліб пшеничний");
+    expect(screen.getByText(/Востаннє зберіг\(ла\): Іван Коваль/)).toBeDefined();
+    conflict = true;
+    fireEvent.click(screen.getByRole("button", { name: /Зберегти чернетку/i }));
+    expect(await screen.findByText(/щойно змінив\(ла\) Іван Коваль/)).toBeDefined();
+    expect(screen.getByRole("button", { name: "Оновити дані" })).toBeDefined();
+    const put = vi.mocked(globalThis.fetch).mock.calls.find(([, init]) => init?.method === "PUT");
+    expect(JSON.parse(put?.[1]?.body as string).revision).toBe(4);
+  });
+
+  it("does not restore a local draft made before a colleague's newer save", async () => {
+    localStorage.setItem(
+      "easyMourningReport.draft.1.2026-10:2026-10-06",
+      JSON.stringify({ period: "2026-10:2026-10-06", storeId: 1, timestamp: 1, quantities: { "101_2500": 9 }, revision: 3 }),
+    );
+    renderPage();
+    await screen.findByText("Хліб пшеничний");
+    expect(await screen.findByText(/колега зберіг\(ла\) цей день/)).toBeDefined();
+    expect((screen.getByRole("textbox", { name: "Кількість: Хліб пшеничний, 25,00\u00a0₴" }) as HTMLInputElement).value).toBe("2");
+  });
+
+  it("does not offer to submit an empty day", async () => {
+    const original = { ...mockDay };
+    Object.assign(mockDay, {
+      rows: mockRows.map((r) => ({ ...r, sum_cents: 0, inputs: (r.inputs ?? []).map((i) => ({ ...i, quantity: 0, sum_cents: 0 })) })),
+    });
     try {
       renderPage();
       await screen.findByText("Хліб пшеничний");
-      expect(await screen.findByText(/без дати\. У день вносьте лише продажі цього дня/)).toBeDefined();
-      expect(screen.getByRole("button", { name: /Без дати/ })).toBeDefined();
+      const submit = screen.getByRole("button", { name: /Надіслати день/ }) as HTMLButtonElement;
+      expect(submit.disabled).toBe(true);
+      expect(screen.getByText(/внесіть кількість хоча б одного товару/)).toBeDefined();
+      fireEvent.click(screen.getAllByLabelText(/Збільшити кількість/i)[0]);
+      await waitFor(() => expect((screen.getByRole("button", { name: /Надіслати день/ }) as HTMLButtonElement).disabled).toBe(false));
     } finally {
-      mockDays.undated = null;
+      Object.assign(mockDay, original);
     }
   });
 });

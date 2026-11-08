@@ -3,22 +3,16 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/platform/api/client";
 import { reportsApi } from "@/modules/reports/api";
-import { Link } from "react-router-dom";
-import { AccountMenu } from "@/platform/account/AccountMenu";
-import { NotificationBell } from "@/platform/notifications/NotificationBell";
 import { useAuth } from "@/platform/auth/AuthContext";
-import { navItemsFor, useModuleRegistry } from "@/platform/modules";
-import type { StoreReportDTO, ReportLineDTO, ReportSaveDTO, DayReportDTO, MonthDaysDTO } from "@/platform/api/types";
-import { uk, formatCurrency, formatPeriodReadable, formatDayReadable, shiftPeriod } from "@/modules/reports/i18n";
-import { UNDATED } from "@/modules/reports/api";
+import type { ReportLineDTO, ReportSaveDTO, DayReportDTO, MonthDaysDTO } from "@/platform/api/types";
+import { uk, formatCurrency, formatPeriodReadable, formatDayReadable, formatDateTime, shiftPeriod } from "@/modules/reports/i18n";
 import { DayStrip, defaultView } from "@/modules/reports/components/DayStrip";
 import { Button } from "@/ui/Button";
 import { StatusPill } from "@/modules/reports/components/StatusPill";
 import { Signature } from "@/modules/reports/components/Signature";
+import { MissedBadge } from "@/modules/reports/components/MissedBadge";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { QuantityStepper } from "@/ui/QuantityStepper";
-import { MakerMark } from "@/ui/MakerMark";
-import { ThemeToggle } from "@/ui/ThemeToggle";
 import {
   Dialog,
   DialogContent,
@@ -42,15 +36,11 @@ import { cn } from "@/ui/utils";
 
 export default function StoreReportPage() {
   const { session } = useAuth();
-  // Users who can do more than file this report (or change their password) get a way into the workspace.
-  const workspaceLink = navItemsFor(useModuleRegistry(), session?.permissions).find(
-    (item) => item.to !== "/report",
-  );
   const queryClient = useQueryClient();
 
   const currentMonth = session?.period || new Date().toISOString().slice(0, 7);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(currentMonth);
-  // The day being filled in (YYYY-MM-DD or "undated"); null until the month's days have loaded. The month as a
+  // The day being filled in (YYYY-MM-DD); null until the month's days have loaded. The month as a
   // whole is not shown here: it is a reviewer's read-only view.
   const [view, setView] = useState<string | null>(null);
   const isDayView = view !== null;
@@ -64,7 +54,9 @@ export default function StoreReportPage() {
   // Map of `${productId}_${priceCents}` -> quantity
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [initialSnapshot, setInitialSnapshot] = useState<string>("");
-  const [feedback, setFeedback] = useState<{ type: "ok" | "err"; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "ok" | "err"; message: string; reload?: boolean } | null>(null);
+  // Local changes were dropped because a colleague saved the day meanwhile.
+  const [staleDraft, setStaleDraft] = useState(false);
   const [isSubmitConfirmOpen, setIsSubmitConfirmOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -79,12 +71,7 @@ export default function StoreReportPage() {
     };
   }, []);
 
-  // The months the store can open, and the month's days.
-  const monthQuery = useQuery<StoreReportDTO>({
-    queryKey: ["storeReport", selectedPeriod],
-    queryFn: () => reportsApi.storeReport(selectedPeriod),
-    staleTime: 60 * 1000,
-  });
+  // The month's days and the months the store can open.
   const daysQuery = useQuery<MonthDaysDTO>({
     queryKey: ["storeDays", selectedPeriod],
     queryFn: () => reportsApi.storeDays(selectedPeriod),
@@ -121,10 +108,16 @@ export default function StoreReportPage() {
       }
     }
 
-    // Check if there is an unsubmitted local draft
+    // Unsaved changes on this device come back, but only if nobody saved the day since they were made: restoring
+    // them over a colleague's newer save would overwrite (or double) the colleague's numbers.
     const localDraft = loadLocalDraft(draftKey, session?.organisation?.id ?? undefined);
     if (localDraft && !report.read_only) {
-      Object.assign(initialMap, localDraft.quantities);
+      if ((localDraft.revision ?? 0) === report.revision) {
+        Object.assign(initialMap, localDraft.quantities);
+      } else {
+        clearLocalDraft(draftKey, session?.organisation?.id ?? undefined);
+        setStaleDraft(true);
+      }
     }
 
     setQuantities(initialMap);
@@ -134,6 +127,7 @@ export default function StoreReportPage() {
   // Clear feedback when switching months or days
   useEffect(() => {
     setFeedback(null);
+    setStaleDraft(false);
   }, [selectedPeriod, view]);
 
   // Compute dirty state
@@ -161,11 +155,11 @@ export default function StoreReportPage() {
         const quantityKey = `${productId}_${priceCents}${calculation ? "_calc" : ""}`;
         const next = { ...prev, [quantityKey]: newQty };
         // Persist locally for offline draft protection
-        saveLocalDraft(draftKey, next, session?.organisation?.id ?? undefined);
+        saveLocalDraft(draftKey, next, session?.organisation?.id ?? undefined, report?.revision);
         return next;
       });
     },
-    [draftKey, session?.organisation?.id]
+    [draftKey, session?.organisation?.id, report?.revision]
   );
 
   // Compute live totals
@@ -210,6 +204,8 @@ export default function StoreReportPage() {
       const payload: ReportSaveDTO = {
         action,
         quantities: items,
+        // The day as this employee loaded it: a colleague's newer save makes the server refuse instead of overwrite.
+        revision: report.revision,
       };
 
       return await reportsApi.saveStoreDay(selectedPeriod, view ?? "", payload);
@@ -217,8 +213,7 @@ export default function StoreReportPage() {
     onSuccess: (updatedDay, action) => {
       queryClient.setQueryData(["storeDay", selectedPeriod, view], updatedDay);
       queryClient.invalidateQueries({ queryKey: ["storeDays", selectedPeriod] });
-      queryClient.invalidateQueries({ queryKey: ["storeReport", selectedPeriod] });
-      setInitialSnapshot(JSON.stringify(quantities));
+            setInitialSnapshot(JSON.stringify(quantities));
       clearLocalDraft(draftKey, session?.organisation?.id ?? undefined);
 
       setFeedback({
@@ -239,12 +234,14 @@ export default function StoreReportPage() {
             : err instanceof Error
             ? err.message
             : uk.store.saveError,
+        // A colleague changed the day meanwhile (409 with the revision check): offer to load their version.
+        reload: err instanceof ApiError && err.status === 409,
       });
     },
   });
 
   // Period navigation
-  const periods = useMemo(() => monthQuery.data?.available_periods || [], [monthQuery.data?.available_periods]);
+  const periods = useMemo(() => daysQuery.data?.available_periods || [], [daysQuery.data?.available_periods]);
   const periodIdx = periods.indexOf(selectedPeriod);
 
   const previousPeriod = useMemo(() => {
@@ -304,44 +301,38 @@ export default function StoreReportPage() {
   const filled = rows.filter((row) => (row.inputs || []).some((input) => (quantities[`${row.id}_${input.price_cents}`] ?? input.quantity) > 0)).length;
   const locked = Boolean(report?.read_only) || saveMutation.isPending;
   const storeName = session?.organisation?.name || session?.login;
-  const dayTitle = view === UNDATED ? uk.daily.undated : view ? formatDayReadable(view) : "";
-  const monthLocked = Boolean(report?.read_only && report.status !== "submitted");
+  const dayTitle = view ? formatDayReadable(view) : "";
+  // Every day is a working day: an empty day cannot be submitted (the server refuses it too).
+  const hasQuantity = Object.values(quantities).some((q) => q > 0);
+  const monthLocked = Boolean(report?.read_only && report.status !== "submitted" && !report.closed);
+  // Why the day is read-only (the most specific reason first).
+  const lockedNotice = !report?.read_only
+    ? ""
+    : report.closed
+      ? uk.daily.storeClosed
+      : report.missed && !report.submission
+        ? uk.daily.storeMissed
+        : monthLocked
+          ? uk.daily.monthLocked
+          : report.auto_locked_at && !report.submission
+            ? uk.daily.storeAutoLocked
+            : uk.daily.dayReadOnly;
+  // An open day: until midnight; a day a reviewer reopened: until the next midnight.
+  const openNotice = report && !report.read_only
+    ? view === days?.today ? uk.daily.openUntilMidnight : uk.daily.reopenedUntilMidnight
+    : "";
   const daysSent = days ? days.days.filter((d) => d.status === "submitted").length : 0;
 
   return (
-    <div className="flex min-h-screen flex-col bg-page pb-44 text-text-main sm:pb-28">
-      <header className="sticky top-0 z-30 border-b border-border bg-page/95">
-        <div className="mx-auto flex min-h-[60px] max-w-3xl items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-control bg-primary font-serif text-sm font-semibold text-primary-fg">
-              ЛЗ
-            </span>
-            <span className="truncate font-serif text-base font-semibold">{storeName}</span>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {workspaceLink && (
-              <Link
-                to={workspaceLink.to}
-                aria-label={workspaceLink.label}
-                title={workspaceLink.label}
-                className="inline-flex h-11 min-w-[44px] items-center justify-center gap-2 rounded-control px-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-surface-raised hover:text-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:border sm:border-border sm:px-3"
-              >
-                <workspaceLink.icon className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
-                <span className="hidden sm:inline">{workspaceLink.label}</span>
-              </Link>
-            )}
-            <MakerMark className="hidden sm:inline-flex" />
-            <ThemeToggle />
-            <NotificationBell />
-            <AccountMenu />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 pt-6 sm:px-6 sm:pt-10">
+    // Rendered inside the shell (sidebar on wide screens, bottom navigation on phones), like every other page.
+    <div className="mx-auto w-full max-w-3xl">
+      <div className="space-y-6">
         <div className="flex items-end justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-sm text-text-muted">{uk.store.monthLabel}</p>
+            <p className="text-sm text-text-muted">
+              {storeName ? `${storeName} · ` : ""}
+              {uk.store.monthLabel}
+            </p>
             <h1 className="text-[1.875rem] leading-tight sm:text-[2.25rem]">{formatPeriodReadable(selectedPeriod)}</h1>
             {days && days.days.length > 0 && (
               <p className="mt-1 text-sm text-text-muted">{uk.daily.daysSubmittedOf(daysSent, days.days.length)}</p>
@@ -364,16 +355,11 @@ export default function StoreReportPage() {
             <h2 className="text-xl leading-tight">{dayTitle}</h2>
             {isDayView && report && (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-muted">
-                <StatusPill status={report.status} />
+                {report.missed ? <MissedBadge late={Boolean(report.submission)} /> : <StatusPill status={report.status} />}
                 <span>{uk.store.filledOf(filled, rows.length)}</span>
                 <Signature status={report.status} signed={report} />
+                {report.saved && <span>{uk.daily.lastSaved(report.saved.by, formatDateTime(report.saved.signed_at))}</span>}
               </div>
-            )}
-            {view === UNDATED && <p className="text-sm text-text-muted">{uk.daily.undatedHelp}</p>}
-            {isDayView && view !== UNDATED && days?.undated && (
-              <p role="note" className="border-l-2 border-attention bg-attention-soft px-3 py-2 text-sm text-attention">
-                {uk.daily.undatedNotice(formatCurrency(days.undated.total_cents))}
-              </p>
             )}
           </div>
         )}
@@ -396,6 +382,19 @@ export default function StoreReportPage() {
             >
               {feedback.type === "ok" ? <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" /> : <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />}
               <span className="flex-1 py-1.5">{feedback.message}</span>
+              {feedback.reload && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFeedback(null);
+                    queryClient.invalidateQueries({ queryKey: ["storeDay", selectedPeriod, view] });
+                    queryClient.invalidateQueries({ queryKey: ["storeDays", selectedPeriod] });
+                  }}
+                >
+                  {uk.daily.reload}
+                </Button>
+              )}
               <button
                 type="button"
                 onClick={() => setFeedback(null)}
@@ -408,12 +407,28 @@ export default function StoreReportPage() {
           )}
         </AnimatedCollapse>
 
-        {report?.read_only && (
-          <p className="flex items-center gap-2 border-l-2 border-primary bg-primary-soft px-3 py-2 text-sm text-primary">
-            <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-            {monthLocked ? uk.daily.monthLocked : uk.daily.dayReadOnly}
+        {staleDraft && (
+          <p role="status" className="flex items-start gap-2 border-l-2 border-attention bg-attention-soft px-3 py-2 text-sm text-attention">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="flex-1">{uk.daily.staleDraft}</span>
+            <button type="button" onClick={() => setStaleDraft(false)} aria-label={uk.common.close} className="grid h-9 w-9 shrink-0 place-items-center rounded-control opacity-70 hover:opacity-100">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
           </p>
         )}
+
+        {lockedNotice && (
+          <p
+            className={cn(
+              "flex items-center gap-2 border-l-2 px-3 py-2 text-sm",
+              report?.missed || report?.closed ? "border-destructive bg-destructive/10 text-destructive" : "border-primary bg-primary-soft text-primary",
+            )}
+          >
+            <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {lockedNotice}
+          </p>
+        )}
+        {openNotice && <p className="text-sm text-text-muted">{openNotice}</p>}
 
 
 
@@ -507,11 +522,11 @@ export default function StoreReportPage() {
             )}
           </section>
         )}
-      </main>
+      </div>
 
-      {/* The month's total and the two actions stay in reach while the list scrolls. */}
-      <footer className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-ink bg-page pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto flex max-w-3xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
+      {/* The day's total and the two actions stay in reach while the list scrolls, above the phone navigation. */}
+      <footer className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 -mx-4 mt-6 border-t-2 border-ink bg-page sm:mx-0 lg:bottom-0">
+        <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-0">
           <div className="min-w-0">
             <span className="block text-xs text-text-muted">
               {uk.daily.dayTotal}
@@ -524,6 +539,11 @@ export default function StoreReportPage() {
             <span className="figure block text-[1.375rem] font-semibold leading-tight text-text-main">
               {formatCurrency(overallTotalCents)}
             </span>
+            {report && !report.read_only && !hasQuantity && (
+              <span id="empty-day-hint" className="block text-xs text-text-muted">
+                {uk.daily.emptyDayHint}
+              </span>
+            )}
           </div>
 
           {!isDayView ? null : !report?.read_only ? (
@@ -537,7 +557,12 @@ export default function StoreReportPage() {
               >
                 {saveMutation.isPending && saveMutation.variables === "draft" ? uk.store.savingDraft : uk.store.saveDraft}
               </Button>
-              <Button onClick={() => setIsSubmitConfirmOpen(true)} disabled={saveMutation.isPending || !report} className="px-3">
+              <Button
+                onClick={() => setIsSubmitConfirmOpen(true)}
+                disabled={saveMutation.isPending || !report || !hasQuantity}
+                aria-describedby={!hasQuantity ? "empty-day-hint" : undefined}
+                className="px-3"
+              >
                 {uk.daily.submitDay}
               </Button>
             </div>

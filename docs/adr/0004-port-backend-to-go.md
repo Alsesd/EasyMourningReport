@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted and implemented (release tag `Soup.V5`). Supersedes the Python-specific parts of ADR 0001 (layout) and ADR 0002 (uv). ADR 0003 (keep SQLite) still holds.
+Accepted and implemented (release tag `Soup.V5`). Supersedes the Python-specific parts of ADR 0001 (layout) and ADR 0002 (uv, since removed). ADR 0003 (keep SQLite) still holds.
+
+**Update 2026-11-08:** before the first production launch every compatibility path with the Python releases was removed: the migration-id check, the Python database snapshots and equivalence tests, the old password-hash format, the «Адміністратор підрозділу» built-in role and the working notes. The points below describe the port as it was done.
 
 ## Context
 
@@ -11,7 +13,7 @@ The application ran as a FastAPI + SQLModel process with a React front end, in o
 ## Decision
 
 - The backend is a Go program using the standard library (`net/http`, `database/sql`) with hand-written SQL, `modernc.org/sqlite` (pure Go, no CGO) and `excelize` for XLSX. The React build is embedded with `embed.FS`.
-- Behaviour was kept identical and verified slice by slice (see `.claude/notes/migration/`): the same database file and schema, the same PBKDF2 password hashes, the same REST contract and error shapes, the same backups, the same tunnel supervision. The recorded HTTP scenarios, golden XLSX files and money/pricing tables in `testdata/` were produced by the Python implementation and are now frozen fixtures.
+- Behaviour was kept identical and verified slice by slice: the same database file and schema, the same PBKDF2 password hashes, the same REST contract and error shapes, the same backups, the same tunnel supervision. The recorded HTTP scenarios, golden XLSX files and money/pricing tables in `testdata/` were produced by the Python implementation and are now frozen fixtures.
 - Deliberate differences: sessions are signed with a new cookie format (everyone signs in once more); audit times are served as UTC with a `Z`; some inputs that crashed the Python app with HTTP 500 now return proper errors; `DEMO=0` really disables the demo data.
 - The Python migrations are not ported. Databases must already carry the three recorded migration ids (they do after any run of the last Python release, commit `92564ef`).
 - `schema.d.ts` is no longer generated from OpenAPI and is maintained by hand.

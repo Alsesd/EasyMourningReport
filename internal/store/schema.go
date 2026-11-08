@@ -4,26 +4,15 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
-	"sort"
 	"strings"
 )
 
 //go:embed schema/fresh.sql
 var freshSQL string
 
-// RequiredMigrations are the Python migration ids every production database must already
-// carry. Go does not port the legacy upgrade code (migration-risks R2): a database missing
-// one must first be started once with the last Python release.
-var RequiredMigrations = []string{
-	"platform.0001_organisations_and_roles",
-	"reports.0001_legacy_columns",
-	"reports.0002_settings_table",
-}
-
-// goOwned is DDL for tables only the Go program uses. It is NOT part of schema/fresh.sql (which mirrors the
-// Python release so the equivalence tests can compare), is applied to every database with IF NOT EXISTS, and
-// is ignored by the Python release. user_sessions holds server-side sessions: only the SHA-256 of the random
-// token is stored, so a copy of the database or a backup never contains a usable credential.
+// goOwned is the DDL of the tables added after the base schema (schema/fresh.sql), applied to every database with
+// IF NOT EXISTS. user_sessions holds server-side sessions: only the SHA-256 of the random token is stored, so a copy
+// of the database or a backup never contains a usable credential.
 var goOwned = []string{
 	`CREATE TABLE IF NOT EXISTS user_sessions (
 		token_hash TEXT NOT NULL PRIMARY KEY,
@@ -178,24 +167,10 @@ var goOwned = []string{
 	`CREATE INDEX IF NOT EXISTS ix_transport_cargo_item ON transport_cargo (item_id)`,
 	`CREATE INDEX IF NOT EXISTS ix_transport_cargo_order ON transport_cargo (order_id)`,
 	`CREATE INDEX IF NOT EXISTS ix_transport_cargo_stop ON transport_cargo (run_stop_id)`,
-	// The signature of a monthly report. One row per kind: "store" is the store employee who submitted it last
-	// (kept after an administrator unlocks the report, replaced when the store submits again) and "admin" is
-	// the administrator who locked it last. id plus a name snapshot, so the signature survives renames.
-	// Reports from before this table have no row. A side table, because the reports table mirrors the Python
-	// release and is never altered.
-	`CREATE TABLE IF NOT EXISTS report_submissions (
-		report_id INTEGER NOT NULL REFERENCES reports (id) ON DELETE CASCADE,
-		kind TEXT NOT NULL,
-		user_id INTEGER,
-		user_name TEXT NOT NULL,
-		at INTEGER NOT NULL,
-		PRIMARY KEY (report_id, kind)
-	)`,
-	// Daily reports. A month (reports row) that has rows here is kept by days: report_items stays the month's
-	// aggregate (the sum of its days, rebuilt in the same transaction as every day save), so the summary, the Excel
-	// export and the dashboard read it as before. day is YYYY-MM-DD, or '' for the quantities a store had entered for
-	// the whole month before it switched to days («без дати»). Each day is submitted (signed by the employee) and
-	// locked or unlocked (by a reviewer) on its own; the reports row's status is derived: submitted when every day is.
+	// Daily reports: one row per store report (month) and day (YYYY-MM-DD). report_items stays the month's aggregate
+	// (the sum of its days, rebuilt in the same transaction as every day save), so the summary, the Excel export and
+	// the dashboard read the month directly. Each day is submitted (signed by the employee) and locked or unlocked (by
+	// a reviewer) on its own; the reports row's status is derived: submitted when every day is.
 	`CREATE TABLE IF NOT EXISTS report_days (
 		report_id INTEGER NOT NULL REFERENCES reports (id) ON DELETE CASCADE,
 		day TEXT NOT NULL,
@@ -220,6 +195,12 @@ var goOwned = []string{
 		FOREIGN KEY (report_id, day) REFERENCES report_days (report_id, day) ON DELETE CASCADE
 	)`,
 	`CREATE INDEX IF NOT EXISTS ix_report_day_items_day ON report_day_items (report_id, day)`,
+	// The days the midnight close has processed (one row per date), so a restart or a long downtime neither
+	// closes a day twice nor skips one.
+	`CREATE TABLE IF NOT EXISTS report_day_close (
+		day TEXT NOT NULL PRIMARY KEY,
+		closed_at INTEGER NOT NULL
+	)`,
 	// In-app notifications (the bell): one row per recipient. read_at is 0 while unread. dedupe_key makes a
 	// reminder idempotent per user (a restart or a second evaluation inserts nothing); it is '' for events.
 	// Rows change on every read and are pruned, so backups do not count them as a data change.
@@ -251,7 +232,7 @@ var goOwned = []string{
 	`CREATE UNIQUE INDEX IF NOT EXISTS ux_notifications_dedupe ON notifications (user_id, dedupe_key) WHERE dedupe_key != ''`,
 }
 
-// goOwnedColumns are columns added to Go-owned tables after their first release. CREATE TABLE IF NOT EXISTS does
+// goOwnedColumns are columns added to tables after their first release. CREATE TABLE IF NOT EXISTS does
 // not touch an existing table, so each one is added once with ALTER TABLE (a constant default keeps old rows valid).
 var goOwnedColumns = []struct{ table, column, def string }{
 	{"transport_orders", "is_military", "INTEGER NOT NULL DEFAULT 0"},
@@ -260,6 +241,15 @@ var goOwnedColumns = []struct{ table, column, def string }{
 	// Fleet links of an order's two parts (NULL = a free-text car, or none yet). The text columns stay the snapshot.
 	{"transport_orders", "delivery_car_id", "INTEGER"},
 	{"transport_orders", "carriers_car_id", "INTEGER"},
+	// Daily reports closed at midnight: missed = 1 when the store had not submitted the day by then (kept after a
+	// late submission, as the record of it); auto_locked_at = when the day was closed automatically (0 = never).
+	{"report_days", "missed", "INTEGER NOT NULL DEFAULT 0"},
+	{"report_days", "auto_locked_at", "INTEGER NOT NULL DEFAULT 0"},
+	// Several employees of one store fill in the same day: revision grows with every change (a save sent with an older
+	// revision is refused instead of overwriting a colleague), saved_by_name/saved_at name the last one who saved.
+	{"report_days", "revision", "INTEGER NOT NULL DEFAULT 0"},
+	{"report_days", "saved_by_name", "TEXT NOT NULL DEFAULT ''"},
+	{"report_days", "saved_at", "INTEGER NOT NULL DEFAULT 0"},
 }
 
 func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
@@ -276,15 +266,15 @@ func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {
 	return nil
 }
 
-// GoOwnedTables are the table names created from goOwned (tests strip them before comparing with Python).
-var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "report_submissions", "notifications", "push_subscriptions",
-	"transport_cars", "product_requests", "product_request_items", "transport_runs", "transport_run_stops", "transport_cargo", "report_days", "report_day_items"}
+// GoOwnedTables are the table names created from goOwned.
+var GoOwnedTables = []string{"user_sessions", "session_devices", "passkeys", "transport_orders", "transport_order_stops", "transport_order_events", "notifications", "push_subscriptions",
+	"transport_cars", "product_requests", "product_request_items", "transport_runs", "transport_run_stops", "transport_cargo", "report_days", "report_day_items", "report_day_close"}
 
 type object struct {
 	kind, name, table, sql string
 }
 
-// parseSchema reads the DDL blocks of testdata/schema/fresh.sql ("-- kind name (table t)" + SQL).
+// parseSchema reads the DDL blocks of schema/fresh.sql ("-- kind name (table t)" + SQL).
 func parseSchema(text string) []object {
 	var out []object
 	lines := strings.Split(text, "\n")
@@ -323,10 +313,8 @@ func existingTables(tx *sql.Tx) (map[string]bool, error) {
 	return m, rows.Err()
 }
 
-// EnsureSchema brings the file to a usable state without ever altering or rebuilding a table:
-//   - an empty database gets the whole fresh schema and the required migration ids recorded;
-//   - otherwise every required migration id must be present (else it refuses to start),
-//     and only tables that are missing are created, with their indexes.
+// EnsureSchema brings the file to a usable state without ever rebuilding a table: missing base tables are created
+// with their indexes, the later tables with IF NOT EXISTS, and later columns are added once.
 func (s *Store) EnsureSchema() error {
 	tx, err := s.W.Begin()
 	if err != nil {
@@ -338,12 +326,6 @@ func (s *Store) EnsureSchema() error {
 		return err
 	}
 	objs := parseSchema(freshSQL)
-	fresh := len(tables) == 0
-	if !fresh {
-		if err := checkMigrationIDs(tx, tables); err != nil {
-			return err
-		}
-	}
 	created := map[string]bool{}
 	for _, o := range objs {
 		if o.kind == "table" && !tables[o.name] {
@@ -370,43 +352,5 @@ func (s *Store) EnsureSchema() error {
 			return err
 		}
 	}
-	if fresh {
-		for _, id := range RequiredMigrations {
-			if _, err := tx.Exec("INSERT INTO schema_migrations (id) VALUES (?)", id); err != nil {
-				return err
-			}
-		}
-	}
 	return tx.Commit()
-}
-
-func checkMigrationIDs(tx *sql.Tx, tables map[string]bool) error {
-	have := map[string]bool{}
-	if tables["schema_migrations"] {
-		rows, err := tx.Query("SELECT id FROM schema_migrations")
-		if err != nil {
-			return err
-		}
-		for rows.Next() {
-			var id string
-			if err := rows.Scan(&id); err != nil {
-				rows.Close()
-				return err
-			}
-			have[id] = true
-		}
-		rows.Close()
-	}
-	var missing []string
-	for _, id := range RequiredMigrations {
-		if !have[id] {
-			missing = append(missing, id)
-		}
-	}
-	if len(missing) > 0 {
-		sort.Strings(missing)
-		return fmt.Errorf("database is missing migrations %s: start the last Python release (git commit 92564ef or earlier) once to upgrade it, then retry",
-			strings.Join(missing, ", "))
-	}
-	return nil
 }

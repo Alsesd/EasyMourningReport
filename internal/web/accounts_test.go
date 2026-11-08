@@ -53,23 +53,19 @@ func count(e *env, q string, args ...any) int {
 	return n
 }
 
-// Deletes must work on every database shape: legacy-migrated tables may lack ON DELETE CASCADE.
-func TestDeletesOnAllSchemas(t *testing.T) {
-	for _, schema := range []string{"", "migrated_very_old", "migrated_previous_release"} {
-		label := schema
-		if label == "" {
-			label = "fresh"
-		}
+// Deleting an organisation and a user removes their dependent rows.
+func TestDeletesRemoveDependentRows(t *testing.T) {
+	for _, label := range []string{"fresh"} {
 		t.Run(label, func(t *testing.T) {
-			e := newEnvSchema(t, schema)
+			e := newEnvSchema(t)
 			boss := e.as("boss", "Boss-pass1")
 			org := boss.json("POST", "/api/v1/organisations", `{"name":"Shop","first_user":{"login":"clerk","password":"Clerk-pass1"}}`, 201)
 			oid := num(org["id"])
 			ids := func(path string) string { return strings.TrimRight(path, "/") }
 			_ = ids
 
-			// A user that still holds a role: Python answered 500 here.
-			u := boss.json("POST", "/api/v1/users", `{"login":"temp","password":"Temp-pass-1234","organisation_id":`+itoa(int(oid))+`,"role_ids":[3]}`, 201)
+			// A user that still holds a role (the desk role, id 2).
+			u := boss.json("POST", "/api/v1/users", `{"login":"temp","password":"Temp-pass-1234","organisation_id":`+itoa(int(oid))+`,"role_ids":[2]}`, 201)
 			boss.json("DELETE", "/api/v1/users/"+itoa(int(num(u["id"]))), "", 200)
 			if n := count(e, "SELECT COUNT(*) FROM user_roles WHERE user_id = ?", num(u["id"])); n != 0 {
 				t.Fatalf("%d orphan user_roles", n)
@@ -148,9 +144,9 @@ func bossList(t *testing.T, s session, path string) []map[string]any {
 	return out
 }
 
-func newEnvSchema(t *testing.T, schema string) *env {
+func newEnvSchema(t *testing.T) *env {
 	t.Helper()
-	st := newContractStore(t, schema)
+	st := newContractStore(t)
 	seedBoss(t, st, "boss", "Boss-pass1")
 	e := &env{t: t, st: st, now: time.Date(2026, 11, 6, 10, 0, 0, 0, time.UTC), lim: NewLoginLimiter()}
 	e.h = New(Deps{Store: st, Assets: testAssets(), Registry: registry.Installed(), Secret: []byte("s"),
@@ -206,7 +202,9 @@ func TestOrgManagerCannotEscalateOrCrossOrganisations(t *testing.T) {
 	a := boss.json("POST", "/api/v1/organisations", `{"name":"A","first_user":{"login":"clerka","password":"Clerk-pass1"}}`, 201)
 	b := boss.json("POST", "/api/v1/organisations", `{"name":"B","first_user":{"login":"clerkb","password":"Clerk-pass1"}}`, 201)
 	aid, bid := itoa(int(num(a["id"]))), itoa(int(num(b["id"])))
-	boss.json("POST", "/api/v1/users", `{"login":"mgr","password":"Mgr-pass-1234","organisation_id":`+aid+`,"role_ids":[2]}`, 201)
+	// A division manager: a role holding every division-level permission (the desk role is id 2).
+	mgrRole := boss.json("POST", "/api/v1/roles", `{"name":"Керівник підрозділу","permissions":["org.users.manage","reports.submit","transport.orders.create"]}`, 201)
+	boss.json("POST", "/api/v1/users", `{"login":"mgr","password":"Mgr-pass-1234","organisation_id":`+aid+`,"role_ids":[`+itoa(int(num(mgrRole["id"])))+`]}`, 201)
 	mgr := e.as("mgr", "Mgr-pass-1234")
 
 	users := bossList(t, mgr, "/api/v1/users")
@@ -216,7 +214,7 @@ func TestOrgManagerCannotEscalateOrCrossOrganisations(t *testing.T) {
 		}
 	}
 	// Creating "in organisation B" lands in A (the payload cannot widen the scope).
-	got := mgr.json("POST", "/api/v1/users", `{"login":"newbie","password":"Newbie-pass-1234","organisation_id":`+bid+`,"role_ids":[3]}`, 201)
+	got := mgr.json("POST", "/api/v1/users", `{"login":"newbie","password":"Newbie-pass-1234","organisation_id":`+bid+`,"role_ids":[2]}`, 201)
 	if got["organisation"].(map[string]any)["name"] != "A" {
 		t.Fatalf("%v", got)
 	}
@@ -234,7 +232,7 @@ func TestOrgManagerCannotEscalateOrCrossOrganisations(t *testing.T) {
 	}
 	// Self-disable and self-delete are refused; unauthorised role management is 403.
 	me := int(num(mgr.json("GET", "/api/v1/session", "", 200)["user_id"]))
-	mgr.json("PUT", "/api/v1/users/"+itoa(me), `{"login":"mgr","active":false,"role_ids":[2]}`, 422)
+	mgr.json("PUT", "/api/v1/users/"+itoa(me), `{"login":"mgr","active":false,"role_ids":[`+itoa(int(num(mgrRole["id"])))+`]}`, 422)
 	mgr.json("DELETE", "/api/v1/users/"+itoa(me), "", 422)
 	mgr.json("POST", "/api/v1/roles", `{"name":"x","scope":"organisation"}`, 403)
 	// Disabling or deleting the last platform admin is refused (boss edits another admin to be safe).

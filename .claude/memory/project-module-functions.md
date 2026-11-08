@@ -8,11 +8,24 @@ type: project
   catalogue+prices, XLSX import/export, submit/lock/unlock with signatures. Submitting notifies `reports.review` holders.
   **Daily reports (2026-11-08, user request; user chose per-DAY submission over per-month):** each day saved/submitted/
   locked on its own (`report_days`, `report_day_items`, Go-owned); `report_items` = month aggregate rebuilt in the same tx;
-  first day of a month with monthly quantities moves them to the undated bucket (day '', «Без дати», URL `undated`),
-  never lost; month status derived (submitted when every day is); **owner 2026-11-08: only DAYS are lockable, the month is
-  review-only** (month PATCH 409 for daily months, UI has no month lock; legacy months lock via «Без дати»; daily
-  months always take new/forgotten days); stores see days only, the month (sum) is a reviewer tab «За місяць» on
-  /admin/reports (default tab «За день»); monthly PUT 409 on daily months; submitted-only + dashboard revenue count submitted days (`statusItemsSQL`). Notification per submitted
+  (undated bucket / months kept whole REMOVED 2026-11-08 with the legacy cleanup); month status derived (submitted when every day is); **owner 2026-11-08: only DAYS are lockable, the month is
+  review-only** (month PATCH 409 for daily months, UI has no month lock); stores see days only, the month (sum) is a reviewer tab «За місяць» on
+  /admin/reports (default tab «За день»); monthly PUT 409 on daily months;
+  **Midnight close (2026-11-08, owner: "auto lock at midnight, notice for reviewer to punish the guilty"):**
+  `core.Module.DayClose` (scheduler, every midnight in APP_TIMEZONE + at start, catch-up via `report_day_close`,
+  first run closes NOTHING, only records yesterday; a restart mid-day closes/relocks nothing); draft/absent day -> locked (status submitted) + `missed=1` + `auto_locked_at`;
+  reviewers notified; missed kept after late submission (`/admin/missed-days`, «Не надіслано вчасно» section);
+  store cannot open a past day without a report (409 `closed`); reviewer-unlocked day relocks next midnight.
+  **Owner: no days off** — every day is checked; **an empty day cannot be submitted** (422 + disabled button). **Only store-submitted days count** (`submittedByStore`: status
+  submitted AND submitted_at>0) in revenue, «Лише надіслані», month status, register counts. `core.Services.Zone` = business zone; reports and
+  transport `today()` use it (was time.Local = bug on UTC machines).
+  **Removed 2026-11-08 (owner: "remove deprecated code" + one-time "clean all legacy"):** monthly `PUT` and `GET
+  /store/reports/{period}` (available_periods now in the days DTO), month `PATCH /admin/reports/{id}`, `/admin/summary`
+  redirect page, report_submissions/month signatures, undated bucket, Python migration check + snapshots, old password
+  format, built-in org_admin role, migration notes, ADR 0002; contract fixture 02 now drives the day endpoints
+  (runner normalises current-month dates and today inside text). Old monthly audit action names kept (old log rows).
+  **Several employees per store:** shared server draft, `revision` check (409 names the colleague), «Востаннє
+  зберіг(ла)», local draft restored only on the same revision; saves replace quantities (never add). submitted-only + dashboard revenue count submitted days (`statusItemsSQL`). Notification per submitted
   day. No daily reminder (not asked). Docs: `docs/modules/reports.md` «Daily reports».
 - **transport** (`transport.orders.create` org, `.manage`/`.view_all` platform): orders per deceased with delivery and/or
   carriers part; statuses submitted->accepted->in_progress->done, rejected/cancelled, **bumped**. Car lock: same car

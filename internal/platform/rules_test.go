@@ -62,8 +62,14 @@ func newFx(t *testing.T) *fx {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.roleAdmin, f.roleOrgAdmin, f.roleStore = roles[PlatformAdmin], roles[OrgAdmin], roles[StoreRole]
+	f.roleAdmin, f.roleStore = roles[PlatformAdmin], roles[StoreRole]
 	f.orgA, f.orgB = f.org("Shop A", false), f.org("Shop B", false)
+	// A division manager: a custom role holding every division-level permission.
+	var orgCodes []string
+	for c := range codesByScope("organisation") {
+		orgCodes = append(orgCodes, c)
+	}
+	f.roleOrgAdmin = f.role("Адміністратор підрозділу", "organisation", nil, orgCodes...)
 	return f
 }
 
@@ -351,15 +357,15 @@ func TestUniquenessAndNormalisation(t *testing.T) {
 }
 
 func TestValidatedPermissions(t *testing.T) {
-	got, err := testRules.ValidatedPermissions("platform", []string{AuditView, UsersManage, AuditView})
+	got, err := testRules.ValidatedPermissions([]string{AuditView, UsersManage, AuditView})
 	if err != nil || strings.Join(got, ",") != AuditView+","+UsersManage {
 		t.Fatal(got, err)
 	}
 	// A role is a plain set of permissions: codes of any kind may be combined, unknown ones are refused.
-	if got, err := testRules.ValidatedPermissions("organisation", []string{"reports.submit", UsersManage}); err != nil || len(got) != 2 {
+	if got, err := testRules.ValidatedPermissions([]string{"reports.submit", UsersManage}); err != nil || len(got) != 2 {
 		t.Fatalf("mixed codes: %v %v", got, err)
 	}
-	if _, err := testRules.ValidatedPermissions("platform", []string{"nonsense.code"}); err == nil || !strings.Contains(err.Error(), "nonsense.code") {
+	if _, err := testRules.ValidatedPermissions([]string{"nonsense.code"}); err == nil || !strings.Contains(err.Error(), "nonsense.code") {
 		t.Fatalf("unknown code accepted: %v", err)
 	}
 }

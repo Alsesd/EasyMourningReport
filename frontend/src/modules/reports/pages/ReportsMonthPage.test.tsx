@@ -3,7 +3,7 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ReportsMonthPage from "./ReportsMonthPage";
-import type { AdminReportListItemDTO, DailyReportListItemDTO, SummaryDTO } from "@/platform/api/types";
+import type { AdminReportListItemDTO, DailyReportListItemDTO, MissedStoreDTO, SummaryDTO } from "@/platform/api/types";
 
 const reports: AdminReportListItemDTO[] = [
   // A draft with amounts and a submitted report: only the latter counts as submitted.
@@ -28,14 +28,24 @@ const summary: SummaryDTO = {
 };
 
 const daily: DailyReportListItemDTO[] = [
-  { store_id: 1, store_name: "Магазин Центр", store_archived: false, report_id: 101, day: "2026-10-05", status: "submitted", total_cents: 4000, item_count: 1 },
-  { store_id: 2, store_name: "Магазин Вокзал", store_archived: false, report_id: 102, day: "2026-10-05", status: "none", total_cents: 0, item_count: 0 },
+  { store_id: 1, store_name: "Магазин Центр", store_archived: false, report_id: 101, day: "2026-10-05", status: "submitted", total_cents: 4000, item_count: 1, missed: false },
+  { store_id: 2, store_name: "Магазин Вокзал", store_archived: false, report_id: 102, day: "2026-10-05", status: "submitted", total_cents: 0, item_count: 0, missed: true, auto_locked_at: "2026-10-05T21:00:00Z" },
+];
+
+const missed: MissedStoreDTO[] = [
+  { store_id: 2, store_name: "Магазин Вокзал", report_id: 102, days: ["2026-10-04", "2026-10-05"], late: ["2026-10-04"] },
 ];
 
 describe("ReportsMonthPage", () => {
   beforeEach(() => {
     globalThis.fetch = vi.fn().mockImplementation((url: string) => {
-      const body = url.includes("/api/v1/admin/summary") ? summary : url.includes("/api/v1/admin/daily-reports") ? daily : reports;
+      const body = url.includes("/api/v1/admin/summary")
+        ? summary
+        : url.includes("/api/v1/admin/daily-reports")
+          ? daily
+          : url.includes("/api/v1/admin/missed-days")
+            ? missed
+            : reports;
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
     });
   });
@@ -86,9 +96,9 @@ describe("ReportsMonthPage", () => {
     renderPage("/admin/reports?period=2026-10&day=2026-10-05");
     expect(screen.getByRole("tab", { name: "За день" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("heading", { level: 1, name: /5 жовтня 2026/ })).toBeDefined();
-    expect(await screen.findByText("Надіслано 1 з 2, без звіту: 1")).toBeDefined();
+    expect(await screen.findByText("Надіслано 2 з 2, усі підрозділи звітували")).toBeDefined();
     const stores = screen.getByRole("region", { name: "Підрозділи" });
-    expect(within(stores).getAllByText("день не заповнено").length).toBeGreaterThan(0);
+    expect(within(stores).getAllByText("Не надіслано вчасно").length).toBeGreaterThan(0);
     const links = within(stores).getAllByRole("link").map((l) => l.getAttribute("href"));
     expect(links).toEqual(["/admin/reports/101?day=2026-10-05", "/admin/reports/102?day=2026-10-05"]);
     expect(screen.getByRole("region", { name: "Товари за день" })).toBeDefined();
@@ -108,5 +118,15 @@ describe("ReportsMonthPage", () => {
     expect(await screen.findByRole("region", { name: "Товари за місяць" })).toBeDefined();
     expect(screen.getByText(/Лише перегляд/)).toBeDefined();
     expect(screen.queryByRole("combobox", { name: "День для перегляду" })).toBeNull();
+  });
+
+  it("lists the stores that did not submit days in time, with links to those days", async () => {
+    renderPage("/admin/reports?period=2026-10&day=2026-10-05");
+    const section = await screen.findByRole("region", { name: "Не надіслано вчасно" });
+    expect(within(section).getByText("2 дні")).toBeDefined();
+    const links = within(section).getAllByRole("link");
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/admin/reports/102?day=2026-10-04", "/admin/reports/102?day=2026-10-05"]);
+    expect(links[0].getAttribute("aria-label")).toContain("Надіслано із запізненням");
+    expect(links[1].getAttribute("aria-label")).toContain("Не надіслано вчасно");
   });
 });

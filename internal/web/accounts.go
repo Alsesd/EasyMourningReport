@@ -1008,7 +1008,7 @@ func (a *App) createRole(w http.ResponseWriter, r *http.Request, p *platform.Pri
 		if err := platform.CheckRoleName(ctx, tx, name, oid, 0); err != nil {
 			return err
 		}
-		codes, err := a.rules().ValidatedPermissions(scope, perms)
+		codes, err := a.rules().ValidatedPermissions(perms)
 		if err != nil {
 			return err
 		}
@@ -1062,7 +1062,6 @@ func (a *App) updateRole(w http.ResponseWriter, r *http.Request, p *platform.Pri
 	}
 	rawName := body.String("name", 1, 100)
 	orgID := body.OptInt("organisation_id")
-	_ = body.OptLiteral("scope", "", "platform", "organisation") // accepted, no longer meaningful
 	perms := body.StringList("permissions", 500)
 	if err := body.Err(); err != nil {
 		return err
@@ -1108,7 +1107,7 @@ func (a *App) updateRole(w http.ResponseWriter, r *http.Request, p *platform.Pri
 			return err
 		}
 		if _, all := platform.AllOfScope[role.Key]; !all {
-			codes, err := a.rules().ValidatedPermissions(role.Scope, perms)
+			codes, err := a.rules().ValidatedPermissions(perms)
 			if err != nil {
 				return err
 			}

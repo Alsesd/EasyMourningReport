@@ -2,41 +2,9 @@ package platform
 
 import (
 	"encoding/hex"
-	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 )
-
-// testdata/passwords/python_hashes.json was produced with plain hashlib.pbkdf2_hmac
-// (the algorithm of the original Python release), not by this code.
-func TestPythonHashesVerifyInGo(t *testing.T) {
-	raw, err := os.ReadFile("../../testdata/passwords/python_hashes.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var cases []struct{ PW, Hash string }
-	if err := json.Unmarshal(raw, &cases); err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range cases {
-		if !CheckPassword(c.PW, c.Hash) {
-			t.Errorf("python hash for %q does not verify", c.PW)
-		}
-		if CheckPassword(c.PW+"x", c.Hash) {
-			t.Errorf("wrong password verified for %q", c.PW)
-		}
-		salt, _ := hex.DecodeString(strings.SplitN(c.Hash, "$", 2)[0])
-		// Deliberate: the equality check now uses the legacy hasher (HashPassword writes the new format).
-		got, err := LegacyHashPassword(c.PW, salt)
-		if err != nil || got != c.Hash {
-			t.Errorf("Go legacy hash differs from Python for %q: %s", c.PW, got)
-		}
-		if !NeedsRehash(c.Hash) {
-			t.Errorf("a Python-era hash must be flagged for upgrade")
-		}
-	}
-}
 
 func TestHashFormatAndMalformed(t *testing.T) {
 	h, err := HashPassword("x", nil)
@@ -61,16 +29,15 @@ func TestHashFormatAndMalformed(t *testing.T) {
 	}
 }
 
-func TestLegacyHashesStillVerifyAndAreFlagged(t *testing.T) {
-	h, err := LegacyHashPassword("Old-pass1", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestWeakerHashesAreFlagged(t *testing.T) {
+	salt := make([]byte, 16)
+	key, _ := derive("Old-pass1", salt, 1000)
+	h := hashPrefix + "1000$" + hex.EncodeToString(salt) + "$" + key
 	if !CheckPassword("Old-pass1", h) || CheckPassword("New-pass1", h) {
-		t.Fatal("legacy verify failed")
+		t.Fatal("a hash with fewer iterations must still verify")
 	}
 	if !NeedsRehash(h) || !NeedsRehash("garbage") {
-		t.Fatal("legacy and malformed hashes need an upgrade")
+		t.Fatal("weaker and malformed hashes need an upgrade")
 	}
 }
 

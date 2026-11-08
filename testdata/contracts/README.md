@@ -1,9 +1,8 @@
 # HTTP contract scenarios
 
-Language-neutral characterization of the REST API (see `docs/migration/api-contracts.md`).
-These files were recorded from the Python implementation (commit `92564ef`, `backend/app/tests/test_contracts.py`)
-and are now frozen. `internal/web/contract_test.go` replays them with `httptest`. The Python generators (`gen_golden.py`,
-`gen_xlsx_golden.py` in `testdata/reports/`) were removed with the Python backend; edit the fixtures by hand only for intended behaviour changes.
+Language-neutral characterization of the REST API. They were first recorded from the Python implementation and are
+now the expected behaviour of the Go server; `internal/web/contract_test.go` replays them with `httptest` on a fresh
+database. Edit them only for intended behaviour changes and say why in the commit.
 
 A scenario is a JSON file:
 
@@ -24,5 +23,4 @@ A scenario is a JSON file:
 - `{name}` in `path` or `json` is replaced by a value saved earlier (`save`: name → dotted path into the JSON response). A string that is exactly `{name}` keeps the saved value's type.
 - Requests carry `Origin: http://testserver` unless `"no_origin": true`.
 - `multipart: {filename, path}` uploads a file (path relative to this directory) as the `file` field.
-- `expect.json` is compared exactly after volatile fields (`ts`, `created_at`, `last_backup_at`) are replaced by `"<time>"`. Binary responses record `content_type` only.
-- Refresh expectations from Python with `CONTRACTS_RECORD=1`; review the diff by hand.
+- `expect.json` is compared exactly after volatile values are replaced: `ts`, `created_at`, `last_backup_at`, `signed_at` by `"<time>"`, the current month by `"<current-period>"`, a date of the current month by `"<current-month-date>"`, and today's date inside a text by `<today>`. Binary responses record `content_type` only.

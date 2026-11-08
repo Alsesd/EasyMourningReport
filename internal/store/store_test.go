@@ -2,16 +2,12 @@ package store
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 	"time"
 )
-
-const snapshots = "../../testdata/schema/"
 
 func openTemp(t *testing.T) *Store {
 	t.Helper()
@@ -23,138 +19,21 @@ func openTemp(t *testing.T) *Store {
 	return s
 }
 
-// loadSnapshot builds a DB from a testdata/schema/*.sql snapshot (DDL + recorded migration ids).
-func loadSnapshot(t *testing.T, s *Store, name string) {
+// baseOnly builds an older database: only the base tables (schema/fresh.sql), none of the later ones or columns.
+func baseOnly(t *testing.T, s *Store) {
 	t.Helper()
-	raw, err := os.ReadFile(snapshots + name + ".sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(raw)
-	ddl, ids, _ := strings.Cut(text, "-- migration ids")
-	if _, err := s.W.Exec(ddl); err != nil {
-		t.Fatalf("load %s: %v", name, err)
-	}
-	for _, l := range strings.Split(ids, "\n") {
-		if id := strings.TrimSpace(strings.TrimPrefix(l, "--")); strings.Contains(id, ".") {
-			if _, err := s.W.Exec("INSERT INTO schema_migrations (id) VALUES (?)", id); err != nil {
-				t.Fatal(err)
-			}
+	for _, o := range parseSchema(freshSQL) {
+		if _, err := s.W.Exec(o.sql); err != nil {
+			t.Fatalf("%s: %v", o.name, err)
 		}
-	}
-}
-
-// structure dumps table_info, index_list and foreign_key_list for every table (R1: never DDL text).
-func structure(t *testing.T, db *sql.DB) string {
-	t.Helper()
-	var tables []string
-	// Tables owned by the Go program are not part of the Python shape being compared.
-	rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('user_sessions', 'session_devices', 'passkeys', 'transport_orders', 'transport_order_stops', 'transport_order_events', 'report_submissions', 'notifications', 'push_subscriptions', 'transport_cars', 'product_requests', 'product_request_items', 'transport_runs', 'transport_run_stops', 'transport_cargo', 'report_days', 'report_day_items') ORDER BY name")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for rows.Next() {
-		var n string
-		rows.Scan(&n)
-		tables = append(tables, n)
-	}
-	rows.Close()
-	var out []string
-	dump := func(table, pragma string) {
-		r, err := db.Query(fmt.Sprintf("PRAGMA %s(%q)", pragma, table))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer r.Close()
-		cols, _ := r.Columns()
-		for r.Next() {
-			vals := make([]any, len(cols))
-			ptrs := make([]any, len(cols))
-			for i := range vals {
-				ptrs[i] = &vals[i]
-			}
-			r.Scan(ptrs...)
-			var parts []string
-			for i, c := range cols {
-				if c == "seq" || c == "cid" && false {
-					continue
-				}
-				parts = append(parts, fmt.Sprintf("%s=%v", c, vals[i]))
-			}
-			out = append(out, table+" "+pragma+" "+strings.Join(parts, ","))
-		}
-	}
-	for _, tb := range tables {
-		dump(tb, "table_info")
-		dump(tb, "index_list")
-		dump(tb, "foreign_key_list")
-	}
-	sort.Strings(out)
-	return strings.Join(out, "\n")
-}
-
-func TestEnsureSchemaLeavesPythonDatabasesUnchanged(t *testing.T) {
-	for _, name := range []string{"fresh", "migrated_very_old", "migrated_previous_release"} {
-		t.Run(name, func(t *testing.T) {
-			s := openTemp(t)
-			loadSnapshot(t, s, name)
-			before := structure(t, s.R)
-			if err := s.EnsureSchema(); err != nil {
-				t.Fatal(err)
-			}
-			if after := structure(t, s.R); after != before {
-				t.Fatalf("schema changed:\nbefore:\n%s\nafter:\n%s", before, after)
-			}
-		})
-	}
-}
-
-func TestGoFreshMatchesPythonFresh(t *testing.T) {
-	py := openTemp(t)
-	loadSnapshot(t, py, "fresh")
-	g := openTemp(t)
-	if err := g.EnsureSchema(); err != nil {
-		t.Fatal(err)
-	}
-	if a, b := structure(t, g.R), structure(t, py.R); a != b {
-		t.Fatalf("Go-fresh differs from Python-fresh:\n%s\n---\n%s", a, b)
-	}
-	var n int
-	g.R.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&n)
-	if n != len(RequiredMigrations) {
-		t.Fatalf("recorded %d migration ids", n)
-	}
-	// Idempotent: a second start changes nothing.
-	if err := g.EnsureSchema(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestEmbeddedSchemaEqualsSnapshot(t *testing.T) {
-	raw, err := os.ReadFile(snapshots + "fresh.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(raw) != freshSQL {
-		t.Fatal("internal/store/schema/fresh.sql is out of date: copy testdata/schema/fresh.sql")
-	}
-}
-
-func TestRefusesDatabaseMissingMigrations(t *testing.T) {
-	s := openTemp(t)
-	loadSnapshot(t, s, "migrated_previous_release")
-	if _, err := s.W.Exec("DELETE FROM schema_migrations WHERE id = 'reports.0002_settings_table'"); err != nil {
-		t.Fatal(err)
-	}
-	err := s.EnsureSchema()
-	if err == nil || !strings.Contains(err.Error(), "reports.0002_settings_table") {
-		t.Fatalf("expected refusal naming the missing id, got %v", err)
 	}
 }
 
 func TestCreatesOnlyMissingTables(t *testing.T) {
 	s := openTemp(t)
-	loadSnapshot(t, s, "migrated_previous_release")
+	if err := s.EnsureSchema(); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := s.W.Exec("DROP TABLE report_settings"); err != nil {
 		t.Fatal(err)
 	}
@@ -430,9 +309,11 @@ func TestConcurrentBackupsAreSerialised(t *testing.T) {
 }
 
 func TestGoOwnedTablesAreCreatedAndIdempotent(t *testing.T) {
-	for _, name := range []string{"fresh", "migrated_very_old", "migrated_previous_release"} {
+	for _, name := range []string{"empty", "base tables only"} {
 		s := openTemp(t)
-		loadSnapshot(t, s, name)
+		if name != "empty" {
+			baseOnly(t, s)
+		}
 		for i := 0; i < 2; i++ { // the second start must change nothing
 			if err := s.EnsureSchema(); err != nil {
 				t.Fatalf("%s: %v", name, err)
@@ -481,7 +362,7 @@ func TestCheckpointAndPing(t *testing.T) {
 // A database from before is_military existed: its orders stay, the column appears with 0, a second start is a no-op.
 func TestEnsureSchemaAddsIsMilitaryToExistingTransportOrders(t *testing.T) {
 	s := openTemp(t)
-	loadSnapshot(t, s, "migrated_previous_release")
+	baseOnly(t, s)
 	if _, err := s.W.Exec(`CREATE TABLE transport_orders (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		organisation_id INTEGER NOT NULL REFERENCES organisations (id),
@@ -513,10 +394,10 @@ func TestEnsureSchemaAddsIsMilitaryToExistingTransportOrders(t *testing.T) {
 // A database that already holds transport orders from before the fleet registry gets the new tables and the two
 // additive car-id columns, keeps its rows, and a second start changes nothing.
 func TestTransportV2TablesAndColumnsAppearOnAnExistingDatabase(t *testing.T) {
-	for _, name := range []string{"migrated_very_old", "migrated_previous_release"} {
+	for _, name := range []string{"base tables only"} {
 		t.Run(name, func(t *testing.T) {
 			s := openTemp(t)
-			loadSnapshot(t, s, name)
+			baseOnly(t, s)
 			if _, err := s.W.Exec(`INSERT INTO organisations (name, archived) VALUES ('Філія', 0)`); err != nil {
 				t.Fatal(err)
 			}

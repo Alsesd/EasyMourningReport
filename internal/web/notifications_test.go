@@ -130,16 +130,16 @@ func TestSubmittedReportNotifiesReviewers(t *testing.T) {
 	e := newEnv(t, nil)
 	seedDemo(t, e)
 	s1 := e.as("store1", "Store1-demo")
-	s1.json("PUT", "/api/v1/store/reports/2026-11", `{"action":"draft","quantities":[]}`, 200)
+	s1.json("PUT", "/api/v1/store/reports/2026-11/days/2026-11-06", `{"action":"draft","quantities":[]}`, 200)
 	boss := e.as("boss", "Boss-pass1")
 	var b bell
 	json.Unmarshal(boss.do("GET", "/api/v1/notifications", "").Body.Bytes(), &b)
 	if b.Unread != 0 {
 		t.Fatalf("a draft must not notify: %+v", b)
 	}
-	s1.json("PUT", "/api/v1/store/reports/2026-11", `{"action":"submit","quantities":[]}`, 200)
+	s1.json("PUT", "/api/v1/store/reports/2026-11/days/2026-11-06", `{"action":"submit","quantities":[{"product_id":1,"price_cents":250,"quantity":1}]}`, 200)
 	json.Unmarshal(boss.do("GET", "/api/v1/notifications", "").Body.Bytes(), &b)
-	if b.Unread != 1 || b.Items[0].Kind != "report.submitted" || !strings.HasPrefix(b.Items[0].Link, "/admin/reports/") {
+	if b.Unread != 1 || b.Items[0].Kind != "report.day_submitted" || !strings.HasPrefix(b.Items[0].Link, "/admin/reports/") {
 		t.Fatalf("%+v", b)
 	}
 }

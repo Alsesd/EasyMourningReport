@@ -10,10 +10,9 @@ export const reportsModule: AppModule = {
   id: "reports",
   title: "Звіти",
   routes: [
-    { path: "/report", component: lazy(() => import("./pages/StoreReportPage")), permissions: [RP.submit], layout: "standalone" },
+    // An absolute path: the store report keeps its short address and renders inside the shell like every page.
+    { path: "/report", component: lazy(() => import("./pages/StoreReportPage")), permissions: [RP.submit] },
     { path: "reports", component: lazy(() => import("./pages/ReportsMonthPage")), permissions: [RP.review] },
-    // The summary used to be its own page; old links and bookmarks land on the month page.
-    { path: "summary", component: lazy(() => import("./pages/SummaryRedirect")), permissions: [RP.review] },
     { path: "reports/:reportId", component: lazy(() => import("./pages/AdminReportDetailPage")), permissions: [RP.review] },
   ],
   nav: [

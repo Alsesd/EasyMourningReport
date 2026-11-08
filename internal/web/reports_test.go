@@ -36,7 +36,7 @@ func TestDemoSeedLogins(t *testing.T) {
 	seedDemo(t, e)
 	for _, l := range []string{"store1", "store2"} {
 		s := e.as(l, strings.ToUpper(l[:1])+l[1:]+"-demo")
-		if r := s.json("GET", "/api/v1/store/reports/2026-11", "", 200); r["status"] != "new" {
+		if r := s.json("GET", "/api/v1/store/reports/2026-11/days", "", 200); r["status"] != "new" {
 			t.Fatalf("%s: %v", l, r)
 		}
 	}
@@ -61,10 +61,10 @@ func TestConcurrentSavesAndReads(t *testing.T) {
 				return
 			}
 			body := fmt.Sprintf(`{"action":"draft","quantities":[{"product_id":1,"price_cents":250,"quantity":%d}]}`, i)
-			if r := e.do("PUT", "/api/v1/store/reports/2026-11", body, nil, c); r.Code != 200 {
+			if r := e.do("PUT", "/api/v1/store/reports/2026-11/days/2026-11-06", body, nil, c); r.Code != 200 {
 				note(fmt.Sprintf("save %d: %d %s", i, r.Code, r.Body.String()))
 			}
-			if r := e.do("GET", "/api/v1/store/reports/2026-11", "", nil, c); r.Code != 200 {
+			if r := e.do("GET", "/api/v1/store/reports/2026-11/days", "", nil, c); r.Code != 200 {
 				note(fmt.Sprintf("read %d: %d", i, r.Code))
 			}
 		}(i)
@@ -79,8 +79,8 @@ func TestStoreScope(t *testing.T) {
 	e := newEnv(t, nil)
 	seedDemo(t, e)
 	s1, s2 := e.as("store1", "Store1-demo"), e.as("store2", "Store2-demo")
-	s1.json("PUT", "/api/v1/store/reports/2026-11", `{"action":"draft","quantities":[{"product_id":1,"price_cents":250,"quantity":3}]}`, 200)
-	if r := s2.json("GET", "/api/v1/store/reports/2026-11", "", 200); r["status"] != "new" || r["store_name"] != "Підрозділ 2" {
+	s1.json("PUT", "/api/v1/store/reports/2026-11/days/2026-11-06", `{"action":"draft","quantities":[{"product_id":1,"price_cents":250,"quantity":3}]}`, 200)
+	if r := s2.json("GET", "/api/v1/store/reports/2026-11/days", "", 200); r["status"] != "new" || r["store_name"] != "Підрозділ 2" {
 		t.Fatalf("store2 sees %v", r)
 	}
 	if n := count(e, "SELECT COUNT(*) FROM reports r JOIN organisations o ON o.id = r.store_id WHERE o.name = 'Підрозділ 2'"); n != 0 {
@@ -92,7 +92,7 @@ func TestStoreScope(t *testing.T) {
 		}
 	}
 	boss := e.as("boss", "Boss-pass1")
-	if r := boss.do("PUT", "/api/v1/store/reports/2026-11", `{"action":"draft","quantities":[]}`); r.Code != http.StatusForbidden {
+	if r := boss.do("PUT", "/api/v1/store/reports/2026-11/days/2026-11-06", `{"action":"draft","quantities":[]}`); r.Code != http.StatusForbidden {
 		t.Fatalf("platform admin must not use store endpoints: %d", r.Code)
 	}
 }

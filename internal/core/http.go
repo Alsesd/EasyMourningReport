@@ -46,6 +46,9 @@ type Services struct {
 	// Write runs fn in the single writer transaction and commits; fn must use only the *sql.Tx it is given.
 	Write func(ctx context.Context, fn func(tx *sql.Tx) error) error
 	Now   func() time.Time
+	// Zone is the business time zone (APP_TIMEZONE, default Europe/Kyiv): what "today" and "this month" mean for
+	// the users, whatever the machine's clock is set to. Never nil.
+	Zone *time.Location
 	// ClientIP is the caller's address as the platform trusts it (proxy headers only from trusted hosts).
 	ClientIP func(r *http.Request) string
 	// Audit writes an audit row of the caller's action inside tx.
@@ -63,6 +66,14 @@ type Services struct {
 	// Catalog lists the products that may be ordered (active, not archived), sorted by name; nil when no module
 	// provides a catalogue.
 	Catalog func(ctx context.Context, q Querier) ([]CatalogProduct, error)
+}
+
+// ZoneOf returns the services' business zone, or the machine's local zone when none is set.
+func ZoneOf(s Services) *time.Location {
+	if s.Zone != nil {
+		return s.Zone
+	}
+	return time.Local
 }
 
 // Handler serves one route. The error is turned into the response (HTTPError, FormError, ValidationError, ...).

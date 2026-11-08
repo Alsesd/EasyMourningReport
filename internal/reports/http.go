@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"legkyi/internal/core"
 )
@@ -74,9 +73,9 @@ type signatureDTO struct {
 	At string `json:"signed_at"`
 }
 
-// signedDTO: the employee who submitted the report ("submission", kept after an unlock) and, only while the
+// signedDTO (a day's): the employee who submitted it ("submission", kept after an unlock) and, only while the
 // report is submitted and the lock is newer than that submission, the administrator who locked it again
-// ("locked"). Both are absent for reports from before signatures were recorded.
+// ("locked"). Both are absent until someone submits or locks the day.
 type signedDTO struct {
 	Submission *signatureDTO `json:"submission,omitempty"`
 	Locked     *signatureDTO `json:"locked,omitempty"`
@@ -97,21 +96,6 @@ func signedOf(status string, s Signatures) signedDTO {
 	return d
 }
 
-type storeReportDTO struct {
-	ReportID           *int64            `json:"report_id"`
-	StoreName          string            `json:"store_name"`
-	Period             string            `json:"period"`
-	Status             string            `json:"status"`
-	ReadOnly           bool              `json:"read_only"`
-	CalculationEnabled bool              `json:"calculation_enabled"`
-	Rows               []reportLineDTO   `json:"rows"`
-	InactiveRows       []inactiveLineDTO `json:"inactive_rows"`
-	InactiveTotalCents int64             `json:"inactive_total_cents"`
-	TotalCents         int64             `json:"total_cents"`
-	AvailablePeriods   []string          `json:"available_periods"`
-	signedDTO
-}
-
 type adminReportListItemDTO struct {
 	StoreID       int64  `json:"store_id"`
 	StoreName     string `json:"store_name"`
@@ -121,10 +105,9 @@ type adminReportListItemDTO struct {
 	Status        string `json:"status"`
 	TotalCents    int64  `json:"total_cents"`
 	ItemCount     int    `json:"item_count"`
-	signedDTO
-	// Only for months kept by days: how many days have entries and how many of them are submitted.
-	DaysCount     int `json:"days_count,omitempty"`
-	DaysSubmitted int `json:"days_submitted,omitempty"`
+	// How many days have entries and how many of them are submitted.
+	DaysCount     int `json:"days_count"`
+	DaysSubmitted int `json:"days_submitted"`
 }
 
 type adminReportDTO struct {
@@ -137,7 +120,6 @@ type adminReportDTO struct {
 	Status             string `json:"status"`
 	TotalCents         int64  `json:"total_cents"`
 	ItemCount          int    `json:"item_count"`
-	signedDTO
 }
 
 type adminReportDetailDTO struct {
@@ -212,7 +194,8 @@ func boolInt(b bool) int {
 	return 0
 }
 
-func (a *api) currentPeriod() string { return a.Now().In(time.Local).Format("2006-01") }
+// currentPeriod is this month in the business zone (APP_TIMEZONE), not the machine's.
+func (a *api) currentPeriod() string { return a.Now().In(core.ZoneOf(a.Services)).Format("2006-01") }
 
 // routes lists the module's endpoints; the shell registers each behind its permission check.
 func routes(s core.Services) []core.Route {
@@ -230,19 +213,17 @@ func routes(s core.Services) []core.Route {
 		{Method: "POST", Path: "/admin/products/{pid}/restore", Codes: cm, Handler: a.restoreProduct},
 		{Method: "POST", Path: "/admin/products/import", Codes: cm, Handler: a.importProducts},
 
-		{Method: "GET", Path: "/store/reports/{period}", Codes: sub, Member: true, Handler: a.readStoreReport},
-		{Method: "PUT", Path: "/store/reports/{period}", Codes: sub, Member: true, Handler: a.saveStoreReport},
 		{Method: "GET", Path: "/store/reports/{period}/days", Codes: sub, Member: true, Handler: a.readStoreDays},
 		{Method: "GET", Path: "/store/reports/{period}/days/{day}", Codes: sub, Member: true, Handler: a.readStoreDay},
 		{Method: "PUT", Path: "/store/reports/{period}/days/{day}", Codes: sub, Member: true, Handler: a.saveStoreDay},
 
 		{Method: "GET", Path: "/admin/reports", Codes: rv, Handler: a.listAdminReports},
 		{Method: "GET", Path: "/admin/reports/{rid}", Codes: rv, Handler: a.readAdminReport},
-		{Method: "PATCH", Path: "/admin/reports/{rid}", Codes: rv, Handler: a.updateAdminReportStatus},
 		{Method: "GET", Path: "/admin/reports/{rid}/days", Codes: rv, Handler: a.readAdminDays},
 		{Method: "GET", Path: "/admin/reports/{rid}/days/{day}", Codes: rv, Handler: a.readAdminDay},
 		{Method: "PATCH", Path: "/admin/reports/{rid}/days/{day}", Codes: rv, Handler: a.updateAdminDayStatus},
 		{Method: "GET", Path: "/admin/daily-reports", Codes: rv, Handler: a.listDailyReports},
+		{Method: "GET", Path: "/admin/missed-days", Codes: rv, Handler: a.listMissedDays},
 		{Method: "GET", Path: "/admin/summary", Codes: rv, Handler: a.readSummary},
 		{Method: "GET", Path: "/admin/summary.xlsx", Codes: rv, Handler: a.exportSummary},
 
@@ -410,8 +391,8 @@ func productOr404(ctx context.Context, q core.Querier, id int64, allowArchived b
 	return pr, nil
 }
 
-// pyString renders a JSON value like Python's str(payload.get(key) or ""): falsy values give "".
-func pyString(raw json.RawMessage) string {
+// priceText reads a price sent as a string ("26,00") or a number (26.5); anything else is empty.
+func priceText(raw json.RawMessage) string {
 	var v any
 	if json.Unmarshal(raw, &v) != nil {
 		return ""
@@ -420,15 +401,8 @@ func pyString(raw json.RawMessage) string {
 	case string:
 		return t
 	case float64:
-		if t == 0 {
-			return ""
-		}
 		b, _ := json.Marshal(t)
 		return string(b)
-	case bool:
-		if t {
-			return "True"
-		}
 	}
 	return ""
 }
@@ -449,7 +423,7 @@ func (a *api) updateProductPrice(w http.ResponseWriter, r *http.Request, p *core
 		if err != nil {
 			return err
 		}
-		raw := strings.TrimSpace(pyString(body.Raw("price")))
+		raw := strings.TrimSpace(priceText(body.Raw("price")))
 		if raw == "" {
 			return core.HTTPError{Status: 400, Detail: "Вкажіть нову ціну."}
 		}
@@ -645,184 +619,9 @@ func inactiveDTOs(rows []InactiveRow) []inactiveLineDTO {
 
 // --- store: monthly report ----------------------------------------------------------------
 
-func (a *api) storeReportDTO(ctx context.Context, q core.Querier, p *core.Caller, period string, rep *Report) (storeReportDTO, error) {
-	orgID := p.Org.ID
-	enabled, err := CalculationEnabled(ctx, q, orgID)
-	if err != nil {
-		return storeReportDTO{}, err
-	}
-	var items []Item
-	if rep != nil {
-		if items, err = LoadItems(ctx, q, rep.ID); err != nil {
-			return storeReportDTO{}, err
-		}
-	}
-	rows, inactive, inactiveTotal, err := BuildLines(ctx, q, period, items, enabled)
-	if err != nil {
-		return storeReportDTO{}, err
-	}
-	known, err := StorePeriods(ctx, q, orgID)
-	if err != nil {
-		return storeReportDTO{}, err
-	}
-	known[a.currentPeriod()] = true
-	periods := make([]string, 0, len(known))
-	for k := range known {
-		periods = append(periods, k)
-	}
-	sort.Strings(periods)
-	d := storeReportDTO{StoreName: p.Org.Name, Period: period, Status: "new", CalculationEnabled: enabled,
-		Rows: lineDTOs(rows), InactiveRows: inactiveDTOs(inactive), InactiveTotalCents: inactiveTotal, AvailablePeriods: periods}
-	for _, r := range rows {
-		d.TotalCents += r.Sum
-	}
-	if rep != nil {
-		sigs, err := SignaturesOf(ctx, q, rep.ID)
-		if err != nil {
-			return storeReportDTO{}, err
-		}
-		d.signedDTO = signedOf(rep.Status, sigs)
-	}
-	d.TotalCents += inactiveTotal
-	if rep != nil {
-		id := rep.ID
-		daily, err := IsDaily(ctx, q, rep.ID)
-		if err != nil {
-			return storeReportDTO{}, err
-		}
-		// A month kept by days is changed day by day (the month view is their sum).
-		d.ReportID, d.Status, d.ReadOnly = &id, rep.Status, rep.Status == "submitted" || daily
-	}
-	return d, nil
-}
-
-func (a *api) readStoreReport(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
-	selected, err := a.parsePeriod(core.Param(r, "period"))
-	if err != nil {
-		return err
-	}
-	ctx := r.Context()
-	known, err := StorePeriods(ctx, a.Read, p.Org.ID)
-	if err != nil {
-		return err
-	}
-	if selected != a.currentPeriod() && !known[selected] {
-		return core.HTTPError{Status: 404, Detail: "Звіту за " + selected + " немає."}
-	}
-	rep, err := FindReport(ctx, a.Read, p.Org.ID, selected)
-	if err != nil {
-		return err
-	}
-	d, err := a.storeReportDTO(ctx, a.Read, p, selected, rep)
-	if err != nil {
-		return err
-	}
-	core.WriteJSON(w, http.StatusOK, d)
-	return nil
-}
-
 type saveLine struct {
 	product, price, qty int64
 	calc                *int64
-}
-
-func (a *api) saveStoreReport(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
-	selected, err := a.parsePeriod(core.Param(r, "period"))
-	if err != nil {
-		return err
-	}
-	body, err := core.ReadBody(r)
-	if err != nil {
-		return err
-	}
-	action := body.OptLiteral("action", "draft", "draft", "submit")
-	var lines []saveLine
-	for _, item := range body.ObjectList("quantities", 5000) {
-		lines = append(lines, saveLine{
-			product: item.Int("product_id", 0, true),
-			price:   item.Int("price_cents", 0, false),
-			qty:     item.Int("quantity", 0, false),
-			calc:    item.OptIntMin("quantity_calc", 0),
-		})
-	}
-	if err := body.Err(); err != nil {
-		return err
-	}
-	orgID, ip := p.Org.ID, a.ClientIP(r)
-	var dto storeReportDTO
-	err = a.Write(r.Context(), func(tx *sql.Tx) error {
-		ctx := r.Context()
-		known, err := StorePeriods(ctx, tx, orgID)
-		if err != nil {
-			return err
-		}
-		if selected != a.currentPeriod() && !known[selected] {
-			return core.HTTPError{Status: 403, Detail: "Звіту за " + selected + " не існує."}
-		}
-		rep, err := FindReport(ctx, tx, orgID, selected)
-		if err != nil {
-			return err
-		}
-		if rep != nil && rep.Status == "submitted" {
-			return core.HTTPError{Status: 409, Detail: "Звіт надіслано й заблоковано адміністратором."}
-		}
-		if rep != nil {
-			if daily, err := IsDaily(ctx, tx, rep.ID); err != nil {
-				return err
-			} else if daily {
-				return core.HTTPError{Status: 409, Detail: errDailyMonth}
-			}
-		}
-		if rep == nil {
-			res, err := tx.ExecContext(ctx, "INSERT INTO reports (store_id, period, status) VALUES (?, ?, 'draft')", orgID, selected)
-			if err != nil {
-				return err
-			}
-			id, _ := res.LastInsertId()
-			rep = &Report{ID: id, StoreID: orgID, Period: selected, Status: "draft"}
-		}
-		items, err := LoadItems(ctx, tx, rep.ID)
-		if err != nil {
-			return err
-		}
-		editable, quantities, err := checkedQuantities(ctx, tx, selected, items, lines)
-		if err != nil {
-			return err
-		}
-		// Rows of inactive/archived products are read-only in the UI and stay untouched.
-		if err := ReplaceEditableItems(ctx, tx, rep.ID, editable, items, quantities); err != nil {
-			return err
-		}
-		status, auditAction := "draft", "збережено звіт"
-		if action == "submit" {
-			status, auditAction = "submitted", "надіслано звіт"
-		}
-		if _, err := tx.ExecContext(ctx, "UPDATE reports SET status = ? WHERE id = ?", status, rep.ID); err != nil {
-			return err
-		}
-		if action == "submit" { // the store employee's signature
-			if err := RecordSignature(ctx, tx, rep.ID, p.ID, p.DisplayName(), KindStore, a.Now()); err != nil {
-				return err
-			}
-		}
-		if err := a.Audit(tx, ip, p, auditAction, p.Org.Name+" · "+selected); err != nil {
-			return err
-		}
-		if action == "submit" {
-			if err := a.NotifyHolders(ctx, tx, p.ID, 0, []string{Review}, "report.submitted", "Звіт надіслано",
-				core.JoinNames(p.Org.Name, selected), "/admin/reports/"+strconv.Itoa(int(rep.ID))); err != nil {
-				return err
-			}
-		}
-		rep.Status = status
-		dto, err = a.storeReportDTO(ctx, tx, p, selected, rep)
-		return err
-	})
-	if err != nil {
-		return err
-	}
-	core.WriteJSON(w, http.StatusOK, dto)
-	return nil
 }
 
 // checkedQuantities validates the posted lines against the products a store can edit and the prices offered for
@@ -909,12 +708,8 @@ func (a *api) listAdminReports(w http.ResponseWriter, r *http.Request, p *core.C
 		byStore[sid] = x
 	}
 	rows.Close()
-	subs, err := SignaturesForPeriod(ctx, a.Read, selected)
-	if err != nil {
-		return err
-	}
 	dayCounts := map[int64][2]int{}
-	drows, err := a.Read.QueryContext(ctx, `SELECT d.report_id, COUNT(*), COALESCE(SUM(d.status = 'submitted'), 0)
+	drows, err := a.Read.QueryContext(ctx, `SELECT d.report_id, COUNT(*), COALESCE(SUM(`+submittedByStore+`), 0)
 		FROM report_days d JOIN reports r ON r.id = d.report_id WHERE r.period = ? GROUP BY d.report_id`, selected)
 	if err != nil {
 		return err
@@ -950,9 +745,6 @@ func (a *api) listAdminReports(w http.ResponseWriter, r *http.Request, p *core.C
 		if has {
 			rid := x.id
 			d.ReportID, d.Status, d.TotalCents, d.ItemCount = &rid, x.status, x.total, x.count
-			if sigs, ok := subs[rid]; ok {
-				d.signedDTO = signedOf(x.status, sigs)
-			}
 			if c, ok := dayCounts[rid]; ok {
 				d.DaysCount, d.DaysSubmitted = c[0], c[1]
 			}
@@ -981,11 +773,6 @@ func (a *api) adminReportHeader(ctx context.Context, q core.Querier, rep *Report
 	if org != nil {
 		d.StoreName, d.StoreArchived = org.Name, org.Archived
 	}
-	sigs, err := SignaturesOf(ctx, q, rep.ID)
-	if err != nil {
-		return adminReportDTO{}, nil, err
-	}
-	d.signedDTO = signedOf(rep.Status, sigs)
 	return d, items, nil
 }
 
@@ -1020,62 +807,6 @@ func (a *api) readAdminReport(w http.ResponseWriter, r *http.Request, p *core.Ca
 		return err
 	}
 	core.WriteJSON(w, http.StatusOK, adminReportDetailDTO{head, lineDTOs(rows), inactiveDTOs(inactive), total})
-	return nil
-}
-
-func (a *api) updateAdminReportStatus(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
-	pm := core.Query(r)
-	rid := pm.PathInt("rid")
-	if err := pm.Err(); err != nil {
-		return err
-	}
-	body, err := core.ReadBody(r)
-	if err != nil {
-		return err
-	}
-	target := body.Literal("status", "draft", "submitted")
-	if err := body.Err(); err != nil {
-		return err
-	}
-	ip := a.ClientIP(r)
-	var head adminReportDTO
-	err = a.Write(r.Context(), func(tx *sql.Tx) error {
-		ctx := r.Context()
-		rep, err := reportOr404(ctx, tx, rid)
-		if err != nil {
-			return err
-		}
-		// A month kept by days is only reviewed: its days are locked and unlocked one by one.
-		if daily, err := IsDaily(ctx, tx, rep.ID); err != nil {
-			return err
-		} else if daily {
-			return core.HTTPError{Status: 409, Detail: errMonthReadOnly}
-		}
-		if _, err := tx.ExecContext(ctx, "UPDATE reports SET status = ? WHERE id = ?", target, rid); err != nil {
-			return err
-		}
-		was := rep.Status
-		rep.Status = target
-		// An administrator's lock is recorded as such (it is not a store's submission) and never replaces the
-		// employee's signature; locking a report that is already submitted changes nothing.
-		if target == "submitted" && was != "submitted" {
-			if err := RecordSignature(ctx, tx, rep.ID, p.ID, p.DisplayName(), KindAdmin, a.Now()); err != nil {
-				return err
-			}
-		}
-		if head, _, err = a.adminReportHeader(ctx, tx, rep); err != nil {
-			return err
-		}
-		action := "розблоковано звіт"
-		if target == "submitted" {
-			action = "заблоковано звіт"
-		}
-		return a.Audit(tx, ip, p, action, head.StoreName+" · "+rep.Period)
-	})
-	if err != nil {
-		return err
-	}
-	core.WriteJSON(w, http.StatusOK, head)
 	return nil
 }
 

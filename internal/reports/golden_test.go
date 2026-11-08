@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Golden files are frozen output of the original Python implementation (see testdata/contracts/README.md).
+// Golden files hold the expected money, pricing and Excel behaviour (first recorded from the Python implementation).
 
 func load(t *testing.T, name string, v any) {
 	t.Helper()

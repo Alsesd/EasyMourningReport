@@ -1,6 +1,9 @@
 package web
 
 import (
+	"crypto/pbkdf2"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"legkyi/internal/platform"
 	"legkyi/internal/registry"
 )
 
@@ -142,12 +144,15 @@ func TestOnlyAHashOfTheTokenIsStored(t *testing.T) {
 	}
 }
 
-func TestLegacyHashIsUpgradedOnSuccessfulLoginOnly(t *testing.T) {
+// A hash made with fewer iterations than today (an older setting) is upgraded on a successful sign-in only.
+func TestWeakerHashIsUpgradedOnSuccessfulLoginOnly(t *testing.T) {
 	e := newEnv(t, nil)
-	legacy, err := platform.LegacyHashPassword("Boss-pass1", nil)
+	salt := make([]byte, 16)
+	key, err := pbkdf2.Key(sha256.New, "Boss-pass1", salt, 1000, 32)
 	if err != nil {
 		t.Fatal(err)
 	}
+	legacy := "pbkdf2_sha256$1000$" + hex.EncodeToString(salt) + "$" + hex.EncodeToString(key)
 	if _, err := e.st.W.Exec("UPDATE users SET password_hash = ? WHERE login = 'boss'", legacy); err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +165,7 @@ func TestLegacyHashIsUpgradedOnSuccessfulLoginOnly(t *testing.T) {
 		t.Fatal("a failed login must not touch the stored hash")
 	}
 	if e.login("boss", "Boss-pass1").Code != 200 {
-		t.Fatal("a legacy hash must still sign in")
+		t.Fatal("a weaker hash must still sign in")
 	}
 	if h := stored(); h == legacy || !strings.HasPrefix(h, "pbkdf2_sha256$600000$") {
 		t.Fatalf("hash was not upgraded: %q", h)

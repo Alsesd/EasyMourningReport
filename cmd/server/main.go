@@ -181,6 +181,8 @@ func serve(exe string) (bool, error) {
 		// Only the local cloudflared may set the client address (X-Forwarded-For).
 		Trusted: web.ParseTrustedHosts(orEnv("FORWARDED_ALLOW_IPS", "127.0.0.1")),
 	}
+	sched := schedulerConfig()
+	deps.Zone = sched.Loc // modules count days and months in the business zone, not the machine's
 	handler := web.New(deps)
 	// Background jobs (the modules' daily reminders, notification pruning).
 	// REMINDER_AT is "HH:MM" in APP_TIMEZONE (default 14:30, Europe/Kyiv); "off" disables the reminder.
@@ -192,7 +194,7 @@ func serve(exe string) (bool, error) {
 	schedDone := make(chan struct{})
 	go func() {
 		defer close(schedDone)
-		web.RunScheduler(ctx, deps, schedulerConfig())
+		web.RunScheduler(ctx, deps, sched)
 	}()
 	srv := &http.Server{
 		Addr:              net.JoinHostPort(cfg.Host, cfg.Port),

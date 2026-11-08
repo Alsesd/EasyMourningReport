@@ -312,13 +312,13 @@
       "method": "GET",
       "path": "/api/v1/roles",
       "expect": {
-        "status": 200,
         "json": [
           {
+            "all_permissions": true,
+            "built_in": true,
             "id": 1,
             "key": "platform_admin",
             "name": "Адміністратор",
-            "scope": "platform",
             "organisation_id": null,
             "organisation_name": null,
             "permissions": [
@@ -334,41 +334,25 @@
               "transport.orders.manage",
               "transport.orders.view_all"
             ],
-            "built_in": true,
-            "all_permissions": true,
+            "scope": "platform",
             "user_count": 1
           },
           {
-            "id": 2,
-            "key": "org_admin",
-            "name": "Адміністратор підрозділу",
-            "scope": "organisation",
-            "organisation_id": null,
-            "organisation_name": null,
-            "permissions": [
-              "org.users.manage",
-              "reports.submit",
-              "transport.orders.create"
-            ],
+            "all_permissions": false,
             "built_in": true,
-            "all_permissions": true,
-            "user_count": 0
-          },
-          {
-            "id": 3,
+            "id": 2,
             "key": "store",
             "name": "Підрозділ",
-            "scope": "organisation",
             "organisation_id": null,
             "organisation_name": null,
             "permissions": [
               "reports.submit"
             ],
-            "built_in": true,
-            "all_permissions": false,
+            "scope": "organisation",
             "user_count": 0
           }
-        ]
+        ],
+        "status": 200
       }
     },
     {
@@ -729,6 +713,42 @@
       }
     },
     {
+      "name": "create a division manager role",
+      "as": "boss",
+      "method": "POST",
+      "path": "/api/v1/roles",
+      "json": {
+        "name": "Адміністратор підрозділу",
+        "permissions": [
+          "org.users.manage",
+          "reports.submit",
+          "transport.orders.create"
+        ]
+      },
+      "save": {
+        "mgr_role": "id"
+      },
+      "expect": {
+        "json": {
+          "all_permissions": false,
+          "built_in": false,
+          "id": 3,
+          "key": null,
+          "name": "Адміністратор підрозділу",
+          "organisation_id": null,
+          "organisation_name": null,
+          "permissions": [
+            "org.users.manage",
+            "reports.submit",
+            "transport.orders.create"
+          ],
+          "scope": "platform",
+          "user_count": 0
+        },
+        "status": 201
+      }
+    },
+    {
       "name": "create org-admin user",
       "as": "boss",
       "method": "POST",
@@ -738,7 +758,7 @@
         "password": "Manager-pass1",
         "organisation_id": "{org_a}",
         "role_ids": [
-          2
+          "{mgr_role}"
         ],
         "full_name": "Mgr"
       },
@@ -746,23 +766,23 @@
         "manager_id": "id"
       },
       "expect": {
-        "status": 201,
         "json": {
+          "active": true,
+          "full_name": "Mgr",
           "id": 3,
           "login": "manager",
-          "full_name": "Mgr",
-          "active": true,
           "organisation": {
             "id": 1,
             "name": "Shop A"
           },
           "role_ids": [
-            2
+            3
           ],
           "role_names": [
             "Адміністратор підрозділу"
           ]
-        }
+        },
+        "status": 201
       }
     },
     {
@@ -775,7 +795,7 @@
         "password": "Manager-pass1",
         "organisation_id": "{org_a}",
         "role_ids": [
-          3
+          2
         ]
       },
       "expect": {
@@ -796,7 +816,7 @@
         "password": "Manager-pass1",
         "organisation_id": "{org_a}",
         "role_ids": [
-          3
+          2
         ]
       },
       "expect": {
@@ -817,7 +837,7 @@
         "password": "123",
         "organisation_id": "{org_a}",
         "role_ids": [
-          3
+          2
         ]
       },
       "expect": {
@@ -913,7 +933,6 @@
       "method": "GET",
       "path": "/api/v1/users",
       "expect": {
-        "status": 200,
         "json": [
           {
             "active": true,
@@ -925,7 +944,7 @@
               "name": "Shop A"
             },
             "role_ids": [
-              3
+              2
             ],
             "role_names": [
               "Підрозділ"
@@ -941,7 +960,7 @@
               "name": "Shop A"
             },
             "role_ids": [
-              2
+              3
             ],
             "role_names": [
               "Адміністратор підрозділу"
@@ -963,7 +982,8 @@
               "Адміністратор"
             ]
           }
-        ]
+        ],
+        "status": 200
       }
     },
     {
@@ -972,7 +992,6 @@
       "method": "GET",
       "path": "/api/v1/users?organisation_id={org_b}",
       "expect": {
-        "status": 200,
         "json": [
           {
             "active": true,
@@ -984,7 +1003,7 @@
               "name": "Shop A"
             },
             "role_ids": [
-              3
+              2
             ],
             "role_names": [
               "Підрозділ"
@@ -1000,7 +1019,7 @@
               "name": "Shop A"
             },
             "role_ids": [
-              2
+              3
             ],
             "role_names": [
               "Адміністратор підрозділу"
@@ -1022,7 +1041,8 @@
               "Адміністратор"
             ]
           }
-        ]
+        ],
+        "status": 200
       }
     },
     {
@@ -1035,30 +1055,30 @@
         "password": "Clerk2-pass",
         "organisation_id": "{org_a}",
         "role_ids": [
-          3
+          2
         ]
       },
       "save": {
         "clerk2_id": "id"
       },
       "expect": {
-        "status": 201,
         "json": {
+          "active": true,
+          "full_name": "",
           "id": 5,
           "login": "clerk2",
-          "full_name": "",
-          "active": true,
           "organisation": {
             "id": 1,
             "name": "Shop A"
           },
           "role_ids": [
-            3
+            2
           ],
           "role_names": [
             "Підрозділ"
           ]
-        }
+        },
+        "status": 201
       }
     },
     {
@@ -1071,27 +1091,27 @@
         "password": "Intruder-pass1",
         "organisation_id": "{org_b}",
         "role_ids": [
-          3
+          2
         ]
       },
       "expect": {
-        "status": 201,
         "json": {
+          "active": true,
+          "full_name": "",
           "id": 6,
           "login": "intruder",
-          "full_name": "",
-          "active": true,
           "organisation": {
             "id": 1,
             "name": "Shop A"
           },
           "role_ids": [
-            3
+            2
           ],
           "role_names": [
             "Підрозділ"
           ]
-        }
+        },
+        "status": 201
       }
     },
     {
@@ -1121,13 +1141,13 @@
       "method": "GET",
       "path": "/api/v1/roles",
       "expect": {
-        "status": 200,
         "json": [
           {
-            "id": 2,
-            "key": "org_admin",
+            "all_permissions": false,
+            "built_in": false,
+            "id": 3,
+            "key": null,
             "name": "Адміністратор підрозділу",
-            "scope": "organisation",
             "organisation_id": null,
             "organisation_name": null,
             "permissions": [
@@ -1135,25 +1155,25 @@
               "reports.submit",
               "transport.orders.create"
             ],
-            "built_in": true,
-            "all_permissions": true,
+            "scope": "platform",
             "user_count": 1
           },
           {
-            "id": 3,
+            "all_permissions": false,
+            "built_in": true,
+            "id": 2,
             "key": "store",
             "name": "Підрозділ",
-            "scope": "organisation",
             "organisation_id": null,
             "organisation_name": null,
             "permissions": [
               "reports.submit"
             ],
-            "built_in": true,
-            "all_permissions": false,
+            "scope": "organisation",
             "user_count": 3
           }
-        ]
+        ],
+        "status": 200
       }
     },
     {
@@ -1201,7 +1221,7 @@
         "active": false,
         "organisation_id": "{org_a}",
         "role_ids": [
-          2
+          "{mgr_role}"
         ]
       },
       "expect": {
@@ -1492,12 +1512,11 @@
       "method": "GET",
       "path": "/api/v1/admin/logs?limit=500",
       "expect": {
-        "status": 200,
         "json": [
           {
             "action": "вхід",
             "detail": "",
-            "id": 21,
+            "id": 22,
             "ip": "testclient",
             "login": "audit",
             "role": "Auditors",
@@ -1506,7 +1525,7 @@
           {
             "action": "додано користувача",
             "detail": "audit · платформа · Auditors",
-            "id": 20,
+            "id": 21,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -1515,7 +1534,7 @@
           {
             "action": "змінено роль",
             "detail": "Auditors: назва «Auditor» → «Auditors»; дозволи: platform.audit.view, platform.system.manage",
-            "id": 19,
+            "id": 20,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -1524,7 +1543,7 @@
           {
             "action": "додано роль",
             "detail": "Odd2: reports.submit",
-            "id": 18,
+            "id": 19,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -1533,7 +1552,7 @@
           {
             "action": "додано роль",
             "detail": "Auditor: platform.audit.view",
-            "id": 17,
+            "id": 18,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -1542,7 +1561,7 @@
           {
             "action": "змінено пароль користувача",
             "detail": "clerk2",
-            "id": 16,
+            "id": 17,
             "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
@@ -1551,7 +1570,7 @@
           {
             "action": "додано користувача",
             "detail": "intruder · Shop A · Підрозділ",
-            "id": 15,
+            "id": 16,
             "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
@@ -1560,7 +1579,7 @@
           {
             "action": "додано користувача",
             "detail": "clerk2 · Shop A · Підрозділ",
-            "id": 14,
+            "id": 15,
             "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
@@ -1569,7 +1588,7 @@
           {
             "action": "вхід",
             "detail": "",
-            "id": 13,
+            "id": 14,
             "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
@@ -1578,7 +1597,7 @@
           {
             "action": "додано користувача",
             "detail": "mixed · Shop A · Адміністратор",
-            "id": 12,
+            "id": 13,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -1587,6 +1606,15 @@
           {
             "action": "додано користувача",
             "detail": "manager · Shop A · Адміністратор підрозділу",
+            "id": 12,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
+            "action": "додано роль",
+            "detail": "Адміністратор підрозділу: org.users.manage, reports.submit, transport.orders.create",
             "id": 11,
             "ip": "testclient",
             "login": "boss",
@@ -1683,7 +1711,8 @@
             "role": "",
             "ts": "<time>"
           }
-        ]
+        ],
+        "status": 200
       }
     },
     {
@@ -1958,12 +1987,11 @@
       "method": "GET",
       "path": "/api/v1/admin/logs?limit=500",
       "expect": {
-        "status": 200,
         "json": [
           {
             "action": "видалено підрозділ",
             "detail": "Shop Beta",
-            "id": 25,
+            "id": 26,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -1972,7 +2000,7 @@
           {
             "action": "видалено підрозділ",
             "detail": "Shop A",
-            "id": 24,
+            "id": 25,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -1981,7 +2009,7 @@
           {
             "action": "видалено користувача",
             "detail": "audit",
-            "id": 23,
+            "id": 24,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -1990,7 +2018,7 @@
           {
             "action": "видалено роль",
             "detail": "Auditors",
-            "id": 22,
+            "id": 23,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -1999,7 +2027,7 @@
           {
             "action": "вхід",
             "detail": "",
-            "id": 21,
+            "id": 22,
             "ip": "testclient",
             "login": "audit",
             "role": "Auditors",
@@ -2008,7 +2036,7 @@
           {
             "action": "додано користувача",
             "detail": "audit · платформа · Auditors",
-            "id": 20,
+            "id": 21,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -2017,7 +2045,7 @@
           {
             "action": "змінено роль",
             "detail": "Auditors: назва «Auditor» → «Auditors»; дозволи: platform.audit.view, platform.system.manage",
-            "id": 19,
+            "id": 20,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -2026,7 +2054,7 @@
           {
             "action": "додано роль",
             "detail": "Odd2: reports.submit",
-            "id": 18,
+            "id": 19,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -2035,7 +2063,7 @@
           {
             "action": "додано роль",
             "detail": "Auditor: platform.audit.view",
-            "id": 17,
+            "id": 18,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -2044,7 +2072,7 @@
           {
             "action": "змінено пароль користувача",
             "detail": "clerk2",
-            "id": 16,
+            "id": 17,
             "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
@@ -2053,7 +2081,7 @@
           {
             "action": "додано користувача",
             "detail": "intruder · Shop A · Підрозділ",
-            "id": 15,
+            "id": 16,
             "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
@@ -2062,7 +2090,7 @@
           {
             "action": "додано користувача",
             "detail": "clerk2 · Shop A · Підрозділ",
-            "id": 14,
+            "id": 15,
             "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
@@ -2071,7 +2099,7 @@
           {
             "action": "вхід",
             "detail": "",
-            "id": 13,
+            "id": 14,
             "ip": "testclient",
             "login": "manager",
             "role": "Адміністратор підрозділу",
@@ -2080,7 +2108,7 @@
           {
             "action": "додано користувача",
             "detail": "mixed · Shop A · Адміністратор",
-            "id": 12,
+            "id": 13,
             "ip": "testclient",
             "login": "boss",
             "role": "Адміністратор",
@@ -2089,6 +2117,15 @@
           {
             "action": "додано користувача",
             "detail": "manager · Shop A · Адміністратор підрозділу",
+            "id": 12,
+            "ip": "testclient",
+            "login": "boss",
+            "role": "Адміністратор",
+            "ts": "<time>"
+          },
+          {
+            "action": "додано роль",
+            "detail": "Адміністратор підрозділу: org.users.manage, reports.submit, transport.orders.create",
             "id": 11,
             "ip": "testclient",
             "login": "boss",
@@ -2185,7 +2222,8 @@
             "role": "",
             "ts": "<time>"
           }
-        ]
+        ],
+        "status": 200
       }
     }
   ]

@@ -32,7 +32,10 @@ function RootRedirect() {
 
 const routes = appModules.flatMap((m) => m.routes);
 const standaloneRoutes = routes.filter((r) => r.layout === "standalone");
-const shellRoutes = routes.filter((r) => r.layout !== "standalone");
+// Shell routes live under /admin, except those a module gives an absolute path (the store report keeps /report):
+// they get the same layout through a pathless route.
+const shellRoutes = routes.filter((r) => r.layout !== "standalone" && !r.path.startsWith("/"));
+const rootShellRoutes = routes.filter((r) => r.layout !== "standalone" && r.path.startsWith("/"));
 
 export function App() {
   return (
@@ -58,6 +61,26 @@ export function App() {
                       }
                     />
                   ))}
+
+                  <Route
+                    element={
+                      <ProtectedRoute>
+                        <AdminLayout />
+                      </ProtectedRoute>
+                    }
+                  >
+                    {rootShellRoutes.map(({ path, component: Page, permissions }) => (
+                      <Route
+                        key={path}
+                        path={path}
+                        element={
+                          <ProtectedRoute permissions={permissions}>
+                            <Page />
+                          </ProtectedRoute>
+                        }
+                      />
+                    ))}
+                  </Route>
 
                   <Route
                     path="/admin"

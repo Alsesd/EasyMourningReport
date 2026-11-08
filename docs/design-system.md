@@ -79,7 +79,7 @@ Colour is never the only signal: statuses carry a word and a mark, errors carry 
 - **Phones:** a slim top bar (monogram, maker mark, theme, account) and a bottom bar with the modules' pages; the current one has a spruce top rule.
 - **Pages:** `ui/PageHeader` (crumb, serif title, one line of context, actions), then `ui/LedgerSection`s. Content stays left-aligned.
 - **Store report (`/report`):** a narrow single column on every screen size: month title with previous/next, then one ruled list of products (name, price, stepper, line sum). A product with several prices in the month lists each price under its name. The month total and the two actions stay in a footer above a heavy rule.
-- **«Звіти» month page (`/admin/reports`):** the store register (each store's state and sum, a double-ruled month total; a store without a report gets an amber row) and the products matrix that the Excel file mirrors. On phones the matrix becomes one ruled row per product whose store breakdown opens on demand. `/admin/summary` redirects here.
+- **«Звіти» month page (`/admin/reports`):** the store register (each store's state and sum, a double-ruled month total; a store without a report gets an amber row) and the products matrix that the Excel file mirrors. On phones the matrix becomes one ruled row per product whose store breakdown opens on demand.
 - **«Адміністрування» (`/admin/manage`):** a dashboard of figures, system state and recent activity, with the grouped sections nested under «Адміністрування» in the rail on desktop and one sticky section picker on phones (no horizontally scrolling tab row). Each module adds its own sections to the submenu.
 
 ## Shape and depth
