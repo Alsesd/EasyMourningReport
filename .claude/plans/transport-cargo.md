@@ -153,3 +153,46 @@ Day helpers
   login/dialog parts of `scripts/e2e_test.py`.
 - D docs: `docs/**` (except API.md transport section until A is done), `.claude/memory/**`, `.claude/plans/**` moves,
   references in `CLAUDE.md`, `.claude/rules/**`, `.claude/skills/**`, `README.md`.
+
+## Deviations / amendments (backend, recorded by agent A)
+
+Owner amendments (override the decisions above):
+- **Desk car stays required on orders.** Each present part needs a car: `car_id` from the fleet (wins), or a legacy
+  `car_number` that names a fleet car or is a standard plate; missing/invalid → 422 at `delivery.car_number` /
+  `carriers.car_number` (old behaviour). `car_required` (409, `{"detail", "code": "car_required"}`) stays only as a guard
+  on accepted/in_progress (e.g. an order that lost its car). Contract fixtures were not changed for car handling.
+- **Product requests have an optional car** (preference only, creates no cargo): `product_requests.car_id` (NULL) +
+  `car_plate` snapshot; Request JSON `car: Car|null`; POST/PATCH body `car_id: number|null`.
+- **Prices:** `product_request_items.unit_price_cents` (NULL) = the product's latest actual price (reports
+  `LatestPrice(HistoryOf(...))`, through `core.Module.Catalog`; 0 counts as no price), snapshotted when the item is created
+  or edited. Catalogue item `{id, name, price_cents|null}`; item JSON `unit_price_cents`, `total_cents` (null without a
+  price); Request `total_cents`; CargoLine `unit_price_cents`, `total_cents` (from the item snapshot). Integer cents.
+- **No 15:00 cutoff** anywhere.
+- `GET /transport/product-requests` returns `{items: Request[]}` (not a bare array).
+- Same-car on create/update: the client may send `carriers.car_id` + `car_number` + `departure` explicitly; `same_car`
+  is accepted but optional (create and `/assignment`).
+- DEMO seed adds fleet cars (АА 1234 ВВ, ВС 5678 АА, КА 0101 КК, nonstandard ЗСУ1234) and links demo orders; the
+  reports demo products already carry prices.
+
+Backend choices where the contract was silent or could not be followed literally:
+- Desk's `GET /transport/runs`: only the desk's own stops and manifest entries are returned (other desks' cargo and
+  route points are hidden).
+- A military order never takes a goods run's car (runs have no `bumped` state): 409.
+- `POST /transport/runs/{id}/status` `note` is not stored (runs have no reply column); it goes into the desks'
+  notification only.
+- `carriers.departure` on orders defaults to the delivery's destination when omitted.
+- A run needs at least one stop (422). Run stop ids change on every `PATCH /runs/{id}` (stops and cargo are replaced).
+- `/assignment` on a `bumped` order that gets a car moves it back to `submitted` (otherwise it could only be rejected).
+  Fields absent (or `car_id: null`) keep their value; clearing a car is not supported. History kind `assignment`.
+- Cargo replace (`PUT /orders/{id}/cargo`, `PATCH /runs/{id}`) deletes the carrier's lines first in the same write
+  transaction, so remaining never counts them twice. Duplicate `item_id`s in one carrier are merged.
+- `delivered` requires everything loaded and every carrier `done`; partly loaded with done carriers stays `partial`.
+- Order manifest entry `place` = the organisation name. Item carrier `car_display`/`time` for an order = the delivery
+  part's car (else the carriers part's) and the order's earliest time.
+- Typed car text that names an active fleet car is linked to it (`car_id`, canonical display).
+- New Module hooks: `core.Module.Catalog` (reports) → `core.Services.Catalog`; `core.Module.Startup` (insert-only
+  backfills, run by `cmd/server` after the seed). `core.HTTPError` gained optional `Code`.
+- Backfill: only plates that normalise to a standard plate are inserted; a car a dispatcher deactivated stays so.
+- OrganisationUsage now also counts product requests and run stops (an organisation with them is archived, not deleted).
+- Fixed on the side: `POST /organisations` with `first_user` used a `store` role a fresh database does not have;
+  `platform.EnsureStoreRole` creates it with the default grants.
