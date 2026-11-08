@@ -73,9 +73,9 @@ type signatureDTO struct {
 	At string `json:"signed_at"`
 }
 
-// signedDTO: the employee who submitted the report ("submission", kept after an unlock) and, only while the
+// signedDTO (a day's): the employee who submitted it ("submission", kept after an unlock) and, only while the
 // report is submitted and the lock is newer than that submission, the administrator who locked it again
-// ("locked"). Both are absent for reports from before signatures were recorded.
+// ("locked"). Both are absent until someone submits or locks the day.
 type signedDTO struct {
 	Submission *signatureDTO `json:"submission,omitempty"`
 	Locked     *signatureDTO `json:"locked,omitempty"`
@@ -96,21 +96,6 @@ func signedOf(status string, s Signatures) signedDTO {
 	return d
 }
 
-type storeReportDTO struct {
-	ReportID           *int64            `json:"report_id"`
-	StoreName          string            `json:"store_name"`
-	Period             string            `json:"period"`
-	Status             string            `json:"status"`
-	ReadOnly           bool              `json:"read_only"`
-	CalculationEnabled bool              `json:"calculation_enabled"`
-	Rows               []reportLineDTO   `json:"rows"`
-	InactiveRows       []inactiveLineDTO `json:"inactive_rows"`
-	InactiveTotalCents int64             `json:"inactive_total_cents"`
-	TotalCents         int64             `json:"total_cents"`
-	AvailablePeriods   []string          `json:"available_periods"`
-	signedDTO
-}
-
 type adminReportListItemDTO struct {
 	StoreID       int64  `json:"store_id"`
 	StoreName     string `json:"store_name"`
@@ -120,10 +105,9 @@ type adminReportListItemDTO struct {
 	Status        string `json:"status"`
 	TotalCents    int64  `json:"total_cents"`
 	ItemCount     int    `json:"item_count"`
-	signedDTO
-	// Only for months kept by days: how many days have entries and how many of them are submitted.
-	DaysCount     int `json:"days_count,omitempty"`
-	DaysSubmitted int `json:"days_submitted,omitempty"`
+	// How many days have entries and how many of them are submitted.
+	DaysCount     int `json:"days_count"`
+	DaysSubmitted int `json:"days_submitted"`
 }
 
 type adminReportDTO struct {
@@ -136,7 +120,6 @@ type adminReportDTO struct {
 	Status             string `json:"status"`
 	TotalCents         int64  `json:"total_cents"`
 	ItemCount          int    `json:"item_count"`
-	signedDTO
 }
 
 type adminReportDetailDTO struct {
@@ -230,7 +213,6 @@ func routes(s core.Services) []core.Route {
 		{Method: "POST", Path: "/admin/products/{pid}/restore", Codes: cm, Handler: a.restoreProduct},
 		{Method: "POST", Path: "/admin/products/import", Codes: cm, Handler: a.importProducts},
 
-		{Method: "GET", Path: "/store/reports/{period}", Codes: sub, Member: true, Handler: a.readStoreReport},
 		{Method: "GET", Path: "/store/reports/{period}/days", Codes: sub, Member: true, Handler: a.readStoreDays},
 		{Method: "GET", Path: "/store/reports/{period}/days/{day}", Codes: sub, Member: true, Handler: a.readStoreDay},
 		{Method: "PUT", Path: "/store/reports/{period}/days/{day}", Codes: sub, Member: true, Handler: a.saveStoreDay},
@@ -409,8 +391,8 @@ func productOr404(ctx context.Context, q core.Querier, id int64, allowArchived b
 	return pr, nil
 }
 
-// pyString renders a JSON value like Python's str(payload.get(key) or ""): falsy values give "".
-func pyString(raw json.RawMessage) string {
+// priceText reads a price sent as a string ("26,00") or a number (26.5); anything else is empty.
+func priceText(raw json.RawMessage) string {
 	var v any
 	if json.Unmarshal(raw, &v) != nil {
 		return ""
@@ -419,15 +401,8 @@ func pyString(raw json.RawMessage) string {
 	case string:
 		return t
 	case float64:
-		if t == 0 {
-			return ""
-		}
 		b, _ := json.Marshal(t)
 		return string(b)
-	case bool:
-		if t {
-			return "True"
-		}
 	}
 	return ""
 }
@@ -448,7 +423,7 @@ func (a *api) updateProductPrice(w http.ResponseWriter, r *http.Request, p *core
 		if err != nil {
 			return err
 		}
-		raw := strings.TrimSpace(pyString(body.Raw("price")))
+		raw := strings.TrimSpace(priceText(body.Raw("price")))
 		if raw == "" {
 			return core.HTTPError{Status: 400, Detail: "Вкажіть нову ціну."}
 		}
@@ -644,82 +619,6 @@ func inactiveDTOs(rows []InactiveRow) []inactiveLineDTO {
 
 // --- store: monthly report ----------------------------------------------------------------
 
-func (a *api) storeReportDTO(ctx context.Context, q core.Querier, p *core.Caller, period string, rep *Report) (storeReportDTO, error) {
-	orgID := p.Org.ID
-	enabled, err := CalculationEnabled(ctx, q, orgID)
-	if err != nil {
-		return storeReportDTO{}, err
-	}
-	var items []Item
-	if rep != nil {
-		if items, err = LoadItems(ctx, q, rep.ID); err != nil {
-			return storeReportDTO{}, err
-		}
-	}
-	rows, inactive, inactiveTotal, err := BuildLines(ctx, q, period, items, enabled)
-	if err != nil {
-		return storeReportDTO{}, err
-	}
-	known, err := StorePeriods(ctx, q, orgID)
-	if err != nil {
-		return storeReportDTO{}, err
-	}
-	known[a.currentPeriod()] = true
-	periods := make([]string, 0, len(known))
-	for k := range known {
-		periods = append(periods, k)
-	}
-	sort.Strings(periods)
-	d := storeReportDTO{StoreName: p.Org.Name, Period: period, Status: "new", CalculationEnabled: enabled,
-		Rows: lineDTOs(rows), InactiveRows: inactiveDTOs(inactive), InactiveTotalCents: inactiveTotal, AvailablePeriods: periods}
-	for _, r := range rows {
-		d.TotalCents += r.Sum
-	}
-	if rep != nil {
-		sigs, err := SignaturesOf(ctx, q, rep.ID)
-		if err != nil {
-			return storeReportDTO{}, err
-		}
-		d.signedDTO = signedOf(rep.Status, sigs)
-	}
-	d.TotalCents += inactiveTotal
-	if rep != nil {
-		id := rep.ID
-		daily, err := IsDaily(ctx, q, rep.ID)
-		if err != nil {
-			return storeReportDTO{}, err
-		}
-		// A month kept by days is changed day by day (the month view is their sum).
-		d.ReportID, d.Status, d.ReadOnly = &id, rep.Status, rep.Status == "submitted" || daily
-	}
-	return d, nil
-}
-
-func (a *api) readStoreReport(w http.ResponseWriter, r *http.Request, p *core.Caller) error {
-	selected, err := a.parsePeriod(core.Param(r, "period"))
-	if err != nil {
-		return err
-	}
-	ctx := r.Context()
-	known, err := StorePeriods(ctx, a.Read, p.Org.ID)
-	if err != nil {
-		return err
-	}
-	if selected != a.currentPeriod() && !known[selected] {
-		return core.HTTPError{Status: 404, Detail: "Звіту за " + selected + " немає."}
-	}
-	rep, err := FindReport(ctx, a.Read, p.Org.ID, selected)
-	if err != nil {
-		return err
-	}
-	d, err := a.storeReportDTO(ctx, a.Read, p, selected, rep)
-	if err != nil {
-		return err
-	}
-	core.WriteJSON(w, http.StatusOK, d)
-	return nil
-}
-
 type saveLine struct {
 	product, price, qty int64
 	calc                *int64
@@ -809,12 +708,8 @@ func (a *api) listAdminReports(w http.ResponseWriter, r *http.Request, p *core.C
 		byStore[sid] = x
 	}
 	rows.Close()
-	subs, err := SignaturesForPeriod(ctx, a.Read, selected)
-	if err != nil {
-		return err
-	}
 	dayCounts := map[int64][2]int{}
-	drows, err := a.Read.QueryContext(ctx, `SELECT d.report_id, COUNT(*), COALESCE(SUM(d.status = 'submitted'), 0)
+	drows, err := a.Read.QueryContext(ctx, `SELECT d.report_id, COUNT(*), COALESCE(SUM(`+submittedByStore+`), 0)
 		FROM report_days d JOIN reports r ON r.id = d.report_id WHERE r.period = ? GROUP BY d.report_id`, selected)
 	if err != nil {
 		return err
@@ -850,9 +745,6 @@ func (a *api) listAdminReports(w http.ResponseWriter, r *http.Request, p *core.C
 		if has {
 			rid := x.id
 			d.ReportID, d.Status, d.TotalCents, d.ItemCount = &rid, x.status, x.total, x.count
-			if sigs, ok := subs[rid]; ok {
-				d.signedDTO = signedOf(x.status, sigs)
-			}
 			if c, ok := dayCounts[rid]; ok {
 				d.DaysCount, d.DaysSubmitted = c[0], c[1]
 			}
@@ -881,11 +773,6 @@ func (a *api) adminReportHeader(ctx context.Context, q core.Querier, rep *Report
 	if org != nil {
 		d.StoreName, d.StoreArchived = org.Name, org.Archived
 	}
-	sigs, err := SignaturesOf(ctx, q, rep.ID)
-	if err != nil {
-		return adminReportDTO{}, nil, err
-	}
-	d.signedDTO = signedOf(rep.Status, sigs)
 	return d, items, nil
 }
 

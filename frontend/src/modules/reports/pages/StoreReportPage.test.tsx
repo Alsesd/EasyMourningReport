@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/platform/theme/ThemeContext";
 import { AuthProvider } from "@/platform/auth/AuthContext";
 import StoreReportPage from "./StoreReportPage";
-import type { StoreReportDTO, SessionDTO, DayReportDTO, MonthDaysDTO } from "@/platform/api/types";
+import type { SessionDTO, DayReportDTO, MonthDaysDTO, ReportLineDTO, InactiveReportLineDTO } from "@/platform/api/types";
 
 const mockSession: SessionDTO = {
   user_id: 5,
@@ -18,14 +18,7 @@ const mockSession: SessionDTO = {
   period: "2026-10",
 };
 
-const mockReport: StoreReportDTO = {
-  report_id: 10,
-  store_name: "Тестовий магазин",
-  period: "2026-10",
-  status: "draft",
-  read_only: false,
-  calculation_enabled: true,
-  rows: [
+const mockRows: ReportLineDTO[] = [
     {
       id: 101,
       name: "Хліб пшеничний",
@@ -63,31 +56,27 @@ const mockReport: StoreReportDTO = {
         },
       ],
     },
-  ],
-  inactive_rows: [
+  ];
+
+const mockInactive: InactiveReportLineDTO[] = [
     {
       name: "Старий товар",
       archived: true,
       lines: "1 × 10.00",
       sum_cents: 1000,
     },
-  ],
-  inactive_total_cents: 1000,
-  total_cents: 16000,
-  available_periods: ["2026-09", "2026-10"],
-};
+  ];
 
 const mockDays: MonthDaysDTO = {
   report_id: 10,
   store_name: "Тестовий магазин",
   period: "2026-10",
   status: "draft",
-  daily: true,
   total_cents: 23000,
   first_day: "2026-10-01",
   last_day: "2026-10-06",
   today: "2026-10-06",
-  undated: null,
+  available_periods: ["2026-09", "2026-10"],
   days: [
     { day: "2026-10-05", status: "submitted", total_cents: 7000, item_count: 1, missed: false },
     { day: "2026-10-06", status: "draft", total_cents: 16000, item_count: 3, missed: false },
@@ -105,8 +94,8 @@ const mockDay: DayReportDTO = {
   month_status: "draft",
   read_only: false,
   calculation_enabled: true,
-  rows: mockReport.rows ?? [],
-  inactive_rows: mockReport.inactive_rows ?? [],
+  rows: mockRows,
+  inactive_rows: mockInactive,
   inactive_total_cents: 1000,
   total_cents: 16000,
   missed: false,
@@ -168,7 +157,7 @@ describe("StoreReportPage", () => {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(mockReport),
+          json: () => Promise.resolve(mockDays),
         });
       }
       return Promise.reject(new Error("Unknown route"));
@@ -290,18 +279,6 @@ describe("StoreReportPage", () => {
     expect(screen.queryByText("Товари за місяць")).toBeNull();
   });
 
-  it("warns on a day that the month already has quantities entered without a date", async () => {
-    mockDays.undated = { day: "undated", status: "draft", total_cents: 50000, item_count: 2, missed: false };
-    try {
-      renderPage();
-      await screen.findByText("Хліб пшеничний");
-      expect(await screen.findByText(/без дати\. У день вносьте лише продажі цього дня/)).toBeDefined();
-      expect(screen.getByRole("button", { name: /Без дати/ })).toBeDefined();
-    } finally {
-      mockDays.undated = null;
-    }
-  });
-
   it("explains a day closed at midnight without a submission", async () => {
     const original = { ...mockDay };
     Object.assign(mockDay, { status: "submitted", read_only: true, missed: true, auto_locked_at: "2026-10-06T21:00:00Z" });
@@ -336,5 +313,23 @@ describe("StoreReportPage", () => {
     await screen.findByText("Хліб пшеничний");
     expect(await screen.findByText(/колега зберіг\(ла\) цей день/)).toBeDefined();
     expect((screen.getByRole("textbox", { name: "Кількість: Хліб пшеничний, 25,00\u00a0₴" }) as HTMLInputElement).value).toBe("2");
+  });
+
+  it("does not offer to submit an empty day", async () => {
+    const original = { ...mockDay };
+    Object.assign(mockDay, {
+      rows: mockRows.map((r) => ({ ...r, sum_cents: 0, inputs: (r.inputs ?? []).map((i) => ({ ...i, quantity: 0, sum_cents: 0 })) })),
+    });
+    try {
+      renderPage();
+      await screen.findByText("Хліб пшеничний");
+      const submit = screen.getByRole("button", { name: /Надіслати день/ }) as HTMLButtonElement;
+      expect(submit.disabled).toBe(true);
+      expect(screen.getByText(/внесіть кількість хоча б одного товару/)).toBeDefined();
+      fireEvent.click(screen.getAllByLabelText(/Збільшити кількість/i)[0]);
+      await waitFor(() => expect((screen.getByRole("button", { name: /Надіслати день/ }) as HTMLButtonElement).disabled).toBe(false));
+    } finally {
+      Object.assign(mockDay, original);
+    }
   });
 });

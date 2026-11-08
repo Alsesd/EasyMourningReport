@@ -91,9 +91,6 @@ CREATE TABLE roles (
 	FOREIGN KEY(organisation_id) REFERENCES organisations (id) ON DELETE CASCADE
 );
 
--- table schema_migrations (table schema_migrations)
-CREATE TABLE schema_migrations (id VARCHAR PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
-
 -- table user_roles (table user_roles)
 CREATE TABLE user_roles (
 	user_id INTEGER NOT NULL, 

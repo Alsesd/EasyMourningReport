@@ -63,12 +63,10 @@ const mockDays: MonthDaysDTO = {
   store_name: "Магазин Центр",
   period: "2026-10",
   status: "draft",
-  daily: true,
   total_cents: 9000,
   first_day: "2026-10-01",
   last_day: "2026-10-31",
   today: "2026-11-06",
-  undated: null,
   days: [
     { day: "2026-10-05", status: "draft", total_cents: 4000, item_count: 1, missed: false },
     { day: "2026-10-07", status: "submitted", total_cents: 5000, item_count: 1, missed: true, auto_locked_at: "2026-10-07T21:00:00Z" },
@@ -117,7 +115,7 @@ describe("AdminReportDetailPage", () => {
         return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(mockDay) });
       }
       if (url.includes("/api/v1/admin/reports/101/days")) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(daily ? mockDays : { ...mockDays, daily: false, days: [] }) });
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(daily ? mockDays : { ...mockDays, days: [] }) });
       }
       if (url.includes("/api/v1/admin/reports/101") && init?.method === "PATCH") {
         return Promise.resolve({

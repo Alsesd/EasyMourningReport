@@ -12,14 +12,21 @@ import (
 	"legkyi/internal/core"
 )
 
-// Built-in roles. platform_admin and org_admin
-// hold every permission of their scope implicitly; "store" gets the modules' default grants.
+// Built-in roles. platform_admin holds every platform permission implicitly; "store" gets the modules' default grants.
 type builtIn struct{ Key, Name, Scope string }
 
 var BuiltInRoles = []builtIn{
 	{"platform_admin", "Адміністратор", "platform"},
-	{"org_admin", "Адміністратор підрозділу", "organisation"},
 	{"store", "Підрозділ", "organisation"},
+}
+
+func builtInRole(key string) builtIn {
+	for _, r := range BuiltInRoles {
+		if r.Key == key {
+			return r
+		}
+	}
+	panic("unknown built-in role " + key)
 }
 
 // SQLTimeFormat is the naive-UTC text format SQLAlchemy writes for DATETIME columns.
@@ -85,7 +92,7 @@ func EnsureAdminRole(tx *sql.Tx) (int64, error) {
 	var id int64
 	err := tx.QueryRow(`SELECT id FROM roles WHERE "key" = ?`, "platform_admin").Scan(&id)
 	if err == sql.ErrNoRows {
-		res, err := tx.Exec(`INSERT INTO roles ("key", name, scope) VALUES (?, ?, ?)`, "platform_admin", BuiltInRoles[0].Name, BuiltInRoles[0].Scope)
+		res, err := tx.Exec(`INSERT INTO roles ("key", name, scope) VALUES (?, ?, ?)`, "platform_admin", builtInRole(PlatformAdmin).Name, builtInRole(PlatformAdmin).Scope)
 		if err != nil {
 			return 0, err
 		}
@@ -102,7 +109,7 @@ func EnsureStoreRole(tx *sql.Tx, grants map[string][]string) (int64, error) {
 	if err != sql.ErrNoRows {
 		return id, err
 	}
-	r := BuiltInRoles[2]
+	r := builtInRole(StoreRole)
 	res, err := tx.Exec(`INSERT INTO roles ("key", name, scope) VALUES (?, ?, ?)`, r.Key, r.Name, r.Scope)
 	if err != nil {
 		return 0, fmt.Errorf("create role %s: %w", r.Key, err)

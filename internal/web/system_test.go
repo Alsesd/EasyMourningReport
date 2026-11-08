@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"legkyi/internal/platform"
+	"legkyi/internal/registry"
 	"legkyi/internal/store"
 	"legkyi/internal/system"
 )
@@ -185,13 +185,13 @@ func TestBackupDownloadWithoutBackupsIs500(t *testing.T) {
 func TestOverviewByRole(t *testing.T) {
 	e := newEnv(t, nil)
 	seedDemo(t, e)
-	tx, _ := e.st.W.Begin()
-	roles, _ := platform.EnsureBuiltInRoles(tx, nil)
 	var org int64
-	tx.QueryRow("SELECT id FROM organisations WHERE name = 'Підрозділ 1'").Scan(&org)
-	h, _ := platform.HashPassword("pw", nil)
-	platform.CreateUser(tx, "manager", h, &org, e.now, roles["org_admin"])
-	tx.Commit()
+	e.st.R.QueryRow("SELECT id FROM organisations WHERE name = 'Підрозділ 1'").Scan(&org)
+	var orgCodes []string
+	for c := range registry.Installed().Codes("organisation") {
+		orgCodes = append(orgCodes, c)
+	}
+	e.addUser("manager", "", "pw", &org, "organisation", orgCodes...)
 
 	admin := e.as("boss", "Boss-pass1").json("GET", "/api/v1/admin/overview", "", 200)
 	acc := admin["accounts"].(map[string]any)

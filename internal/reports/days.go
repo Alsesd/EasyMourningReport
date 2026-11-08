@@ -9,24 +9,16 @@ import (
 	"legkyi/internal/core"
 )
 
-// Daily reports (Go-owned tables report_days and report_day_items, see internal/store/schema.go).
+// Daily reports (tables report_days and report_day_items, see internal/store/schema.go).
 //
-// A month (reports row) is either kept as a whole (no report_days rows: the behaviour from before daily reports,
-// report_items holds the quantities and the month is submitted at once) or kept by days. The first day saved for a
-// month turns it into a daily one: quantities it already had move into the undated bucket («без дати», day ''), so
-// nothing entered before is lost. From then on report_items is the month's aggregate: for the products a store can
-// edit it is rebuilt from the days in the same transaction as every day save. Each day has its own status and
-// signatures; the month's status is derived (submitted when every day is).
-
-// Undated is the bucket of quantities entered for the whole month before the month was kept by days.
-const Undated = ""
-
-// UndatedToken names the undated bucket in URLs and JSON.
-const UndatedToken = "undated"
+// A store fills in each day of a month; report_items is the month's aggregate (the sum of the days, rebuilt for the
+// products a store can edit in the same transaction as every day save), so the summary, the Excel export and the
+// dashboard read the month directly. Each day has its own status and signatures; the month's status is derived
+// (submitted when every day is).
 
 // Day is one day of a monthly report.
 type Day struct {
-	Day    string // YYYY-MM-DD or Undated
+	Day    string // YYYY-MM-DD
 	Status string // draft | submitted
 	Signatures
 	// Missed: the store had not submitted the day by midnight (stays after a late submission).
@@ -74,31 +66,6 @@ func scanDay(scan func(...any) error) (Day, error) {
 	return d, nil
 }
 
-// IsDaily reports whether the month is kept by days.
-func IsDaily(ctx context.Context, q core.Querier, reportID int64) (bool, error) {
-	var n int
-	err := q.QueryRowContext(ctx, "SELECT COUNT(*) FROM report_days WHERE report_id = ?", reportID).Scan(&n)
-	return n > 0, err
-}
-
-// DailyReports returns the ids of the reports of a period that are kept by days.
-func DailyReports(ctx context.Context, q core.Querier, period string) (map[int64]bool, error) {
-	rows, err := q.QueryContext(ctx, "SELECT DISTINCT d.report_id FROM report_days d JOIN reports r ON r.id = d.report_id WHERE r.period = ?", period)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[int64]bool{}
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		out[id] = true
-	}
-	return out, rows.Err()
-}
-
 // LoadDay returns one day of a report, or nil when it has none.
 func LoadDay(ctx context.Context, q core.Querier, reportID int64, day string) (*Day, error) {
 	row := q.QueryRowContext(ctx, "SELECT "+dayColumns+" FROM report_days WHERE report_id = ? AND day = ?", reportID, day)
@@ -112,7 +79,7 @@ func LoadDay(ctx context.Context, q core.Querier, reportID int64, day string) (*
 	return &d, nil
 }
 
-// DayTotals returns every day of a report with its totals, undated first, then by date.
+// DayTotals returns every day of a report with its totals, by date.
 func DayTotals(ctx context.Context, q core.Querier, reportID int64) ([]DayTotal, error) {
 	rows, err := q.QueryContext(ctx, "SELECT "+dayColumns+" FROM report_days WHERE report_id = ? ORDER BY day", reportID)
 	if err != nil {
@@ -170,53 +137,6 @@ func LoadDayItems(ctx context.Context, q core.Querier, reportID int64, day strin
 		out = append(out, it)
 	}
 	return out, rows.Err()
-}
-
-// MakeDaily turns a month kept as a whole into a daily one: its quantities (all products, inactive ones included)
-// and its status and signatures move into the undated bucket. A month without quantities gets no undated bucket.
-// Does nothing for a month that is already daily.
-func MakeDaily(ctx context.Context, tx *sql.Tx, rep *Report) error {
-	daily, err := IsDaily(ctx, tx, rep.ID)
-	if err != nil || daily {
-		return err
-	}
-	items, err := LoadItems(ctx, tx, rep.ID)
-	if err != nil {
-		return err
-	}
-	var keep []Item
-	for _, it := range items {
-		if it.Quantity != 0 || it.QuantityCalc != 0 {
-			keep = append(keep, it)
-		}
-	}
-	if len(keep) == 0 {
-		return nil
-	}
-	sigs, err := SignaturesOf(ctx, tx, rep.ID)
-	if err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, "INSERT INTO report_days (report_id, day, status) VALUES (?, ?, ?)", rep.ID, Undated, rep.Status); err != nil {
-		return err
-	}
-	if s := sigs.Submitted; s != nil {
-		if err := setDaySignature(ctx, tx, rep.ID, Undated, KindStore, s.ByID, s.ByName, s.At); err != nil {
-			return err
-		}
-	}
-	if s := sigs.Locked; s != nil {
-		if err := setDaySignature(ctx, tx, rep.ID, Undated, KindAdmin, s.ByID, s.ByName, s.At); err != nil {
-			return err
-		}
-	}
-	for _, it := range keep {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO report_day_items (report_id, day, product_id, unit_price_cents, quantity, quantity_calc)
-			VALUES (?, ?, ?, ?, ?, ?)`, rep.ID, Undated, it.ProductID, it.UnitPrice, it.Quantity, it.QuantityCalc); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // EnsureDay creates a draft day when the report has none for that date yet.
@@ -338,11 +258,11 @@ func RebuildAggregate(ctx context.Context, tx *sql.Tx, reportID int64, editable 
 	return nil
 }
 
-// SyncMonthStatus derives a daily month's status from its days: submitted when every day is, else draft. A month
-// kept as a whole keeps its own status. Returns the month's status.
+// SyncMonthStatus derives the month's status from its days: submitted when the store submitted every day (a day
+// closed at midnight without a submission keeps the month a draft), else draft. Returns it.
 func SyncMonthStatus(ctx context.Context, tx *sql.Tx, rep *Report) (string, error) {
 	var total, submitted int
-	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*), COALESCE(SUM(status = 'submitted'), 0) FROM report_days WHERE report_id = ?", rep.ID).Scan(&total, &submitted); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT COUNT(*), COALESCE(SUM(status = 'submitted' AND submitted_at > 0), 0) FROM report_days WHERE report_id = ?", rep.ID).Scan(&total, &submitted); err != nil {
 		return "", err
 	}
 	if total == 0 {
@@ -361,14 +281,14 @@ func SyncMonthStatus(ctx context.Context, tx *sql.Tx, rep *Report) (string, erro
 	return status, nil
 }
 
-// statusItemsSQL lists every saved quantity with the status that decides whether it counts as submitted: a month
-// kept as a whole carries the month's status (day ”), a daily month each day's own (its report_items rows are the
-// aggregate of these and are skipped). Columns: report_id, store_id, period, day, product_id, quantity,
+// submittedByStore is the SQL condition (on report_days d) of a day that counts as submitted: locked AND submitted by
+// the store. A day closed at midnight (or locked by a reviewer) without the store's submission does not count.
+const submittedByStore = `d.status = 'submitted' AND d.submitted_at > 0`
+
+// statusItemsSQL lists every saved quantity of every day with "submitted" when the day counts as submitted
+// (submittedByStore) and "draft" otherwise. Columns: report_id, store_id, period, day, product_id, quantity,
 // quantity_calc, unit_price_cents, status.
-const statusItemsSQL = `SELECT r.id AS report_id, r.store_id AS store_id, r.period AS period, '' AS day, i.product_id AS product_id,
-		i.quantity AS quantity, i.quantity_calc AS quantity_calc, i.unit_price_cents AS unit_price_cents, r.status AS status
-	FROM report_items i JOIN reports r ON r.id = i.report_id
-	WHERE NOT EXISTS (SELECT 1 FROM report_days d WHERE d.report_id = r.id)
-	UNION ALL
-	SELECT r.id, r.store_id, r.period, x.day, x.product_id, x.quantity, x.quantity_calc, x.unit_price_cents, d.status
+const statusItemsSQL = `SELECT r.id AS report_id, r.store_id AS store_id, r.period AS period, x.day AS day, x.product_id AS product_id,
+		x.quantity AS quantity, x.quantity_calc AS quantity_calc, x.unit_price_cents AS unit_price_cents,
+		CASE WHEN ` + submittedByStore + ` THEN 'submitted' ELSE 'draft' END AS status
 	FROM report_day_items x JOIN report_days d ON d.report_id = x.report_id AND d.day = x.day JOIN reports r ON r.id = x.report_id`

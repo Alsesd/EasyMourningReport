@@ -3,7 +3,6 @@ import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { reportsApi } from "@/modules/reports/api";
 import { uk, formatCurrency, formatPeriodReadable, formatDayReadable, formatDateTime } from "@/modules/reports/i18n";
-import { UNDATED } from "@/modules/reports/api";
 import { DayStrip, MONTH_VIEW } from "@/modules/reports/components/DayStrip";
 import { LedgerSection } from "@/ui/LedgerSection";
 import { Notice } from "@/ui/Notice";
@@ -29,7 +28,7 @@ export default function AdminReportDetailPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; kind: "ok" | "err" } | null>(null);
 
-  // ?day=YYYY-MM-DD (or "undated") opens one day of the month; without it the month (the sum of its days).
+  // ?day=YYYY-MM-DD opens one day of the month; without it the month (the sum of its days).
   const [searchParams, setSearchParams] = useSearchParams();
   const view = searchParams.get("day") || MONTH_VIEW;
   const isDayView = view !== MONTH_VIEW;
@@ -112,9 +111,9 @@ export default function AdminReportDetailPage() {
   const isSubmitted = status === "submitted";
   const targetStatus = isSubmitted ? "draft" : "submitted";
   const canToggle = isDayView && Boolean(day && day.status !== "new");
-  const dayTitle = view === UNDATED ? uk.daily.undated : formatDayReadable(view);
+  const dayTitle = formatDayReadable(view);
   const lockLabel = isSubmitted ? uk.daily.unlockDay : uk.daily.lockDay;
-  const hasDays = Boolean(days && (days.daily || days.undated));
+  const hasDays = Boolean(days && days.days.length > 0);
   const daysSent = days ? days.days.filter((d) => d.status === "submitted").length : 0;
 
   const displayLines = (shown?.rows || []).flatMap((row) =>
@@ -146,7 +145,7 @@ export default function AdminReportDetailPage() {
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span>{formatPeriodReadable(report.period)}</span>
             <StatusPill status={report.status} />
-            {days?.daily && <span>{uk.daily.daysSubmittedOf(daysSent, days.days.length)}</span>}
+            {hasDays && days && <span>{uk.daily.daysSubmittedOf(daysSent, days.days.length)}</span>}
             {!isDayView && <Signature status={report.status} signed={report} />}
             {report.store_archived && <span>{uk.month.archived}</span>}
           </span>

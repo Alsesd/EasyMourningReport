@@ -38,7 +38,6 @@ export type IntegrityDTO = Schemas["IntegrityDTO"];
 export type AdminOverviewDTO = Schemas["AdminOverviewDTO"];
 
 // Reports module
-export type StoreReportDTO = Schemas["StoreReportDTO"];
 export type SignatureDTO = Schemas["SignatureDTO"];
 export type ReportLineDTO = Schemas["ReportLineDTO"];
 export type ReportInputDTO = Schemas["ReportInputDTO"];

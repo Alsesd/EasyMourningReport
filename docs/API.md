@@ -71,15 +71,14 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 
 | Method | Path | Permission | Purpose |
 |---|---|---|---|
-| GET | `/store/reports/{period}` | `reports.submit` (organisation member) | The caller's organisation report and editable lines |
 | GET | `/admin/reports?period=YYYY-MM` | `reports.review` | Reports of all visible organisations for a month, including missing submissions |
 | GET | `/admin/reports/{id}` | `reports.review` | Report detail |
-| GET | `/store/reports/{period}/days` | `reports.submit` (organisation member) | How the month is kept: `daily`, month status and total, `first_day`/`last_day`/`today`, `undated` (quantities entered for the whole month) and `days` (`{day, status, total_cents, item_count, submission?, locked?}`) |
-| GET | `/store/reports/{period}/days/{day}` | `reports.submit` (organisation member) | One day's form (`day` is `YYYY-MM-DD` inside the month and not in the future, or `undated`) |
+| GET | `/store/reports/{period}/days` | `reports.submit` (organisation member) | The month's days (`{day, status, total_cents, item_count, missed, auto_locked_at?, submission?, locked?}`), month status and total, `first_day`/`last_day`/`today`, and `available_periods` (the months the store can open) |
+| GET | `/store/reports/{period}/days/{day}` | `reports.submit` (organisation member) | One day's form (`day` is `YYYY-MM-DD` inside the month and not in the future) |
 | PUT | `/store/reports/{period}/days/{day}` | `reports.submit` (organisation member) | Save the day as a draft or submit it (`{action, quantities, revision?}`). With `revision` (the day's `revision` as loaded) a save over a colleague's newer change answers `409` naming who saved; the response's `saved` names the last employee who saved. `409` when the day is submitted or the month was submitted as a whole; the month's `report_items` become the sum of its days |
 | GET | `/admin/reports/{id}/days` | `reports.review` | The report's days (same shape as the store's) |
 | GET | `/admin/reports/{id}/days/{day}` | `reports.review` | One day of the report |
-| PATCH | `/admin/reports/{id}/days/{day}` | `reports.review` | Lock/unlock one day (`{status}`); `undated` also unlocks a month submitted as a whole. The month itself has no write endpoint: it is review-only (the monthly `PUT /store/reports/{period}` and `PATCH /admin/reports/{id}` were removed; signatures recorded by them still show as history) |
+| PATCH | `/admin/reports/{id}/days/{day}` | `reports.review` | Lock/unlock one day (`{status}`); The month itself has no write endpoint: it is review-only |
 | GET | `/admin/daily-reports?day=YYYY-MM-DD` | `reports.review` | Every organisation's state and total for one day |
 | GET | `/admin/missed-days?period=YYYY-MM` | `reports.review` | Per store, the days of the month not submitted before midnight (`days`) and which of them were submitted later (`late`). Day responses carry `missed`, `auto_locked_at` (when closed at midnight) and, for a store's past day without a report, `closed` |
 | GET | `/admin/summary?period=YYYY-MM&submitted_only=false` | `reports.review` | Summary DTO and totals; `?day=YYYY-MM-DD` instead of `period` gives one day (`day` in the response) |

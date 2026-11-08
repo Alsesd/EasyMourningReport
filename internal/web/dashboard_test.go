@@ -100,9 +100,16 @@ func TestDashboardRevenueEqualsTheSummary(t *testing.T) {
 	archived := d.exec("INSERT INTO organisations (name, archived) VALUES ('Архівна філія', 1)")
 	p1 := d.exec("INSERT INTO products (name, price_cents, active, archived) VALUES ('Труна Бейка спец 3 метра', 150000, 1, 0)")
 	p2 := d.exec("INSERT INTO products (name, price_cents, active, archived) VALUES ('Вінок', 25000, 1, 0)")
+	// One day of the month with the given status; report_items is its aggregate, as a day save leaves it.
 	report := func(org int64, period, status string, items ...[4]int64) {
 		rid := d.exec("INSERT INTO reports (store_id, period, status) VALUES (?, ?, ?)", org, period, status)
+		submittedAt := 0
+		if status == "submitted" { // submitted by the store
+			submittedAt = 1
+		}
+		d.exec("INSERT INTO report_days (report_id, day, status, submitted_at) VALUES (?, ?, ?, ?)", rid, period+"-02", status, submittedAt)
 		for _, it := range items { // product, quantity, calc, price
+			d.exec("INSERT INTO report_day_items (report_id, day, product_id, quantity, quantity_calc, unit_price_cents) VALUES (?, ?, ?, ?, ?, ?)", rid, period+"-02", it[0], it[1], it[2], it[3])
 			d.exec("INSERT INTO report_items (report_id, product_id, quantity, quantity_calc, unit_price_cents) VALUES (?, ?, ?, ?, ?)", rid, it[0], it[1], it[2], it[3])
 		}
 	}

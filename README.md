@@ -87,9 +87,9 @@ Without `TUNNEL_TOKEN` the program opens a temporary Quick Tunnel and prints its
 
 Notes: the file is not code-signed, so Windows SmartScreen may warn on first start («More info → Run anyway») and some antivirus tools inspect the unpacked `cloudflared`. Put the program in a folder you can write to (not `C:\Program Files`); otherwise data goes to `%LOCALAPPDATA%\LegkyiZvit` and a warning is printed.
 
-## Upgrading from earlier releases
+## Database
 
-The Go server opens existing databases from the Python releases unchanged (same file, same schema, same password hashes). It does **not** carry the old upgrade code: a database must already have been started once by the last Python release (commit `92564ef`, which migrated the single-admin layout to organisations and roles). Otherwise start-up stops with a message saying so. Everyone has to sign in once more after the switch because the session mechanism changed. **Rolling back to the Python release means restoring the backup taken before the switch**: passwords upgraded by Go (on sign-in) use a newer hash format the Python release cannot read.
+A new data folder gets a fresh database on first start; an existing one keeps its data and gains new tables and columns automatically (nothing is ever rebuilt or dropped). There is no compatibility with the earlier Python releases: their databases are not supported.
 
 ## Public access (Cloudflare Tunnel)
 
@@ -150,4 +150,4 @@ go run ./cmd/smoke -exe dist/legkyi            # starts it in an empty folder an
 CHROMIUM_PATH=/opt/pw-browsers/chromium LEGKYI_E2E_BINARY=dist/legkyi uv run scripts/e2e_test.py   # browser test
 ```
 
-The index of the documentation is [docs/README.md](docs/README.md); the Ukrainian guide for a manual tester is [docs/uk/onboarding/](docs/uk/onboarding/00-zmist.md). See [Architecture](docs/architecture.md), [REST API](docs/API.md), [security notes](docs/security.md), [UX contract](docs/ux-contract.md), [design system](docs/design-system.md) and the module notes in `docs/modules/` before making structural changes. The outcome of the Python-to-Go port is in [ADR 0004](docs/adr/0004-port-backend-to-go.md) (the working notes are in `.claude/notes/migration/`).
+The index of the documentation is [docs/README.md](docs/README.md); the Ukrainian guide for a manual tester is [docs/uk/onboarding/](docs/uk/onboarding/00-zmist.md). See [Architecture](docs/architecture.md), [REST API](docs/API.md), [security notes](docs/security.md), [UX contract](docs/ux-contract.md), [design system](docs/design-system.md) and the module notes in `docs/modules/` before making structural changes. The outcome of the Python-to-Go port is in [ADR 0004](docs/adr/0004-port-backend-to-go.md).

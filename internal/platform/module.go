@@ -11,12 +11,11 @@ const (
 	OrgUsersManage      = "org.users.manage"
 
 	PlatformAdmin = "platform_admin"
-	OrgAdmin      = "org_admin"
 	StoreRole     = "store"
 )
 
 // AllOfScope: these built-in roles always hold every permission of their scope.
-var AllOfScope = map[string]string{PlatformAdmin: core.ScopePlatform, OrgAdmin: core.ScopeOrganisation}
+var AllOfScope = map[string]string{PlatformAdmin: core.ScopePlatform}
 
 // Module describes the platform with the same contract as feature modules.
 var Module = core.Module{

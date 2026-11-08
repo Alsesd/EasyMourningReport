@@ -72,7 +72,7 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 
 ### Adding a module, e.g. transport orders
 
-1. Backend: copy `internal/transport` to a new package, declare the permissions and `core.Module`, add the tables to `goOwned` in `internal/store/schema.go` (list them in `GoOwnedTables` and the `structure()` filter of `store_test.go`; `fresh.sql` only mirrors the last Python release and is not extended), write repo functions and HTTP handlers in the module package and list them in `Module.Routes` (`Codes`, `Member`). Scope organisation data with the principal's organisation. Add tests, and list the module in `internal/registry/registry.go`.
+1. Backend: copy `internal/transport` to a new package, declare the permissions and `core.Module`, add the tables to `goOwned` in `internal/store/schema.go` (list them in `GoOwnedTables`), write repo functions and HTTP handlers in the module package and list them in `Module.Routes` (`Codes`, `Member`). Scope organisation data with the principal's organisation. Add tests, and list the module in `internal/registry/registry.go`.
 2. Frontend: add pages under `src/modules/<name>/pages/` and list them in `module.tsx` and `src/modules/index.ts`. Mirror the permission codes in `permissions.ts`.
 3. Update `src/platform/api/schema.d.ts` and `types.ts` by hand, and `docs/API.md`.
 4. Grant the new permissions to roles in «Адміністрування → Ролі». Optionally set `DefaultGrants` for built-in roles.
@@ -83,7 +83,7 @@ Every entry lists the permission codes that unlock it. The shell builds routing,
 - **User**: `organisation_id = NULL` means platform staff, who act across organisations. Users can be disabled (`active = false`).
 - **Role**: a named, plain set of permissions (any codes; the stored `scope` is legacy and informational). A role can be shared by all divisions or limited to one. A user may hold several roles. The user's division is the scope of what they see; seeing other divisions needs a permission that says so (for example `transport.orders.manage`, `reports.review`).
   - Built-in **Адміністратор** (`platform_admin`) always holds every platform-scope permission, including those of modules installed later. A new database starts with this role only.
-  - **Адміністратор підрозділу** (`org_admin`, always holds every organisation-scope permission) and **Підрозділ** (`store`, editable, starts with `reports.submit`) exist only in databases that came from the Python releases. A new database does not create `org_admin`. The desk role `store` is created on demand: by the `DEMO=1` seed (as «Підрозділ (демо)»), or by `POST /organisations` with `first_user` (`platform.EnsureStoreRole`, with the modules' default grants). Otherwise the roles for the divisions are made in «Ролі».
+  - **Підрозділ** (`store`, editable, starts with `reports.submit`) is the only other built-in role, created on demand: by the `DEMO=1` seed (as «Підрозділ (демо)»), or by `POST /organisations` with `first_user` (`platform.EnsureStoreRole`, with the modules' default grants). Otherwise the roles for the divisions are made in «Ролі».
 - **Effective permissions** are the union of what the user's roles grant (`internal/platform/principal.go`); the built-in administrator holds every platform-level code.
 - **Escalation guards**: organisation managers (`org.users.manage`) only see and edit their own organisation, and only hand out roles whose permissions they hold themselves. The last active platform administrator cannot be disabled, demoted or deleted.
 
@@ -116,7 +116,7 @@ Notifications (`internal/platform/notifications.go`, `internal/web/notifications
 
 First sign-in on a device: `DeviceSetup` (one dialog, never stacked with the biometric offer) asks to enable notifications and to install the app; each button calls the browser straight from its click, because browsers only show those prompts after a tap. "Later" asks again after a week. Installing always shows the browser's own confirmation.
 
-Schema: `internal/store/schema/fresh.sql` holds the DDL of a fresh database, and any missing table is created on start. The migrations of the Python releases are not ported. Start-up checks that `schema_migrations` already contains `platform.0001_organisations_and_roles` and the reports migrations; a database that predates them must first be started once with the last Python release (commit `92564ef`). `testdata/schema/*.sql` are snapshots of fresh and legacy-migrated databases, and `internal/store/store_test.go` verifies Go leaves them unchanged and that a fresh Go database has the same schema.
+Schema: `internal/store/schema/fresh.sql` holds the base tables and `goOwned` in `internal/store/schema.go` the tables added later; any missing table is created on start, and later columns (`goOwnedColumns`) are added once. Nothing is ever rebuilt or dropped. There is no compatibility with the Python releases.
 
 Distribution: `scripts/build_go.sh` builds the Vite app, then one Go binary per OS with the UI and a pinned `cloudflared` embedded (`-tags bundle`). `.github/workflows/release.yml` runs it, tests the result and publishes `legkyi.exe`.
 

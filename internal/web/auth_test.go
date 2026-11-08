@@ -30,7 +30,7 @@ func (e *env) depsForTest() Deps { return e.deps }
 
 func newEnv(t *testing.T, mut func(*Deps)) *env {
 	t.Helper()
-	st := newContractStore(t, "")
+	st := newContractStore(t)
 	seedBoss(t, st, "boss", "Boss-pass1")
 	e := &env{t: t, st: st, now: time.Date(2026, 11, 6, 10, 0, 0, 0, time.UTC)}
 	e.lim = NewLoginLimiter()

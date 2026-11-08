@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { AlertTriangle, Check } from "lucide-react";
 import type { MonthDaysDTO } from "@/platform/api/types";
 import { shiftDay } from "@/platform/i18n";
-import { UNDATED } from "@/modules/reports/api";
 import { uk, formatCurrency, formatDayReadable } from "@/modules/reports/i18n";
 import { cn } from "@/ui/utils";
 
@@ -23,18 +22,15 @@ export function daysBetween(first: string, last: string): string[] {
   return out;
 }
 
-/** The day to open first: today in the current month, else the last day with entries, the undated part, or the
- * month's last day. */
+/** The day to open first: today in the current month, else the last day with entries, or the month's last day. */
 export function defaultView(days: MonthDaysDTO): string {
   if (days.today.startsWith(days.period)) return days.today;
   if (days.days.length > 0) return days.days[days.days.length - 1].day;
-  if (days.undated) return UNDATED;
   return days.last_day;
 }
 
 /**
- * The days of a month as a scrollable strip: «Місяць» (the sum, reviewers only), «Без дати» when the month has quantities entered
- * before it was kept by days, then each day up to today with its state (sent, draft, empty). With `onlyFilled`
+ * The days of a month as a scrollable strip: «Місяць» (the sum, reviewers only), then each day up to today with its state (sent, draft, empty). With `onlyFilled`
  * (the reviewer) only the days with entries are listed.
  */
 export function DayStrip({
@@ -67,23 +63,11 @@ export function DayStrip({
 
   return (
     <div role="group" aria-label={t.stripLabel} className="flex items-start gap-1.5">
-      {/* «Місяць» and «Без дати» stay in view; only the dates scroll. */}
+      {/* «Місяць» stays in view; only the dates scroll. */}
       {withMonth && (
         <button type="button" aria-pressed={value === MONTH_VIEW} onClick={() => onChange(MONTH_VIEW)} className={cn(chip, "min-w-[5.5rem]", tone(value === MONTH_VIEW))}>
           <span className="font-medium">{t.month}</span>
           <span className="figure text-xs opacity-80">{formatCurrency(days.total_cents)}</span>
-        </button>
-      )}
-      {days.undated && (
-        <button
-          type="button"
-          aria-pressed={value === UNDATED}
-          onClick={() => onChange(UNDATED)}
-          aria-label={`${t.undated}: ${days.undated.status === "submitted" ? uk.store.statusSent : uk.store.statusDraft}`}
-          className={cn(chip, "min-w-[5.5rem]", tone(value === UNDATED))}
-        >
-          <span className="font-medium">{t.undatedShort}</span>
-          <span className="figure text-xs opacity-80">{formatCurrency(days.undated.total_cents)}</span>
         </button>
       )}
       <div ref={listRef} className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-2">

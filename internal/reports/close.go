@@ -24,15 +24,6 @@ import (
 
 const maxCatchUp = 31
 
-// closeMonthsKeptWhole: a store whose month was submitted as a whole (before daily reports) is not checked.
-func closeMonthsKeptWhole(ctx context.Context, tx *sql.Tx, rep *Report) (bool, error) {
-	if rep.Status != "submitted" {
-		return false, nil
-	}
-	daily, err := IsDaily(ctx, tx, rep.ID)
-	return !daily, err
-}
-
 // daysToClose lists the dates that have ended and were not processed yet, oldest first.
 func daysToClose(ctx context.Context, tx *sql.Tx, today string) ([]string, error) {
 	var last sql.NullString
@@ -119,11 +110,6 @@ func closeDay(ctx context.Context, tx *sql.Tx, store reportingStore, day string,
 		}
 		id, _ := res.LastInsertId()
 		rep = &Report{ID: id, StoreID: store.id, Period: period, Status: "draft"}
-	} else if whole, err := closeMonthsKeptWhole(ctx, tx, rep); err != nil || whole {
-		return false, err
-	}
-	if err := MakeDaily(ctx, tx, rep); err != nil {
-		return false, err
 	}
 	cur, err := LoadDay(ctx, tx, rep.ID, day)
 	if err != nil {
@@ -146,7 +132,7 @@ func closeDay(ctx context.Context, tx *sql.Tx, store reportingStore, day string,
 // relockOpenDays closes again the past days a reviewer unlocked (a store gets until midnight to correct them).
 func relockOpenDays(ctx context.Context, tx *sql.Tx, today string, now time.Time) error {
 	rows, err := tx.QueryContext(ctx, `SELECT r.id, r.store_id, r.period, r.status FROM report_days d JOIN reports r ON r.id = d.report_id
-		WHERE d.status = 'draft' AND d.day != '' AND d.day < ? GROUP BY r.id`, today)
+		WHERE d.status = 'draft' AND d.day < ? GROUP BY r.id`, today)
 	if err != nil {
 		return err
 	}
@@ -164,7 +150,7 @@ func relockOpenDays(ctx context.Context, tx *sql.Tx, today string, now time.Time
 		return err
 	}
 	for i := range reps {
-		if _, err := tx.ExecContext(ctx, "UPDATE report_days SET status = 'submitted', auto_locked_at = ?, revision = revision + 1 WHERE report_id = ? AND status = 'draft' AND day != '' AND day < ?",
+		if _, err := tx.ExecContext(ctx, "UPDATE report_days SET status = 'submitted', auto_locked_at = ?, revision = revision + 1 WHERE report_id = ? AND status = 'draft' AND day < ?",
 			now.Unix(), reps[i].ID, today); err != nil {
 			return err
 		}

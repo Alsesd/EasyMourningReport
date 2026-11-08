@@ -140,8 +140,7 @@ func ResolveTargetOrganisation(ctx context.Context, q Querier, p *Principal, org
 }
 
 // RolePermissions is the set of codes a role grants. A role is just a set of permissions: the platform
-// administrator holds every platform-level code, the (legacy) division administrator every division-level code, any other
-// role its grants limited to codes that exist. Where a user's data ends is decided by the user's division and by
+// administrator holds every platform-level code, any other role its grants limited to codes that exist. Where a user's data ends is decided by the user's division and by
 // the permissions themselves (seeing other divisions needs one), not by a role type.
 func (r Rules) RolePermissions(role Role) map[string]bool {
 	return effectiveCodes(role, r.Codes)
@@ -343,9 +342,9 @@ func CheckAdminRemains(ctx context.Context, q Querier) error {
 	return nil
 }
 
-// ValidatedPermissions: every code must exist; the result is sorted and unique. (The scope argument is kept for
-// the callers' sake: a role is a plain set of permissions and may hold codes of any kind.)
-func (r Rules) ValidatedPermissions(scope string, codes []string) ([]string, error) {
+// ValidatedPermissions: every code must exist; the result is sorted and unique. A role is a plain set of
+// permissions and may hold codes of any kind.
+func (r Rules) ValidatedPermissions(codes []string) ([]string, error) {
 	allowed := r.Codes("")
 	var unknown []string
 	for _, c := range codes {

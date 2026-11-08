@@ -10,7 +10,6 @@ import type {
   ProductCreateDTO,
   ProductUpdateDTO,
   ReportSettingsDTO,
-  StoreReportDTO,
   SummaryDTO,
   ReportSaveDTO,
   MonthDaysDTO,
@@ -19,8 +18,6 @@ import type {
   MissedStoreDTO,
 } from "@/platform/api/types";
 
-/** A day of a month in URLs: YYYY-MM-DD, or "undated" for quantities entered for the whole month. */
-export const UNDATED = "undated";
 
 export const reportsApi = {
   summary: (params: { period: string; submitted_only: boolean; day?: string }) =>
@@ -40,8 +37,6 @@ export const reportsApi = {
   reportDetail: (reportId: string) =>
     api.get<AdminReportDetailDTO>(`/api/v1/admin/reports/${encodeURIComponent(reportId)}`),
 
-  storeReport: (period: string) =>
-    api.get<StoreReportDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}`),
   storeDays: (period: string) => api.get<MonthDaysDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}/days`),
   storeDay: (period: string, day: string) =>
     api.get<DayReportDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}/days/${encodeURIComponent(day)}`),

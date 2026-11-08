@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"time"
 
@@ -27,7 +28,7 @@ func errDayClosed(day string) string {
 	return "День " + formatDay(day) + " закрито опівночі. Змінити його можна, лише якщо адміністратор розблокує день."
 }
 
-const errMonthReadOnly = "Звіт за місяць лише для перегляду. Блокуйте й розблоковуйте окремі дні."
+const errEmptyDay = "Порожній звіт надіслати не можна: внесіть кількість хоча б одного товару. Якщо продажів справді не було, зверніться до адміністратора."
 
 var dayRE = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
@@ -54,12 +55,8 @@ func parseDate(raw string) (string, error) {
 	return raw, nil
 }
 
-// parseDay reads a day of the period from a URL: a date inside the month, not in the future, or "undated" for the
-// month's quantities entered before it was kept by days. Returns Undated ("") for the latter.
+// parseDay reads a store's day of the period from a URL: a date inside the month, not in the future.
 func (a *api) parseDay(period, raw string) (string, error) {
-	if raw == UndatedToken {
-		return Undated, nil
-	}
 	day, err := parseDate(raw)
 	if err != nil {
 		return "", err
@@ -89,13 +86,6 @@ func (a *api) summaryScope(rawPeriod, rawDay string) (string, string, error) {
 	return day[:7], day, nil
 }
 
-func dayToken(day string) string {
-	if day == Undated {
-		return UndatedToken
-	}
-	return day
-}
-
 // --- DTOs -----------------------------------------------------------------------------------
 
 // monthDayDTO is one day of a month in the day list.
@@ -111,20 +101,19 @@ type monthDayDTO struct {
 	AutoLockedAt string `json:"auto_locked_at,omitempty"`
 }
 
-// monthDaysDTO describes how a month is kept: its days with their state and the range of days that can be filled.
+// monthDaysDTO is a month's days with their state and the range of days that can be filled.
 type monthDaysDTO struct {
-	ReportID   *int64 `json:"report_id"`
-	StoreName  string `json:"store_name"`
-	Period     string `json:"period"`
-	Status     string `json:"status"` // the month's: new | draft | submitted
-	Daily      bool   `json:"daily"`
-	TotalCents int64  `json:"total_cents"`
-	FirstDay   string `json:"first_day"`
-	LastDay    string `json:"last_day"` // the month's last day, or today in the current month
-	Today      string `json:"today"`
-	// Quantities entered for the whole month before it was kept by days (also for a month never kept by days).
-	Undated *monthDayDTO  `json:"undated"`
-	Days    []monthDayDTO `json:"days"`
+	ReportID   *int64        `json:"report_id"`
+	StoreName  string        `json:"store_name"`
+	Period     string        `json:"period"`
+	Status     string        `json:"status"` // the month's: new | draft | submitted (every day submitted)
+	TotalCents int64         `json:"total_cents"`
+	FirstDay   string        `json:"first_day"`
+	LastDay    string        `json:"last_day"` // the month's last day, or today in the current month
+	Today      string        `json:"today"`
+	Days       []monthDayDTO `json:"days"`
+	// The months the store can open (the current one and those it has a report for), oldest first; store only.
+	AvailablePeriods []string `json:"available_periods,omitempty"`
 }
 
 // dayReportDTO is one day's report form (store) or detail (reviewer).
@@ -134,7 +123,7 @@ type dayReportDTO struct {
 	StoreName          string            `json:"store_name"`
 	StoreArchived      bool              `json:"store_archived"`
 	Period             string            `json:"period"`
-	Day                string            `json:"day"` // YYYY-MM-DD or "undated"
+	Day                string            `json:"day"` // YYYY-MM-DD
 	Status             string            `json:"status"`
 	MonthStatus        string            `json:"month_status"`
 	ReadOnly           bool              `json:"read_only"`
@@ -189,36 +178,17 @@ func autoLockedAt(d Day) string {
 
 // --- building blocks --------------------------------------------------------------------------
 
-// dayState is a day as the handlers see it: a stored day of a daily month, or the virtual undated day of a month
-// kept as a whole (its quantities, status and signatures are the month's).
+// dayState is a day as the handlers see it (status "new" and no day when nothing is stored for it).
 type dayState struct {
 	status string // new | draft | submitted
 	items  []Item
 	sigs   Signatures
-	day    *Day // the stored day (nil for a virtual or missing one)
+	day    *Day
 }
 
 func (a *api) loadDayState(ctx context.Context, q core.Querier, rep *Report, day string) (dayState, error) {
 	if rep == nil {
 		return dayState{status: "new"}, nil
-	}
-	daily, err := IsDaily(ctx, q, rep.ID)
-	if err != nil {
-		return dayState{}, err
-	}
-	if !daily {
-		if day != Undated {
-			return dayState{status: "new"}, nil
-		}
-		items, err := LoadItems(ctx, q, rep.ID)
-		if err != nil {
-			return dayState{}, err
-		}
-		sigs, err := SignaturesOf(ctx, q, rep.ID)
-		if err != nil {
-			return dayState{}, err
-		}
-		return dayState{status: rep.Status, items: items, sigs: sigs}, nil
 	}
 	d, err := LoadDay(ctx, q, rep.ID, day)
 	if err != nil || d == nil {
@@ -244,7 +214,7 @@ func (a *api) dayReportDTO(ctx context.Context, q core.Querier, rep *Report, org
 	if err != nil {
 		return dayReportDTO{}, err
 	}
-	d := dayReportDTO{StoreID: org.ID, StoreName: org.Name, StoreArchived: org.Archived, Period: period, Day: dayToken(day),
+	d := dayReportDTO{StoreID: org.ID, StoreName: org.Name, StoreArchived: org.Archived, Period: period, Day: day,
 		Status: st.status, MonthStatus: "new", CalculationEnabled: enabled, Rows: lineDTOs(rows), InactiveRows: inactiveDTOs(inactive),
 		InactiveTotalCents: inactiveTotal, TotalCents: inactiveTotal, ReadOnly: st.status == "submitted"}
 	for _, r := range rows {
@@ -260,26 +230,11 @@ func (a *api) dayReportDTO(ctx context.Context, q core.Querier, rep *Report, org
 				d.Saved = &signatureDTO{By: sv.ByName, At: core.ServedTime(sv.At)}
 			}
 		}
-		if blocked, err := a.monthBlocksDays(ctx, q, rep, day); err != nil {
-			return dayReportDTO{}, err
-		} else if blocked {
-			d.ReadOnly = true
-		}
 	}
-	if st.status == "new" && day != Undated && day < a.today() {
+	if st.status == "new" && day < a.today() {
 		d.Closed, d.ReadOnly = true, true
 	}
 	return d, nil
-}
-
-// monthBlocksDays: a month submitted as a whole (before daily reports) takes no days until a reviewer unlocks its
-// undated part. A daily month always takes new days: there is no month lock, each day is locked on its own.
-func (a *api) monthBlocksDays(ctx context.Context, q core.Querier, rep *Report, day string) (bool, error) {
-	if rep == nil || rep.Status != "submitted" {
-		return false, nil
-	}
-	daily, err := IsDaily(ctx, q, rep.ID)
-	return !daily, err
 }
 
 func (a *api) monthDaysDTO(ctx context.Context, q core.Querier, rep *Report, org *core.Org, period string) (monthDaysDTO, error) {
@@ -303,25 +258,9 @@ func (a *api) monthDaysDTO(ctx context.Context, q core.Querier, rep *Report, org
 	if err != nil {
 		return d, err
 	}
-	d.Daily = len(days) > 0
-	if !d.Daily {
-		if len(items) > 0 {
-			sigs, err := SignaturesOf(ctx, q, rep.ID)
-			if err != nil {
-				return d, err
-			}
-			d.Undated = &monthDayDTO{Day: UndatedToken, Status: rep.Status, TotalCents: d.TotalCents, ItemCount: len(items), signedDTO: signedOf(rep.Status, sigs)}
-		}
-		return d, nil
-	}
 	for _, x := range days {
-		md := monthDayDTO{Day: dayToken(x.Day.Day), Status: x.Status, TotalCents: x.Total, ItemCount: x.Count, signedDTO: signedOf(x.Status, x.Signatures),
-			Missed: x.Missed, AutoLockedAt: autoLockedAt(x.Day)}
-		if x.Day.Day == Undated {
-			d.Undated = &md
-			continue
-		}
-		d.Days = append(d.Days, md)
+		d.Days = append(d.Days, monthDayDTO{Day: x.Day.Day, Status: x.Status, TotalCents: x.Total, ItemCount: x.Count,
+			signedDTO: signedOf(x.Status, x.Signatures), Missed: x.Missed, AutoLockedAt: autoLockedAt(x.Day)})
 	}
 	return d, nil
 }
@@ -360,6 +299,15 @@ func (a *api) readStoreDays(w http.ResponseWriter, r *http.Request, p *core.Call
 	if err != nil {
 		return err
 	}
+	known, err := StorePeriods(ctx, a.Read, p.Org.ID)
+	if err != nil {
+		return err
+	}
+	known[a.currentPeriod()] = true
+	for k := range known {
+		d.AvailablePeriods = append(d.AvailablePeriods, k)
+	}
+	sort.Strings(d.AvailablePeriods)
 	core.WriteJSON(w, http.StatusOK, d)
 	return nil
 }
@@ -404,9 +352,6 @@ func readSaveLines(body *core.Body) []saveLine {
 
 // formatDay renders YYYY-MM-DD as DD.MM.YYYY for notifications and the audit log.
 func formatDay(day string) string {
-	if day == Undated {
-		return "без дати"
-	}
 	if t, err := time.Parse("2006-01-02", day); err == nil {
 		return t.Format("02.01.2006")
 	}
@@ -444,11 +389,6 @@ func (a *api) saveStoreDay(w http.ResponseWriter, r *http.Request, p *core.Calle
 		if err != nil {
 			return err
 		}
-		if blocked, err := a.monthBlocksDays(ctx, tx, rep, day); err != nil {
-			return err
-		} else if blocked {
-			return core.HTTPError{Status: 409, Detail: "Звіт за місяць надіслано цілим і заблоковано. Розблокувати його (частину «Без дати») може адміністратор."}
-		}
 		if rep == nil {
 			res, err := tx.ExecContext(ctx, "INSERT INTO reports (store_id, period, status) VALUES (?, ?, 'draft')", orgID, period)
 			if err != nil {
@@ -457,21 +397,15 @@ func (a *api) saveStoreDay(w http.ResponseWriter, r *http.Request, p *core.Calle
 			id, _ := res.LastInsertId()
 			rep = &Report{ID: id, StoreID: orgID, Period: period, Status: "draft"}
 		}
-		if err := MakeDaily(ctx, tx, rep); err != nil {
-			return err
-		}
 		cur, err := LoadDay(ctx, tx, rep.ID, day)
 		if err != nil {
 			return err
-		}
-		if cur == nil && day == Undated {
-			return core.HTTPError{Status: 404, Detail: "Даних без дати за цей місяць немає."}
 		}
 		if cur != nil && cur.Status == "submitted" {
 			return core.HTTPError{Status: 409, Detail: "Звіт за " + formatDay(day) + " надіслано й заблоковано. Розблокувати його може адміністратор."}
 		}
 		// A day closes at midnight: a past day can be changed only while a reviewer has it unlocked.
-		if cur == nil && day != Undated && day < a.today() {
+		if cur == nil && day < a.today() {
 			return core.HTTPError{Status: 409, Detail: errDayClosed(day)}
 		}
 		// Another employee of the store changed the day after this form was loaded: refuse rather than overwrite.
@@ -498,6 +432,17 @@ func (a *api) saveStoreDay(w http.ResponseWriter, r *http.Request, p *core.Calle
 		if err := ReplaceDayItems(ctx, tx, rep.ID, day, editable, items, quantities); err != nil {
 			return err
 		}
+		// An empty day cannot be submitted (every day is a working day): at least one quantity must be entered.
+		if action == "submit" {
+			var filled int
+			if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM report_day_items WHERE report_id = ? AND day = ? AND (quantity > 0 OR quantity_calc > 0)",
+				rep.ID, day).Scan(&filled); err != nil {
+				return err
+			}
+			if filled == 0 {
+				return core.HTTPError{Status: 422, Detail: errEmptyDay}
+			}
+		}
 		if err := RebuildAggregate(ctx, tx, rep.ID, editable); err != nil {
 			return err
 		}
@@ -522,7 +467,7 @@ func (a *api) saveStoreDay(w http.ResponseWriter, r *http.Request, p *core.Calle
 		}
 		if action == "submit" {
 			if err := a.NotifyHolders(ctx, tx, p.ID, 0, []string{Review}, "report.day_submitted", "Звіт за день надіслано",
-				core.JoinNames(p.Org.Name, formatDay(day)), "/admin/reports/"+strconv.FormatInt(rep.ID, 10)+"?day="+dayToken(day)); err != nil {
+				core.JoinNames(p.Org.Name, formatDay(day)), "/admin/reports/"+strconv.FormatInt(rep.ID, 10)+"?day="+day); err != nil {
 				return err
 			}
 		}
@@ -572,11 +517,8 @@ func (a *api) readAdminDays(w http.ResponseWriter, r *http.Request, p *core.Call
 	return nil
 }
 
-// adminDay reads a day of a report for a reviewer: any date of the report's month, or "undated".
+// adminDay reads a day of a report for a reviewer: any date of the report's month.
 func adminDay(period, raw string) (string, error) {
-	if raw == UndatedToken {
-		return Undated, nil
-	}
 	day, err := parseDate(raw)
 	if err != nil {
 		return "", err
@@ -624,9 +566,6 @@ func (a *api) updateAdminDayStatus(w http.ResponseWriter, r *http.Request, p *co
 		}
 		day, err := adminDay(rep.Period, core.Param(r, "day"))
 		if err != nil {
-			return err
-		}
-		if err := MakeDaily(ctx, tx, rep); err != nil {
 			return err
 		}
 		cur, err := LoadDay(ctx, tx, rep.ID, day)
@@ -756,7 +695,7 @@ func (a *api) listMissedDays(w http.ResponseWriter, r *http.Request, p *core.Cal
 	}
 	rows, err := a.Read.QueryContext(r.Context(), `SELECT o.id, o.name, r.id, d.day, d.submitted_at > d.auto_locked_at AND d.submitted_at > 0
 		FROM report_days d JOIN reports r ON r.id = d.report_id JOIN organisations o ON o.id = r.store_id
-		WHERE r.period = ? AND d.missed != 0 AND d.day != '' ORDER BY o.name, o.id, d.day`, period)
+		WHERE r.period = ? AND d.missed != 0 ORDER BY o.name, o.id, d.day`, period)
 	if err != nil {
 		return err
 	}

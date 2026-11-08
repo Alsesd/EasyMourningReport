@@ -33,10 +33,6 @@ Last reviewed: 2026-11-06; transport v2 isolation rules added 2026-11-08 (govuln
 - **Release workflow:** the tag input goes through an environment variable and is validated; the exe can be signed when the repository has the secrets `WINDOWS_CERT_PFX` and `WINDOWS_CERT_PASSWORD` (this step has not been exercised yet).
 - **Web Push:** the VAPID private key is `<data>/vapid.key` (0600, created once; or `VAPID_PRIVATE_KEY`). It is kept out of the database on purpose, so a backup never carries a key that can send as this server; losing it only means browsers must subscribe again. Subscriptions hold each browser's public key and auth secret (not credentials of this server), are owned by the user signed in on that browser, and are deleted at sign-out. The server only POSTs to https push-service hosts on an allowlist (no IP addresses, no other ports), so a registered endpoint cannot be used to reach internal addresses.
 
-## Rolling back to the Python release
-
-Accounts whose password hash was upgraded cannot sign in to the Python release (it only knows the old format), and the `user_sessions` table is ignored by it. A rollback therefore means restoring the backup taken before switching to Go.
-
 ## Known limitations
 
 - The sign-in limiter is in memory and resets when the app restarts; only someone with host access can restart it, and they already hold the database.

@@ -39,11 +39,7 @@ type monthDays struct {
 	Daily      bool   `json:"daily"`
 	TotalCents int64  `json:"total_cents"`
 	LastDay    string `json:"last_day"`
-	Undated    *struct {
-		Status     string `json:"status"`
-		TotalCents int64  `json:"total_cents"`
-	} `json:"undated"`
-	Days []struct {
+	Days       []struct {
 		Day        string `json:"day"`
 		Status     string `json:"status"`
 		TotalCents int64  `json:"total_cents"`
@@ -91,16 +87,6 @@ func (e *env) exec(q string, args ...any) int64 {
 	}
 	id, _ := res.LastInsertId()
 	return id
-}
-
-// legacyMonth stores November as a month entered as a whole (before daily reports) for the first organisation.
-func (e *env) legacyMonth(status string, lines ...[3]int64) int64 {
-	e.t.Helper()
-	rid := e.exec("INSERT INTO reports (store_id, period, status) SELECT MIN(id), '2026-11', ? FROM organisations", status)
-	for _, l := range lines { // product, price, quantity
-		e.exec("INSERT INTO report_items (report_id, product_id, quantity, quantity_calc, unit_price_cents) VALUES (?, ?, ?, 0, ?)", rid, l[0], l[2], l[1])
-	}
-	return rid
 }
 
 // setDay moves the test clock to 10:00 UTC of a date.
@@ -168,11 +154,12 @@ func TestDailyReportsSumIntoTheMonth(t *testing.T) {
 		t.Fatalf("day submit: %+v", d2)
 	}
 	// The month view is the sum of the days and is changed day by day only.
-	month := e.dayJSON(clerk, "GET", "/api/v1/store/reports/2026-11", "", 200)
-	if month.qty(p1) != 3 || month.qty(p2) != 5 || month.TotalCents != 80000 || !month.ReadOnly {
+	monthPath := fmt.Sprintf("/api/v1/admin/reports/%d", rid)
+	month := e.dayJSON(boss, "GET", monthPath, "", 200)
+	if month.qty(p1) != 3 || month.qty(p2) != 5 || month.TotalCents != 80000 {
 		t.Fatalf("month aggregate: %+v", month)
 	}
-	if w := e.do("PUT", "/api/v1/store/reports/2026-11", qtyBody("draft", [3]int64{p1, 25000, 9}), nil, clerk); w.Code != 405 {
+	if w := e.do("PUT", "/api/v1/store/reports/2026-11", qtyBody("draft", [3]int64{p1, 25000, 9}), nil, clerk); w.Code != 404 {
 		t.Fatalf("monthly save of a daily month: %d %s", w.Code, w.Body)
 	}
 	// A submitted day is locked; a reviewer unlocks it.
@@ -188,7 +175,7 @@ func TestDailyReportsSumIntoTheMonth(t *testing.T) {
 		t.Fatalf("closed day: %+v", d)
 	}
 	days := e.monthDays(clerk, "/api/v1/store/reports/2026-11/days")
-	if !days.Daily || days.Undated != nil || len(days.Days) != 2 || days.Days[0].Day != "2026-11-02" || days.Days[1].Status != "submitted" ||
+	if len(days.Days) != 2 || days.Days[0].Day != "2026-11-02" || days.Days[1].Status != "submitted" ||
 		days.TotalCents != 80000 || days.LastDay != "2026-11-06" {
 		t.Fatalf("days: %+v", days)
 	}
@@ -225,7 +212,8 @@ func TestDailyReportsSumIntoTheMonth(t *testing.T) {
 		t.Fatalf("admin day: %+v", d)
 	}
 	locked := e.dayJSON(boss, "PATCH", adminPath+"2026-11-02", `{"status":"submitted"}`, 200)
-	if locked.Status != "submitted" || locked.Locked == nil || locked.Locked.By != "boss" || locked.MonthStatus != "submitted" {
+	// Locked by the reviewer, but the store never submitted it: it does not count, the month stays a draft.
+	if locked.Status != "submitted" || locked.Locked == nil || locked.Locked.By != "boss" || locked.MonthStatus != "draft" {
 		t.Fatalf("lock day: %+v", locked)
 	}
 	if d := e.dayJSON(boss, "PATCH", adminPath+"2026-11-03", `{"status":"draft"}`, 200); d.Status != "draft" || d.MonthStatus != "draft" {
@@ -234,7 +222,7 @@ func TestDailyReportsSumIntoTheMonth(t *testing.T) {
 	if d := e.dayJSON(clerk, "PUT", base+"2026-11-03", qtyBody("draft", [3]int64{p1, 25000, 4}), 200); d.qty(p1) != 4 {
 		t.Fatalf("edit after unlock: %+v", d)
 	}
-	if m := e.dayJSON(clerk, "GET", "/api/v1/store/reports/2026-11", "", 200); m.qty(p1) != 6 {
+	if m := e.dayJSON(boss, "GET", monthPath, "", 200); m.qty(p1) != 6 {
 		t.Fatalf("aggregate after edit: %d", m.qty(p1))
 	}
 	// The month of a daily report is only reviewed: it cannot be locked or unlocked as a whole.
@@ -249,62 +237,6 @@ func TestDailyReportsSumIntoTheMonth(t *testing.T) {
 	e.st.R.QueryRow("SELECT COUNT(*) FROM notifications WHERE kind = 'report.day_submitted'").Scan(&n)
 	if n != 1 {
 		t.Fatalf("day notifications: %d", n)
-	}
-}
-
-// A month entered as a whole before daily reports keeps its quantities: they become the undated part.
-func TestMonthlyQuantitiesSurviveTheSwitchToDays(t *testing.T) {
-	e, clerk, boss, p1, p2 := dailyEnv(t)
-	e.legacyMonth("draft", [3]int64{p1, 25000, 3}, [3]int64{p2, 1000, 2})
-	before := e.monthDays(clerk, "/api/v1/store/reports/2026-11/days")
-	if before.Daily || before.Undated == nil || before.Undated.TotalCents != 77000 {
-		t.Fatalf("legacy month: %+v", before)
-	}
-	// An inactive product's row is kept too.
-	e.st.W.Exec("UPDATE products SET active = 0 WHERE id = ?", p2)
-	e.setDay("2026-11-05")
-
-	e.dayJSON(clerk, "PUT", "/api/v1/store/reports/2026-11/days/2026-11-05", qtyBody("draft", [3]int64{p1, 25000, 1}), 200)
-	after := e.monthDays(clerk, "/api/v1/store/reports/2026-11/days")
-	if !after.Daily || after.Undated == nil || after.Undated.TotalCents != 77000 || len(after.Days) != 1 || after.TotalCents != 102000 {
-		t.Fatalf("after the first day: %+v", after)
-	}
-	month := e.dayJSON(boss, "GET", "/api/v1/admin/reports/"+itoa(int(*e.dayJSON(clerk, "GET", "/api/v1/store/reports/2026-11", "", 200).ReportID)), "", 200)
-	if month.TotalCents != 102000 {
-		t.Fatalf("month total: %+v", month)
-	}
-	// The undated part stays editable as its own "day" until it is submitted.
-	u := e.dayJSON(clerk, "PUT", "/api/v1/store/reports/2026-11/days/undated", qtyBody("submit", [3]int64{p1, 25000, 2}), 200)
-	if u.Day != "undated" || u.Status != "submitted" || u.qty(p1) != 2 {
-		t.Fatalf("undated: %+v", u)
-	}
-	var items int64
-	e.st.R.QueryRow("SELECT COALESCE(SUM(quantity), 0) FROM report_items WHERE product_id = ?", p2).Scan(&items)
-	if items != 2 {
-		t.Fatalf("the inactive product's quantity must stay: %d", items)
-	}
-	var sum struct {
-		Grand int64 `json:"grand_total_cents"`
-	}
-	json.Unmarshal(e.do("GET", "/api/v1/admin/summary?period=2026-11", "", nil, boss).Body.Bytes(), &sum)
-	if sum.Grand != 77000 { // 2 + 1 wreaths, 2 candles
-		t.Fatalf("summary after the edit: %d", sum.Grand)
-	}
-}
-
-// A month submitted as a whole takes no days until a reviewer unlocks it; a store without a month gets no undated part.
-func TestSubmittedMonthBlocksDays(t *testing.T) {
-	e, clerk, _, p1, _ := dailyEnv(t)
-	e.setDay("2026-11-06")
-	if w := e.do("PUT", "/api/v1/store/reports/2026-11/days/undated", qtyBody("draft"), nil, clerk); w.Code != 404 {
-		t.Fatalf("undated without data: %d", w.Code)
-	}
-	e.legacyMonth("submitted", [3]int64{p1, 25000, 1})
-	if w := e.do("PUT", "/api/v1/store/reports/2026-11/days/2026-11-04", qtyBody("draft", [3]int64{p1, 25000, 1}), nil, clerk); w.Code != 409 {
-		t.Fatalf("day of a submitted month: %d", w.Code)
-	}
-	if d := e.dayJSON(clerk, "GET", "/api/v1/store/reports/2026-11/days/2026-11-04", "", 200); !d.ReadOnly || d.Status != "new" {
-		t.Fatalf("read of a day of a submitted month: %+v", d)
 	}
 }
 
@@ -423,20 +355,6 @@ func TestMidnightCloseCatchesUp(t *testing.T) {
 	}
 }
 
-func TestUnlockingTheUndatedPartOpensAMonthSubmittedAsAWhole(t *testing.T) {
-	e, clerk, boss, p1, _ := dailyEnv(t)
-	e.setDay("2026-11-04")
-	rid := e.legacyMonth("submitted", [3]int64{p1, 25000, 1})
-	if w := e.do("PUT", "/api/v1/store/reports/2026-11/days/2026-11-04", qtyBody("draft", [3]int64{p1, 25000, 1}), nil, clerk); w.Code != 409 {
-		t.Fatalf("day of a month submitted as a whole: %d", w.Code)
-	}
-	u := e.dayJSON(boss, "PATCH", "/api/v1/admin/reports/"+itoa(int(rid))+"/days/undated", `{"status":"draft"}`, 200)
-	if u.Status != "draft" || u.MonthStatus != "draft" || u.qty(p1) != 1 {
-		t.Fatalf("unlocked undated: %+v", u)
-	}
-	e.dayJSON(clerk, "PUT", "/api/v1/store/reports/2026-11/days/2026-11-04", qtyBody("draft", [3]int64{p1, 25000, 1}), 200)
-}
-
 // "Today" is the business zone's date (APP_TIMEZONE), not the machine's: at 22:30 UTC it is already tomorrow in Kyiv.
 func TestStoreDaysFollowTheBusinessZone(t *testing.T) {
 	kyiv, err := time.LoadLocation("Europe/Kyiv")
@@ -456,7 +374,7 @@ func TestStoreDaysFollowTheBusinessZone(t *testing.T) {
 // Two employees of one store share the day: both see it, and a save based on an older revision is refused
 // instead of overwriting (or doubling) the colleague's numbers.
 func TestColleaguesShareTheDayWithoutOverwriting(t *testing.T) {
-	e, clerk, _, p1, _ := dailyEnv(t)
+	e, clerk, boss, p1, _ := dailyEnv(t)
 	var orgID int64
 	e.st.R.QueryRow("SELECT MIN(id) FROM organisations").Scan(&orgID)
 	e.addUser("clerk2", "Іван Коваль", "Clerk2-pass1", &orgID, "organisation", "reports.submit")
@@ -475,9 +393,7 @@ func TestColleaguesShareTheDayWithoutOverwriting(t *testing.T) {
 		return r
 	}
 	// Both open the empty day (revision 0); the first one saves.
-	if w := e.do("PUT", path, withRev("draft", 0, 2), nil, clerk); w.Code != 200 {
-		t.Fatalf("first save: %d %s", w.Code, w.Body)
-	}
+	r0 := e.dayJSON(clerk, "PUT", path, withRev("draft", 0, 2), 200)
 	// The colleague still holds revision 0: refused, naming who changed it.
 	w := e.do("PUT", path, withRev("draft", 0, 3), nil, clerk2)
 	if w.Code != 409 || !strings.Contains(w.Body.String(), "Оксана Мельник") {
@@ -492,10 +408,61 @@ func TestColleaguesShareTheDayWithoutOverwriting(t *testing.T) {
 		t.Fatalf("save on the latest revision: %+v", d)
 	}
 	// A save replaces the day's quantities, it never adds them up: the month holds 3, not 5.
-	if m := e.dayJSON(clerk, "GET", "/api/v1/store/reports/2026-11", "", 200); m.qty(p1) != 3 {
+	if m := e.dayJSON(boss, "GET", fmt.Sprintf("/api/v1/admin/reports/%d", *r0.ReportID), "", 200); m.qty(p1) != 3 {
 		t.Fatalf("month: %d", m.qty(p1))
 	}
 	if r := read(clerk); r.Saved == nil || r.Saved.By != "Іван Коваль" {
 		t.Fatalf("last saved by: %+v", r)
+	}
+}
+
+// An empty day cannot be submitted (there are no days off): at least one quantity is needed; a draft may be empty.
+func TestEmptyDayCannotBeSubmitted(t *testing.T) {
+	e, clerk, _, p1, _ := dailyEnv(t)
+	path := "/api/v1/store/reports/2026-11/days/2026-11-02"
+	w := e.do("PUT", path, qtyBody("submit", [3]int64{p1, 25000, 0}), nil, clerk)
+	if w.Code != 422 || !strings.Contains(w.Body.String(), "Порожній звіт") {
+		t.Fatalf("empty submit: %d %s", w.Code, w.Body)
+	}
+	var n int
+	e.st.R.QueryRow("SELECT COUNT(*) FROM report_days").Scan(&n)
+	if n != 0 {
+		t.Fatalf("a refused submit must leave nothing behind: %d days", n)
+	}
+	if d := e.dayJSON(clerk, "PUT", path, qtyBody("draft"), 200); d.Status != "draft" {
+		t.Fatalf("an empty draft is fine: %+v", d)
+	}
+	if d := e.dayJSON(clerk, "PUT", path, qtyBody("submit", [3]int64{p1, 25000, 1}), 200); d.Status != "submitted" {
+		t.Fatalf("submit with a quantity: %+v", d)
+	}
+}
+
+// Only days the store submitted count: a day closed at midnight stays out of the submitted figures and keeps the
+// month a draft, until the store submits it (after a reviewer unlocks it).
+func TestOnlyStoreSubmittedDaysCount(t *testing.T) {
+	e, clerk, boss, p1, _ := dailyEnv(t)
+	e.closeDays("2026-11-02") // first close: records only
+	e.setDay("2026-11-02")
+	d := e.dayJSON(clerk, "PUT", "/api/v1/store/reports/2026-11/days/2026-11-02", qtyBody("draft", [3]int64{p1, 25000, 2}), 200)
+	e.closeDays("2026-11-03")
+	submitted := func() int64 {
+		var s struct {
+			Grand int64 `json:"grand_total_cents"`
+		}
+		json.Unmarshal(e.do("GET", "/api/v1/admin/summary?period=2026-11&submitted_only=true", "", nil, boss).Body.Bytes(), &s)
+		return s.Grand
+	}
+	if g := submitted(); g != 0 {
+		t.Fatalf("a day closed at midnight must not count as submitted: %d", g)
+	}
+	path := fmt.Sprintf("/api/v1/admin/reports/%d/days/2026-11-02", *d.ReportID)
+	if m := e.monthDays(boss, fmt.Sprintf("/api/v1/admin/reports/%d/days", *d.ReportID)); m.Status != "draft" {
+		t.Fatalf("month with an unsubmitted day: %+v", m)
+	}
+	e.setDay("2026-11-03")
+	e.dayJSON(boss, "PATCH", path, `{"status":"draft"}`, 200)
+	e.dayJSON(clerk, "PUT", "/api/v1/store/reports/2026-11/days/2026-11-02", qtyBody("submit", [3]int64{p1, 25000, 2}), 200)
+	if g := submitted(); g != 50000 {
+		t.Fatalf("after the late submission: %d", g)
 	}
 }

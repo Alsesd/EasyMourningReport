@@ -4,9 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/platform/api/client";
 import { reportsApi } from "@/modules/reports/api";
 import { useAuth } from "@/platform/auth/AuthContext";
-import type { StoreReportDTO, ReportLineDTO, ReportSaveDTO, DayReportDTO, MonthDaysDTO } from "@/platform/api/types";
+import type { ReportLineDTO, ReportSaveDTO, DayReportDTO, MonthDaysDTO } from "@/platform/api/types";
 import { uk, formatCurrency, formatPeriodReadable, formatDayReadable, formatDateTime, shiftPeriod } from "@/modules/reports/i18n";
-import { UNDATED } from "@/modules/reports/api";
 import { DayStrip, defaultView } from "@/modules/reports/components/DayStrip";
 import { Button } from "@/ui/Button";
 import { StatusPill } from "@/modules/reports/components/StatusPill";
@@ -41,7 +40,7 @@ export default function StoreReportPage() {
 
   const currentMonth = session?.period || new Date().toISOString().slice(0, 7);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(currentMonth);
-  // The day being filled in (YYYY-MM-DD or "undated"); null until the month's days have loaded. The month as a
+  // The day being filled in (YYYY-MM-DD); null until the month's days have loaded. The month as a
   // whole is not shown here: it is a reviewer's read-only view.
   const [view, setView] = useState<string | null>(null);
   const isDayView = view !== null;
@@ -72,12 +71,7 @@ export default function StoreReportPage() {
     };
   }, []);
 
-  // The months the store can open, and the month's days.
-  const monthQuery = useQuery<StoreReportDTO>({
-    queryKey: ["storeReport", selectedPeriod],
-    queryFn: () => reportsApi.storeReport(selectedPeriod),
-    staleTime: 60 * 1000,
-  });
+  // The month's days and the months the store can open.
   const daysQuery = useQuery<MonthDaysDTO>({
     queryKey: ["storeDays", selectedPeriod],
     queryFn: () => reportsApi.storeDays(selectedPeriod),
@@ -219,8 +213,7 @@ export default function StoreReportPage() {
     onSuccess: (updatedDay, action) => {
       queryClient.setQueryData(["storeDay", selectedPeriod, view], updatedDay);
       queryClient.invalidateQueries({ queryKey: ["storeDays", selectedPeriod] });
-      queryClient.invalidateQueries({ queryKey: ["storeReport", selectedPeriod] });
-      setInitialSnapshot(JSON.stringify(quantities));
+            setInitialSnapshot(JSON.stringify(quantities));
       clearLocalDraft(draftKey, session?.organisation?.id ?? undefined);
 
       setFeedback({
@@ -248,7 +241,7 @@ export default function StoreReportPage() {
   });
 
   // Period navigation
-  const periods = useMemo(() => monthQuery.data?.available_periods || [], [monthQuery.data?.available_periods]);
+  const periods = useMemo(() => daysQuery.data?.available_periods || [], [daysQuery.data?.available_periods]);
   const periodIdx = periods.indexOf(selectedPeriod);
 
   const previousPeriod = useMemo(() => {
@@ -308,7 +301,9 @@ export default function StoreReportPage() {
   const filled = rows.filter((row) => (row.inputs || []).some((input) => (quantities[`${row.id}_${input.price_cents}`] ?? input.quantity) > 0)).length;
   const locked = Boolean(report?.read_only) || saveMutation.isPending;
   const storeName = session?.organisation?.name || session?.login;
-  const dayTitle = view === UNDATED ? uk.daily.undated : view ? formatDayReadable(view) : "";
+  const dayTitle = view ? formatDayReadable(view) : "";
+  // Every day is a working day: an empty day cannot be submitted (the server refuses it too).
+  const hasQuantity = Object.values(quantities).some((q) => q > 0);
   const monthLocked = Boolean(report?.read_only && report.status !== "submitted" && !report.closed);
   // Why the day is read-only (the most specific reason first).
   const lockedNotice = !report?.read_only
@@ -323,7 +318,7 @@ export default function StoreReportPage() {
             ? uk.daily.storeAutoLocked
             : uk.daily.dayReadOnly;
   // An open day: until midnight; a day a reviewer reopened: until the next midnight.
-  const openNotice = report && !report.read_only && view !== UNDATED
+  const openNotice = report && !report.read_only
     ? view === days?.today ? uk.daily.openUntilMidnight : uk.daily.reopenedUntilMidnight
     : "";
   const daysSent = days ? days.days.filter((d) => d.status === "submitted").length : 0;
@@ -365,12 +360,6 @@ export default function StoreReportPage() {
                 <Signature status={report.status} signed={report} />
                 {report.saved && <span>{uk.daily.lastSaved(report.saved.by, formatDateTime(report.saved.signed_at))}</span>}
               </div>
-            )}
-            {view === UNDATED && <p className="text-sm text-text-muted">{uk.daily.undatedHelp}</p>}
-            {isDayView && view !== UNDATED && days?.undated && (
-              <p role="note" className="border-l-2 border-attention bg-attention-soft px-3 py-2 text-sm text-attention">
-                {uk.daily.undatedNotice(formatCurrency(days.undated.total_cents))}
-              </p>
             )}
           </div>
         )}
@@ -550,6 +539,11 @@ export default function StoreReportPage() {
             <span className="figure block text-[1.375rem] font-semibold leading-tight text-text-main">
               {formatCurrency(overallTotalCents)}
             </span>
+            {report && !report.read_only && !hasQuantity && (
+              <span id="empty-day-hint" className="block text-xs text-text-muted">
+                {uk.daily.emptyDayHint}
+              </span>
+            )}
           </div>
 
           {!isDayView ? null : !report?.read_only ? (
@@ -563,7 +557,12 @@ export default function StoreReportPage() {
               >
                 {saveMutation.isPending && saveMutation.variables === "draft" ? uk.store.savingDraft : uk.store.saveDraft}
               </Button>
-              <Button onClick={() => setIsSubmitConfirmOpen(true)} disabled={saveMutation.isPending || !report} className="px-3">
+              <Button
+                onClick={() => setIsSubmitConfirmOpen(true)}
+                disabled={saveMutation.isPending || !report || !hasQuantity}
+                aria-describedby={!hasQuantity ? "empty-day-hint" : undefined}
+                className="px-3"
+              >
                 {uk.daily.submitDay}
               </Button>
             </div>
