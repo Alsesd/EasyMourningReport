@@ -18,6 +18,17 @@ type: project
   (submitted, accepted, in_progress, bumped) vs «Закриті». Stored status codes unchanged; `in_progress` reads «В дорозі».
   Saving an order for another day jumps to that day. Open question for the user: a stored «оформлено/оплачено» status.
   Daily reminder (`DailyReminder`) to desks without an order for tomorrow. **Owner (2026-11-07): there is no 15:00 cutoff for orders**; `REMINDER_AT` (default 14:30) is just the reminder time. Never block late orders.
+- **transport v2** (2026-11-08, plan `.claude/plans/transport-cargo.md` + its "Deviations / amendments"): tabs Замовлення/Продукція/Рейси/
+  Автопарк. Fleet `transport_cars` (plate normalised: Latin lookalikes -> Cyrillic, standard `АА 1234 ВВ`, else `nonstandard`;
+  `Startup` backfills plates from old orders insert-only). **Desk car REQUIRED on orders** (owner), picked from the fleet;
+  carriers default «Той самий автомобіль»; dispatcher reassigns car/time/stops (`/assignment`); `car_required` 409 guard on
+  accepted/in_progress. **Product requests**: catalogue from reports via `core.Module.Catalog`, **optional preferred car**,
+  `unit_price_cents` snapshot of the latest price + totals; status derived (submitted/partial/planned/delivered, stored only
+  submitted/cancelled/rejected); edit/cancel/reject only while nothing loaded. **Cargo** on an order (same org) or a goods-run
+  stop; never above remaining (checked in the write tx); cancelled carriers free it. **Goods runs**: car required, multi-stop
+  route, planned->in_progress->done|cancelled, editable while planned; car lock covers orders+runs; military never takes a
+  run's car. Desk sees only its own stops/manifest of a run. No new permission codes; no 15:00 cutoff. Demo fleet: АА 1234 ВВ,
+  ВС 5678 АА, КА 0101 КК, ЗСУ1234. Docs: `docs/modules/transport.md`, uk onboarding 05/06/10.
 - **Notifications** (platform): `notifications` table, `platform.Notify/Recipients`, API list/read/read-all (own rows only);
   scheduler `web.RunScheduler` runs module reminders at `REMINDER_AT` (default 14:30) in `APP_TIMEZONE` (Europe/Kyiv),
   prunes old rows. Frontend bell polls every 20 s; device notifications go through the service worker (new Notification() throws on Android). **Web Push** (platform/webpush.go, web/push.go, sw.js): VAPID key in `<data>/vapid.key`, `push_subscriptions` table, dispatcher polls `pushed_at=0` every 3 s outside the write tx, stale rows (>10 min) retired unsent, allowlist of push hosts. `DeviceSetup` (first sign-in) asks notifications + install; shares a dialog slot with BiometricOffer. Real phone delivery was NOT tested in the sandbox.
