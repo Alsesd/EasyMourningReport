@@ -33,9 +33,10 @@ func Dashboard(ctx context.Context, q core.Querier, period string, now time.Time
 	const months = 12
 	from := shiftMonth(period, -(months - 1))
 	byMonth := map[string]map[string]int64{} // period -> status -> cents
-	rows, err := q.QueryContext(ctx, `SELECT r.period, r.status, COALESCE(SUM(i.quantity * i.unit_price_cents), 0)
-		FROM report_items i JOIN reports r ON r.id = i.report_id
-		WHERE r.period BETWEEN ? AND ? GROUP BY r.period, r.status`, from, period)
+	// A month kept by days counts its submitted days (statusItemsSQL), a month kept as a whole its own status.
+	rows, err := q.QueryContext(ctx, `SELECT i.period, i.status, COALESCE(SUM(i.quantity * i.unit_price_cents), 0)
+		FROM (`+statusItemsSQL+`) i
+		WHERE i.period BETWEEN ? AND ? GROUP BY i.period, i.status`, from, period)
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +91,8 @@ func Dashboard(ctx context.Context, q core.Querier, period string, now time.Time
 
 	divisions := core.DashList{Title: "Виручка за місяць по підрозділах", Unit: core.UnitMoneyCents}
 	drows, err := q.QueryContext(ctx, `SELECT o.name, SUM(i.quantity * i.unit_price_cents) AS total
-		FROM report_items i JOIN reports r ON r.id = i.report_id JOIN organisations o ON o.id = r.store_id
-		WHERE r.period = ? AND r.status = 'submitted' GROUP BY o.id, o.name HAVING total > 0 ORDER BY total DESC, o.name LIMIT 12`, period)
+		FROM (`+statusItemsSQL+`) i JOIN organisations o ON o.id = i.store_id
+		WHERE i.period = ? AND i.status = 'submitted' GROUP BY o.id, o.name HAVING total > 0 ORDER BY total DESC, o.name LIMIT 12`, period)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +111,8 @@ func Dashboard(ctx context.Context, q core.Querier, period string, now time.Time
 
 	top := core.DashList{Title: "Найбільша виручка по товарах", Unit: core.UnitMoneyCents}
 	prows, err := q.QueryContext(ctx, `SELECT p.name, SUM(i.quantity), SUM(i.quantity * i.unit_price_cents) AS total
-		FROM report_items i JOIN reports r ON r.id = i.report_id JOIN products p ON p.id = i.product_id
-		WHERE r.period = ? AND r.status = 'submitted' GROUP BY p.id, p.name HAVING total > 0 ORDER BY total DESC, p.name LIMIT 8`, period)
+		FROM (`+statusItemsSQL+`) i JOIN products p ON p.id = i.product_id
+		WHERE i.period = ? AND i.status = 'submitted' GROUP BY p.id, p.name HAVING total > 0 ORDER BY total DESC, p.name LIMIT 8`, period)
 	if err != nil {
 		return nil, err
 	}
