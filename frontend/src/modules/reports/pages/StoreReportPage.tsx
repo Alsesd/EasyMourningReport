@@ -11,7 +11,7 @@ import { navItemsFor, useModuleRegistry } from "@/platform/modules";
 import type { StoreReportDTO, ReportLineDTO, ReportSaveDTO, DayReportDTO, MonthDaysDTO } from "@/platform/api/types";
 import { uk, formatCurrency, formatPeriodReadable, formatDayReadable, shiftPeriod } from "@/modules/reports/i18n";
 import { UNDATED } from "@/modules/reports/api";
-import { DayStrip, MONTH_VIEW, defaultView } from "@/modules/reports/components/DayStrip";
+import { DayStrip, defaultView } from "@/modules/reports/components/DayStrip";
 import { Button } from "@/ui/Button";
 import { StatusPill } from "@/modules/reports/components/StatusPill";
 import { Signature } from "@/modules/reports/components/Signature";
@@ -50,9 +50,10 @@ export default function StoreReportPage() {
 
   const currentMonth = session?.period || new Date().toISOString().slice(0, 7);
   const [selectedPeriod, setSelectedPeriod] = useState<string>(currentMonth);
-  // The day being filled in (YYYY-MM-DD or "undated") or the month view; null until the month's days have loaded.
+  // The day being filled in (YYYY-MM-DD or "undated"); null until the month's days have loaded. The month as a
+  // whole is not shown here: it is a reviewer's read-only view.
   const [view, setView] = useState<string | null>(null);
-  const isDayView = view !== null && view !== MONTH_VIEW;
+  const isDayView = view !== null;
   // Local drafts are kept per day, so one day never overwrites another.
   const draftKey = `${selectedPeriod}:${view ?? ""}`;
 
@@ -78,7 +79,7 @@ export default function StoreReportPage() {
     };
   }, []);
 
-  // The month (its sum, and the months the store can open) and its days.
+  // The months the store can open, and the month's days.
   const monthQuery = useQuery<StoreReportDTO>({
     queryKey: ["storeReport", selectedPeriod],
     queryFn: () => reportsApi.storeReport(selectedPeriod),
@@ -104,7 +105,7 @@ export default function StoreReportPage() {
     staleTime: 60 * 1000,
   });
   const report = isDayView ? dayQuery.data : undefined;
-  const active = isDayView ? dayQuery : view === MONTH_VIEW ? monthQuery : daysQuery;
+  const active = isDayView ? dayQuery : daysQuery;
   const { isLoading, isError, error, refetch } = active;
 
   // Initialize quantities when report data loads
@@ -303,9 +304,8 @@ export default function StoreReportPage() {
   const filled = rows.filter((row) => (row.inputs || []).some((input) => (quantities[`${row.id}_${input.price_cents}`] ?? input.quantity) > 0)).length;
   const locked = Boolean(report?.read_only) || saveMutation.isPending;
   const storeName = session?.organisation?.name || session?.login;
-  const dayTitle = view === UNDATED ? uk.daily.undated : view && view !== MONTH_VIEW ? formatDayReadable(view) : uk.daily.month;
+  const dayTitle = view === UNDATED ? uk.daily.undated : view ? formatDayReadable(view) : "";
   const monthLocked = Boolean(report?.read_only && report.status !== "submitted");
-  const monthStatus = days?.status || "new";
   const daysSent = days ? days.days.filter((d) => d.status === "submitted").length : 0;
 
   return (
@@ -369,7 +369,6 @@ export default function StoreReportPage() {
                 <Signature status={report.status} signed={report} />
               </div>
             )}
-            {view === MONTH_VIEW && <StatusPill status={monthStatus} />}
             {view === UNDATED && <p className="text-sm text-text-muted">{uk.daily.undatedHelp}</p>}
             {isDayView && view !== UNDATED && days?.undated && (
               <p role="note" className="border-l-2 border-attention bg-attention-soft px-3 py-2 text-sm text-attention">
@@ -416,9 +415,7 @@ export default function StoreReportPage() {
           </p>
         )}
 
-        {view === MONTH_VIEW && monthQuery.data && days && (
-          <MonthView month={monthQuery.data} days={days} onOpenDay={changeView} />
-        )}
+
 
         {isLoading && <SkeletonRows rows={5} />}
 
@@ -517,7 +514,7 @@ export default function StoreReportPage() {
         <div className="mx-auto flex max-w-3xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
           <div className="min-w-0">
             <span className="block text-xs text-text-muted">
-              {isDayView ? uk.daily.dayTotal : uk.store.monthTotal}
+              {uk.daily.dayTotal}
               {isDirty && (
                 <span role="status" className="ml-2 font-medium text-attention">
                   {uk.store.unsavedChanges}
@@ -525,9 +522,8 @@ export default function StoreReportPage() {
               )}
             </span>
             <span className="figure block text-[1.375rem] font-semibold leading-tight text-text-main">
-              {formatCurrency(isDayView ? overallTotalCents : days?.total_cents ?? 0)}
+              {formatCurrency(overallTotalCents)}
             </span>
-            {isDayView && days && <span className="figure block text-xs text-text-muted">{uk.daily.monthSoFar(formatCurrency(days.total_cents))}</span>}
           </div>
 
           {!isDayView ? null : !report?.read_only ? (
@@ -584,80 +580,3 @@ export default function StoreReportPage() {
   );
 }
 
-/** The month view: the sum of the days (read-only) and the list of days with their state. */
-function MonthView({ month, days, onOpenDay }: { month: StoreReportDTO; days: MonthDaysDTO; onOpenDay: (day: string) => void }) {
-  const lines = (month.rows || []).flatMap((row) =>
-    (row.inputs || []).filter((input) => input.quantity > 0 || (input.quantity_calc ?? 0) > 0).map((input) => ({ name: row.name, ...input })),
-  );
-  const entries = [...(days.undated ? [days.undated] : []), ...days.days];
-  return (
-    <div className="space-y-8">
-      <p className="text-sm text-text-muted">{uk.daily.monthHelp}</p>
-      <section aria-labelledby="month-days">
-        <h3 id="month-days" className="pb-2 text-base font-semibold">{uk.daily.daysTitle}</h3>
-        {entries.length === 0 ? (
-          <p className="ledger py-4 text-sm text-text-muted">{uk.daily.noDays}</p>
-        ) : (
-          <ul className="ledger divide-y divide-border">
-            {entries.map((d) => (
-              <li key={d.day}>
-                <button
-                  type="button"
-                  onClick={() => onOpenDay(d.day)}
-                  className="flex min-h-[52px] w-full items-center gap-3 px-1 py-2 text-left transition-colors hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <span className="min-w-0 flex-1 font-medium text-text-main">{d.day === UNDATED ? uk.daily.undatedShort : formatDayReadable(d.day)}</span>
-                  <StatusPill status={d.status} className="max-sm:hidden" />
-                  <span className="figure w-28 text-right text-text-main">{formatCurrency(d.total_cents)}</span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      <section aria-labelledby="month-lines">
-        <h3 id="month-lines" className="pb-2 text-base font-semibold">{uk.daily.monthLinesTitle}</h3>
-        {lines.length === 0 ? (
-          <p className="ledger py-4 text-sm text-text-muted">{uk.daily.noLines}</p>
-        ) : (
-          <ul className="ledger divide-y divide-border">
-            {lines.map((line) => (
-              <li key={`${line.name}-${line.price_cents}`} className="flex items-center justify-between gap-4 px-1 py-2.5">
-                <span className="min-w-0">
-                  <span className="block text-text-main">{line.name}</span>
-                  <span className="figure block text-sm text-text-muted">
-                    {line.quantity} × {formatCurrency(line.price_cents)}
-                    {month.calculation_enabled && (
-                      <span className="font-sans">
-                        , {uk.store.calculationShort}: <span className="figure">{line.quantity_calc ?? 0}</span>
-                      </span>
-                    )}
-                  </span>
-                </span>
-                <span className="figure shrink-0 text-text-main">{formatCurrency(line.sum_cents)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {(month.inactive_rows || []).length > 0 && (
-          <ul className="divide-y divide-border border-l-2 border-border pl-3 text-sm">
-            {(month.inactive_rows || []).map((row, idx) => (
-              <li key={idx} className="flex items-center justify-between gap-3 py-2">
-                <span className="min-w-0">
-                  <span className="block text-text-main">{row.name}</span>
-                  <span className="figure block text-xs text-text-muted">{row.lines}</span>
-                </span>
-                <span className="figure text-text-main">{formatCurrency(row.sum_cents)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="double-rule mt-1 flex items-baseline justify-between gap-4 border-t border-ink px-1 py-3">
-          <span className="font-medium text-text-main">{uk.store.monthTotal}</span>
-          <span className="figure text-xl font-semibold text-text-main">{formatCurrency(month.total_cents)}</span>
-        </div>
-      </section>
-    </div>
-  );
-}

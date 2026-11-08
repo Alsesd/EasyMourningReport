@@ -1045,9 +1045,11 @@ func (a *api) updateAdminReportStatus(w http.ResponseWriter, r *http.Request, p 
 		if err != nil {
 			return err
 		}
-		// A month kept by days is locked or unlocked day by day: every day takes the new status.
-		if err := a.setAllDays(ctx, tx, rep, target, p); err != nil {
+		// A month kept by days is only reviewed: its days are locked and unlocked one by one.
+		if daily, err := IsDaily(ctx, tx, rep.ID); err != nil {
 			return err
+		} else if daily {
+			return core.HTTPError{Status: 409, Detail: errMonthReadOnly}
 		}
 		if _, err := tx.ExecContext(ctx, "UPDATE reports SET status = ? WHERE id = ?", target, rid); err != nil {
 			return err

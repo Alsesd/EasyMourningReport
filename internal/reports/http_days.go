@@ -16,6 +16,8 @@ import (
 
 const errDailyMonth = "Звіт за цей місяць ведеться по днях. Оберіть день, щоб внести зміни."
 
+const errMonthReadOnly = "Звіт за місяць лише для перегляду. Блокуйте й розблоковуйте окремі дні."
+
 var dayRE = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
 func (a *api) today() string { return a.Now().In(time.Local).Format("2006-01-02") }
@@ -216,22 +218,14 @@ func (a *api) dayReportDTO(ctx context.Context, q core.Querier, rep *Report, org
 	return d, nil
 }
 
-// monthBlocksDays: a submitted month takes no new days until a reviewer unlocks it — a month kept as a whole
-// always, a daily month once it is in the past (in the current month every day being submitted must not block
-// tomorrow's entry). Days that already exist follow their own status.
+// monthBlocksDays: a month submitted as a whole (before daily reports) takes no days until a reviewer unlocks its
+// undated part. A daily month always takes new days: there is no month lock, each day is locked on its own.
 func (a *api) monthBlocksDays(ctx context.Context, q core.Querier, rep *Report, day string) (bool, error) {
 	if rep == nil || rep.Status != "submitted" {
 		return false, nil
 	}
 	daily, err := IsDaily(ctx, q, rep.ID)
-	if err != nil || !daily {
-		return !daily, err
-	}
-	if rep.Period >= a.currentPeriod() {
-		return false, nil
-	}
-	d, err := LoadDay(ctx, q, rep.ID, day)
-	return d == nil, err
+	return !daily, err
 }
 
 func (a *api) monthDaysDTO(ctx context.Context, q core.Querier, rep *Report, org *core.Org, period string) (monthDaysDTO, error) {
@@ -396,7 +390,7 @@ func (a *api) saveStoreDay(w http.ResponseWriter, r *http.Request, p *core.Calle
 		if blocked, err := a.monthBlocksDays(ctx, tx, rep, day); err != nil {
 			return err
 		} else if blocked {
-			return core.HTTPError{Status: 409, Detail: "Звіт за місяць надіслано й заблоковано. Розблокувати його може адміністратор."}
+			return core.HTTPError{Status: 409, Detail: "Звіт за місяць надіслано цілим і заблоковано. Розблокувати його (частину «Без дати») може адміністратор."}
 		}
 		if rep == nil {
 			res, err := tx.ExecContext(ctx, "INSERT INTO reports (store_id, period, status) VALUES (?, ?, 'draft')", orgID, period)
@@ -596,29 +590,6 @@ func (a *api) updateAdminDayStatus(w http.ResponseWriter, r *http.Request, p *co
 		return err
 	}
 	core.WriteJSON(w, http.StatusOK, dto)
-	return nil
-}
-
-// setAllDays gives every day of a daily month the status the reviewer set on the whole month (lock: drafts become
-// submitted with the reviewer's signature; unlock: every day opens). A month kept as a whole has no days.
-func (a *api) setAllDays(ctx context.Context, tx *sql.Tx, rep *Report, target string, p *core.Caller) error {
-	days, err := DayTotals(ctx, tx, rep.ID)
-	if err != nil {
-		return err
-	}
-	for _, d := range days {
-		if d.Status == target {
-			continue
-		}
-		if err := SetDayStatus(ctx, tx, rep.ID, d.Day.Day, target); err != nil {
-			return err
-		}
-		if target == "submitted" {
-			if err := SignDay(ctx, tx, rep.ID, d.Day.Day, KindAdmin, p.ID, p.DisplayName(), a.Now()); err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
 

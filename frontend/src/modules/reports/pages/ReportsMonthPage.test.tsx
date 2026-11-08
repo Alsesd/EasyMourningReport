@@ -40,7 +40,7 @@ describe("ReportsMonthPage", () => {
     });
   });
 
-  function renderPage(entry = "/admin/reports?period=2026-10") {
+  function renderPage(entry = "/admin/reports?period=2026-10&tab=month") {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return render(
       <QueryClientProvider client={queryClient}>
@@ -84,6 +84,7 @@ describe("ReportsMonthPage", () => {
 
   it("narrows the register, the matrix and the Excel export to one day", async () => {
     renderPage("/admin/reports?period=2026-10&day=2026-10-05");
+    expect(screen.getByRole("tab", { name: "За день" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("heading", { level: 1, name: /5 жовтня 2026/ })).toBeDefined();
     expect(await screen.findByText("Надіслано 1 з 2, без звіту: 1")).toBeDefined();
     const stores = screen.getByRole("region", { name: "Підрозділи" });
@@ -95,5 +96,17 @@ describe("ReportsMonthPage", () => {
     const calls = vi.mocked(globalThis.fetch).mock.calls.map(([url]) => String(url));
     expect(calls.some((u) => u.includes("/api/v1/admin/summary?day=2026-10-05"))).toBe(true);
     expect((screen.getByRole("combobox", { name: "День для перегляду" }) as HTMLSelectElement).value).toBe("2026-10-05");
+  });
+
+  it("opens on the day tab and switches to the read-only month tab", async () => {
+    renderPage("/admin/reports?period=2026-10");
+    expect(screen.getByRole("tab", { name: "За день" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("region", { name: "Товари за день" })).toBeDefined();
+    // A past month opens on its last day.
+    expect((screen.getByRole("combobox", { name: "День для перегляду" }) as HTMLSelectElement).value).toBe("2026-10-31");
+    fireEvent.click(screen.getByRole("tab", { name: "За місяць" }));
+    expect(await screen.findByRole("region", { name: "Товари за місяць" })).toBeDefined();
+    expect(screen.getByText(/Лише перегляд/)).toBeDefined();
+    expect(screen.queryByRole("combobox", { name: "День для перегляду" })).toBeNull();
   });
 });

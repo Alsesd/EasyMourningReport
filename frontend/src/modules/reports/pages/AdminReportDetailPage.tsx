@@ -57,22 +57,15 @@ export default function AdminReportDetailPage() {
   });
 
   const toggleLockMutation = useMutation({
-    mutationFn: async (targetStatus: "draft" | "submitted") => {
-      if (isDayView) return reportsApi.setReportDayStatus(reportId ?? "", view, targetStatus);
-      return reportsApi.setReportStatus(reportId ?? "", targetStatus);
-    },
+    // Only days are locked and unlocked; the month is a read-only view.
+    mutationFn: async (targetStatus: "draft" | "submitted") => reportsApi.setReportDayStatus(reportId ?? "", view, targetStatus),
     onSuccess: (_, targetStatus) => {
       queryClient.invalidateQueries({ queryKey: ["adminReportDetail", reportId] });
       queryClient.invalidateQueries({ queryKey: ["adminReportDays", reportId] });
       queryClient.invalidateQueries({ queryKey: ["adminReportDay", reportId] });
       queryClient.invalidateQueries({ queryKey: ["adminReports"] });
       queryClient.invalidateQueries({ queryKey: ["adminDailyReports"] });
-      setFeedbackMessage({
-        text: isDayView
-          ? targetStatus === "submitted" ? uk.daily.dayLocked : uk.daily.dayUnlocked
-          : targetStatus === "submitted" ? uk.detail.locked : uk.detail.unlocked,
-        kind: "ok",
-      });
+      setFeedbackMessage({ text: targetStatus === "submitted" ? uk.daily.dayLocked : uk.daily.dayUnlocked, kind: "ok" });
       setDialogOpen(false);
     },
     onError: (err: Error) => {
@@ -116,9 +109,10 @@ export default function AdminReportDetailPage() {
   const status = shown?.status ?? "new";
   const isSubmitted = status === "submitted";
   const targetStatus = isSubmitted ? "draft" : "submitted";
-  const canToggle = isDayView ? Boolean(day && day.status !== "new") : true;
+  const canToggle = isDayView && Boolean(day && day.status !== "new");
   const dayTitle = view === UNDATED ? uk.daily.undated : formatDayReadable(view);
-  const lockLabel = isDayView ? (isSubmitted ? uk.daily.unlockDay : uk.daily.lockDay) : isSubmitted ? uk.reports.unlockReport : uk.reports.lockReport;
+  const lockLabel = isSubmitted ? uk.daily.unlockDay : uk.daily.lockDay;
+  const hasDays = Boolean(days && (days.daily || days.undated));
   const daysSent = days ? days.days.filter((d) => d.status === "submitted").length : 0;
 
   const displayLines = (shown?.rows || []).flatMap((row) =>
@@ -165,7 +159,9 @@ export default function AdminReportDetailPage() {
         }
       />
 
-      {days?.daily && <DayStrip days={days} value={view} onChange={selectView} onlyFilled />}
+      {days && hasDays && <DayStrip days={days} value={view} onChange={selectView} onlyFilled withMonth />}
+
+      {!isDayView && <p className="text-sm text-text-muted">{hasDays ? uk.daily.monthReviewOnly : uk.daily.monthReviewOnlyEmpty}</p>}
 
       {isDayView && (
         <div className="space-y-1">
@@ -184,16 +180,8 @@ export default function AdminReportDetailPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {isDayView
-                ? isSubmitted ? uk.daily.unlockDayTitle : uk.daily.lockDayTitle
-                : isSubmitted ? uk.reports.unlockConfirmTitle : uk.reports.lockConfirmTitle}
-            </DialogTitle>
-            <DialogDescription>
-              {isDayView
-                ? isSubmitted ? uk.daily.unlockDayMessage : uk.daily.lockDayMessage
-                : isSubmitted ? uk.reports.unlockConfirmMessage : days?.daily ? uk.daily.lockMonthDailyMessage : uk.reports.lockConfirmMessage}
-            </DialogDescription>
+            <DialogTitle>{isSubmitted ? uk.daily.unlockDayTitle : uk.daily.lockDayTitle}</DialogTitle>
+            <DialogDescription>{isSubmitted ? uk.daily.unlockDayMessage : uk.daily.lockDayMessage}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDialogOpen(false)}>

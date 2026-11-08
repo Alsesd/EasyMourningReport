@@ -187,11 +187,9 @@ def run_tests():
             assert first_input.is_disabled(), "Quantity input should be disabled after submission"
             print("Verified report is read-only after submission.")
 
-            # The month view is the sum of the days and lists today as sent
-            page.locator('[role="group"][aria-label="Дні місяця"] button', has_text="Місяць").click()
-            page.wait_for_selector('text=Товари за місяць', timeout=5000)
-            assert page.locator('main li button:has-text("Надіслано")').count() >= 1 or "Надіслано" in page.inner_text("main")
-            print("Month view sums the days!")
+            # The month as a whole is a reviewer's view: the store has no «Місяць» in the strip
+            assert page.locator('[role="group"][aria-label="Дні місяця"] button', has_text="Місяць").count() == 0
+            print("Store sees days only!")
 
             # Transport desk: the same user places an order for today
             page.click('a[aria-label="Транспорт"]')
@@ -258,8 +256,8 @@ def run_tests():
             admin_page.wait_for_url("**/admin/**", timeout=5000)
             print("Admin landed on:", admin_page.url)
             dismiss_first_login_dialogs(admin_page)
-            admin_page.wait_for_selector('text=Товари за місяць', timeout=5000)
-            print("Admin month view loaded")
+            admin_page.wait_for_selector('text=Товари за день', timeout=5000)
+            print("Admin review page opened on the day tab")
 
             # Dispatcher answers the desk's transport order
             admin_page.goto("http://127.0.0.1:8888/admin/transport")
@@ -346,10 +344,16 @@ def run_tests():
 
             # The month page narrowed to one day
             admin_page.goto("http://127.0.0.1:8888/admin/reports")
-            admin_page.get_by_role("combobox", name="День для перегляду").select_option(index=1)
+            admin_page.get_by_role("combobox", name="День для перегляду").select_option(index=0)
             admin_page.wait_for_selector('text=Товари за день', timeout=5000)
             assert "day=" in (admin_page.locator('a[href*="/admin/summary.xlsx"]').get_attribute("href") or "")
-            print("Month page shows one day!")
+            admin_page.get_by_role("tab", name="За місяць").click()
+            admin_page.wait_for_selector('text=Товари за місяць', timeout=5000)
+            assert "period=" in (admin_page.locator('a[href*="/admin/summary.xlsx"]').get_attribute("href") or "")
+            admin_page.locator('a:has-text("Підрозділ 1")').first.click()
+            admin_page.wait_for_selector('text=Звіт за місяць лише для перегляду', timeout=5000)
+            assert admin_page.locator('button:has-text("Заблокувати звіт"), button:has-text("Розблокувати звіт")').count() == 0
+            print("Day and month tabs work; the month report is read-only!")
 
             # Administration hub -> products (a section contributed by the reports module)
             admin_page.click('aside a:has-text("Адміністрування")')

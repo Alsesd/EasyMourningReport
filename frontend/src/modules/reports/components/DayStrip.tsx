@@ -23,16 +23,17 @@ export function daysBetween(first: string, last: string): string[] {
   return out;
 }
 
-/** The day to open first: today in the current month, else the last day with entries, the undated part, or the month. */
+/** The day to open first: today in the current month, else the last day with entries, the undated part, or the
+ * month's last day. */
 export function defaultView(days: MonthDaysDTO): string {
   if (days.today.startsWith(days.period)) return days.today;
   if (days.days.length > 0) return days.days[days.days.length - 1].day;
   if (days.undated) return UNDATED;
-  return MONTH_VIEW;
+  return days.last_day;
 }
 
 /**
- * The days of a month as a scrollable strip: «Місяць» (the sum), «Без дати» when the month has quantities entered
+ * The days of a month as a scrollable strip: «Місяць» (the sum, reviewers only), «Без дати» when the month has quantities entered
  * before it was kept by days, then each day up to today with its state (sent, draft, empty). With `onlyFilled`
  * (the reviewer) only the days with entries are listed.
  */
@@ -41,11 +42,14 @@ export function DayStrip({
   value,
   onChange,
   onlyFilled,
+  withMonth,
 }: {
   days: MonthDaysDTO;
   value: string;
   onChange: (view: string) => void;
   onlyFilled?: boolean;
+  /** Offer «Місяць» (the read-only sum of the days; reviewers only). */
+  withMonth?: boolean;
 }) {
   const t = uk.daily;
   const listRef = useRef<HTMLDivElement>(null);
@@ -64,10 +68,12 @@ export function DayStrip({
   return (
     <div role="group" aria-label={t.stripLabel} className="flex items-start gap-1.5">
       {/* «Місяць» and «Без дати» stay in view; only the dates scroll. */}
-      <button type="button" aria-pressed={value === MONTH_VIEW} onClick={() => onChange(MONTH_VIEW)} className={cn(chip, "min-w-[5.5rem]", tone(value === MONTH_VIEW))}>
-        <span className="font-medium">{t.month}</span>
-        <span className="figure text-xs opacity-80">{formatCurrency(days.total_cents)}</span>
-      </button>
+      {withMonth && (
+        <button type="button" aria-pressed={value === MONTH_VIEW} onClick={() => onChange(MONTH_VIEW)} className={cn(chip, "min-w-[5.5rem]", tone(value === MONTH_VIEW))}>
+          <span className="font-medium">{t.month}</span>
+          <span className="figure text-xs opacity-80">{formatCurrency(days.total_cents)}</span>
+        </button>
+      )}
       {days.undated && (
         <button
           type="button"

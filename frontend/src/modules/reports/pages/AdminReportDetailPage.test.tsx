@@ -153,26 +153,16 @@ describe("AdminReportDetailPage", () => {
     expect(screen.getByText("Лампадка скляна")).toBeDefined();
     expect(screen.getByText("нова ціна")).toBeDefined();
     expect(screen.getByText("Старий вінок")).toBeDefined();
-    expect(screen.getByText("Розблокувати звіт")).toBeDefined();
+    expect(screen.queryByText("Розблокувати звіт")).toBeNull();
   });
 
-  it("opens unlock confirmation dialog and toggles status", async () => {
+  it("shows the month as a read-only view without a lock", async () => {
+    daily = true;
     renderPage();
     await screen.findByText("Магазин Центр");
-
-    const unlockBtn = screen.getByRole("button", { name: /Розблокувати звіт/i });
-    fireEvent.click(unlockBtn);
-
-    // Dialog appears
-    expect(await screen.findByText("Розблокувати звіт?")).toBeDefined();
-
-    const confirmBtns = screen.getAllByRole("button", { name: /Розблокувати звіт/i });
-    // Click the confirm button in the dialog
-    fireEvent.click(confirmBtns[confirmBtns.length - 1]);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Звіт розблоковано/i)).toBeDefined();
-    });
+    expect(await screen.findByText(/Звіт за місяць лише для перегляду/)).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Заблокувати|Розблокувати/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /^Місяць/ }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("opens one day from the link of a notification and locks that day", async () => {

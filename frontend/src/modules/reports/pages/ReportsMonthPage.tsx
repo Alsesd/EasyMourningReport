@@ -34,11 +34,14 @@ export default function ReportsMonthPage() {
   const requested = searchParams.get("period");
   const period = requested && /^\d{4}-(0[1-9]|1[0-2])$/.test(requested) ? requested : currentPeriod();
   const submittedOnly = ["1", "true"].includes(searchParams.get("submitted_only") ?? "");
-  // ?day=YYYY-MM-DD narrows the page to one day of the month.
+  // Two tabs: «За день» (the default; ?day=YYYY-MM-DD, today or the month's last day) and «За місяць» (?tab=month,
+  // the read-only sum of the days).
+  const tab: "day" | "month" = searchParams.get("tab") === "month" ? "month" : "day";
   const today = todayIso();
   const monthDays = daysBetween(`${period}-01`, lastDayOf(period) < today ? lastDayOf(period) : today);
   const requestedDay = searchParams.get("day") ?? "";
-  const day = monthDays.includes(requestedDay) ? requestedDay : "";
+  const pickedDay = monthDays.includes(requestedDay) ? requestedDay : monthDays[monthDays.length - 1] ?? "";
+  const day = tab === "day" ? pickedDay : "";
 
   const reportsQuery = useQuery({ queryKey: ["adminReports", period], queryFn: () => reportsApi.reportList(period), enabled: !day });
   const dailyQuery = useQuery({ queryKey: ["adminDailyReports", day], queryFn: () => reportsApi.dailyReports(day), enabled: Boolean(day) });
@@ -76,20 +79,21 @@ export default function ReportsMonthPage() {
               }
               labels={{ previous: uk.store.previousMonth, next: uk.store.nextMonth, month: uk.store.monthLabel }}
             />
-            <select
-              value={day}
-              onChange={(e) => update((n) => (e.target.value ? n.set("day", e.target.value) : n.delete("day")))}
-              aria-label={uk.daily.pickDay}
-              className="h-11 min-w-[11rem] rounded-control border border-border bg-surface px-3 text-[0.9375rem] font-medium text-text-main hover:border-text-muted/50"
-            >
-              <option value="">{uk.daily.wholeMonth}</option>
-              {[...monthDays].reverse().map((d) => (
-                <option key={d} value={d}>
-                  {formatDayShort(d)}
-                  {d === today ? ` · ${uk.daily.today}` : ""}
-                </option>
-              ))}
-            </select>
+            {tab === "day" && monthDays.length > 0 && (
+              <select
+                value={day}
+                onChange={(e) => update((n) => n.set("day", e.target.value))}
+                aria-label={uk.daily.pickDay}
+                className="h-11 min-w-[11rem] rounded-control border border-border bg-surface px-3 text-[0.9375rem] font-medium text-text-main hover:border-text-muted/50"
+              >
+                {[...monthDays].reverse().map((d) => (
+                  <option key={d} value={d}>
+                    {formatDayShort(d)}
+                    {d === today ? ` · ${uk.daily.today}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
             <a href={reportsApi.summaryExcelUrl(period, submittedOnly, day || undefined)} download className={buttonClass("primary")}>
               <Download className="h-4 w-4" aria-hidden="true" />
               {uk.summary.downloadXlsx}
@@ -97,6 +101,19 @@ export default function ReportsMonthPage() {
           </>
         }
       />
+
+      <ReviewTabs
+        tab={tab}
+        onChange={(next) =>
+          update((n) => {
+            if (next === "month") n.set("tab", "month");
+            else n.delete("tab");
+          })
+        }
+      />
+
+      <div role="tabpanel" aria-labelledby={`reports-tab-${tab}`} className="space-y-8 lg:space-y-10">
+      {tab === "month" && <p className="text-sm text-text-muted">{uk.daily.monthTabNote}</p>}
 
       <LedgerSection id="stores" title={m.storesTitle} description={day ? uk.daily.dayStoresDescription : m.storesDescription}>
         <StoreRegister query={registerQuery} reports={reports} day={day} />
@@ -118,6 +135,47 @@ export default function ReportsMonthPage() {
       >
         <ProductsMatrix query={summaryQuery} />
       </LedgerSection>
+      </div>
+    </div>
+  );
+}
+
+/** The review page's two tabs; arrow keys move between them (WAI-ARIA tabs). */
+function ReviewTabs({ tab, onChange }: { tab: "day" | "month"; onChange: (tab: "day" | "month") => void }) {
+  const tabs = [
+    { id: "day" as const, label: uk.daily.tabDay },
+    { id: "month" as const, label: uk.daily.tabMonth },
+  ];
+  const onKey = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    e.preventDefault();
+    const next = e.key === "Home" ? "day" : e.key === "End" ? "month" : tab === "day" ? "month" : "day";
+    onChange(next);
+    document.getElementById(`reports-tab-${next}`)?.focus();
+  };
+  return (
+    <div role="tablist" aria-label={uk.daily.tabsLabel} className="-mx-4 flex gap-1 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0">
+      {tabs.map((t) => {
+        const selected = t.id === tab;
+        return (
+          <button
+            key={t.id}
+            id={`reports-tab-${t.id}`}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            tabIndex={selected ? 0 : -1}
+            onClick={() => onChange(t.id)}
+            onKeyDown={onKey}
+            className={cn(
+              "-mb-px min-h-[44px] shrink-0 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-4",
+              selected ? "border-primary text-text-main" : "border-transparent text-text-muted hover:text-text-main",
+            )}
+          >
+            {t.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

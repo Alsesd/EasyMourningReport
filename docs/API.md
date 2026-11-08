@@ -81,7 +81,7 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | PUT | `/store/reports/{period}/days/{day}` | `reports.submit` (organisation member) | Save the day as a draft or submit it (same body as the monthly PUT). `409` when the day is submitted or the month was submitted as a whole; the month's `report_items` become the sum of its days |
 | GET | `/admin/reports/{id}/days` | `reports.review` | The report's days (same shape as the store's) |
 | GET | `/admin/reports/{id}/days/{day}` | `reports.review` | One day of the report |
-| PATCH | `/admin/reports/{id}/days/{day}` | `reports.review` | Lock/unlock one day (`{status}`); a month PATCH applies to every day of a daily month |
+| PATCH | `/admin/reports/{id}/days/{day}` | `reports.review` | Lock/unlock one day (`{status}`); `undated` also unlocks a month submitted as a whole. `PATCH /admin/reports/{id}` answers `409` for a daily month (the month is review-only) and stays only for months kept as a whole |
 | GET | `/admin/daily-reports?day=YYYY-MM-DD` | `reports.review` | Every organisation's state and total for one day |
 | GET | `/admin/summary?period=YYYY-MM&submitted_only=false` | `reports.review` | Summary DTO and totals; `?day=YYYY-MM-DD` instead of `period` gives one day (`day` in the response) |
 | GET | `/admin/summary.xlsx?period=YYYY-MM&submitted_only=false` | `reports.review` | Summary as an Excel workbook; also takes `?day=` |

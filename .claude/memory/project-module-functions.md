@@ -9,8 +9,10 @@ type: project
   **Daily reports (2026-11-08, user request; user chose per-DAY submission over per-month):** each day saved/submitted/
   locked on its own (`report_days`, `report_day_items`, Go-owned); `report_items` = month aggregate rebuilt in the same tx;
   first day of a month with monthly quantities moves them to the undated bucket (day '', «Без дати», URL `undated`),
-  never lost; month status derived (submitted when every day is); month lock/unlock applies to all days; monthly PUT 409
-  on daily months; submitted-only + dashboard revenue count submitted days (`statusItemsSQL`). Notification per submitted
+  never lost; month status derived (submitted when every day is); **owner 2026-11-08: only DAYS are lockable, the month is
+  review-only** (month PATCH 409 for daily months, UI has no month lock; legacy months lock via «Без дати»; daily
+  months always take new/forgotten days); stores see days only, the month (sum) is a reviewer tab «За місяць» on
+  /admin/reports (default tab «За день»); monthly PUT 409 on daily months; submitted-only + dashboard revenue count submitted days (`statusItemsSQL`). Notification per submitted
   day. No daily reminder (not asked). Docs: `docs/modules/reports.md` «Daily reports».
 - **transport** (`transport.orders.create` org, `.manage`/`.view_all` platform): orders per deceased with delivery and/or
   carriers part; statuses submitted->accepted->in_progress->done, rejected/cancelled, **bumped**. Car lock: same car

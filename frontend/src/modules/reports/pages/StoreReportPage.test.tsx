@@ -258,7 +258,7 @@ describe("StoreReportPage", () => {
     expect(screen.getByText("заповнено 2 з 2")).toBeDefined();
   });
 
-  it("opens today, marks the days and shows the month as the sum of the days", async () => {
+  it("opens today and marks the days; the month view is not offered to the store", async () => {
     renderPage();
     await screen.findByText("Хліб пшеничний");
     const strip = screen.getByRole("group", { name: "Дні місяця" });
@@ -269,10 +269,8 @@ describe("StoreReportPage", () => {
     expect(screen.getByRole("button", { name: /4 жовтня 2026.*не заповнено/ })).toBeDefined();
     expect(screen.getByText("днів надіслано 1 з 2")).toBeDefined();
 
-    fireEvent.click(screen.getByRole("button", { name: /^Місяць/ }));
-    expect(await screen.findByText("Товари за місяць")).toBeDefined();
-    expect(screen.getByText(/Сума всіх днів місяця/)).toBeDefined();
-    expect(screen.queryByRole("button", { name: /Надіслати день/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Місяць/ })).toBeNull();
+    expect(screen.queryByText("Товари за місяць")).toBeNull();
   });
 
   it("warns on a day that the month already has quantities entered without a date", async () => {
