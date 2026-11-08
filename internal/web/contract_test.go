@@ -62,6 +62,8 @@ func substitute(v any, saved map[string]any) any {
 }
 
 // Q5: served times are RFC3339 UTC with an explicit Z.
+var dateRE = regexp.MustCompile(`^\d{4}-\d\d-\d\d$`)
+
 var timeFormat = regexp.MustCompile(`^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$`)
 
 // normalise replaces volatile fields after checking their format (so R5/R12 regressions show).
@@ -89,6 +91,15 @@ func normalise(v any, problems *[]string) any {
 	case string:
 		if t == time.Now().Format("2006-01") {
 			return "<current-period>"
+		}
+		// Dates of the current month (daily reports: the day, today, the month's first and last day).
+		if dateRE.MatchString(t) && strings.HasPrefix(t, time.Now().Format("2006-01")+"-") {
+			return "<current-month-date>"
+		}
+		// Today inside a text (messages and audit details name the day).
+		now := time.Now()
+		if r := strings.NewReplacer(now.Format("2006-01-02"), "<today>", now.Format("02.01.2006"), "<today>").Replace(t); r != t {
+			return r
 		}
 	}
 	return v

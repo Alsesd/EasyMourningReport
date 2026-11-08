@@ -111,7 +111,11 @@ const mockDay: DayReportDTO = {
   total_cents: 16000,
   missed: false,
   closed: false,
+  revision: 4,
+  saved: { by: "Іван Коваль", signed_at: "2026-10-06T09:00:00Z" },
 };
+
+let conflict = false;
 
 describe("StoreReportPage", () => {
   let queryClient: QueryClient;
@@ -122,6 +126,7 @@ describe("StoreReportPage", () => {
     });
     queryClient.setQueryData(["session"], mockSession);
     localStorage.clear();
+    conflict = false;
 
     globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       if (url.includes("/api/v1/session")) {
@@ -129,6 +134,15 @@ describe("StoreReportPage", () => {
           ok: true,
           status: 200,
           json: () => Promise.resolve(mockSession),
+        });
+      }
+      if (url.includes("/api/v1/store/reports/2026-10/days/2026-10-06") && init?.method === "PUT" && conflict) {
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          statusText: "Conflict",
+          headers: new Headers({ "content-type": "application/json" }),
+          json: () => Promise.resolve({ detail: "Звіт за цей день щойно змінив(ла) Іван Коваль. Оновіть дані й перевірте кількості, щоб не задвоїти й не затерти чужі зміни." }),
         });
       }
       if (url.includes("/api/v1/store/reports/2026-10/days/2026-10-06") && init?.method === "PUT") {
@@ -299,5 +313,28 @@ describe("StoreReportPage", () => {
     } finally {
       Object.assign(mockDay, original);
     }
+  });
+
+  it("sends the loaded revision, names who saved last and offers a reload on a colleague's newer save", async () => {
+    renderPage();
+    await screen.findByText("Хліб пшеничний");
+    expect(screen.getByText(/Востаннє зберіг\(ла\): Іван Коваль/)).toBeDefined();
+    conflict = true;
+    fireEvent.click(screen.getByRole("button", { name: /Зберегти чернетку/i }));
+    expect(await screen.findByText(/щойно змінив\(ла\) Іван Коваль/)).toBeDefined();
+    expect(screen.getByRole("button", { name: "Оновити дані" })).toBeDefined();
+    const put = vi.mocked(globalThis.fetch).mock.calls.find(([, init]) => init?.method === "PUT");
+    expect(JSON.parse(put?.[1]?.body as string).revision).toBe(4);
+  });
+
+  it("does not restore a local draft made before a colleague's newer save", async () => {
+    localStorage.setItem(
+      "easyMourningReport.draft.1.2026-10:2026-10-06",
+      JSON.stringify({ period: "2026-10:2026-10-06", storeId: 1, timestamp: 1, quantities: { "101_2500": 9 }, revision: 3 }),
+    );
+    renderPage();
+    await screen.findByText("Хліб пшеничний");
+    expect(await screen.findByText(/колега зберіг\(ла\) цей день/)).toBeDefined();
+    expect((screen.getByRole("textbox", { name: "Кількість: Хліб пшеничний, 25,00\u00a0₴" }) as HTMLInputElement).value).toBe("2");
   });
 });

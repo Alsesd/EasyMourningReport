@@ -270,6 +270,11 @@ var goOwnedColumns = []struct{ table, column, def string }{
 	// late submission, as the record of it); auto_locked_at = when the day was closed automatically (0 = never).
 	{"report_days", "missed", "INTEGER NOT NULL DEFAULT 0"},
 	{"report_days", "auto_locked_at", "INTEGER NOT NULL DEFAULT 0"},
+	// Several employees of one store fill in the same day: revision grows with every change (a save sent with an older
+	// revision is refused instead of overwriting a colleague), saved_by_name/saved_at name the last one who saved.
+	{"report_days", "revision", "INTEGER NOT NULL DEFAULT 0"},
+	{"report_days", "saved_by_name", "TEXT NOT NULL DEFAULT ''"},
+	{"report_days", "saved_at", "INTEGER NOT NULL DEFAULT 0"},
 }
 
 func addColumn(tx *sql.Tx, c struct{ table, column, def string }) error {

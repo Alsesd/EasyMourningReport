@@ -247,38 +247,6 @@ func LoadItems(ctx context.Context, q core.Querier, reportID int64) ([]Item, err
 	return out, rows.Err()
 }
 
-// ReplaceEditableItems deletes the report's rows of editable products and inserts the new
-// ones ({product: {price: (qty, qty_calc)}}). Rows of other products stay untouched.
-func ReplaceEditableItems(ctx context.Context, tx *sql.Tx, reportID int64, editable map[int64]bool, items []Item, quantities map[int64]map[int64][2]int64) error {
-	for _, it := range items {
-		if editable[it.ProductID] {
-			if _, err := tx.ExecContext(ctx, "DELETE FROM report_items WHERE id = ?", it.ID); err != nil {
-				return err
-			}
-		}
-	}
-	ids := make([]int64, 0, len(editable))
-	for id := range editable {
-		ids = append(ids, id)
-	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	for _, pid := range ids {
-		prices := make([]int64, 0, len(quantities[pid]))
-		for p := range quantities[pid] {
-			prices = append(prices, p)
-		}
-		sort.Slice(prices, func(i, j int) bool { return prices[i] < prices[j] })
-		for _, price := range prices {
-			qty := quantities[pid][price]
-			if _, err := tx.ExecContext(ctx, "INSERT INTO report_items (report_id, product_id, quantity, quantity_calc, unit_price_cents) VALUES (?, ?, ?, ?, ?)",
-				reportID, pid, qty[0], qty[1], price); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // ReportTotal: financial totals use the ordinary quantity, never the calculation quantity.
 func ReportTotal(items []Item) int64 {
 	var s int64

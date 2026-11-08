@@ -25,8 +25,9 @@ A store fills in **each day** of the month; the month is the sum of its days. Ea
 
 - Storage: Go-owned tables `report_days` (status and signatures per day) and `report_day_items` (quantities per day). `report_items` stays the month's aggregate and is rebuilt from the days in the same transaction as every day save (for the products a store can edit; inactive and archived products' rows never change), so the summary, the Excel export, the dashboard and product usage read it as before.
 - A month with no day rows is "kept as a whole" (everything before daily reports). The first day saved in it moves its existing quantities, status and signatures into the **undated** part (`day = ''`, «Без дати» in the UI, `undated` in URLs): nothing entered before is lost, and the undated part can still be corrected and submitted like a day.
-- **Only days are locked.** The month of a daily report is review-only: `PATCH /admin/reports/{id}` answers `409` for it, and the UI offers no month lock at all (also not for months kept as a whole: their quantities are the «Без дати» part, locked and unlocked like a day). A daily month always takes new days, also a past one (a forgotten day arrives as a draft).
-- A month submitted as a whole takes no days until a reviewer unlocks its «Без дати» part. The monthly `PUT /store/reports/{period}` refuses a daily month (`409`).
+- **Only days are locked.** The month is review-only: there is no monthly save or lock any more (also not for months kept as a whole: their quantities are the «Без дати» part, locked and unlocked like a day).
+- A month submitted as a whole takes no days until a reviewer unlocks its «Без дати» part.
+- **Several employees of one store** fill in the same day: the draft is the store's, on the server, so everyone sees what a colleague saved, and the day shows «Востаннє зберіг(ла)». A save replaces the day's quantities, it never adds to them, so saving twice cannot double. The form sends the `revision` it loaded; if a colleague saved in between, the server refuses (`409`, naming the colleague) and the page offers «Оновити дані». A local (offline) draft made on an older revision is not restored over the newer save; the page says so.
 - The month's `reports.status` is derived for a daily month: `submitted` when every day is.
 - Stores see days only; the month as a whole (the sum) is shown to reviewers.
 
@@ -58,7 +59,7 @@ A report belongs to an organisation (`reports.store_id` → `organisations.id`; 
 
 The store page opens today's day: a strip of the month's days (state per day, «Без дати» when present) and the day form with «Зберегти чернетку» / «Надіслати день»; stores get no month view. Local offline drafts are kept per day. The reviewer's «Звіти» page has two tabs: **«За день»** (default; day selector `?day=`, register, matrix and Excel for that day) and **«За місяць»** (`?tab=month`, read-only register, matrix and Excel of the month). The report detail shows «Місяць» (read-only sum, no lock) and the filled days; a day (`?day=`, the notification link) has «Заблокувати день» / «Розблокувати день».
 
-`module.tsx` registers the standalone store report (`/report`), the «Звіти» month page (`/admin/reports`: store register, products matrix, Excel; `/admin/summary` redirects there), the report detail page, the «Товари й ціни» and «Звіти підрозділів» sections (the latter switches «По розрахунку» per division) of «Адміністрування», and the landing pages. `api.ts` wraps the endpoints, `i18n.ts` extends the platform dictionary, and `permissions.ts` mirrors the backend codes.
+`module.tsx` registers the store report (`/report`, an absolute path rendered inside the shell, so stores have the same navigation as everyone), the «Звіти» page (`/admin/reports`), the report detail page, the «Товари й ціни» and «Звіти підрозділів» sections (the latter switches «По розрахунку» per division) of «Адміністрування», and the landing pages. `api.ts` wraps the endpoints, `i18n.ts` extends the platform dictionary, and `permissions.ts` mirrors the backend codes.
 
 ## Tests
 
@@ -69,7 +70,7 @@ cd frontend && npm test -- src/modules/reports
 
 ## Who submitted a report
 
-Every report carries the employee who submitted it, next to the organisation it belongs to. `PUT /store/reports/{period}` with `action: "submit"` records the signed-in employee (id and a name snapshot: full name, else login). The responses of the store page, the administrator's month list and the report detail carry:
+Months submitted as a whole (before daily reports) carry the employee who submitted them; nothing records these any more (days carry their own signatures), they are read-only history. The responses of the store page, the administrator's month list and the report detail carry:
 
 - `submission: {by, signed_at}`: the employee who submitted the report ("Надіслав(ла)"). It stays after an administrator unlocks the report ("Востаннє надіслав(ла)") until the store submits again.
 - `locked: {by, signed_at}`: an administrator locked the report ("Заблокував(ла) адміністратор"). Present only while the report is submitted and the lock is newer than the last submission, so the correction cycle (submit, unlock, lock again without a resubmit) shows both the employee and the administrator. Locking a report that is already submitted changes nothing.

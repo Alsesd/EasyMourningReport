@@ -33,6 +33,9 @@ type Day struct {
 	Missed bool
 	// AutoLocked: when the day was last closed automatically at midnight (zero = never).
 	AutoLocked time.Time
+	// Revision grows with every change of the day; Saved is the employee who saved it last.
+	Revision int64
+	Saved    *Signature
 }
 
 // DayTotal is a day with the money and line count of its quantities.
@@ -42,15 +45,19 @@ type DayTotal struct {
 	Count int
 }
 
-const dayColumns = `day, status, COALESCE(submitted_by_id, 0), submitted_by_name, submitted_at, COALESCE(locked_by_id, 0), locked_by_name, locked_at, missed, auto_locked_at`
+const dayColumns = `day, status, COALESCE(submitted_by_id, 0), submitted_by_name, submitted_at, COALESCE(locked_by_id, 0), locked_by_name, locked_at, missed, auto_locked_at, revision, saved_by_name, saved_at`
 
 func scanDay(scan func(...any) error) (Day, error) {
 	var d Day
 	var sub, lock Signature
-	var subAt, lockAt, autoAt int64
+	var subAt, lockAt, autoAt, savedAt int64
 	var missed int
-	if err := scan(&d.Day, &d.Status, &sub.ByID, &sub.ByName, &subAt, &lock.ByID, &lock.ByName, &lockAt, &missed, &autoAt); err != nil {
+	var savedBy string
+	if err := scan(&d.Day, &d.Status, &sub.ByID, &sub.ByName, &subAt, &lock.ByID, &lock.ByName, &lockAt, &missed, &autoAt, &d.Revision, &savedBy, &savedAt); err != nil {
 		return d, err
+	}
+	if savedAt > 0 {
+		d.Saved = &Signature{ByName: savedBy, At: time.Unix(savedAt, 0)}
 	}
 	d.Missed = missed != 0
 	if autoAt > 0 {
@@ -218,9 +225,16 @@ func EnsureDay(ctx context.Context, tx *sql.Tx, reportID int64, day string) erro
 	return err
 }
 
-// SetDayStatus changes a day's status.
+// SetDayStatus changes a day's status (a new revision).
 func SetDayStatus(ctx context.Context, tx *sql.Tx, reportID int64, day, status string) error {
-	_, err := tx.ExecContext(ctx, "UPDATE report_days SET status = ? WHERE report_id = ? AND day = ?", status, reportID, day)
+	_, err := tx.ExecContext(ctx, "UPDATE report_days SET status = ?, revision = revision + 1 WHERE report_id = ? AND day = ?", status, reportID, day)
+	return err
+}
+
+// MarkDaySaved records a store employee's save of the day: a new revision and who saved it.
+func MarkDaySaved(ctx context.Context, tx *sql.Tx, reportID int64, day, userName string, now time.Time) error {
+	_, err := tx.ExecContext(ctx, "UPDATE report_days SET revision = revision + 1, saved_by_name = ?, saved_at = ? WHERE report_id = ? AND day = ?",
+		userName, now.Unix(), reportID, day)
 	return err
 }
 

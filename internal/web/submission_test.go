@@ -44,81 +44,47 @@ func (e *env) report(c *http.Cookie, method, path, body string) subReport {
 	return r
 }
 
-func TestReportCarriesTheSubmittingEmployee(t *testing.T) {
+// Months submitted as a whole (before daily reports) keep their signatures as read-only history: the reviewer
+// still sees who submitted and who locked, and the store's first day moves them to the «Без дати» part.
+func TestMonthSignaturesStayAsHistory(t *testing.T) {
 	e, clerk, boss, period := submissionEnv(t)
-	path := "/api/v1/store/reports/" + period
-
-	// A draft has no signature yet.
-	if r := e.report(clerk, "PUT", path, `{"action":"draft","quantities":[]}`); r.Submission != nil {
-		t.Fatalf("a draft must not be signed: %+v", r.Submission)
-	}
-	r := e.report(clerk, "PUT", path, `{"action":"submit","quantities":[]}`)
-	if r.Status != "submitted" || r.Submission == nil || r.Submission.By != "Оксана Мельник" || r.Submission.SignedAt == "" || r.Locked != nil {
-		t.Fatalf("submit: %+v", r)
-	}
-	if again := e.report(clerk, "GET", path, ""); again.Submission == nil || again.Submission.By != "Оксана Мельник" {
-		t.Fatalf("the store page shows the signature: %+v", again)
-	}
-
-	// The administrator sees it in the month list and in the report itself.
-	var list []struct {
-		StoreName  string `json:"store_name"`
-		Submission *sub   `json:"submission"`
-	}
-	json.Unmarshal(e.do("GET", "/api/v1/admin/reports?period="+period, "", nil, boss).Body.Bytes(), &list)
-	if len(list) != 1 || list[0].Submission == nil || list[0].Submission.By != "Оксана Мельник" {
-		t.Fatalf("list: %+v", list)
-	}
-	detail := e.report(boss, "GET", "/api/v1/admin/reports/"+itoa(int(r.ReportID)), "")
-	if detail.Submission == nil || detail.Submission.By != "Оксана Мельник" {
+	res, _ := e.st.W.Exec("INSERT INTO reports (store_id, period, status) SELECT id, ?, 'submitted' FROM organisations", period)
+	rid, _ := res.LastInsertId()
+	e.st.W.Exec("INSERT INTO report_submissions (report_id, kind, user_id, user_name, at) VALUES (?, 'store', NULL, 'Оксана Мельник', ?)", rid, e.now.Add(-time.Hour).Unix())
+	e.st.W.Exec("INSERT INTO report_submissions (report_id, kind, user_id, user_name, at) VALUES (?, 'admin', NULL, 'boss', ?)", rid, e.now.Unix())
+	detail := e.report(boss, "GET", "/api/v1/admin/reports/"+itoa(int(rid)), "")
+	if detail.Submission == nil || detail.Submission.By != "Оксана Мельник" || detail.Locked == nil || detail.Locked.By != "boss" {
 		t.Fatalf("detail: %+v", detail)
 	}
-
-	// Locking an already submitted report keeps the employee's signature; unlocking keeps it as the last submission.
-	patch := func(status string) subReport {
-		return e.report(boss, "PATCH", "/api/v1/admin/reports/"+itoa(int(r.ReportID)), `{"status":"`+status+`"}`)
+	var days struct {
+		Undated *struct {
+			Status     string `json:"status"`
+			Submission *sub   `json:"submission"`
+		} `json:"undated"`
 	}
-	if locked := patch("submitted"); locked.Submission == nil || locked.Submission.By != "Оксана Мельник" || locked.Locked != nil {
-		t.Fatalf("lock of a submitted report changes nothing: %+v", locked)
-	}
-	if open := patch("draft"); open.Status != "draft" || open.Submission == nil || open.Submission.By != "Оксана Мельник" || open.Locked != nil {
-		t.Fatalf("unlock: %+v", open)
-	}
-	// The correction cycle: the store does not resubmit and the administrator locks the report again. The
-	// employee's signature stays, and the administrator's lock is shown beside it.
-	e.now = e.now.Add(time.Hour)
-	relocked := patch("submitted")
-	if relocked.Status != "submitted" || relocked.Submission == nil || relocked.Submission.By != "Оксана Мельник" ||
-		relocked.Locked == nil || relocked.Locked.By != "boss" {
-		t.Fatalf("re-lock after an unlock: %+v / %+v", relocked.Submission, relocked.Locked)
-	}
-	// The store submits again: that is newer than the lock, so only the employee remains.
-	patch("draft")
-	e.now = e.now.Add(time.Hour)
-	if again := e.report(clerk, "PUT", path, `{"action":"submit","quantities":[]}`); again.Locked != nil || again.Submission == nil {
-		t.Fatalf("resubmit: %+v / %+v", again.Submission, again.Locked)
-	}
-}
-
-func TestAdminLockIsRecordedAsALockNotASubmission(t *testing.T) {
-	e, clerk, boss, period := submissionEnv(t)
-	r := e.report(clerk, "PUT", "/api/v1/store/reports/"+period, `{"action":"draft","quantities":[]}`)
-	locked := e.report(boss, "PATCH", "/api/v1/admin/reports/"+itoa(int(r.ReportID)), `{"status":"submitted"}`)
-	if locked.Submission != nil || locked.Locked == nil || locked.Locked.By != "boss" {
-		t.Fatalf("a lock is not a submission: %+v / %+v", locked.Submission, locked.Locked)
-	}
-	// After an unlock the administrator's earlier lock is not shown.
-	if open := e.report(boss, "PATCH", "/api/v1/admin/reports/"+itoa(int(r.ReportID)), `{"status":"draft"}`); open.Locked != nil || open.Submission != nil {
-		t.Fatalf("unlock: %+v / %+v", open.Submission, open.Locked)
+	json.Unmarshal(e.do("GET", "/api/v1/store/reports/"+period+"/days", "", nil, clerk).Body.Bytes(), &days)
+	if days.Undated != nil { // the month has no quantities, so there is no undated part
+		t.Fatalf("undated: %+v", days.Undated)
 	}
 }
 
 func TestReportsFromBeforeTheSignatureHaveNone(t *testing.T) {
-	e, clerk, boss, period := submissionEnv(t)
-	r := e.report(clerk, "PUT", "/api/v1/store/reports/"+period, `{"action":"submit","quantities":[]}`)
-	e.st.W.Exec("DELETE FROM report_submissions")
-	body := e.do("GET", "/api/v1/admin/reports/"+itoa(int(r.ReportID)), "", nil, boss).Body.String()
+	e, _, boss, period := submissionEnv(t)
+	res, _ := e.st.W.Exec("INSERT INTO reports (store_id, period, status) SELECT id, ?, 'submitted' FROM organisations", period)
+	rid, _ := res.LastInsertId()
+	body := e.do("GET", "/api/v1/admin/reports/"+itoa(int(rid)), "", nil, boss).Body.String()
 	if strings.Contains(body, "submission") || strings.Contains(body, "locked") {
 		t.Fatalf("an old report must not claim a submitter: %s", body)
+	}
+}
+
+// The monthly write endpoints are gone: the month is changed day by day and only reviewed as a whole.
+func TestMonthlyWriteEndpointsAreGone(t *testing.T) {
+	e, clerk, boss, period := submissionEnv(t)
+	if w := e.do("PUT", "/api/v1/store/reports/"+period, `{"action":"draft","quantities":[]}`, nil, clerk); w.Code != 405 {
+		t.Fatalf("monthly save: %d", w.Code)
+	}
+	if w := e.do("PATCH", "/api/v1/admin/reports/1", `{"status":"draft"}`, nil, boss); w.Code != 405 {
+		t.Fatalf("month lock: %d", w.Code)
 	}
 }

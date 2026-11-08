@@ -57,7 +57,7 @@ A module lists its endpoints in `core.Module.Routes` (`internal/<module>/http.go
 
 **Frontend** (`src/platform/modules.ts`). A module exports an `AppModule` from `module.tsx` with:
 
-- `routes`: shell pages relative to `/admin`, or standalone absolute paths;
+- `routes`: shell pages relative to `/admin` or at an absolute path (`/report`, still inside the shell), or `layout: "standalone"` full-screen pages;
 - `nav` items;
 - `admin` sections, each with `id`, `label`, `description`, `group` (`access`, `catalog`, `system` or `activity`), `icon`, `permissions` and `component`;
 - `landing` pages with priorities.

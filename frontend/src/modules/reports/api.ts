@@ -39,13 +39,9 @@ export const reportsApi = {
     api.get<AdminReportListItemDTO[]>("/api/v1/admin/reports", { params: { period } }),
   reportDetail: (reportId: string) =>
     api.get<AdminReportDetailDTO>(`/api/v1/admin/reports/${encodeURIComponent(reportId)}`),
-  setReportStatus: (reportId: string, status: "draft" | "submitted") =>
-    api.patch<unknown>(`/api/v1/admin/reports/${encodeURIComponent(reportId)}`, { status }),
 
   storeReport: (period: string) =>
     api.get<StoreReportDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}`),
-  saveStoreReport: (period: string, payload: ReportSaveDTO) =>
-    api.put<StoreReportDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}`, payload),
   storeDays: (period: string) => api.get<MonthDaysDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}/days`),
   storeDay: (period: string, day: string) =>
     api.get<DayReportDTO>(`/api/v1/store/reports/${encodeURIComponent(period)}/days/${encodeURIComponent(day)}`),

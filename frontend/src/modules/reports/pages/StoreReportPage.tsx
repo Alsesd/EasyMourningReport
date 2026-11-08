@@ -3,13 +3,9 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/platform/api/client";
 import { reportsApi } from "@/modules/reports/api";
-import { Link } from "react-router-dom";
-import { AccountMenu } from "@/platform/account/AccountMenu";
-import { NotificationBell } from "@/platform/notifications/NotificationBell";
 import { useAuth } from "@/platform/auth/AuthContext";
-import { navItemsFor, useModuleRegistry } from "@/platform/modules";
 import type { StoreReportDTO, ReportLineDTO, ReportSaveDTO, DayReportDTO, MonthDaysDTO } from "@/platform/api/types";
-import { uk, formatCurrency, formatPeriodReadable, formatDayReadable, shiftPeriod } from "@/modules/reports/i18n";
+import { uk, formatCurrency, formatPeriodReadable, formatDayReadable, formatDateTime, shiftPeriod } from "@/modules/reports/i18n";
 import { UNDATED } from "@/modules/reports/api";
 import { DayStrip, defaultView } from "@/modules/reports/components/DayStrip";
 import { Button } from "@/ui/Button";
@@ -18,8 +14,6 @@ import { Signature } from "@/modules/reports/components/Signature";
 import { MissedBadge } from "@/modules/reports/components/MissedBadge";
 import { AnimatedCollapse } from "@/ui/AnimatedCollapse";
 import { QuantityStepper } from "@/ui/QuantityStepper";
-import { MakerMark } from "@/ui/MakerMark";
-import { ThemeToggle } from "@/ui/ThemeToggle";
 import {
   Dialog,
   DialogContent,
@@ -43,10 +37,6 @@ import { cn } from "@/ui/utils";
 
 export default function StoreReportPage() {
   const { session } = useAuth();
-  // Users who can do more than file this report (or change their password) get a way into the workspace.
-  const workspaceLink = navItemsFor(useModuleRegistry(), session?.permissions).find(
-    (item) => item.to !== "/report",
-  );
   const queryClient = useQueryClient();
 
   const currentMonth = session?.period || new Date().toISOString().slice(0, 7);
@@ -65,7 +55,9 @@ export default function StoreReportPage() {
   // Map of `${productId}_${priceCents}` -> quantity
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [initialSnapshot, setInitialSnapshot] = useState<string>("");
-  const [feedback, setFeedback] = useState<{ type: "ok" | "err"; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "ok" | "err"; message: string; reload?: boolean } | null>(null);
+  // Local changes were dropped because a colleague saved the day meanwhile.
+  const [staleDraft, setStaleDraft] = useState(false);
   const [isSubmitConfirmOpen, setIsSubmitConfirmOpen] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
@@ -122,10 +114,16 @@ export default function StoreReportPage() {
       }
     }
 
-    // Check if there is an unsubmitted local draft
+    // Unsaved changes on this device come back, but only if nobody saved the day since they were made: restoring
+    // them over a colleague's newer save would overwrite (or double) the colleague's numbers.
     const localDraft = loadLocalDraft(draftKey, session?.organisation?.id ?? undefined);
     if (localDraft && !report.read_only) {
-      Object.assign(initialMap, localDraft.quantities);
+      if ((localDraft.revision ?? 0) === report.revision) {
+        Object.assign(initialMap, localDraft.quantities);
+      } else {
+        clearLocalDraft(draftKey, session?.organisation?.id ?? undefined);
+        setStaleDraft(true);
+      }
     }
 
     setQuantities(initialMap);
@@ -135,6 +133,7 @@ export default function StoreReportPage() {
   // Clear feedback when switching months or days
   useEffect(() => {
     setFeedback(null);
+    setStaleDraft(false);
   }, [selectedPeriod, view]);
 
   // Compute dirty state
@@ -162,11 +161,11 @@ export default function StoreReportPage() {
         const quantityKey = `${productId}_${priceCents}${calculation ? "_calc" : ""}`;
         const next = { ...prev, [quantityKey]: newQty };
         // Persist locally for offline draft protection
-        saveLocalDraft(draftKey, next, session?.organisation?.id ?? undefined);
+        saveLocalDraft(draftKey, next, session?.organisation?.id ?? undefined, report?.revision);
         return next;
       });
     },
-    [draftKey, session?.organisation?.id]
+    [draftKey, session?.organisation?.id, report?.revision]
   );
 
   // Compute live totals
@@ -211,6 +210,8 @@ export default function StoreReportPage() {
       const payload: ReportSaveDTO = {
         action,
         quantities: items,
+        // The day as this employee loaded it: a colleague's newer save makes the server refuse instead of overwrite.
+        revision: report.revision,
       };
 
       return await reportsApi.saveStoreDay(selectedPeriod, view ?? "", payload);
@@ -240,6 +241,8 @@ export default function StoreReportPage() {
             : err instanceof Error
             ? err.message
             : uk.store.saveError,
+        // A colleague changed the day meanwhile (409 with the revision check): offer to load their version.
+        reload: err instanceof ApiError && err.status === 409,
       });
     },
   });
@@ -326,39 +329,15 @@ export default function StoreReportPage() {
   const daysSent = days ? days.days.filter((d) => d.status === "submitted").length : 0;
 
   return (
-    <div className="flex min-h-screen flex-col bg-page pb-44 text-text-main sm:pb-28">
-      <header className="sticky top-0 z-30 border-b border-border bg-page/95">
-        <div className="mx-auto flex min-h-[60px] max-w-3xl items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span aria-hidden="true" className="grid h-8 w-8 shrink-0 place-items-center rounded-control bg-primary font-serif text-sm font-semibold text-primary-fg">
-              ЛЗ
-            </span>
-            <span className="truncate font-serif text-base font-semibold">{storeName}</span>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {workspaceLink && (
-              <Link
-                to={workspaceLink.to}
-                aria-label={workspaceLink.label}
-                title={workspaceLink.label}
-                className="inline-flex h-11 min-w-[44px] items-center justify-center gap-2 rounded-control px-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-surface-raised hover:text-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:border sm:border-border sm:px-3"
-              >
-                <workspaceLink.icon className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
-                <span className="hidden sm:inline">{workspaceLink.label}</span>
-              </Link>
-            )}
-            <MakerMark className="hidden sm:inline-flex" />
-            <ThemeToggle />
-            <NotificationBell />
-            <AccountMenu />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 pt-6 sm:px-6 sm:pt-10">
+    // Rendered inside the shell (sidebar on wide screens, bottom navigation on phones), like every other page.
+    <div className="mx-auto w-full max-w-3xl">
+      <div className="space-y-6">
         <div className="flex items-end justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-sm text-text-muted">{uk.store.monthLabel}</p>
+            <p className="text-sm text-text-muted">
+              {storeName ? `${storeName} · ` : ""}
+              {uk.store.monthLabel}
+            </p>
             <h1 className="text-[1.875rem] leading-tight sm:text-[2.25rem]">{formatPeriodReadable(selectedPeriod)}</h1>
             {days && days.days.length > 0 && (
               <p className="mt-1 text-sm text-text-muted">{uk.daily.daysSubmittedOf(daysSent, days.days.length)}</p>
@@ -384,6 +363,7 @@ export default function StoreReportPage() {
                 {report.missed ? <MissedBadge late={Boolean(report.submission)} /> : <StatusPill status={report.status} />}
                 <span>{uk.store.filledOf(filled, rows.length)}</span>
                 <Signature status={report.status} signed={report} />
+                {report.saved && <span>{uk.daily.lastSaved(report.saved.by, formatDateTime(report.saved.signed_at))}</span>}
               </div>
             )}
             {view === UNDATED && <p className="text-sm text-text-muted">{uk.daily.undatedHelp}</p>}
@@ -413,6 +393,19 @@ export default function StoreReportPage() {
             >
               {feedback.type === "ok" ? <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" /> : <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />}
               <span className="flex-1 py-1.5">{feedback.message}</span>
+              {feedback.reload && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFeedback(null);
+                    queryClient.invalidateQueries({ queryKey: ["storeDay", selectedPeriod, view] });
+                    queryClient.invalidateQueries({ queryKey: ["storeDays", selectedPeriod] });
+                  }}
+                >
+                  {uk.daily.reload}
+                </Button>
+              )}
               <button
                 type="button"
                 onClick={() => setFeedback(null)}
@@ -424,6 +417,16 @@ export default function StoreReportPage() {
             </div>
           )}
         </AnimatedCollapse>
+
+        {staleDraft && (
+          <p role="status" className="flex items-start gap-2 border-l-2 border-attention bg-attention-soft px-3 py-2 text-sm text-attention">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="flex-1">{uk.daily.staleDraft}</span>
+            <button type="button" onClick={() => setStaleDraft(false)} aria-label={uk.common.close} className="grid h-9 w-9 shrink-0 place-items-center rounded-control opacity-70 hover:opacity-100">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </p>
+        )}
 
         {lockedNotice && (
           <p
@@ -530,11 +533,11 @@ export default function StoreReportPage() {
             )}
           </section>
         )}
-      </main>
+      </div>
 
-      {/* The month's total and the two actions stay in reach while the list scrolls. */}
-      <footer className="fixed bottom-0 left-0 right-0 z-40 border-t-2 border-ink bg-page pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto flex max-w-3xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6">
+      {/* The day's total and the two actions stay in reach while the list scrolls, above the phone navigation. */}
+      <footer className="sticky bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 -mx-4 mt-6 border-t-2 border-ink bg-page sm:mx-0 lg:bottom-0">
+        <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-0">
           <div className="min-w-0">
             <span className="block text-xs text-text-muted">
               {uk.daily.dayTotal}

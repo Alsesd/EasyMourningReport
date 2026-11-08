@@ -145,9 +145,11 @@ def run_tests():
             print("Store report loaded on today's day with products!")
 
             # Verify store name
-            header_text = page.inner_text("header")
-            print("Header store name:", header_text)
-            assert "Підрозділ 1" in header_text
+            # The report renders inside the shell: the phone bottom navigation reaches the other sections
+            assert "Підрозділ 1" in page.inner_text("main"), "the page names the store"
+            bottom_nav = page.locator('nav[aria-label="Внутрішній портал"]:visible')
+            assert bottom_nav.get_by_role("link", name="Транспорт").count() == 1, "the store page must link to the other sections"
+            print("Store page is inside the shell with navigation to the other sections!")
 
             # Test quantity stepper (+ button)
             plus_buttons = page.locator('button[aria-label^="Збільшити кількість"]').all()
@@ -192,7 +194,7 @@ def run_tests():
             print("Store sees days only!")
 
             # Transport desk: the same user places an order for today
-            page.click('a[aria-label="Транспорт"]')
+            page.locator('nav[aria-label="Внутрішній портал"]:visible').get_by_role("link", name="Транспорт").click()
             page.wait_for_url("**/admin/transport", timeout=5000)
             page.click('button:has-text("Нове замовлення")')
             page.fill('#order-deceased', "Тестовий Т. Т.")

@@ -95,7 +95,7 @@ func TestExportEndpoint(t *testing.T) {
 	e := newEnv(t, nil)
 	seedDemo(t, e)
 	s1 := e.as("store1", "Store1-demo")
-	s1.json("PUT", "/api/v1/store/reports/2026-11", `{"action":"submit","quantities":[{"product_id":1,"price_cents":250,"quantity":4}]}`, 200)
+	s1.json("PUT", "/api/v1/store/reports/2026-11/days/2026-11-06", `{"action":"submit","quantities":[{"product_id":1,"price_cents":250,"quantity":4}]}`, 200)
 	boss := e.as("boss", "Boss-pass1")
 	w := boss.do("GET", "/api/v1/admin/summary.xlsx?period=2026-11&submitted_only=true", "")
 	if w.Code != 200 || w.Header().Get("Content-Type") != xlsxType {

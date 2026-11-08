@@ -94,6 +94,7 @@ const mockDay: DayReportDTO = {
   total_cents: 4000,
   missed: false,
   closed: false,
+  revision: 2,
 };
 
 let daily = false;

@@ -14,7 +14,14 @@ import (
 // Daily reports over HTTP: a store fills in, saves and submits each day of a month; a reviewer reads a day,
 // locks or unlocks it, and sees all stores for one day. See days.go for the storage rules.
 
-const errDailyMonth = "Звіт за цей місяць ведеться по днях. Оберіть день, щоб внести зміни."
+// errDayChanged names the colleague whose save came in between (the form must be reloaded).
+func errDayChanged(cur *Day) string {
+	who := "інший працівник"
+	if cur != nil && cur.Saved != nil && cur.Saved.ByName != "" {
+		who = cur.Saved.ByName
+	}
+	return "Звіт за цей день щойно змінив(ла) " + who + ". Оновіть дані й перевірте кількості, щоб не задвоїти й не затерти чужі зміни."
+}
 
 func errDayClosed(day string) string {
 	return "День " + formatDay(day) + " закрито опівночі. Змінити його можна, лише якщо адміністратор розблокує день."
@@ -139,6 +146,11 @@ type dayReportDTO struct {
 	signedDTO
 	Missed       bool   `json:"missed"`
 	AutoLockedAt string `json:"auto_locked_at,omitempty"`
+	// Revision of the day as loaded (0 = not stored yet): send it back with a save, so a save over a colleague's
+	// newer change is refused (409) instead of overwriting it.
+	Revision int64 `json:"revision"`
+	// Saved: the employee who saved the day last (several employees may fill in one store's day).
+	Saved *signatureDTO `json:"saved,omitempty"`
 	// Closed: a past day without a report, closed at midnight before anything was entered (the store cannot open it).
 	Closed bool `json:"closed"`
 }
@@ -243,7 +255,10 @@ func (a *api) dayReportDTO(ctx context.Context, q core.Querier, rep *Report, org
 		d.ReportID, d.MonthStatus = &id, rep.Status
 		d.signedDTO = signedOf(st.status, st.sigs)
 		if st.day != nil {
-			d.Missed, d.AutoLockedAt = st.day.Missed, autoLockedAt(*st.day)
+			d.Missed, d.AutoLockedAt, d.Revision = st.day.Missed, autoLockedAt(*st.day), st.day.Revision
+			if sv := st.day.Saved; sv != nil {
+				d.Saved = &signatureDTO{By: sv.ByName, At: core.ServedTime(sv.At)}
+			}
 		}
 		if blocked, err := a.monthBlocksDays(ctx, q, rep, day); err != nil {
 			return dayReportDTO{}, err
@@ -412,6 +427,8 @@ func (a *api) saveStoreDay(w http.ResponseWriter, r *http.Request, p *core.Calle
 		return err
 	}
 	action := body.OptLiteral("action", "draft", "draft", "submit")
+	// The revision the employee's form was loaded at (optional: a client without it saves unconditionally).
+	revision := body.OptInt("revision")
 	lines := readSaveLines(body)
 	if err := body.Err(); err != nil {
 		return err
@@ -457,6 +474,16 @@ func (a *api) saveStoreDay(w http.ResponseWriter, r *http.Request, p *core.Calle
 		if cur == nil && day != Undated && day < a.today() {
 			return core.HTTPError{Status: 409, Detail: errDayClosed(day)}
 		}
+		// Another employee of the store changed the day after this form was loaded: refuse rather than overwrite.
+		if revision != nil {
+			var have int64
+			if cur != nil {
+				have = cur.Revision
+			}
+			if *revision != have {
+				return core.HTTPError{Status: 409, Detail: errDayChanged(cur)}
+			}
+		}
 		if err := EnsureDay(ctx, tx, rep.ID, day); err != nil {
 			return err
 		}
@@ -472,6 +499,9 @@ func (a *api) saveStoreDay(w http.ResponseWriter, r *http.Request, p *core.Calle
 			return err
 		}
 		if err := RebuildAggregate(ctx, tx, rep.ID, editable); err != nil {
+			return err
+		}
+		if err := MarkDaySaved(ctx, tx, rep.ID, day, p.DisplayName(), a.Now()); err != nil {
 			return err
 		}
 		auditAction := "збережено звіт за день"

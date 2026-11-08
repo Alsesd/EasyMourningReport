@@ -5,19 +5,19 @@ The canonical visual design contract is maintained in [`design-system.md`](desig
 ## Responsive product rules
 
 ### Store screen (`/report`)
-- One narrow column on every screen size: a slim header (monogram, store name, workspace link when the user has one, maker mark, theme, account), the month as the page title with previous/next, the report state and how many products are filled.
+- Inside the shell like every page (sidebar on wide screens, bottom navigation on phones), one narrow column: the store name and the month as the page title with previous/next, the strip of the month's days, then the selected day's state, who saved it last and how many products are filled.
 - Period navigation preserves the reporting constraints; a future period is not selectable when the data contract disallows it.
 - Products form one ruled list: name, price (with an amber tag for old/new/saved prices), a stepper named after the product and price, and the line sum. A product repriced during the month lists each price under its name. With «По розрахунку» enabled each line gets a second stepper.
 - Inactive items with saved quantities remain in a collapsed, read-only section.
-- The month total, the unsaved-changes note and the two actions sit in a fixed footer above the safe area; on phones the actions take a full row.
-- Submission has an accessible confirmation step that repeats the month and total. Submitted reports are read-only until an administrator unlocks them.
-- Offline work uses the per-store/per-period local draft persistence and the unsaved-change guard; an amber note says changes are kept on the device.
+- The day's total, the unsaved-changes note and the two actions sit in a sticky bar above the phone navigation; on phones the actions take a full row.
+- Submission has an accessible confirmation step that repeats the day and total. A submitted or midnight-closed day is read-only until a reviewer unlocks it.
+- Offline work keeps a local draft per store and day (with the revision it was made on) and the unsaved-change guard; an amber note says changes are kept on the device.
 
 ### Admin workspace (`/admin/*`)
 - Desktop: a persistent rail with the modules' pages and the account menu; pages on the paper with a serif title and ruled sections.
 - Phone/tablet: a slim top bar and a bottom navigation with safe-area padding; wide tables either scroll (with the first column pinned) or become ruled rows that open on demand.
-- «Звіти» is one month page: the store register (state, positions, sum, month total) and the products matrix, with the period picker, the «Лише надіслані» switch and the Excel export. `/admin/summary` redirects to it.
-- Report detail keeps the lock/unlock confirmation and returns to its month.
+- «Звіти» has two tabs: «За день» (default) and «За місяць» (read-only), each with the store register and the products matrix, the period picker, the «Лише надіслані» switch and the Excel export; «Не надіслано вчасно» above them when a store missed days.
+- Report detail locks and unlocks days (with confirmation); the month is read-only.
 - «Адміністрування» is a dashboard plus a grouped submenu; every section is a page of ruled lists. Audit entries are one ruled list on every screen size; filters stay in the URL.
 
 ### Management dashboard (`/admin/dashboard`, «Показники»)

@@ -135,7 +135,7 @@ func closeDay(ctx context.Context, tx *sql.Tx, store reportingStore, day string,
 	if err := EnsureDay(ctx, tx, rep.ID, day); err != nil {
 		return false, err
 	}
-	if _, err := tx.ExecContext(ctx, "UPDATE report_days SET status = 'submitted', missed = 1, auto_locked_at = ? WHERE report_id = ? AND day = ?",
+	if _, err := tx.ExecContext(ctx, "UPDATE report_days SET status = 'submitted', missed = 1, auto_locked_at = ?, revision = revision + 1 WHERE report_id = ? AND day = ?",
 		now.Unix(), rep.ID, day); err != nil {
 		return false, err
 	}
@@ -164,7 +164,7 @@ func relockOpenDays(ctx context.Context, tx *sql.Tx, today string, now time.Time
 		return err
 	}
 	for i := range reps {
-		if _, err := tx.ExecContext(ctx, "UPDATE report_days SET status = 'submitted', auto_locked_at = ? WHERE report_id = ? AND status = 'draft' AND day != '' AND day < ?",
+		if _, err := tx.ExecContext(ctx, "UPDATE report_days SET status = 'submitted', auto_locked_at = ?, revision = revision + 1 WHERE report_id = ? AND status = 'draft' AND day != '' AND day < ?",
 			now.Unix(), reps[i].ID, today); err != nil {
 			return err
 		}

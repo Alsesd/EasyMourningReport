@@ -783,8 +783,7 @@ export interface paths {
         };
         /** Read Store Report */
         get: operations["read_store_report_api_v1_store_reports__period__get"];
-        /** Save Store Report */
-        put: operations["save_store_report_api_v1_store_reports__period__put"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -823,8 +822,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Update Admin Report Status */
-        patch: operations["update_admin_report_status_api_v1_admin_reports__rid__patch"];
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/summary": {
@@ -1118,6 +1116,10 @@ export interface components {
             auto_locked_at?: string;
             /** A past day without a report, closed at midnight (the store cannot open it) */
             closed: boolean;
+            /** Revision as loaded (0 = not stored yet); send it back with a save so a colleague's newer save is not overwritten */
+            revision: number;
+            /** The employee who saved the day last */
+            saved?: components["schemas"]["SignatureDTO"];
         };
         /** DailyReportListItemDTO: one store's state for one day */
         DailyReportListItemDTO: {
@@ -1479,6 +1481,8 @@ export interface components {
             action: "draft" | "submit";
             /** Quantities */
             quantities?: components["schemas"]["ReportQuantityDTO"][];
+            /** Day saves: the revision the form was loaded at (409 when the day changed meanwhile) */
+            revision?: number;
         };
         /** ReportSettingsDTO */
         ReportSettingsDTO: {
@@ -3201,41 +3205,6 @@ export interface operations {
             };
         };
     };
-    save_store_report_api_v1_store_reports__period__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                period: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReportSaveDTO"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StoreReportDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_admin_reports_api_v1_admin_reports_get: {
         parameters: {
             query?: {
@@ -3285,41 +3254,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminReportDetailDTO"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_admin_report_status_api_v1_admin_reports__rid__patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                rid: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReportStatusDTO"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminReportDTO"];
                 };
             };
             /** @description Validation Error */

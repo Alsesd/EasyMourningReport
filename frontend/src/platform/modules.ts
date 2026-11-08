@@ -19,7 +19,8 @@ export interface ModuleRoute {
   path: string;
   component: PageComponent;
   permissions: string[];
-  /** "shell" renders inside the sidebar layout; "standalone" renders a full-screen page. */
+  /** "shell" (default) renders inside the sidebar layout, under /admin for a relative path or at an absolute path
+   * ("/report"); "standalone" renders a full-screen page without navigation. */
   layout?: "shell" | "standalone";
 }
 

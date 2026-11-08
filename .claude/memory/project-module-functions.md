@@ -19,7 +19,12 @@ type: project
   reviewers notified; missed kept after late submission (`/admin/missed-days`, «Не надіслано вчасно» section);
   store cannot open a past day without a report (409 `closed`); reviewer-unlocked day relocks next midnight.
   Checks every day incl. weekends (open question for owner). `core.Services.Zone` = business zone; reports and
-  transport `today()` use it (was time.Local = bug on UTC machines). submitted-only + dashboard revenue count submitted days (`statusItemsSQL`). Notification per submitted
+  transport `today()` use it (was time.Local = bug on UTC machines).
+  **Removed 2026-11-08 (owner: "remove deprecated code"):** monthly `PUT /store/reports/{period}`, month
+  `PATCH /admin/reports/{id}`, `/admin/summary` redirect page; contract fixture 02 now drives the day endpoints
+  (runner normalises current-month dates and today inside text). Old monthly audit action names kept (old log rows).
+  **Several employees per store:** shared server draft, `revision` check (409 names the colleague), «Востаннє
+  зберіг(ла)», local draft restored only on the same revision; saves replace quantities (never add). submitted-only + dashboard revenue count submitted days (`statusItemsSQL`). Notification per submitted
   day. No daily reminder (not asked). Docs: `docs/modules/reports.md` «Daily reports».
 - **transport** (`transport.orders.create` org, `.manage`/`.view_all` platform): orders per deceased with delivery and/or
   carriers part; statuses submitted->accepted->in_progress->done, rejected/cancelled, **bumped**. Car lock: same car

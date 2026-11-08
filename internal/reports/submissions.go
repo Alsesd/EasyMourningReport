@@ -2,7 +2,6 @@ package reports
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"legkyi/internal/core"
@@ -16,6 +15,8 @@ type Signature struct {
 }
 
 // Signatures of a report: the store employee who submitted it last, and the administrator who locked it last.
+// For a month they are read-only history (recorded while months were submitted as a whole); days carry their own
+// (report_days).
 type Signatures struct {
 	Submitted *Signature // kind "store"
 	Locked    *Signature // kind "admin"
@@ -25,15 +26,6 @@ const (
 	KindStore = "store"
 	KindAdmin = "admin"
 )
-
-// RecordSignature remembers who submitted (kind store) or locked (kind admin) the report. Each kind keeps its own
-// row, so an administrator's lock never replaces the employee's signature.
-func RecordSignature(ctx context.Context, tx *sql.Tx, reportID, userID int64, userName, kind string, now time.Time) error {
-	_, err := tx.ExecContext(ctx, `INSERT INTO report_submissions (report_id, kind, user_id, user_name, at) VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT (report_id, kind) DO UPDATE SET user_id = excluded.user_id, user_name = excluded.user_name, at = excluded.at`,
-		reportID, kind, userID, userName, now.Unix())
-	return err
-}
 
 func (s *Signatures) set(kind string, sig Signature) {
 	if kind == KindStore {
