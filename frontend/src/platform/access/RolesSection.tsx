@@ -1,5 +1,6 @@
 /** Roles: named permission sets. Permissions come from every installed module. */
 
+import { SkeletonRows } from "@/ui/Skeleton";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accessApi } from "@/platform/access/api";
@@ -110,7 +111,7 @@ function RoleForm({
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <label htmlFor={`${idPrefix}-name`} className="text-xs font-medium text-text-muted">{uk.access.roleName}</label>
+          <label htmlFor={`${idPrefix}-name`} className="block text-xs font-medium text-text-muted">{uk.access.roleName}</label>
           <Input
             id={`${idPrefix}-name`}
             value={value.name}
@@ -122,7 +123,7 @@ function RoleForm({
         </div>
         {!role?.built_in && (
           <div className="space-y-1.5 sm:col-span-2">
-            <label htmlFor={`${idPrefix}-org`} className="text-xs font-medium text-text-muted">{uk.access.roleOrganisation}</label>
+            <label htmlFor={`${idPrefix}-org`} className="block text-xs font-medium text-text-muted">{uk.access.roleOrganisation}</label>
             <select
               id={`${idPrefix}-org`}
               value={value.organisation_id ?? ""}
@@ -230,7 +231,7 @@ export default function RolesSection({ notify }: AdminSectionProps) {
       <div className="ledger">
         <div className="divide-y divide-border">
           {isLoading ? (
-            <p className="p-6 text-sm text-text-muted">{uk.common.loading}</p>
+            <SkeletonRows rows={3} className="border-t-0" />
           ) : (
             roles.map((role) => {
               const editing = editingId === role.id;

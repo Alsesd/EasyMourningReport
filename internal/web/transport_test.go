@@ -227,7 +227,7 @@ func TestDesksSeeOnlyTheirOwnOrders(t *testing.T) {
 func TestOrderValidation(t *testing.T) {
 	d := newDesks(t)
 	crew := func(over map[string]any) map[string]any {
-		c := map[string]any{"car_number": "АА 1", "departure": "Морг", "count": 6, "time": "09:00", "cemetery_number": "3", "stops": []string{"Церква"}}
+		c := map[string]any{"car_number": "АА 1234 ВВ", "departure": "Морг", "count": 6, "time": "09:00", "cemetery_number": "3", "stops": []string{"Церква"}}
 		for k, v := range over {
 			c[k] = v
 		}

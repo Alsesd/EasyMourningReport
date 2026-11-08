@@ -7,6 +7,25 @@ import { transportApi } from "@/modules/transport/api";
 import { AuthProvider } from "@/platform/auth/AuthContext";
 import type { SessionDTO, TransportOrderDTO } from "@/platform/api/types";
 import { shiftDay, todayIso } from "@/platform/i18n";
+import type { Car } from "@/modules/transport/types";
+
+const car = (id: number, display: string, over: Partial<Car> = {}): Car => ({ id, plate: display.replace(/ /g, ""), display, nonstandard: false, label: "", active: true, ...over });
+const fleet = [car(1, "АА 1111 АА", { label: "Мерседес" }), car(2, "КК 7777 КК"), car(3, "ВС 5555 ВС")];
+
+/** Choose a car in a fleet combobox by its plate. */
+function pickCar(label: string | RegExp, plate: string, index = 0) {
+  const box = screen.getAllByRole("combobox", { name: label })[index];
+  fireEvent.focus(box);
+  fireEvent.click(screen.getAllByRole("option").find((o) => o.textContent?.includes(plate))!);
+}
+
+/** The delivery part every desk fills: time, departure, destination. */
+function fillDelivery(deceased = "Петренко П. П.") {
+  fireEvent.change(screen.getByLabelText("Прізвище та ініціали померлого"), { target: { value: deceased } });
+  fireEvent.change(screen.getByLabelText("Звідки забирає"), { target: { value: "вул. Квітуча, 5" } });
+  fireEvent.change(screen.getByLabelText("Час доставки"), { target: { value: "0930" } });
+  fireEvent.change(screen.getByLabelText("Кінцевий пункт"), { target: { value: "Кладовище №2" } });
+}
 
 const base: SessionDTO = {
   user_id: 1, login: "desk", full_name: "Оксана", organisation: { id: 3, name: "Філія А" },
@@ -38,6 +57,7 @@ describe("TransportPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(transportApi, "days").mockResolvedValue([]);
+    vi.spyOn(transportApi, "cars").mockResolvedValue({ items: fleet });
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -50,7 +70,7 @@ describe("TransportPage", () => {
     const early = await screen.findByRole("article", { name: /Ранній/ });
     expect(within(early).getByRole("region", { name: "Доставка" })).toBeDefined();
     expect(within(early).getByRole("region", { name: "Винос" })).toBeDefined();
-    expect(within(early).getByText("Церква")).toBeDefined();
+    expect(within(early).getByText(/Церква/)).toBeDefined();
     expect(within(early).getByRole("button", { name: /Скасувати замовлення/ })).toBeDefined();
     const late = screen.getByRole("article", { name: /Пізній/ });
     expect(within(late).getByText("Прийнято")).toBeDefined();
@@ -66,19 +86,75 @@ describe("TransportPage", () => {
     const create = vi.spyOn(transportApi, "create").mockResolvedValue(order({}));
     renderPage(base);
     fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
+    await screen.findByLabelText("Прізвище та ініціали померлого");
     fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
     expect((await screen.findByRole("status")).textContent).toMatch(/Прізвище та ініціали померлого/);
     expect(create).not.toHaveBeenCalled();
 
-    fireEvent.change(screen.getByLabelText("Прізвище та ініціали померлого"), { target: { value: "Петренко П. П." } });
-    fireEvent.change(screen.getByLabelText(/Номер авто/), { target: { value: "ВС 5555 ВС" } });
-    fireEvent.change(screen.getByLabelText(/Звідки забирає/), { target: { value: "вул. Квітуча, 5" } });
-    fireEvent.change(screen.getByLabelText("Час"), { target: { value: "0930" } });
-    fireEvent.change(screen.getByLabelText("Кінцевий пункт"), { target: { value: "Кладовище №2" } });
+    fillDelivery();
+    // The car is required for an order: nothing is sent without one.
+    expect(screen.getByRole("combobox", { name: "Автомобіль" }).getAttribute("aria-required")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
+    expect((await screen.findByRole("status")).textContent).toMatch(/Оберіть автомобіль/);
+    expect(create).not.toHaveBeenCalled();
+    pickCar("Автомобіль", "АА 1111 АА");
     fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
-    const sent = create.mock.calls[0][0];
-    expect(sent).toMatchObject({ deceased: "Петренко П. П.", carriers: null, delivery: { car_number: "ВС 5555 ВС", departure: "вул. Квітуча, 5", time: "09:30", destination: "Кладовище №2" } });
+    expect(create.mock.calls[0][0]).toMatchObject({
+      deceased: "Петренко П. П.",
+      carriers: null,
+      delivery: { car_id: 1, car_number: "АА 1111 АА", departure: "вул. Квітуча, 5", time: "09:30", destination: "Кладовище №2" },
+    });
+  });
+
+  it("asks for the car once and sends it from the fleet", async () => {
+    vi.spyOn(transportApi, "orders").mockResolvedValue([]);
+    const create = vi.spyOn(transportApi, "create").mockResolvedValue(order({}));
+    renderPage(base);
+    fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
+    await screen.findByLabelText("Прізвище та ініціали померлого");
+    fireEvent.click(screen.getAllByRole("switch", { name: "Винос" })[0]);
+    // One car field, whatever parts are on; no car-number text boxes at all.
+    expect(screen.getAllByRole("combobox", { name: /Автомобіль/ })).toHaveLength(1);
+    expect(screen.queryByLabelText(/Номер авто/)).toBeNull();
+    pickCar("Автомобіль", "АА 1111 АА");
+    fillDelivery();
+    fireEvent.change(screen.getByLabelText("Час виносу"), { target: { value: "1130" } });
+    fireEvent.change(screen.getByLabelText("Кладовище №"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Зупинка 1"), { target: { value: "Дім жалоби" } });
+    fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    // The same car carries from where the delivery ended; the desk typed neither again.
+    expect(create.mock.calls[0][0]).toMatchObject({
+      delivery: { car_id: 1, car_number: "АА 1111 АА", departure: "вул. Квітуча, 5", destination: "Кладовище №2" },
+      carriers: { car_id: 1, car_number: "АА 1111 АА", departure: "Кладовище №2", time: "11:30", cemetery_number: "3", stops: ["Дім жалоби"] },
+    });
+  });
+
+  it("shows the carriers' own car and departure only when it is not the same car", async () => {
+    vi.spyOn(transportApi, "orders").mockResolvedValue([]);
+    const create = vi.spyOn(transportApi, "create").mockResolvedValue(order({}));
+    renderPage(base);
+    fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
+    await screen.findByLabelText("Прізвище та ініціали померлого");
+    fireEvent.click(screen.getAllByRole("switch", { name: "Винос" })[0]);
+    expect((screen.getByRole("switch", { name: "Той самий автомобіль" }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.queryByRole("combobox", { name: "Автомобіль для виносу" })).toBeNull();
+    expect(screen.queryByLabelText("Звідки забирає винос")).toBeNull();
+    fireEvent.click(screen.getByRole("switch", { name: "Той самий автомобіль" }));
+    pickCar("Автомобіль", "АА 1111 АА");
+    pickCar("Автомобіль для виносу", "КК 7777 КК");
+    fillDelivery();
+    fireEvent.change(screen.getByLabelText("Звідки забирає винос"), { target: { value: "Морг" } });
+    fireEvent.change(screen.getByLabelText("Час виносу"), { target: { value: "1130" } });
+    fireEvent.change(screen.getByLabelText("Кладовище №"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Зупинка 1"), { target: { value: "Дім жалоби" } });
+    fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0][0]).toMatchObject({
+      delivery: { car_id: 1 },
+      carriers: { car_id: 2, car_number: "КК 7777 КК", departure: "Морг" },
+    });
   });
 
   it("marks an order as military and shows the server's busy-car message", async () => {
@@ -89,11 +165,9 @@ describe("TransportPage", () => {
       .mockResolvedValueOnce(order({ military: true }));
     renderPage(base);
     fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
-    fireEvent.change(screen.getByLabelText("Прізвище та ініціали померлого"), { target: { value: "Петренко П. П." } });
-    fireEvent.change(screen.getByLabelText(/Номер авто/), { target: { value: "ВС 5555 ВС" } });
-    fireEvent.change(screen.getByLabelText(/Звідки забирає/), { target: { value: "вул. Квітуча, 5" } });
-    fireEvent.change(screen.getByLabelText("Час"), { target: { value: "0930" } });
-    fireEvent.change(screen.getByLabelText("Кінцевий пункт"), { target: { value: "Кладовище №2" } });
+    await screen.findByLabelText("Прізвище та ініціали померлого");
+    pickCar("Автомобіль", "ВС 5555 ВС");
+    fillDelivery();
     fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
     expect((await screen.findByRole("status")).textContent).toMatch(/уже зайняте/);
     expect(create.mock.calls[0][0].military).toBe(false);
@@ -181,7 +255,7 @@ describe("TransportPage", () => {
     vi.spyOn(transportApi, "orders").mockResolvedValue([]);
     renderPage(base);
     fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
-    const toggle = screen.getAllByRole("switch", { name: "Винос" })[0];
+    const toggle = (await screen.findAllByRole("switch", { name: "Винос" }))[0];
     fireEvent.click(toggle);
     const select = (await screen.findByLabelText("Бригада виносу")) as HTMLSelectElement;
     expect([...select.options].map((o) => o.value)).toEqual(["4", "6"]);
@@ -192,47 +266,42 @@ describe("TransportPage", () => {
     const create = vi.spyOn(transportApi, "create").mockResolvedValue(order({}));
     renderPage(base);
     fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
-    fireEvent.change(screen.getByLabelText("Прізвище та ініціали померлого"), { target: { value: "Петренко П. П." } });
+    fireEvent.change(await screen.findByLabelText("Прізвище та ініціали померлого"), { target: { value: "Петренко П. П." } });
     fireEvent.click(screen.getAllByRole("switch", { name: "Доставка" })[0]); // delivery off
     fireEvent.click(screen.getAllByRole("switch", { name: "Винос" })[0]); // bearers on
-    fireEvent.change(await screen.findByLabelText(/Номер авто/), { target: { value: "ВС 5555 ВС" } });
-    fireEvent.change(screen.getByLabelText(/Звідки забирає/), { target: { value: "Морг" } });
-    fireEvent.change(screen.getByLabelText("Час"), { target: { value: "1130" } });
-    fireEvent.change(screen.getByLabelText("Номер кладовища"), { target: { value: "3" } });
+    pickCar("Автомобіль", "ВС 5555 ВС");
+    fireEvent.change(screen.getByLabelText("Звідки забирає винос"), { target: { value: "Морг" } });
+    fireEvent.change(screen.getByLabelText("Час виносу"), { target: { value: "1130" } });
+    fireEvent.change(screen.getByLabelText("Кладовище №"), { target: { value: "3" } });
     fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
     expect((await screen.findByRole("status")).textContent).toMatch(/хоча б одну зупинку/);
     expect(create).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText("Зупинка 1"), { target: { value: "Дім жалоби" } });
     fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
-    expect(create.mock.calls[0][0]).toMatchObject({ delivery: null, carriers: { car_number: "ВС 5555 ВС", departure: "Морг", count: 6, time: "11:30", cemetery_number: "3", stops: ["Дім жалоби"] } });
+    expect(create.mock.calls[0][0]).toMatchObject({ delivery: null, carriers: { car_id: 3, car_number: "ВС 5555 ВС", departure: "Морг", count: 6, time: "11:30", cemetery_number: "3", stops: ["Дім жалоби"] } });
   });
 
-  it("starts the carrying car and place as the delivery's, and lets another car carry", async () => {
-    vi.spyOn(transportApi, "orders").mockResolvedValue([]);
-    const create = vi.spyOn(transportApi, "create").mockResolvedValue(order({}));
-    renderPage(base);
-    fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
-    fireEvent.change(screen.getByLabelText("Прізвище та ініціали померлого"), { target: { value: "Петренко П. П." } });
-    fireEvent.click(screen.getAllByRole("switch", { name: "Винос" })[0]);
-    const cars = () => screen.getAllByLabelText(/Номер авто/) as HTMLInputElement[];
-    fireEvent.change(cars()[0], { target: { value: "АА 1111 АА" } });
-    expect(cars()[1].value).toBe("АА 1111 АА"); // mirrored while not edited apart
-    fireEvent.change(cars()[1], { target: { value: "КК 7777 КК" } }); // another car carries
-    fireEvent.change(cars()[0], { target: { value: "АА 2222 АА" } });
-    expect(cars()[1].value).toBe("КК 7777 КК"); // no longer follows
-    fireEvent.change(screen.getAllByLabelText(/Звідки забирає/)[0], { target: { value: "Морг" } });
-    fireEvent.change(screen.getByLabelText("Кінцевий пункт"), { target: { value: "Кладовище" } });
-    fireEvent.change(screen.getAllByLabelText("Час")[0], { target: { value: "1000" } });
-    fireEvent.change(screen.getAllByLabelText("Час")[1], { target: { value: "1130" } });
-    fireEvent.change(screen.getByLabelText("Номер кладовища"), { target: { value: "3" } });
-    fireEvent.change(screen.getByLabelText("Зупинка 1"), { target: { value: "Дім жалоби" } });
-    fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
-    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
-    expect(create.mock.calls[0][0]).toMatchObject({
-      delivery: { car_number: "АА 2222 АА", departure: "Морг" },
-      carriers: { car_number: "КК 7777 КК", departure: "Морг" },
-    });
+  it("shows the car once on a card and flags an order that has none", async () => {
+    vi.spyOn(transportApi, "orders").mockResolvedValue([
+      order({
+        id: 1,
+        deceased: "Одне авто",
+        same_car: true,
+        delivery: { car_number: "АА 1111 АА", departure: "Дім", time: "09:00", destination: "Морг", stops: [] },
+        carriers: { car_number: "АА 1111 АА", departure: "Морг", count: 4, time: "11:00", cemetery_number: "3", stops: ["Церква"], bearers: [] },
+        sort_time: "09:00",
+      }),
+      order({ id: 2, deceased: "Без авто", delivery: { car_number: "", departure: "Дім", time: "12:00", destination: "Морг", stops: [] }, sort_time: "12:00" }),
+    ]);
+    renderPage(dispatcher);
+    const one = await screen.findByRole("article", { name: /Одне авто/ });
+    expect(within(one).getAllByText("АА 1111 АА")).toHaveLength(1);
+    expect(within(one).getByText("Одне авто на доставку й винос")).toBeDefined();
+    // The carrying leg continues from the delivery's end point: it is not repeated as another "from".
+    expect(within(within(one).getByRole("region", { name: "Винос" })).queryByText(/Морг/)).toBeNull();
+    const none = screen.getByRole("article", { name: /Без авто/ });
+    expect(within(none).getByText("Авто не призначено")).toBeDefined();
   });
 
   it("marks today's orders urgent and keeps an order for next week in work", async () => {
@@ -289,12 +358,9 @@ describe("TransportPage", () => {
     vi.spyOn(transportApi, "create").mockResolvedValue(order({ service_date: after }));
     renderPage(base);
     fireEvent.click(await screen.findByRole("button", { name: /Нове замовлення/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Післязавтра" }));
-    fireEvent.change(screen.getByLabelText("Прізвище та ініціали померлого"), { target: { value: "Петренко П. П." } });
-    fireEvent.change(screen.getByLabelText(/Номер авто/), { target: { value: "ВС 5555 ВС" } });
-    fireEvent.change(screen.getByLabelText(/Звідки забирає/), { target: { value: "вул. Квітуча, 5" } });
-    fireEvent.change(screen.getByLabelText("Час"), { target: { value: "0930" } });
-    fireEvent.change(screen.getByLabelText("Кінцевий пункт"), { target: { value: "Кладовище №2" } });
+    fireEvent.click(await screen.findByRole("button", { name: "Післязавтра" }));
+    pickCar("Автомобіль", "АА 1111 АА");
+    fillDelivery();
     fireEvent.click(screen.getByRole("button", { name: "Надіслати" }));
     await waitFor(() => expect(transportApi.create).toHaveBeenCalledWith(expect.objectContaining({ service_date: after })));
     expect(await screen.findByText(/Замовлення надіслано на/)).toBeDefined();

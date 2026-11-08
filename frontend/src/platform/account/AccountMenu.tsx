@@ -31,8 +31,9 @@ export function AccountMenu({ variant = "header" }: { variant?: "header" | "side
       <DropdownMenu.Root>
         <DropdownMenu.Trigger
           aria-label={`${uk.account.menuLabel}: ${name}`}
+          title={uk.account.menuLabel}
           className={cn(
-            "flex min-h-[44px] min-w-0 items-center gap-2.5 rounded-control text-left transition-colors",
+            "flex min-h-[44px] min-w-0 items-center gap-2.5 rounded-control text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
             variant === "sidebar" ? "w-full px-2 py-1.5 hover:bg-surface/70" : "px-1 hover:bg-surface-raised",
           )}
         >
@@ -90,6 +91,10 @@ export function AccountMenu({ variant = "header" }: { variant?: "header" | "side
               <LogOut className="h-4 w-4" aria-hidden="true" />
               {uk.auth.logoutButton}
             </DropdownMenu.Item>
+            <DropdownMenu.Separator className="my-1 h-px bg-border" />
+            <p className="px-3 py-1.5 text-xs text-text-muted">
+              made by <span className="font-serif font-semibold italic text-primary">Alsesd</span>
+            </p>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>

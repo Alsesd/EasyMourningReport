@@ -33,7 +33,7 @@ export function PasswordForm({ onDone }: { onDone?: () => void }) {
       <p className="text-sm text-text-muted">{uk.account.description}</p>
       <Notice message={message} onDismiss={() => setMessage(null)} dismissLabel={uk.common.close} />
       <div className="space-y-1.5">
-        <label htmlFor="own-password" className="text-xs font-medium text-text-muted">
+        <label htmlFor="own-password" className="block text-xs font-medium text-text-muted">
           {uk.account.newPassword}
         </label>
         <Input

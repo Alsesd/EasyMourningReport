@@ -213,7 +213,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                     className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3"
                   >
                     <div className="flex-1 space-y-1.5">
-                      <label className="text-xs font-medium text-text-muted">Назва товару</label>
+                      <label className="block text-xs font-medium text-text-muted">Назва товару</label>
                       <Input
                         value={newProductName}
                         onChange={(e) => setNewProductName(e.target.value)}
@@ -225,7 +225,7 @@ export default function ProductsSection({ notify }: AdminSectionProps) {
                     </div>
 
                     <div className="w-full sm:w-40 space-y-1.5">
-                      <label className="text-xs font-medium text-text-muted">Ціна (грн)</label>
+                      <label className="block text-xs font-medium text-text-muted">Ціна (грн)</label>
                       <Input
                         value={newProductPrice}
                         onChange={(e) => setNewProductPrice(e.target.value)}

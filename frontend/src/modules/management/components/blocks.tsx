@@ -48,7 +48,7 @@ export function BarSeries({ series }: { series: Series }) {
         {series.note && <span className="text-xs text-text-muted">{series.note}</span>}
       </figcaption>
       {!hasData ? (
-        <p className="text-sm text-text-muted">{uk.management.noData}</p>
+        <p className="rounded-control border border-dashed border-border px-4 py-8 text-center text-sm text-text-muted">{uk.management.noData}</p>
       ) : (
         <>
           <ol className="flex h-40 items-end gap-0.5" aria-label={series.title}>
@@ -108,7 +108,7 @@ export function RankedRows({ list }: { list: RankedList }) {
     <div className="px-1 py-4">
       <h3 className="mb-2 text-sm font-semibold text-text-main">{list.title}</h3>
       {list.rows.length === 0 ? (
-        <p className="text-sm text-text-muted">{uk.management.noData}</p>
+        <p className="rounded-control border border-dashed border-border px-4 py-8 text-center text-sm text-text-muted">{uk.management.noData}</p>
       ) : (
         <ol className="divide-y divide-border">
           {list.rows.map((r) => (

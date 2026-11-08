@@ -80,7 +80,7 @@ Colour is never the only signal: statuses carry a word and a mark, errors carry 
 - **Pages:** `ui/PageHeader` (crumb, serif title, one line of context, actions), then `ui/LedgerSection`s. Content stays left-aligned.
 - **Store report (`/report`):** a narrow single column on every screen size: month title with previous/next, then one ruled list of products (name, price, stepper, line sum). A product with several prices in the month lists each price under its name. The month total and the two actions stay in a footer above a heavy rule.
 - **«Звіти» month page (`/admin/reports`):** the store register (each store's state and sum, a double-ruled month total; a store without a report gets an amber row) and the products matrix that the Excel file mirrors. On phones the matrix becomes one ruled row per product whose store breakdown opens on demand. `/admin/summary` redirects here.
-- **«Адміністрування» (`/admin/manage`):** a dashboard of figures, system state and recent activity, with the grouped submenu beside it (a scrolling tab row on phones). Each module adds its own sections to the submenu.
+- **«Адміністрування» (`/admin/manage`):** a dashboard of figures, system state and recent activity, with the grouped sections nested under «Адміністрування» in the rail on desktop and one sticky section picker on phones (no horizontally scrolling tab row). Each module adds its own sections to the submenu.
 
 ## Shape and depth
 
@@ -94,6 +94,13 @@ Paper does not float: panels have no shadow and sit flat. Structure comes from r
 - **Inline editing:** the edit panel opens under its row with a spruce left edge.
 - **Archived items:** a collapsed `<details>` at the end of the list.
 - **Steppers** are named after what they count («Кількість: Свічка поминальна, 25,00 ₴»).
+- **Dialogs** (`ui/Dialog`, Radix): a centred modal on wide screens and a **bottom sheet** with a grab handle on phones (below 640px). The panel is placed by `.dialog-panel` in `index.css` with `inset` and `margin: auto`, never by `transform`, so an animation cannot knock it off centre. `ui/ConfirmDialog` wraps it for yes/no questions. Never browser `alert`/`confirm`.
+- **Anchored panel** (`ui/Popover`, `AnchoredPanel`): a panel anchored to its trigger on wide screens (the notification bell, quick lists) and the same content as a bottom sheet on phones. Callers write the content once.
+- **Loading:** `ui/Skeleton` (a quiet block) and `SkeletonRows` (ruled placeholder rows announced once as busy); they pulse only without reduced motion. No spinners for lists.
+- **Empty state:** `ui/EmptyState`: a serif line saying what is missing, an optional sentence and the action that fills it.
+- **Combobox** (`ui/Combobox`): an ARIA combobox with 44px rows, highlighted matches, a clear button and a «nothing found» line; the caller supplies the matching (transport's product search: any word, prefix of any word, numbers exact, a Latin layout falls back to Ukrainian).
+- **Tabs** inside a page (transport): a row of `role="tab"` buttons with arrow-key movement, the selection in the URL (`?tab=`), only the tabs the person may use.
+- **Plates:** transport's `PlateInput` formats as you type to `АА 1234 ВВ` and converts Latin lookalikes live; car pickers are selects over the fleet.
 - **Maker mark:** the italic serif «A.» that reveals «made by Alsesd». It stays on every screen (rail or top bar, store report, login).
 
 ## Motion

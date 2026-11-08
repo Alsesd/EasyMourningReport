@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { DayPicker, dayOptions } from "./DayPicker";
 import { TimeField, maskTime, isValidTime } from "./TimeField";
-import { formatDayReadable, shiftDay } from "@/platform/i18n";
+import { formatDayReadable, formatDayShort, shiftDay } from "@/platform/i18n";
 
 const labels = { previous: "Попередній день", next: "Наступний день", day: "День", today: "Сьогодні" };
 
@@ -14,6 +14,7 @@ describe("day helpers", () => {
   });
   it("formats in Ukrainian", () => {
     expect(formatDayReadable("2026-11-06")).toMatch(/листопада/);
+    expect(formatDayShort("2026-11-08")).toBe("нд, 8 лист.");
   });
   it("offers a window around today and always the selected day", () => {
     const options = dayOptions("2031-01-01", "2026-11-06");
@@ -31,6 +32,16 @@ describe("DayPicker", () => {
     fireEvent.click(screen.getByRole("button", { name: "Попередній день" }));
     expect(onChange).toHaveBeenNthCalledWith(1, "2026-11-07");
     expect(onChange).toHaveBeenNthCalledWith(2, "2026-11-05");
+  });
+});
+
+describe("DayPicker on a phone", () => {
+  it("uses the short day so «сьогодні» fits between the arrows", () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q, addEventListener: () => {}, removeEventListener: () => {} }));
+    render(<DayPicker value="2026-11-08" onChange={() => {}} labels={labels} />);
+    const select = screen.getByRole("combobox", { name: "День" }) as HTMLSelectElement;
+    expect(select.options[select.selectedIndex].text).toMatch(/^нд, 8 лист\./);
+    vi.unstubAllGlobals();
   });
 });
 

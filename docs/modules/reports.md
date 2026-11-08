@@ -14,14 +14,23 @@ Monthly store reports: product catalogue with price history, report entry by org
 | `repo.go` | Queries: products, report lines, the summary matrix |
 | `xlsx_import.go`, `xlsx_export.go` | Product import and summary export |
 | `seed.go`, `overview.go`, `usage.go` | Demo data, overview figures, organisation usage |
+| `dashboard.go` | The blocks this module supplies to the management dashboard (revenue, drafts, submission rate, 12-month series, divisions, top products). Only submitted reports count as revenue |
 | `submissions.go` | The report's signature (who submitted or locked it), in the Go-owned side table `report_submissions` |
 | `http.go`, `http_xlsx.go` | REST endpoints, listed in `Module.Routes` (see `docs/API.md`) |
+
+## Rules worth knowing
+
+- A store (division) opens the current month and any month that already has a report of its own; other months answer 403 («Звіту за … не існує»).
+- Saving as a draft is repeatable; **submit** locks the report (`409` on later saves). Only a holder of `reports.review` unlocks it, and then the division can edit and submit again.
+- The server revalidates every product/price pair against the price history; if the product list or prices changed in the meantime, the save answers `409` and the page asks to refresh.
+- Product import (`.xlsx`, at most 10 MB): column A the name, column B the price, a header row (`Назва`, `Name`, `Товар`, `Product`) is skipped; any bad row cancels the whole file (up to 20 problems are listed); names that already exist (archived included) or repeat in the file are skipped.
+- Excel export of the month (`/admin/summary.xlsx`) mirrors the products matrix; the «По розрахунку» quantity appears in its own column and never counts towards money.
 
 A report belongs to an organisation (`reports.store_id` → `organisations.id`; the column keeps its historic name). Members with `reports.submit` only ever reach their own organisation's report.
 
 ## Frontend
 
-`module.tsx` registers the standalone store report (`/report`), the «Звіти» month page (`/admin/reports`: store register, products matrix, Excel; `/admin/summary` redirects there), the report detail page, the «Товари й ціни» and «Звіти організацій» sections of «Адміністрування», and the landing pages. `api.ts` wraps the endpoints, `i18n.ts` extends the platform dictionary, and `permissions.ts` mirrors the backend codes.
+`module.tsx` registers the standalone store report (`/report`), the «Звіти» month page (`/admin/reports`: store register, products matrix, Excel; `/admin/summary` redirects there), the report detail page, the «Товари й ціни» and «Звіти підрозділів» sections (the latter switches «По розрахунку» per division) of «Адміністрування», and the landing pages. `api.ts` wraps the endpoints, `i18n.ts` extends the platform dictionary, and `permissions.ts` mirrors the backend codes.
 
 ## Tests
 

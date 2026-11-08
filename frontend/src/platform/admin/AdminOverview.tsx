@@ -1,5 +1,6 @@
 /** The hub's landing view: key figures, system health and recent activity. The submenu beside it lists every section. */
 
+import { SkeletonRows } from "@/ui/Skeleton";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
@@ -16,7 +17,7 @@ export function AdminOverview({ sections }: { sections: AdminSection[] }) {
   const link = (id: string) => (can(id) ? sectionPath(id) : undefined);
 
   if (isLoading || !data) {
-    return <p className="text-sm text-text-muted">{uk.common.loading}</p>;
+    return <SkeletonRows rows={4} />;
   }
   const { accounts, health, tunnel, recent_activity: recent, modules = [] } = data;
 

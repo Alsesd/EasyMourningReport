@@ -3,7 +3,7 @@
 ## Product context
 
 - **Audience:** Ukrainian-speaking staff and administrators of a burial agency.
-- **Primary jobs:** Enter monthly store report quantities; save drafts or submit a read-only report; review all stores' reports; manage products, prices, store accounts, access settings, backups and audit logs.
+- **Primary jobs:** Enter monthly report quantities per division; save drafts or submit a read-only report; review all divisions' reports; place and dispatch transport orders; read the management figures; manage products, prices, accounts, roles, backups, updates and audit logs. The interface calls an organisation «підрозділ» (division).
 - **Active locale:** Ukrainian (`uk-UA`). Shared interface copy and number/date helpers live in `frontend/src/platform/i18n.ts`; each module extends it in its own `i18n.ts`.
 - **Accessibility target:** WCAG 2.2 AA as the working target, with 44px minimum touch targets where practical, visible keyboard focus, named icon-only controls, and reduced-motion support.
 
@@ -11,8 +11,8 @@
 
 | Domain | Source | Authority |
 |---|---|---|
-| API access and error contracts | [`docs/API.md`](docs/API.md) | API contract |
-| Route map and behavior owners | [`docs/ui-parity.md`](docs/ui-parity.md) | Implementation map |
+| API access and error contracts | [`API.md`](API.md) | API contract |
+| Route map and behavior owners | [`ui-parity.md`](ui-parity.md) | Implementation map |
 | Product-specific report and price rules | [`DESIGN.md`](DESIGN.md) | Maintained product UX notes |
 | Permission enforcement | `internal/web/session.go`, `internal/platform/principal.go`, `frontend/src/app/routing/ProtectedRoute.tsx` | Runtime enforcement evidence |
 
@@ -38,7 +38,7 @@
 
 ## Navigation and responsive behavior
 
-- Workspace destinations come from the module registry and the user's permissions (e.g. Звіти, Транспорт, Адміністрування). Desktop uses a persistent sidebar with the account menu at its foot; mobile uses a fixed bottom navigation with safe-area padding and matching `aria-current` state, and the account menu in the header.
+- Workspace destinations come from the module registry and the user's permissions (e.g. Звіт підрозділу, Звіти, Транспорт, Показники, Адміністрування). Desktop uses a persistent sidebar with the account menu at its foot; mobile uses a fixed bottom navigation with safe-area padding and matching `aria-current` state, and the account menu in the header.
 - «Адміністрування» is one hub: an overview, then sections grouped as Доступ, Довідники модулів, Система, Активність. Modules add their own sections. One shared status message at the top of the section reports success or errors.
 - Hub navigation lives in ONE place per screen size: on desktop the sections are nested under «Адміністрування» in the side rail (no second menu column, so forms and tables get the width); on phones a single sticky picker names the current section and opens the grouped list (no horizontally scrolling tab row, where sections hide off-screen).
 - Creating an organisation never forces an employee: employees are an optional list (new accounts with login, password, role and a password generator, or existing accounts moved in) that can also be done later in «Користувачі».

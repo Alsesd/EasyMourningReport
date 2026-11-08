@@ -280,6 +280,12 @@ func seed(st *store.Store) error {
 	if err := platform.Seed(tx, os.Getenv, os.Stdout, time.Now(), registry.Installed().Seeds()...); err != nil {
 		return err
 	}
+	// Idempotent, insert-only backfills of the modules (e.g. the transport fleet from existing orders).
+	for _, startup := range registry.Installed().Startups() {
+		if err := startup(context.Background(), tx, time.Now()); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 

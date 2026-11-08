@@ -36,7 +36,7 @@ export function HubRailNav({ sections }: { sections: AdminSection[] }) {
       {link(HUB_PATH, uk.hub.overview, LayoutDashboard, true)}
       {grouped.map(([group, items]) => (
         <div key={group} className="space-y-0.5">
-          <p className="px-3 pb-0.5 pt-1 text-xs font-medium uppercase tracking-wide text-text-muted">{uk.hub.groups[group]}</p>
+          <p className="px-3 pb-0.5 pt-2 text-xs font-semibold text-text-muted">{uk.hub.groups[group]}</p>
           {items.map((s) => link(sectionPath(s.id), s.label, s.icon))}
         </div>
       ))}
@@ -77,7 +77,7 @@ export function HubSectionPicker({ sections, current }: { sections: AdminSection
             </DropdownMenu.Item>
             {grouped.map(([group, items]) => (
               <div key={group}>
-                <DropdownMenu.Label className="px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-text-muted">
+                <DropdownMenu.Label className="px-3 pb-1 pt-3 text-xs font-semibold text-text-muted">
                   {uk.hub.groups[group]}
                 </DropdownMenu.Label>
                 {items.map((s) => (

@@ -3,6 +3,7 @@
  * Sections come from every installed module (`AppModule.admin`) and are filtered by permission.
  */
 
+import { SkeletonRows } from "@/ui/Skeleton";
 import { Suspense, useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useAuth } from "@/platform/auth/AuthContext";
@@ -42,7 +43,7 @@ export default function AdminHubPage() {
         <section className="min-w-0 space-y-6" aria-label={current?.label ?? uk.hub.overview}>
           <Notice message={notice} onDismiss={() => setNotice(null)} dismissLabel={uk.common.close} />
           {Section ? (
-            <Suspense fallback={<p className="text-sm text-text-muted">{uk.common.loading}</p>}>
+            <Suspense fallback={<SkeletonRows rows={4} />}>
               <Section notify={(text, kind = "ok") => setNotice({ text, kind })} />
             </Suspense>
           ) : (

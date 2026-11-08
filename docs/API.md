@@ -1,6 +1,6 @@
 # REST API v1
 
-The web UI for administration and store reports uses a versioned, same-origin JSON API. Existing session-cookie authentication is reused; there are no bearer tokens, duplicated identities, or new auth dependencies.
+The web UI for administration and store reports uses a versioned, same-origin JSON API. Authentication is a signed session cookie (server-side sessions bound to a device cookie, see `docs/security.md`) or a passkey sign-in; there are no bearer tokens.
 
 ## Contract
 
@@ -8,7 +8,7 @@ The web UI for administration and store reports uses a versioned, same-origin JS
 - Requests and responses use JSON except binary exports.
 - Prices and calculated amounts are integer **cents** in DTOs. Send editable price values as strings (for example `"12.50"`) so decimal parsing remains server-side and supports comma decimals.
 - Product DTO `month_prices_cents` is the full in-month timeline: the price at the start of the month followed by every price change, including a return to an earlier amount. `price_history` contains every saved history event, in chronological/sequence order.
-- Every resource response is a DTO, not a serialized SQLModel/ORM instance. Password hashes and persistence-only fields are never exposed.
+- Every resource response is a DTO, not a database row. Password hashes and persistence-only fields are never exposed.
 - The browser uses the existing signed session cookie. Unauthenticated requests return `401`, missing permissions return `403`, missing resources return `404`, conflicting state returns `409`, and invalid payloads return `422`.
 - Unsafe methods (POST, PUT, PATCH, DELETE) require a same-origin `Origin` or `Referer` header. Browser `fetch` supplies the origin automatically for these requests.
 - Outside `/api/v1` the server only serves the SPA, PWA files (`/manifest.webmanifest`, `/sw.js`, `/offline`) and the container health probe `GET /healthz`.
@@ -28,7 +28,7 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | PUT | `/me/password` | signed in | Change own password |
 | GET | `/permissions` | `platform.roles.manage`, `platform.users.manage` or `org.users.manage` | Permission catalogue from all modules |
 | GET | `/organisations` | `platform.organisations.manage`, `platform.users.manage` or `platform.roles.manage` | Organisations with user counts and per-module `usage` |
-| POST | `/organisations` | `platform.organisations.manage` | Create; optional `first_user` gets the built-in «Магазин» role (also needs `platform.users.manage`) |
+| POST | `/organisations` | `platform.organisations.manage` | Create; optional `first_user` gets the built-in desk role «Підрозділ» (key `store`; created with the modules' default grants when a fresh database lacks it; the interface itself creates employees through `/users`; also needs `platform.users.manage`) |
 | PUT | `/organisations/{id}` | `platform.organisations.manage` | Rename |
 | DELETE | `/organisations/{id}` | `platform.organisations.manage` | Archive if any module holds data for it; otherwise delete it with its users and roles |
 | POST | `/organisations/{id}/restore` | `platform.organisations.manage` | Restore |
@@ -87,19 +87,60 @@ Every endpoint names the permission codes it needs; holding any one of them is e
 | GET | `/reports/settings` | `reports.settings.manage` | Per-organisation report options and report counts |
 | PUT | `/reports/settings/{organisation_id}` | `reports.settings.manage` | Turn the «По розрахунку» calculation quantity on or off |
 
-## Transport module endpoints (scaffold)
+## Transport module endpoints
+
+Permissions: `transport.orders.create` (organisation: a desk's own orders and product requests, the fleet list),
+`transport.orders.manage` (platform: everything, including the fleet, cargo, runs and assignment) and
+`transport.orders.view_all` (platform: read-only everything). Shapes used below:
+
+```
+Car        {id, plate, display, nonstandard, label, active}       // plate normalised (АА1234ВВ), display «АА 1234 ВВ»
+CargoLine  {id, item_id, request_id, organisation_id, organisation_name, product_name, quantity,
+            unit_price_cents|null, total_cents|null}
+Manifest   [{organisation_id, organisation_name, place, lines: CargoLine[]}]   // per destination, route order
+Request    {id, organisation_id, organisation_name, need_date, deceased, notes, status, reply_note,
+            submitted_by_name, created_at, updated_at, car: Car|null, total_cents,
+            items: [{id, product_id, product_name, quantity, loaded, remaining, unit_price_cents|null, total_cents|null,
+                     carriers: [{kind: "order"|"run", id, car_display, time, status, quantity}]}]}
+Run        {id, kind: "goods", service_date, car: Car, time, departure, notes, status, created_by_name, created_at,
+            updated_at, stops: [{id, position, organisation_id, organisation_name, place}], manifest: Manifest}
+```
+
+Plates are normalised (trimmed, upper case, no spaces/dashes/dots, Latin lookalikes A B C E H I K M O P T X turned into
+Cyrillic). A standard plate is `^[АВЕІКМНОРСТХ]{2}\d{4}[АВЕІКМНОРСТХ]{2}$`; others need `nonstandard: true`. The car lock
+(2 h, neighbouring midnight included) compares normalised plates and covers orders and goods runs together.
 
 | Method | Path | Permission | Purpose |
 |---|---|---|---|
 | GET | `/transport/status` | any transport permission | `{ready, message}` |
-| GET | `/transport/orders` | create, view_all or manage | The day's orders (`date`, default today) or a range (`from`, `to`), chronological; `status`; staff may add `organisation_id`. A desk sees only its organisation |
-| GET | `/transport/days` | same | Order counts per day for the date strip (`date`, or `from` and `to`, same scoping as the list; only days with orders): `{date, total, open, attention, military_open, by_status}`. `open` = submitted, accepted, in_progress, bumped; `attention` = submitted for a dispatcher, bumped for a desk; `military_open` = open military orders |
+| GET | `/transport/orders` | create, view_all or manage | The day's orders (`date`, default today) or a range (`from`, `to`), chronological; `status`; staff may add `organisation_id`. A desk sees only its organisation. Order JSON: `kind: "deceased"`, `delivery.car_id`/`carriers.car_id` (fleet car or `null`), `cargo: Manifest` (one entry, the order's organisation) |
+| GET | `/transport/days` | same | Counts per day for the date strip (`date`, or `from` and `to`, same scoping as the list): `{date, total, open, attention, military_open, by_status, requests_open, runs}`. `open` = submitted, accepted, in_progress, bumped; `attention` = submitted for a dispatcher, bumped for a desk; `military_open` = open military orders; `requests_open` = product requests needed that day that are not fully planned; `runs` = goods runs of the day that are not cancelled (a desk counts runs with its stop). Days with only requests or runs are listed too |
 | GET | `/transport/orders/{id}` | same | One order; `events` (history) only for staff |
-| POST | `/transport/orders` | `transport.orders.create` (organisation member) | `{service_date, deceased, notes?, military?: bool, delivery?: {car_number, departure, time, destination, stops?}, carriers?: {car_number, departure, count: 4 or 6, time, stops (at least one), cemetery_number}}`; at least one part; signed with the submitting employee. `409` when a car is busy (2 h lock; see docs/modules/transport.md); `military: true` takes the car from an ordinary order, which becomes `bumped` |
+| POST | `/transport/orders` | `transport.orders.create` (organisation member) | `{service_date, deceased, notes?, military?: bool, delivery?: {car_id?, car_number?, departure, time, destination, stops?}, carriers?: {car_id?, car_number?, departure?, count: 4 or 6, time, stops (at least one), cemetery_number, same_car?}}`; at least one part; signed with the submitting employee. Each part needs a car: `car_id` from the fleet (wins), or a legacy `car_number` that names a fleet car or is a standard plate; missing or invalid → `422` at `delivery.car_number`/`carriers.car_number`. `carriers.same_car: true` copies the delivery's car; `carriers.departure` defaults to the delivery's destination. `409` when a car is busy (2 h lock, orders and goods runs; see docs/modules/transport.md); `military: true` takes the car from an ordinary order, which becomes `bumped` (never from a goods run: `409`) |
 | PUT | `/transport/orders/{id}` | `transport.orders.create` | Replace the content while the status is `submitted` or `bumped` (`409` after the reply, or when the car is busy; a bumped order goes back to `submitted`) |
 | POST | `/transport/orders/{id}/cancel` | `transport.orders.create` | Cancel while `submitted` or `bumped` |
-| POST | `/transport/orders/{id}/status` | `transport.orders.manage` | `{status: accepted, in_progress, done or rejected; note?}`; `409` for a transition that is not allowed, `422` when rejecting without a note |
-| PUT | `/transport/orders/{id}/bearers` | `transport.orders.manage` | `{names: [..]}`: the men assigned to the carriers part (at most the ordered crew of 4 or 6); `409` without carriers or for a rejected/cancelled order
+| POST | `/transport/orders/{id}/status` | `transport.orders.manage` | `{status: accepted, in_progress, done or rejected; note?}`; `409` for a transition that is not allowed, `409 {"detail", "code": "car_required"}` when moving to accepted/in_progress while a present part has no car, `422` when rejecting without a note |
+| PUT | `/transport/orders/{id}/bearers` | `transport.orders.manage` | `{names: [..]}`: the men assigned to the carriers part (at most the ordered crew of 4 or 6); `409` without carriers or for a rejected/cancelled order |
+| PATCH | `/transport/orders/{id}/assignment` | `transport.orders.manage` | Open orders only: `{delivery?: {car_id?, time?, stops?}, carriers?: {car_id?, time?, stops?, same_car?}}`; absent fields keep their value. The car lock applies (`409`). A bumped order that gets a car goes back to `submitted`. History kind `assignment` |
+| PUT | `/transport/orders/{id}/cargo` | `transport.orders.manage` | `{lines: [{item_id, quantity}]}` replaces the order's cargo (open orders; `[]` clears). Items must belong to the order's organisation (`422`), their request must not be cancelled/rejected (`409`), quantity ≤ remaining (`422`, computed in the write transaction, the order's own earlier lines excluded). The desk is notified |
+| GET | `/transport/cars` | create, view_all or manage | `{items: Car[]}` active cars by plate; `all=1` includes inactive ones (manage only) |
+| POST | `/transport/cars` | `transport.orders.manage` | `{plate, nonstandard?, label?}` → Car; `422` at `plate` when invalid; `409` for a duplicate |
+| PATCH | `/transport/cars/{id}` | `transport.orders.manage` | `{label?, active?}` → Car |
+| GET | `/transport/catalog` | create, view_all or manage | `{items: [{id, name, price_cents|null}]}`: active, not archived products by name with the latest actual price (from the reports module through `core`); `ETag`, `If-None-Match` → `304` |
+| GET | `/transport/product-requests` | create, view_all or manage | `{items: Request[]}`. `date` (default today) = need date; `open=1` = requests still `submitted` or `partial` needed up to 120 days after `date`. A desk sees its organisation; staff may add `organisation_id` |
+| POST | `/transport/product-requests` | `transport.orders.create` (member) | `{need_date, deceased?, notes?, car_id?: number|null, items: [{product_id, quantity}]}` → Request. Products must be in the catalogue; the same product twice is one line; `unit_price_cents` is snapshotted from the catalogue. `car_id` is only a preference and creates no cargo. Dispatchers are notified |
+| PATCH | `/transport/product-requests/{id}` | `transport.orders.create` (own organisation) | Same body; only while `submitted` (nothing loaded), else `409`. Prices are snapshotted again |
+| POST | `/transport/product-requests/{id}/cancel` | `transport.orders.create` (own organisation) | Only while nothing is loaded (`409`) |
+| POST | `/transport/product-requests/{id}/reject` | `transport.orders.manage` | `{note}` (required, `422`); only while nothing is loaded (`409`). The desk is notified |
+| GET | `/transport/runs` | create, view_all or manage | `{items: Run[]}` of `date` (default today). A desk sees runs with a stop of its organisation, and only its own stops and manifest |
+| POST | `/transport/runs` | `transport.orders.manage` | `{service_date, car_id, time, departure? (default «Склад»), notes?, stops: [{organisation_id, place? (default the organisation's name), lines?: [{item_id, quantity}]}]}` → Run (`planned`). At least one stop; items only at their own organisation's stop; car lock applies. Desks with cargo are notified |
+| PATCH | `/transport/runs/{id}` | `transport.orders.manage` | Same body, while `planned` (`409` otherwise); replaces stops and cargo |
+| POST | `/transport/runs/{id}/status` | `transport.orders.manage` | `{status, note?}`: planned → in_progress or cancelled, in_progress → done or cancelled (`409` otherwise). The note goes only into the desks' notification |
+| GET | `/transport/board` | view_all or manage | `{orders: Order[], runs: Run[], open_requests: Request[], cars: Car[]}` for `date` (default today) |
+
+Request status is derived: `submitted` (nothing loaded), `partial`, `planned` (all quantities loaded), `delivered`
+(all loaded and every carrier `done`), `cancelled`, `rejected`. Cargo on a rejected/cancelled order or a cancelled run
+does not count as loaded. Money is integer cents; a request's `total_cents` sums the priced items.
 
 ## Example requests
 
@@ -136,19 +177,8 @@ Content-Type: application/json
 
 ## Client rendering
 
-The browser UI is a React single-page application built with Vite and TypeScript. Route-level pages use TanStack Query for loading, caching, and mutations. The report module owns feature API functions and localization; the shared platform API client handles same-origin cookies and structured errors. FastAPI serves the compiled SPA from `backend/app/static/app/` and keeps the minimal Jinja templates for offline/error fallback and legacy route compatibility. Excel downloads remain server-generated binary responses.
-
+The browser UI is a React single-page application built with Vite and TypeScript, embedded in the Go binary (`internal/assets`). Route-level pages use TanStack Query for loading, caching, polling and mutations. Each module owns its API functions and localization; the shared platform API client (`frontend/src/platform/api/client.ts`) handles same-origin cookies and structured errors, and `frontend/src/platform/api/schema.d.ts` (types, maintained by hand) must change with every API shape. Excel downloads are server-generated binary responses.
 
 ## Local development and runtime secrets
 
-From the repository root, install the locked dependencies, then launch from the backend package root:
-
-```bash
-uv sync
-cd backend
-uv run --project .. python -m app
-```
-
-Open `http://127.0.0.1:8000`. Stop the server with Ctrl+C. The first run initializes the SQLite database, backups, and `secret.key`; the initial administrator password is printed to the terminal.
-
-`secret.key` is a randomly generated application secret used by Starlette's session middleware to sign session cookies. Keep it private, exclude it from source control, and back it up alongside `reports.db`. Losing or changing it invalidates existing signed sessions, so users must sign in again; it does not reset their stored passwords. You may set a stable secret using the `SECRET_KEY` environment variable instead.
+See the README for running the server and the frontend. `secret.key` in the data folder is the random secret that signs the session cookie: keep it private, never commit it, back it up with `reports.db`. Losing or changing it signs everyone out; it does not reset passwords. `SECRET_KEY` in the environment sets a stable secret instead. The VAPID key for Web Push is a separate file, `vapid.key` (see `docs/security.md`).

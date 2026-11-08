@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { transportApi } from "@/modules/transport/api";
+import { errorCode, transportError } from "@/modules/transport/errors";
 import { uk } from "@/modules/transport/i18n";
 import type { TransportOrderDTO } from "@/platform/api/types";
 import { Button } from "@/ui/Button";
@@ -11,14 +12,29 @@ import { Notice, type NoticeMessage } from "@/ui/Notice";
 
 const t = uk.transport;
 
-export function StatusForm({ order, status, onDone }: { order: TransportOrderDTO; status: string; onDone: () => void }) {
+export function StatusForm({
+  order,
+  status,
+  onDone,
+  onNeedCar,
+}: {
+  order: TransportOrderDTO;
+  status: string;
+  onDone: () => void;
+  /** The server refused to move an order without a car: offer to assign one. */
+  onNeedCar?: () => void;
+}) {
+  const [needCar, setNeedCar] = useState(false);
   const [note, setNote] = useState("");
   const [message, setMessage] = useState<NoticeMessage | null>(null);
   const reject = status === "rejected";
   const apply = useMutation({
     mutationFn: () => transportApi.setStatus(order.id, status, note.trim()),
     onSuccess: onDone,
-    onError: (err: Error) => setMessage({ text: err.message, kind: "err" }),
+    onError: (err: Error) => {
+      setNeedCar(errorCode(err) === "car_required");
+      setMessage({ text: transportError(err), kind: "err" });
+    },
   });
   return (
     <form
@@ -39,6 +55,11 @@ export function StatusForm({ order, status, onDone }: { order: TransportOrderDTO
         </label>
         <Input id="status-note" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} autoFocus />
       </div>
+      {needCar && onNeedCar && (
+        <Button type="button" variant="outline" className="min-h-[44px]" onClick={onNeedCar}>
+          {t.assignCar}
+        </Button>
+      )}
       <Button type="submit" className="min-h-[44px]" variant={reject ? "destructive" : "primary"} disabled={apply.isPending}>
         {apply.isPending ? uk.common.loading : t.apply}
       </Button>

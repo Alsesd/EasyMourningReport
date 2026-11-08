@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { StrictMode } from "react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -92,18 +93,21 @@ describe("LoginPage", () => {
 });
 
 describe("LoginPage biometric auto sign-in", () => {
-  it("starts the device prompt by itself only on a device that agreed", async () => {
+  type Login = (o?: { conditional?: boolean; signal?: AbortSignal }) => Promise<unknown>;
+
+  async function mount(opts: { login: Login; conditional: boolean; strict?: boolean }) {
     vi.resetModules();
-    const login = vi.fn().mockRejectedValue(new DOMException("c", "NotAllowedError"));
-    vi.doMock("@/platform/auth/passkeys", () => ({ passkeysSupported: () => true, passkeyApi: { login } }));
-    window.localStorage.setItem("legkyi.biometric", "on");
-    window.sessionStorage.clear();
+    vi.doMock("@/platform/auth/passkeys", () => ({
+      passkeysSupported: () => true,
+      conditionalMediationAvailable: () => Promise.resolve(opts.conditional),
+      passkeyApi: { login: opts.login },
+    }));
     const { LoginPage: Page } = await import("./LoginPage");
     const { AuthProvider: Provider } = await import("@/platform/auth/AuthContext");
     const { ThemeProvider: Theme } = await import("@/platform/theme/ThemeContext");
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     qc.setQueryData(["session"], null);
-    render(
+    const tree = (
       <QueryClientProvider client={qc}>
         <Theme>
           <Provider>
@@ -112,11 +116,77 @@ describe("LoginPage biometric auto sign-in", () => {
             </BrowserRouter>
           </Provider>
         </Theme>
-      </QueryClientProvider>,
+      </QueryClientProvider>
     );
-    await waitFor(() => expect(login).toHaveBeenCalledTimes(1));
-    expect(await screen.findByRole("alert")).toBeDefined();
+    return render(opts.strict ? <StrictMode>{tree}</StrictMode> : tree);
+  }
+
+  // A prompt that stays open until the page aborts it, like a real conditional request.
+  const pending: Login = (o) => new Promise((_, reject) => o?.signal?.addEventListener("abort", () => reject(new DOMException("a", "AbortError"))));
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+  });
+  afterEach(() => {
     window.localStorage.clear();
     vi.doUnmock("@/platform/auth/passkeys");
+  });
+
+  it("starts the device prompt by itself only on a device that agreed, and stays quiet when it is dismissed", async () => {
+    window.localStorage.setItem("legkyi.biometric", "on");
+    const login = vi.fn<Login>().mockRejectedValue(new DOMException("c", "NotAllowedError"));
+    await mount({ login, conditional: false });
+    await waitFor(() => expect(login).toHaveBeenCalledTimes(1));
+    expect(login.mock.calls[0][0]?.conditional).toBeUndefined();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("does not prompt a device that never agreed when conditional sign-in is unavailable", async () => {
+    const login = vi.fn<Login>().mockRejectedValue(new DOMException("c", "NotAllowedError"));
+    await mount({ login, conditional: false });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(login).not.toHaveBeenCalled();
+  });
+
+  it("offers the passkey in the login field's autofill list when the browser supports it", async () => {
+    const login = vi.fn<Login>(pending);
+    await mount({ login, conditional: true });
+    await waitFor(() => expect(login).toHaveBeenCalledTimes(1));
+    expect(login.mock.calls[0][0]?.conditional).toBe(true);
+    expect(screen.getByLabelText(/Логін/i).getAttribute("autocomplete")).toBe("username webauthn");
+  });
+
+  it("falls back to the autofill list when the automatic prompt is dismissed", async () => {
+    window.localStorage.setItem("legkyi.biometric", "on");
+    const login = vi.fn<Login>().mockRejectedValueOnce(new DOMException("c", "NotAllowedError")).mockImplementation(pending);
+    await mount({ login, conditional: true });
+    await waitFor(() => expect(login).toHaveBeenCalledTimes(2));
+    expect(login.mock.calls[0][0]?.conditional).toBeUndefined();
+    expect(login.mock.calls[1][0]?.conditional).toBe(true);
+  });
+
+  it("holds the automatic prompt back once after a sign-out but still offers the autofill list", async () => {
+    window.localStorage.setItem("legkyi.biometric", "on");
+    window.sessionStorage.setItem("legkyi.noAutoBiometric", "1");
+    const login = vi.fn<Login>(pending);
+    await mount({ login, conditional: true });
+    await waitFor(() => expect(login).toHaveBeenCalledTimes(1));
+    expect(login.mock.calls[0][0]?.conditional).toBe(true);
+    expect(window.sessionStorage.getItem("legkyi.noAutoBiometric")).toBeNull();
+  });
+
+  it("survives the double effect of StrictMode: exactly one prompt stays live", async () => {
+    window.localStorage.setItem("legkyi.biometric", "on");
+    const live: AbortSignal[] = [];
+    const login = vi.fn<Login>((o) => {
+      if (o?.signal) live.push(o.signal);
+      return pending(o);
+    });
+    await mount({ login, conditional: false, strict: true });
+    await waitFor(() => expect(live.length).toBeGreaterThan(0));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(live.filter((s) => !s.aborted)).toHaveLength(1);
   });
 });

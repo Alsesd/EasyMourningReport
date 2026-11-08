@@ -76,7 +76,7 @@ export default function TransportSchedulePage() {
                   <td className="py-2.5 pr-3">
                     {c.departure}
                     {c.stops.length > 0 && <span className="block text-sm text-text-muted">→ {c.stops.join(" → ")}</span>}
-                    <span className="block text-sm text-text-muted">{t.car}: {c.car_number}</span>
+                    {c.car_number && <span className="block text-sm text-text-muted">{t.car}: {c.car_number}</span>}
                   </td>
                   <td className="figure py-2.5 pr-3">{c.cemetery_number || "—"}</td>
                   <td className="py-2.5">

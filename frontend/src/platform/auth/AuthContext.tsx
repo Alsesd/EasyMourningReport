@@ -2,7 +2,7 @@ import { dropPushSubscription } from "@/platform/device/push";
 import React, { createContext, useContext } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/platform/api/client";
-import { passkeyApi } from "@/platform/auth/passkeys";
+import { passkeyApi, type PasskeyLoginOptions } from "@/platform/auth/passkeys";
 import { suppressAutoBiometric } from "@/platform/auth/biometricPref";
 import type { SessionDTO, LoginDTO, MessageDTO } from "@/platform/api/types";
 
@@ -12,7 +12,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (credentials: LoginDTO) => Promise<SessionDTO>;
   /** Biometric sign-in with a registered passkey. */
-  loginWithPasskey: () => Promise<SessionDTO>;
+  loginWithPasskey: (opts?: PasskeyLoginOptions) => Promise<SessionDTO>;
   logout: () => Promise<void>;
   refetchSession: () => Promise<void>;
   /** True when the signed-in user holds at least one of the permission codes. */
@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const passkeyMutation = useMutation({
-    mutationFn: () => passkeyApi.login(),
+    mutationFn: (opts?: PasskeyLoginOptions) => passkeyApi.login(opts),
     onSuccess: (newSession) => {
       queryClient.setQueryData(["session"], newSession);
     },
@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return await loginMutation.mutateAsync(credentials);
   };
 
-  const loginWithPasskey = () => passkeyMutation.mutateAsync();
+  const loginWithPasskey = (opts?: PasskeyLoginOptions) => passkeyMutation.mutateAsync(opts);
 
   const logout = async () => {
     await logoutMutation.mutateAsync();

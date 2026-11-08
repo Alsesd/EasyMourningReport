@@ -1647,7 +1647,10 @@ export interface components {
         };
         /** TransportDeliveryDTO: the transport of the deceased */
         TransportDeliveryDTO: {
+            /** Canonical car text (snapshot); may be empty while the dispatcher has not assigned a car */
             car_number: string;
+            /** Fleet car (preferred on input; wins over car_number) */
+            car_id?: number | null;
             /** Where the car picks the deceased up */
             departure: string;
             /** HH:MM, 24-hour */
@@ -1659,6 +1662,8 @@ export interface components {
         TransportCarriersDTO: {
             /** The car that takes the coffin: the delivery's car or another one */
             car_number: string;
+            /** Fleet car (preferred on input; wins over car_number) */
+            car_id?: number | null;
             departure: string;
             /** Crew size: 4 or 6 men */
             count: 4 | 6;
@@ -1674,7 +1679,7 @@ export interface components {
         TransportEventDTO: {
             ts: string;
             user_name: string;
-            kind: "created" | "edited" | "status" | "bearers";
+            kind: "created" | "edited" | "status" | "bearers" | "bumped" | "assignment" | "cargo";
             status: string;
             note: string;
         };
@@ -1689,6 +1694,10 @@ export interface components {
             attention: number;
             /** open military orders of the day */
             military_open: number;
+            /** open product requests needed that day */
+            requests_open?: number;
+            /** goods runs of that day */
+            runs?: number;
             by_status: { [status: string]: number };
         };
         /** TransportOrderDTO: one deceased; delivery and carriers of the same deceased share the order */
@@ -1720,6 +1729,142 @@ export interface components {
             /** Statuses the caller (dispatcher) may set now */
             next_statuses: string[];
             events: components["schemas"]["TransportEventDTO"][];
+            kind?: "deceased";
+            /** Goods loaded on this order (one entry: the order's organisation) */
+            cargo?: components["schemas"]["ManifestDTO"];
+        };
+        /** TransportCarDTO: a car of the fleet registry */
+        TransportCarDTO: {
+            id: number;
+            /** Normalised plate (Cyrillic capitals, no spaces) */
+            plate: string;
+            /** Canonical display form, `АА 1234 ВВ` for a standard plate */
+            display: string;
+            nonstandard: boolean;
+            label: string;
+            active: boolean;
+        };
+        /** TransportCarInputDTO */
+        TransportCarInputDTO: { plate: string; nonstandard: boolean; label: string };
+        /** CargoLineDTO: a quantity of a requested item on one carrier */
+        CargoLineDTO: {
+            id: number;
+            item_id: number;
+            request_id: number;
+            organisation_id: number;
+            organisation_name: string;
+            product_name: string;
+            quantity: number;
+            /** From the request item's price snapshot; null without a price */
+            unit_price_cents?: number | null;
+            total_cents?: number | null;
+        };
+        /** ManifestEntryDTO: the lines for one destination */
+        ManifestEntryDTO: {
+            organisation_id: number;
+            organisation_name: string;
+            place: string;
+            lines: components["schemas"]["CargoLineDTO"][];
+        };
+        /** ManifestDTO: per destination, in route order */
+        ManifestDTO: components["schemas"]["ManifestEntryDTO"][];
+        /** CatalogItemDTO: an orderable product (active, not archived) */
+        CatalogItemDTO: { id: number; name: string; /** Unit price in cents; null when no price is set */ price_cents: number | null };
+        /** RequestCarrierDTO: where a requested item is loaded */
+        RequestCarrierDTO: {
+            kind: "order" | "run";
+            id: number;
+            car_display: string;
+            time: string;
+            status: string;
+            quantity: number;
+        };
+        /** ProductRequestItemDTO */
+        ProductRequestItemDTO: {
+            id: number;
+            product_id: number;
+            product_name: string;
+            quantity: number;
+            /** Unit price in cents when the request was made; null when none */
+            unit_price_cents: number | null;
+            /** null without a price */
+            total_cents: number | null;
+            loaded: number;
+            remaining: number;
+            carriers: components["schemas"]["RequestCarrierDTO"][];
+        };
+        /** ProductRequestDTO: a desk's request for products; the status is derived */
+        ProductRequestDTO: {
+            id: number;
+            organisation_id: number;
+            organisation_name: string;
+            /** YYYY-MM-DD */
+            need_date: string;
+            deceased: string;
+            notes: string;
+            status: "submitted" | "partial" | "planned" | "delivered" | "cancelled" | "rejected";
+            reply_note: string;
+            submitted_by_name: string;
+            created_at: string;
+            updated_at: string;
+            /** The desk's preferred car (may be empty) */
+            car: components["schemas"]["TransportCarDTO"] | null;
+            total_cents: number;
+            items: components["schemas"]["ProductRequestItemDTO"][];
+        };
+        /** ProductRequestInputDTO */
+        ProductRequestInputDTO: {
+            need_date: string;
+            deceased: string;
+            notes: string;
+            car_id: number | null;
+            items: { product_id: number; quantity: number }[];
+        };
+        /** RunStopDTO: one desk on the route of a goods run */
+        RunStopDTO: {
+            id: number;
+            position: number;
+            organisation_id: number;
+            organisation_name: string;
+            place: string;
+        };
+        /** TransportRunDTO: a goods-delivery run of one car */
+        TransportRunDTO: {
+            id: number;
+            kind: "goods";
+            service_date: string;
+            car: components["schemas"]["TransportCarDTO"];
+            /** HH:MM */
+            time: string;
+            departure: string;
+            notes: string;
+            status: "planned" | "in_progress" | "done" | "cancelled";
+            created_by_name: string;
+            created_at: string;
+            updated_at: string;
+            stops: components["schemas"]["RunStopDTO"][];
+            manifest: components["schemas"]["ManifestDTO"];
+        };
+        /** TransportRunInputDTO */
+        TransportRunInputDTO: {
+            service_date: string;
+            car_id: number;
+            time: string;
+            departure: string;
+            notes: string;
+            stops: { organisation_id: number; place: string; lines: { item_id: number; quantity: number }[] }[];
+        };
+        /** TransportAssignmentDTO: the dispatcher's change of car, time and stops of an open order */
+        TransportAssignmentDTO: {
+            delivery?: { car_id: number; time: string; stops: string[] };
+            carriers?: { car_id: number; time: string; stops: string[]; same_car: boolean };
+        };
+        /** TransportBoardDTO: everything the dispatcher's day board shows, in one call */
+        TransportBoardDTO: {
+            orders: components["schemas"]["TransportOrderDTO"][];
+            runs: components["schemas"]["TransportRunDTO"][];
+            open_requests: components["schemas"]["ProductRequestDTO"][];
+            cars: components["schemas"]["TransportCarDTO"][];
         };
         /** TransportOrderInputDTO */
         TransportOrderInputDTO: {

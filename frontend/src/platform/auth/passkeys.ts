@@ -27,6 +27,22 @@ export function passkeysSupported(): boolean {
   return typeof window !== "undefined" && window.isSecureContext && typeof window.PublicKeyCredential === "function";
 }
 
+/** Conditional mediation: the browser offers the passkey in the username field's autofill list, with no modal and no tap needed first. */
+export async function conditionalMediationAvailable(): Promise<boolean> {
+  try {
+    const pkc = window.PublicKeyCredential as (typeof PublicKeyCredential & { isConditionalMediationAvailable?: () => Promise<boolean> }) | undefined;
+    return passkeysSupported() && typeof pkc?.isConditionalMediationAvailable === "function" && (await pkc.isConditionalMediationAvailable()) === true;
+  } catch {
+    return false;
+  }
+}
+
+export interface PasskeyLoginOptions {
+  /** Wait quietly for the person to pick the passkey from the autofill list (needs `autocomplete="... webauthn"` on the field). */
+  conditional?: boolean;
+  signal?: AbortSignal;
+}
+
 type Descriptor = { id: string; type: string };
 const descriptors = (list: unknown): PublicKeyCredentialDescriptor[] =>
   ((list as Descriptor[] | undefined) ?? []).map((d) => ({ type: "public-key", id: toBytes(d.id) }));
@@ -59,12 +75,15 @@ export const passkeyApi = {
   },
 
   /** Signs in with a discoverable credential (the device offers the matching account itself). */
-  async login(): Promise<SessionDTO> {
+  async login(mode: PasskeyLoginOptions = {}): Promise<SessionDTO> {
     const opts = await api.post<Options>("/api/v1/auth/passkey/options", {});
     const pk = opts.public_key as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-    const cred = (await navigator.credentials.get({
+    const request: CredentialRequestOptions = {
       publicKey: { ...pk, challenge: toBytes(pk.challenge), allowCredentials: descriptors(pk.allowCredentials) } as PublicKeyCredentialRequestOptions,
-    })) as PublicKeyCredential | null;
+    };
+    if (mode.conditional) (request as { mediation?: string }).mediation = "conditional";
+    if (mode.signal) request.signal = mode.signal;
+    const cred = (await navigator.credentials.get(request)) as PublicKeyCredential | null;
     if (!cred) throw new DOMException("cancelled", "NotAllowedError");
     const res = cred.response as AuthenticatorAssertionResponse;
     return api.post<SessionDTO>("/api/v1/auth/passkey", {

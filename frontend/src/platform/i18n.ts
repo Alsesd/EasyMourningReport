@@ -144,6 +144,8 @@ export const ukPlatform = {
     testNoPush: "Push на сервері не налаштовано: сповіщення приходять лише в дзвінок.",
     deviceDenied: "Браузер заборонив сповіщення. Дозвольте їх у налаштуваннях сайту.",
     unread: "нове",
+    unreadCount: (n: number) => `Нових: ${n}`,
+    allRead: "Усе прочитано",
   },
 
   account: {
@@ -489,6 +491,15 @@ export function shiftPeriod(period: string, delta: number): string {
 }
 
 const dayFormat = new Intl.DateTimeFormat("uk-UA", { weekday: "short", day: "numeric", month: "long", year: "numeric" });
+
+const dayShortFormat = new Intl.DateTimeFormat("uk-UA", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+
+/** A short day for narrow screens: «нд, 8 лист.». */
+export function formatDayShort(day: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return day;
+  const [y, m, d] = day.split("-").map(Number);
+  return dayShortFormat.format(new Date(Date.UTC(y, m - 1, d, 12)));
+}
 
 /** Today as YYYY-MM-DD in the browser's local calendar. */
 export function todayIso(now: Date = new Date()): string {

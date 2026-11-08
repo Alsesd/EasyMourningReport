@@ -47,6 +47,14 @@ type Notifier interface {
 	Notify(userIDs []int64, kind, title, body, link, dedupe string) error
 }
 
+// CatalogProduct is a product a desk may order (active, not archived): only what other modules need to know.
+type CatalogProduct struct {
+	ID   int64
+	Name string
+	// PriceCents is the product's latest actual price in integer cents; nil when it has none.
+	PriceCents *int64
+}
+
 // Module is everything the platform needs to know about a feature module.
 type Module struct {
 	Name, Title string
@@ -70,4 +78,10 @@ type Module struct {
 	// Dashboard returns the module's blocks for the management dashboard (see DashboardFunc). Who may see the
 	// dashboard is decided once, by the management module's own permission, not by the module.
 	Dashboard DashboardFunc
+	// Startup runs once after the schema is ensured and demo data is seeded, inside one write transaction. It must be
+	// idempotent and may only add data (a backfill), never rewrite or delete existing rows.
+	Startup func(ctx context.Context, tx *sql.Tx, now time.Time) error
+	// Catalog lists the products other modules may offer for ordering, sorted by name (the shell hands the first
+	// module that provides it to every module as Services.Catalog).
+	Catalog func(ctx context.Context, q Querier) ([]CatalogProduct, error)
 }

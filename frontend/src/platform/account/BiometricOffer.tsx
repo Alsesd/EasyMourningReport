@@ -17,17 +17,10 @@ export function BiometricOffer() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Asked on the first password sign-in of a device that has not answered yet. The account may already hold keys, but
+  // those belong to other devices (or to a browser whose data was cleared): this device is the one being asked about.
   useEffect(() => {
-    if (!isAuthenticated || !takeFreshPasswordLogin() || !passkeysSupported() || biometricChoice() !== null) return;
-    let alive = true;
-    // A device that already holds a key for this account is asked nothing.
-    passkeyApi
-      .list()
-      .then((keys) => alive && !keys.length && setWant(true))
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
+    if (isAuthenticated && takeFreshPasswordLogin() && passkeysSupported() && biometricChoice() === null) setWant(true);
   }, [isAuthenticated]);
 
   const decline = () => {
@@ -44,6 +37,12 @@ export function BiometricOffer() {
       setWant(false);
     } catch (err) {
       const e = err as Error;
+      if (e.name === "InvalidStateError") {
+        // The device already holds a key for this account: nothing to add, only remember it.
+        setBiometricChoice("on");
+        setWant(false);
+        return;
+      }
       setError(e.name === "NotAllowedError" || e.name === "AbortError" ? uk.auth.passkeyCancelled : e.message);
     } finally {
       setBusy(false);

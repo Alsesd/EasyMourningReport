@@ -39,6 +39,23 @@ def dismiss_first_login_dialogs(pg):
     pg.wait_for_selector('[role="dialog"]', state="detached", timeout=5000)
 
 
+def desk_product_request(pg, query, product, deceased, quantity):
+    """A desk orders a product on the «Продукція» tab, leaving the car to the dispatcher."""
+    pg.goto("http://127.0.0.1:8888/admin/transport?tab=products")
+    pg.click('button:has-text("Нова заявка")')
+    dialog = pg.get_by_role("dialog")
+    box = dialog.get_by_role("combobox", name="Товар")
+    box.fill(query)
+    dialog.locator('[role="listbox"]:visible [role="option"]', has_text=product).click()
+    for _ in range(quantity - 1):
+        dialog.get_by_role("button", name=f"Збільшити кількість: {product}").click()
+    dialog.locator("#request-deceased").fill(deceased)
+    assert dialog.get_by_role("combobox", name="Бажане авто").input_value() == ""
+    dialog.get_by_role("button", name="Надіслати").click()
+    pg.wait_for_selector("text=Заявку надіслано", timeout=5000)
+    pg.wait_for_selector(f'article:has-text("{deceased}") >> text=Надіслано', timeout=5000)
+
+
 def run_tests():
     test_dir = tempfile.mkdtemp(prefix="legkyi_test_")
     print(f"Using isolated test directory: {test_dir}")
@@ -92,6 +109,17 @@ def run_tests():
 
             page.on("console", on_console)
             page.on("pageerror", lambda err: console_errors.append(f"[pageerror] {err}"))
+
+            def on_response(resp):
+                # Refused API calls are printed with their body: the first thing to read when a step times out.
+                if "/api/" in resp.url and resp.status >= 400 and not (resp.status == 401 and resp.url.endswith("/session")):
+                    try:
+                        body = resp.text()[:300]
+                    except Exception:
+                        body = ""
+                    print(f"  [api {resp.status}] {resp.request.method} {resp.url} {body}")
+
+            page.on("response", on_response)
 
             page.goto("http://127.0.0.1:8888/login")
             page.wait_for_load_state("networkidle")
@@ -162,7 +190,10 @@ def run_tests():
             page.wait_for_url("**/admin/transport", timeout=5000)
             page.click('button:has-text("Нове замовлення")')
             page.fill('#order-deceased', "Тестовий Т. Т.")
-            page.fill('#delivery-car', "АА 0001 АА")
+            # The car is a required pick from the fleet. DEMO seeds four cars and books АА 1234 ВВ for the demo
+            # orders at 09:30, so the desk searches for a free one by a part of its plate (Latin letters work too).
+            page.fill('#order-car', "ka 0101")
+            page.locator('[role="listbox"]:visible [role="option"]', has_text="КА 0101 КК").click()
             page.fill('#delivery-departure', "вул. Квітуча, 5")
             page.fill('#delivery-time', "0930")
             page.fill('#delivery-destination', "Морг №1")
@@ -172,12 +203,33 @@ def run_tests():
             assert page.locator('article:has-text("Тестовий Т. Т.") >> text=Надіслано').count() > 0
             print("Desk placed a transport order!")
 
+            # Product requests without a car: one to load onto the order above, one for a goods run
+            desk_product_request(page, "ябл", "Яблука, кг", "Тестовий Т. Т.", 2)
+            desk_product_request(page, "хлі", "Хліб", "Рейс А", 1)
+            print("Desk sent two product requests!")
+
             # Logout through the account menu
             page.locator('button[aria-label^="Обліковий запис"]:visible').first.click()
             page.get_by_role("menuitem", name="Вийти").click()
             page.wait_for_url("**/login", timeout=5000)
             print("Successfully logged out!")
             context.close()
+
+            # The second desk orders milk for the same run
+            desk2 = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True)
+            page2 = desk2.new_page()
+            page2.on("console", on_console)
+            page2.on("pageerror", lambda err: console_errors.append(f"[pageerror] {err}"))
+            page2.on("response", on_response)
+            page2.goto("http://127.0.0.1:8888/login")
+            page2.fill('#login-username', "store2")
+            page2.fill('#login-password', "Store2-demo")
+            page2.click('button[type="submit"]')
+            page2.wait_for_url("**/report", timeout=5000)
+            dismiss_first_login_dialogs(page2)
+            desk_product_request(page2, "мол", "Молоко, 1 л", "Рейс Б", 3)
+            desk2.close()
+            print("Second desk sent a product request!")
 
             # -------------------------------------------------------------
             # 2. Admin Flow (Desktop viewport 1280x800)
@@ -187,6 +239,7 @@ def run_tests():
             admin_page = admin_context.new_page()
             admin_page.on("console", on_console)
             admin_page.on("pageerror", lambda err: console_errors.append(f"[pageerror] {err}"))
+            admin_page.on("response", on_response)
 
             admin_page.goto("http://127.0.0.1:8888/login")
             admin_page.wait_for_load_state("networkidle")
@@ -216,6 +269,42 @@ def run_tests():
             admin_page.wait_for_url("**/admin/transport/schedule**", timeout=5000)
             admin_page.wait_for_selector('tr:has-text("демо 1") >> text=Петренко О.', timeout=5000)
             print("Dispatcher assigned bearers and the schedule shows them!")
+
+            # Dispatcher loads desk 1's request onto the order that already goes there
+            admin_page.goto("http://127.0.0.1:8888/admin/transport?tab=board")
+            unplanned = admin_page.locator("#unplanned")
+            unplanned.locator('article:has-text("Тестовий Т. Т.")').get_by_role("button", name="Додати до рейсу").click()
+            dialog = admin_page.get_by_role("dialog")
+            dialog.locator("label", has_text="Тестовий Т. Т.").locator('input[type="radio"]').check()
+            dialog.get_by_role("textbox", name="Кількість: Яблука, кг").fill("2")
+            dialog.get_by_role("button", name="Завантажити").click()
+            admin_page.wait_for_selector("text=Вантаж додано", timeout=5000)
+            lane = admin_page.get_by_role("region", name="КА 0101 КК")
+            lane.locator('li:has-text("Тестовий Т. Т.")').get_by_role("region", name="Вантаж").get_by_text("Яблука, кг").wait_for(timeout=5000)
+            print("Dispatcher loaded the request onto the desk's order; the manifest shows it!")
+
+            # A goods run over both desks, with each stop's lines picked from that desk's requests
+            admin_page.get_by_role("button", name="Новий рейс").first.click()
+            dialog = admin_page.get_by_role("dialog", name="Новий рейс")
+            dialog.locator("#run-car").fill("зсу")
+            dialog.locator('[role="listbox"]:visible [role="option"]', has_text="ЗСУ1234").click()
+            dialog.locator("#run-time").fill("1500")
+            dialog.get_by_label("Зупинка 1: підрозділ").select_option(label="Підрозділ 1")
+            dialog.get_by_role("combobox", name="Додати товар із заявок (1)").click()
+            dialog.locator('[role="listbox"]:visible [role="option"]', has_text="Хліб").click()
+            dialog.get_by_role("button", name="Додати зупинку").click()
+            dialog.get_by_label("Зупинка 2: підрозділ").select_option(label="Підрозділ 2")
+            dialog.get_by_role("combobox", name="Додати товар із заявок (2)").click()
+            dialog.locator('[role="listbox"]:visible [role="option"]', has_text="Молоко").click()
+            dialog.get_by_role("button", name="Зберегти").click()
+            admin_page.wait_for_selector("text=Рейс збережено", timeout=5000)
+            run_row = admin_page.get_by_role("region", name="ЗСУ1234").locator('li[aria-label^="Рейс"]')
+            manifest = run_row.get_by_role("region", name="Вантаж")
+            manifest.get_by_text("Хліб").wait_for(timeout=5000)
+            stops = manifest.locator("ol > li").all_inner_texts()
+            assert len(stops) == 2 and "Підрозділ 1" in stops[0] and "Підрозділ 2" in stops[1] and "Молоко" in stops[1], stops
+            assert admin_page.locator('#unplanned article').count() == 0, "every request should be planned now"
+            print("Goods run over two desks created; the manifest lists each stop in route order!")
             admin_page.goto("http://127.0.0.1:8888/admin/reports")
             admin_page.wait_for_load_state("networkidle")
 

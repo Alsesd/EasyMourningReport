@@ -1,6 +1,10 @@
 package reports
 
-import "legkyi/internal/core"
+import (
+	"context"
+
+	"legkyi/internal/core"
+)
 
 const (
 	Submit         = "reports.submit"
@@ -32,5 +36,28 @@ var Module = core.Module{
 	Overview:          Overview,
 	Dashboard:         Dashboard,
 	Routes:            routes,
+	Catalog:           catalog,
 	OrganisationUsage: UsagePerOrganisation,
+}
+
+// catalog offers the products that appear in new report forms (active, not archived) to other modules, which only
+// see id and name (prices stay with the reports).
+func catalog(ctx context.Context, q core.Querier) ([]core.CatalogProduct, error) {
+	list, err := LoadProducts(ctx, q, "WHERE active = 1 AND archived = 0")
+	if err != nil {
+		return nil, err
+	}
+	hist, err := LoadHistory(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]core.CatalogProduct, 0, len(list))
+	for _, p := range list {
+		item := core.CatalogProduct{ID: p.ID, Name: p.Name}
+		if cents, err := LatestPrice(HistoryOf(hist, p)); err == nil && cents > 0 {
+			item.PriceCents = &cents
+		}
+		out = append(out, item)
+	}
+	return out, nil
 }

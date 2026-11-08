@@ -42,3 +42,9 @@ export const takeFreshPasswordLogin = (): boolean => {
 export const suppressAutoBiometric = () => write(session, NOAUTO, "1");
 export const clearSuppressAutoBiometric = () => write(session, NOAUTO, null);
 export const autoBiometricSuppressed = () => read(session, NOAUTO) === "1";
+/** Reads and clears the flag: it holds back only the first login page after the sign-out, not every later visit of the tab. */
+export const takeSuppressAutoBiometric = (): boolean => {
+  const v = autoBiometricSuppressed();
+  if (v) clearSuppressAutoBiometric();
+  return v;
+};

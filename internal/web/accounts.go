@@ -242,8 +242,8 @@ func (a *App) createOrganisation(w http.ResponseWriter, r *http.Request, p *plat
 			if err := platform.CheckUniqueLogin(ctx, tx, login, 0); err != nil {
 				return err
 			}
-			var storeRole int64
-			if err := tx.QueryRowContext(ctx, `SELECT id FROM roles WHERE "key" = 'store'`).Scan(&storeRole); err != nil {
+			storeRole, err := platform.EnsureStoreRole(tx, a.Registry.DefaultGrants())
+			if err != nil {
 				return err
 			}
 			if _, err := platform.CreateUser(tx, login, hash, &newID, a.now(), storeRole); err != nil {

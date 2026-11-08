@@ -60,6 +60,9 @@ type Services struct {
 	Dashboard func(ctx context.Context, period string, now time.Time) ([]DashboardBlock, error)
 	// Organisation loads an organisation by id (nil when it does not exist).
 	Organisation func(ctx context.Context, q Querier, id int64) (*Org, error)
+	// Catalog lists the products that may be ordered (active, not archived), sorted by name; nil when no module
+	// provides a catalogue.
+	Catalog func(ctx context.Context, q Querier) ([]CatalogProduct, error)
 }
 
 // Handler serves one route. The error is turned into the response (HTTPError, FormError, ValidationError, ...).

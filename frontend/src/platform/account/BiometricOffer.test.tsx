@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { BiometricOffer } from "./BiometricOffer";
 import { passkeyApi } from "@/platform/auth/passkeys";
-import { biometricChoice, markFreshPasswordLogin, setBiometricChoice } from "@/platform/auth/biometricPref";
+import { biometricChoice, markFreshPasswordLogin } from "@/platform/auth/biometricPref";
 
 vi.mock("@/platform/auth/AuthContext", () => ({ useAuth: () => ({ isAuthenticated: true }) }));
 vi.mock("@/platform/auth/passkeys", () => ({
@@ -55,12 +55,21 @@ describe("BiometricOffer", () => {
     expect(biometricChoice()).toBeNull();
   });
 
-  it("does not ask a device that already has a key", async () => {
+  it("asks a device that has not answered even when the account holds keys for other devices", async () => {
+    // The old gate treated "the account has a key" as "this device has one", so a second phone was never asked and
+    // never got the automatic prompt at sign-in.
     list.mockResolvedValue([{ id: 1 } as never]);
     markFreshPasswordLogin();
     render(<BiometricOffer />);
-    await waitFor(() => expect(list).toHaveBeenCalled());
+    expect(await screen.findByRole("button", { name: /Увімкнути/ })).toBeDefined();
+  });
+
+  it("remembers the agreement when the device already holds a key for the account", async () => {
+    register.mockRejectedValue(Object.assign(new Error("x"), { name: "InvalidStateError" }));
+    markFreshPasswordLogin();
+    render(<BiometricOffer />);
+    fireEvent.click(await screen.findByRole("button", { name: /Увімкнути/ }));
+    await waitFor(() => expect(biometricChoice()).toBe("on"));
     expect(screen.queryByRole("dialog")).toBeNull();
-    setBiometricChoice(null);
   });
 });

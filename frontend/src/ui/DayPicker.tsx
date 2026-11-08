@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { formatDayReadable, shiftDay, todayIso } from "@/platform/i18n";
+import { formatDayReadable, formatDayShort, shiftDay, todayIso } from "@/platform/i18n";
+import { useMediaQuery } from "@/ui/useMediaQuery";
 import { Button } from "@/ui/Button";
 import { cn } from "@/ui/utils";
 
@@ -30,8 +31,12 @@ export function DayPicker({
   compact?: boolean;
 }) {
   const today = todayIso();
+  // Phones get the short form, so the label with «сьогодні» fits between the arrows.
+  const wide = useMediaQuery("(min-width: 480px)");
+  const format = wide ? formatDayReadable : formatDayShort;
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
+      <div className="flex min-w-0 flex-[1_1_16rem] items-center gap-2">
       {!compact && (
         <Button variant="outline" size="icon" className="h-11 w-11 shrink-0" onClick={() => onChange(shiftDay(value, -1))} aria-label={labels.previous}>
           <ChevronLeft className="h-5 w-5" aria-hidden="true" />
@@ -41,11 +46,11 @@ export function DayPicker({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         aria-label={labels.day}
-        className="h-11 min-w-[14rem] flex-1 rounded-control border border-border bg-surface px-3 text-[0.9375rem] font-medium text-text-main hover:border-text-muted/50"
+        className="h-11 min-w-0 flex-1 truncate rounded-control border border-border bg-surface px-3 text-[0.9375rem] font-medium text-text-main hover:border-text-muted/50"
       >
         {dayOptions(value, today).map((day) => (
           <option key={day} value={day}>
-            {formatDayReadable(day)}
+            {format(day)}
             {day === today ? " · сьогодні" : ""}
           </option>
         ))}
@@ -55,6 +60,7 @@ export function DayPicker({
           <ChevronRight className="h-5 w-5" aria-hidden="true" />
         </Button>
       )}
+      </div>
       {!compact && labels.today && value !== today && (
         <Button variant="outline" className="min-h-[44px]" onClick={() => onChange(today)}>
           {labels.today}

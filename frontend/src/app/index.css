@@ -35,6 +35,7 @@
     --destructive-hover: #82312a;
     --radius-card: 6px;
     --radius-control: 4px;
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b6867' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   }
 
   .dark,
@@ -56,6 +57,7 @@
     --destructive: #e99a90;
     --destructive-fg: #2a1411;
     --destructive-hover: #f2b0a7;
+    --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa7a5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   }
 
   * {
@@ -111,6 +113,28 @@
     font: inherit;
   }
 
+  /* One look for every single-choice list (month, day, organisation, role): our chevron instead of the
+     browser's, the same focus ring as inputs. The options themselves stay native, which phones handle best. */
+  select:not([multiple]) {
+    appearance: none;
+    background-image: var(--select-chevron);
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1rem;
+    padding-inline-end: 2.5rem !important;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  select:focus-visible {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+  }
+  select:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
   /* Figures line up: tables and anything marked font-mono use tabular lining numerals. */
   table,
   .font-mono {
@@ -142,5 +166,114 @@
   .figure {
     font-family: Literata, Georgia, serif;
     font-variant-numeric: tabular-nums lining-nums;
+  }
+}
+
+/* Overlays. Centring uses inset + auto margins, never transform, so the enter/exit animations (which do use
+   transform) cannot knock a dialog off centre. Phones get a bottom sheet, wider screens a centred modal. */
+@layer components {
+  .dialog-panel {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    z-index: 50;
+    display: grid;
+    gap: 1rem;
+    align-content: start;
+    width: calc(100% - 2rem);
+    max-width: 28rem;
+    height: fit-content;
+    max-height: min(90dvh, 52rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: 0 18px 48px -12px rgba(16, 28, 26, 0.28), 0 2px 6px rgba(16, 28, 26, 0.08);
+  }
+  .dialog-panel:focus-visible {
+    outline: none;
+  }
+  .dialog-panel[data-state="open"] {
+    animation: overlay-pop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .dialog-panel[data-state="closed"] {
+    animation: overlay-pop-out 0.14s ease-in forwards;
+  }
+  .popover-panel {
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    width: min(24rem, calc(100vw - 2rem));
+    max-height: min(38rem, calc(var(--radix-popover-content-available-height, 100dvh) - 0.5rem));
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    box-shadow: 0 18px 48px -12px rgba(16, 28, 26, 0.28), 0 2px 6px rgba(16, 28, 26, 0.08);
+    transform-origin: var(--radix-popover-content-transform-origin, top);
+  }
+  .popover-panel:focus-visible {
+    outline: none;
+  }
+  .popover-panel[data-state="open"] {
+    animation: overlay-pop-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .popover-panel[data-state="closed"] {
+    animation: overlay-pop-out 0.12s ease-in forwards;
+  }
+  @media (max-width: 639.98px) {
+    .dialog-panel {
+      inset: auto 0 0 0;
+      margin: 0;
+      width: 100%;
+      max-width: none;
+      max-height: 90dvh;
+      padding: 1.75rem 1rem calc(1.25rem + env(safe-area-inset-bottom));
+      border-width: 1px 0 0;
+      border-radius: 1rem 1rem 0 0;
+    }
+    /* The grab handle of the sheet. */
+    .dialog-panel::before {
+      content: "";
+      position: absolute;
+      top: 0.5rem;
+      left: 50%;
+      width: 2.25rem;
+      height: 0.25rem;
+      margin-left: -1.125rem;
+      border-radius: 9999px;
+      background: var(--border);
+    }
+    .dialog-panel[data-state="open"] {
+      animation: sheet-in 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .dialog-panel[data-state="closed"] {
+      animation: sheet-out 0.18s ease-in forwards;
+    }
+  }
+}
+
+@keyframes overlay-pop-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes overlay-pop-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(4px) scale(0.98); }
+}
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes sheet-out {
+  from { transform: none; }
+  to { transform: translateY(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog-panel,
+  .popover-panel {
+    animation: none !important;
   }
 }

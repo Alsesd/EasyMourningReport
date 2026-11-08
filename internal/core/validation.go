@@ -111,8 +111,10 @@ func (e FormError) Error() string { return e.Message }
 
 // HTTPError carries a status and a Russian/Ukrainian detail, like FastAPI's HTTPException.
 type HTTPError struct {
-	Status  int
-	Detail  string
+	Status int
+	Detail string
+	// Code is an optional machine-readable reason ("car_required"), sent as "code" next to "detail".
+	Code    string
 	Headers map[string]string
 }
 

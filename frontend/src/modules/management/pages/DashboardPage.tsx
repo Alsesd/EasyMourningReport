@@ -1,5 +1,6 @@
 /** Management dashboard: business figures from every module the caller may see, for one month. */
 
+import { SkeletonRows } from "@/ui/Skeleton";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "@/modules/management/api";
@@ -24,7 +25,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <PageHeader title={t.title} meta={t.subtitle} actions={<PeriodPicker value={period} onChange={setPeriod} labels={{ previous: t.previousMonth, next: t.nextMonth, month: t.month }} />} />
       {isLoading ? (
-        <p className="text-sm text-text-muted">{uk.common.loading}</p>
+        <SkeletonRows rows={3} />
       ) : isError ? (
         <p className="text-sm text-destructive">{(error as Error).message}</p>
       ) : !data || data.blocks.length === 0 ? (
